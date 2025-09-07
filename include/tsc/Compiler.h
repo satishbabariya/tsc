@@ -9,7 +9,7 @@ namespace tsc {
 class Lexer;
 class Parser;
 class TypeChecker;
-class CodeGenerator;
+class LLVMCodeGen;
 class DiagnosticEngine;
 
 // Compilation phases
@@ -74,7 +74,7 @@ private:
     unique_ptr<Lexer> lexer_;
     unique_ptr<Parser> parser_;
     unique_ptr<TypeChecker> typeChecker_;
-    unique_ptr<CodeGenerator> codeGenerator_;
+    unique_ptr<LLVMCodeGen> codeGenerator_;
     
     // LLVM context and related objects
     void initializeLLVM();

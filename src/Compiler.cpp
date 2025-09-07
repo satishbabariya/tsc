@@ -2,6 +2,7 @@
 #include "tsc/lexer/Lexer.h"
 #include "tsc/parser/Parser.h"
 #include "tsc/semantic/TypeChecker.h"
+#include "tsc/codegen/LLVMCodeGen.h"
 #include "tsc/utils/DiagnosticEngine.h"
 
 // LLVM includes - simplified for now
@@ -13,29 +14,7 @@
 
 namespace tsc {
 
-// Parser and TypeChecker are now implemented in separate files
-
-class CodeGenerator {
-public:
-    CodeGenerator(DiagnosticEngine& diagnostics, const CompilerOptions& options)
-        : diagnostics_(diagnostics), options_(options) {}
-    String generate(const Module& module) {
-        diagnostics_.note("Code generator not yet implemented", 
-                         SourceLocation(module.getFilename(), 1, 1));
-        return R"(
-; ModuleID = ')" + module.getFilename() + R"('
-target triple = ")" + options_.target.triple + R"("
-
-define i32 @main() {
-entry:
-  ret i32 0
-}
-)";
-    }
-private:
-    DiagnosticEngine& diagnostics_;
-    const CompilerOptions& options_;
-};
+// Parser, TypeChecker, and CodeGenerator are now implemented in separate files
 
 Compiler::Compiler(const CompilerOptions& options) : options_(options) {
     // Initialize LLVM
@@ -46,7 +25,7 @@ Compiler::Compiler(const CompilerOptions& options) : options_(options) {
     lexer_ = make_unique<Lexer>(*diagnostics_);
     parser_ = createParser(*diagnostics_);
     typeChecker_ = make_unique<TypeChecker>(*diagnostics_);
-    codeGenerator_ = make_unique<CodeGenerator>(*diagnostics_, options_);
+    codeGenerator_ = createLLVMCodeGen(*diagnostics_, options_);
     
     // Setup target
     if (!setupTarget()) {
@@ -207,7 +186,14 @@ bool Compiler::typeCheck(Module& module) {
 }
 
 String Compiler::generateLLVMIR(const Module& module) {
-    return codeGenerator_->generate(module);
+    // Generate code using the LLVM backend
+    if (!codeGenerator_->generateCode(const_cast<Module&>(module), 
+                                     typeChecker_->getSymbolTable(), 
+                                     typeChecker_->getTypeSystem())) {
+        return ""; // Code generation failed
+    }
+    
+    return codeGenerator_->getLLVMIRString();
 }
 
 bool Compiler::generateObjectFile(const String& llvmIR, const String& outputFile) {
