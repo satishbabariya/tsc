@@ -189,6 +189,42 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
     setExpressionType(node, typeSystem_->getAnyType());
 }
 
+void SemanticAnalyzer::visit(ArrowFunction& node) {
+    // Create function type
+    std::vector<FunctionType::Parameter> paramTypes;
+    
+    // Enter new scope for arrow function parameters
+    enterScope(Scope::ScopeType::Function, "arrow_function");
+    
+    for (const auto& param : node.getParameters()) {
+        // Add parameter to scope
+        auto paramType = param.type ? param.type : typeSystem_->getAnyType();
+        symbolTable_->addSymbol(param.name, SymbolKind::Parameter, paramType, param.location);
+        
+        // Add to function type
+        FunctionType::Parameter funcParam;
+        funcParam.name = param.name;
+        funcParam.type = paramType;
+        funcParam.optional = param.optional;
+        funcParam.rest = param.rest;
+        paramTypes.push_back(funcParam);
+    }
+    
+    // Analyze function body
+    functionDepth_++;
+    node.getBody()->accept(*this);
+    functionDepth_--;
+    
+    // Determine return type
+    auto returnType = node.getReturnType() ? node.getReturnType() : typeSystem_->getVoidType();
+    
+    // Create function type
+    auto functionType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
+    setExpressionType(node, functionType);
+    
+    exitScope();
+}
+
 void SemanticAnalyzer::visit(ExpressionStatement& node) {
     node.getExpression()->accept(*this);
 }

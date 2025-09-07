@@ -26,6 +26,7 @@ public:
     void visit(IndexExpression& node) override;
     void visit(ObjectLiteral& node) override;
     void visit(PropertyAccess& node) override;
+    void visit(ArrowFunction& node) override;
     
     // Statements
     void visit(ExpressionStatement& node) override;

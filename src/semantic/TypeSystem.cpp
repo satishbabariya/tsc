@@ -291,33 +291,54 @@ void TypeSystem::initializeBuiltinTypes() {
     errorType_ = make_shared<ErrorType>();
 }
 
-shared_ptr<Type> TypeSystem::createArrayType(shared_ptr<Type> elementType) {
+shared_ptr<Type> TypeSystem::createArrayType(shared_ptr<Type> elementType) const {
     return make_shared<ArrayType>(elementType);
 }
 
-shared_ptr<Type> TypeSystem::createTupleType(std::vector<shared_ptr<Type>> elementTypes) {
+shared_ptr<Type> TypeSystem::createTupleType(std::vector<shared_ptr<Type>> elementTypes) const {
     return make_shared<TupleType>(std::move(elementTypes));
 }
 
 shared_ptr<Type> TypeSystem::createFunctionType(std::vector<FunctionType::Parameter> parameters, 
-                                               shared_ptr<Type> returnType) {
+                                               shared_ptr<Type> returnType) const {
     return make_shared<FunctionType>(std::move(parameters), returnType);
 }
 
-shared_ptr<Type> TypeSystem::createObjectType(std::vector<ObjectType::Property> properties) {
+shared_ptr<Type> TypeSystem::createObjectType(std::vector<ObjectType::Property> properties) const {
     return make_shared<ObjectType>(std::move(properties));
 }
 
-shared_ptr<Type> TypeSystem::createUnionType(std::vector<shared_ptr<Type>> types) {
+shared_ptr<Type> TypeSystem::createUnionType(std::vector<shared_ptr<Type>> types) const {
     return make_shared<UnionType>(std::move(types));
 }
 
-shared_ptr<Type> TypeSystem::createIntersectionType(std::vector<shared_ptr<Type>> types) {
+shared_ptr<Type> TypeSystem::createIntersectionType(std::vector<shared_ptr<Type>> types) const {
     return make_shared<IntersectionType>(std::move(types));
 }
 
-shared_ptr<Type> TypeSystem::createLiteralType(TypeKind kind, const String& value) {
+shared_ptr<Type> TypeSystem::createLiteralType(TypeKind kind, const String& value) const {
     return make_shared<LiteralType>(kind, value);
+}
+
+// Generic type creation methods
+shared_ptr<Type> TypeSystem::createTypeParameter(const String& name, shared_ptr<Type> constraint) const {
+    return make_shared<TypeParameterType>(name, constraint);
+}
+
+shared_ptr<Type> TypeSystem::createGenericType(shared_ptr<Type> baseType, std::vector<shared_ptr<Type>> typeArguments) const {
+    return make_shared<GenericType>(baseType, std::move(typeArguments));
+}
+
+shared_ptr<Type> TypeSystem::instantiateGenericType(shared_ptr<Type> genericType, 
+                                                   const std::vector<shared_ptr<Type>>& typeArguments) const {
+    // For now, create a new generic type with the provided arguments
+    // In a full implementation, this would perform type substitution
+    if (auto generic = dynamic_cast<GenericType*>(genericType.get())) {
+        return createGenericType(generic->getBaseType(), typeArguments);
+    }
+    
+    // If it's not a generic type, just return it as-is
+    return genericType;
 }
 
 bool TypeSystem::areTypesCompatible(const Type& from, const Type& to) const {
@@ -494,6 +515,54 @@ shared_ptr<Type> TypeSystem::getArrayElementType(shared_ptr<Type> arrayType) con
     
     auto array = static_cast<const ArrayType*>(arrayType.get());
     return array->getElementType();
+}
+
+// TypeParameterType implementation
+bool TypeParameterType::isEquivalentTo(const Type& other) const {
+    if (other.getKind() != TypeKind::TypeParameter) {
+        return false;
+    }
+    
+    const auto& otherParam = static_cast<const TypeParameterType&>(other);
+    return name_ == otherParam.name_;
+}
+
+// GenericType implementation  
+String GenericType::toString() const {
+    std::ostringstream oss;
+    oss << baseType_->toString() << "<";
+    
+    for (size_t i = 0; i < typeArguments_.size(); ++i) {
+        if (i > 0) oss << ", ";
+        oss << typeArguments_[i]->toString();
+    }
+    
+    oss << ">";
+    return oss.str();
+}
+
+bool GenericType::isEquivalentTo(const Type& other) const {
+    if (other.getKind() != TypeKind::Generic) {
+        return false;
+    }
+    
+    const auto& otherGeneric = static_cast<const GenericType&>(other);
+    
+    if (!baseType_->isEquivalentTo(*otherGeneric.baseType_)) {
+        return false;
+    }
+    
+    if (typeArguments_.size() != otherGeneric.typeArguments_.size()) {
+        return false;
+    }
+    
+    for (size_t i = 0; i < typeArguments_.size(); ++i) {
+        if (!typeArguments_[i]->isEquivalentTo(*otherGeneric.typeArguments_[i])) {
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 // Factory functions

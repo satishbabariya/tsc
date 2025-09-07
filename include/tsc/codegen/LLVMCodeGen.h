@@ -124,6 +124,7 @@ public:
     void visit(IndexExpression& node) override;
     void visit(ObjectLiteral& node) override;
     void visit(PropertyAccess& node) override;
+    void visit(ArrowFunction& node) override;
     
     void visit(ExpressionStatement& node) override;
     void visit(BlockStatement& node) override;
@@ -185,6 +186,7 @@ private:
     llvm::Value* createStringLiteral(const String& value);
     llvm::Value* createBooleanLiteral(bool value);
     llvm::Value* createNullValue(llvm::Type* type);
+    llvm::Value* createDefaultValue(llvm::Type* type);
     
     // Type conversions
     llvm::Value* convertToNumber(llvm::Value* value, llvm::Type* fromType);

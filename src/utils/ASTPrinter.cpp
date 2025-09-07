@@ -1,4 +1,5 @@
 #include "tsc/utils/ASTPrinter.h"
+#include "tsc/semantic/TypeSystem.h"
 
 namespace tsc {
 
@@ -167,6 +168,44 @@ void ASTPrinter::visit(PropertyAccess& node) {
     increaseIndent();
     node.getObject()->accept(*this);
     decreaseIndent();
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(ArrowFunction& node) {
+    printIndent();
+    output_ << "ArrowFunction:" << std::endl;
+    
+    increaseIndent();
+    
+    // Print parameters
+    if (!node.getParameters().empty()) {
+        printIndent();
+        output_ << "Parameters:" << std::endl;
+        increaseIndent();
+        for (const auto& param : node.getParameters()) {
+            printIndent();
+            output_ << "Parameter: " << param.name;
+            if (param.type) {
+                output_ << " : " << param.type->toString();
+            }
+            output_ << std::endl;
+        }
+        decreaseIndent();
+    }
+    
+    // Print return type
+    if (node.getReturnType()) {
+        printIndent();
+        output_ << "ReturnType: " << node.getReturnType()->toString() << std::endl;
+    }
+    
+    // Print body
+    printIndent();
+    output_ << "Body:" << std::endl;
+    increaseIndent();
+    node.getBody()->accept(*this);
+    decreaseIndent();
+    
     decreaseIndent();
 }
 

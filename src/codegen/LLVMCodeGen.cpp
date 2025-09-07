@@ -520,6 +520,89 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
     setCurrentValue(propertyValue);
 }
 
+void LLVMCodeGen::visit(ArrowFunction& node) {
+    // Arrow functions are similar to regular functions but are expressions
+    // For now, implement a simplified version that creates an anonymous function
+    
+    // Generate function name (anonymous)
+    static int arrowFunctionCounter = 0;
+    String functionName = "arrow_function_" + std::to_string(arrowFunctionCounter++);
+    
+    // Create parameter types
+    std::vector<llvm::Type*> paramTypes;
+    for (const auto& param : node.getParameters()) {
+        if (param.type) {
+            paramTypes.push_back(mapTypeScriptTypeToLLVM(*param.type));
+        } else {
+            paramTypes.push_back(getAnyType());
+        }
+    }
+    
+    // Determine return type
+    llvm::Type* returnType = getVoidType(); // Default
+    if (node.getReturnType()) {
+        returnType = mapTypeScriptTypeToLLVM(*node.getReturnType());
+    } else {
+        // For arrow functions, try to infer from body
+        returnType = getAnyType(); // Simplified - assume any type
+    }
+    
+    // Create function type
+    llvm::FunctionType* funcType = llvm::FunctionType::get(returnType, paramTypes, false);
+    
+    // Create function
+    llvm::Function* function = llvm::Function::Create(funcType, llvm::Function::InternalLinkage, 
+                                                     functionName, module_.get());
+    
+    // Save current insertion point
+    llvm::BasicBlock* savedBlock = builder_->GetInsertBlock();
+    llvm::Function* savedFunction = codeGenContext_->getCurrentFunction();
+    
+    // Create entry block
+    llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", function);
+    builder_->SetInsertPoint(entryBlock);
+    codeGenContext_->enterFunction(function);
+    
+    // Create parameters and add to symbol table
+    auto paramIt = function->arg_begin();
+    for (size_t i = 0; i < node.getParameters().size(); ++i, ++paramIt) {
+        const auto& param = node.getParameters()[i];
+        llvm::Argument* arg = &(*paramIt);
+        arg->setName(param.name);
+        
+        // Allocate space for parameter
+        llvm::Value* paramStorage = allocateVariable(param.name, arg->getType(), param.location);
+        builder_->CreateStore(arg, paramStorage);
+    }
+    
+    // Generate function body
+    node.getBody()->accept(*this);
+    
+    // Ensure function has a return
+    if (!builder_->GetInsertBlock()->getTerminator()) {
+        if (returnType->isVoidTy()) {
+            builder_->CreateRetVoid();
+        } else {
+            // Return default value for the type
+            llvm::Value* defaultValue = createDefaultValue(returnType);
+            builder_->CreateRet(defaultValue);
+        }
+    }
+    
+    // Restore insertion point
+    if (savedBlock) {
+        builder_->SetInsertPoint(savedBlock);
+    }
+    if (savedFunction) {
+        codeGenContext_->enterFunction(savedFunction);
+    } else {
+        codeGenContext_->exitFunction();
+    }
+    
+    // Return the function as a value (function pointer)
+    setCurrentValue(function);
+}
+
 void LLVMCodeGen::visit(ExpressionStatement& node) {
     node.getExpression()->accept(*this);
     // Expression statement doesn't return a value
@@ -1083,6 +1166,18 @@ llvm::Value* LLVMCodeGen::createBooleanLiteral(bool value) {
 
 llvm::Value* LLVMCodeGen::createNullValue(llvm::Type* type) {
     return llvm::Constant::getNullValue(type);
+}
+
+llvm::Value* LLVMCodeGen::createDefaultValue(llvm::Type* type) {
+    if (type->isDoubleTy()) {
+        return llvm::ConstantFP::get(type, 0.0);
+    } else if (type->isIntegerTy()) {
+        return llvm::ConstantInt::get(type, 0);
+    } else if (type->isPointerTy()) {
+        return llvm::Constant::getNullValue(type);
+    } else {
+        return llvm::Constant::getNullValue(type);
+    }
 }
 
 // Binary operations implementation

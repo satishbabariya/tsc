@@ -1,4 +1,5 @@
 #include "tsc/AST.h"
+#include "tsc/semantic/TypeSystem.h"
 #include <sstream>
 
 namespace tsc {
@@ -229,6 +230,39 @@ void PropertyAccess::accept(ASTVisitor& visitor) {
 
 String PropertyAccess::toString() const {
     return object_->toString() + "." + property_;
+}
+
+void ArrowFunction::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ArrowFunction::toString() const {
+    std::ostringstream oss;
+    
+    if (parameters_.size() == 1 && !parameters_[0].type) {
+        // Single parameter without type: param => body
+        oss << parameters_[0].name;
+    } else {
+        // Multiple parameters or typed parameters: (param1, param2) => body
+        oss << "(";
+        for (size_t i = 0; i < parameters_.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << parameters_[i].name;
+            if (parameters_[i].type) {
+                oss << ": " << parameters_[i].type->toString();
+            }
+        }
+        oss << ")";
+    }
+    
+    oss << " => ";
+    
+    // For now, simplified body representation
+    if (body_) {
+        oss << "{ /* body */ }";
+    }
+    
+    return oss.str();
 }
 
 // BlockStatement implementation

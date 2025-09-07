@@ -408,6 +408,38 @@ private:
     SourceLocation location_;
 };
 
+// Arrow function expression (param => body or (param1, param2) => body)
+class ArrowFunction : public Expression {
+public:
+    struct Parameter {
+        String name;
+        shared_ptr<Type> type;
+        bool optional = false;
+        bool rest = false;
+        SourceLocation location;
+    };
+
+    ArrowFunction(std::vector<Parameter> parameters, unique_ptr<Statement> body, 
+                  shared_ptr<Type> returnType, const SourceLocation& loc)
+        : parameters_(std::move(parameters)), body_(std::move(body)), 
+          returnType_(returnType), location_(loc) {}
+
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+
+    const std::vector<Parameter>& getParameters() const { return parameters_; }
+    Statement* getBody() const { return body_.get(); }
+    shared_ptr<Type> getReturnType() const { return returnType_; }
+
+private:
+    std::vector<Parameter> parameters_;
+    unique_ptr<Statement> body_;
+    shared_ptr<Type> returnType_;
+    SourceLocation location_;
+};
+
 // Block statement
 class BlockStatement : public Statement {
 public:
@@ -813,6 +845,7 @@ public:
     virtual void visit(IndexExpression& node) = 0;
     virtual void visit(ObjectLiteral& node) = 0;
     virtual void visit(PropertyAccess& node) = 0;
+    virtual void visit(ArrowFunction& node) = 0;
     
     // Statements
     virtual void visit(ExpressionStatement& node) = 0;

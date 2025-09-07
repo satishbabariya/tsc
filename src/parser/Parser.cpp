@@ -829,6 +829,46 @@ shared_ptr<Type> Parser::parseTypeAnnotation() {
     if (check(TokenType::Identifier)) {
         Token typeToken = advance();
         String typeName = typeToken.getStringValue();
+        
+        // Check for generic type syntax: TypeName<Type1, Type2, ...>
+        if (check(TokenType::Less)) {
+            advance(); // consume '<'
+            
+            std::vector<shared_ptr<Type>> typeArguments;
+            
+            // Parse type arguments
+            do {
+                auto typeArg = parseTypeAnnotation();
+                if (!typeArg) {
+                    reportError("Expected type in generic type argument", getCurrentLocation());
+                    return typeSystem_.getErrorType();
+                }
+                typeArguments.push_back(typeArg);
+            } while (match(TokenType::Comma));
+            
+            consume(TokenType::Greater, "Expected '>' after generic type arguments");
+            
+            // Handle built-in generic types
+            if (typeName == "Array") {
+                if (typeArguments.size() != 1) {
+                    reportError("Array type requires exactly one type argument", typeToken.getLocation());
+                    return typeSystem_.getErrorType();
+                }
+                return typeSystem_.createArrayType(typeArguments[0]);
+            }
+            
+            // For other generic types, create a generic type
+            // In a full implementation, we'd look up the base type in a symbol table
+            auto baseType = typeSystem_.createTypeParameter(typeName);
+            return typeSystem_.createGenericType(baseType, std::move(typeArguments));
+        }
+        
+        // Handle built-in non-generic identifiers
+        if (typeName == "Array") {
+            // Array without type arguments defaults to Array<any>
+            return typeSystem_.createArrayType(typeSystem_.getAnyType());
+        }
+        
         // For now, treat unknown identifiers as error types
         reportError("Unknown type: " + typeName, typeToken.getLocation());
         return typeSystem_.getErrorType();
@@ -881,6 +921,78 @@ unique_ptr<BlockStatement> Parser::parseFunctionBody() {
     consume(TokenType::RightBrace, "Expected '}' after function body");
     
     return make_unique<BlockStatement>(std::move(statements), getCurrentLocation());
+}
+
+// Arrow function parsing
+unique_ptr<Expression> Parser::parseArrowFunction() {
+    SourceLocation location = getCurrentLocation();
+    std::vector<ArrowFunction::Parameter> parameters;
+    
+    if (check(TokenType::Identifier)) {
+        // Single parameter without parentheses: identifier => body
+        Token param = advance();
+        ArrowFunction::Parameter parameter;
+        parameter.name = param.getStringValue();
+        parameter.location = param.getLocation();
+        parameters.push_back(std::move(parameter));
+    } else if (match(TokenType::LeftParen)) {
+        // Parameters in parentheses: (param1, param2) => body
+        if (!check(TokenType::RightParen)) {
+            do {
+                if (check(TokenType::Identifier)) {
+                    Token param = advance();
+                    ArrowFunction::Parameter parameter;
+                    parameter.name = param.getStringValue();
+                    parameter.location = param.getLocation();
+                    
+                    // Optional type annotation
+                    if (match(TokenType::Colon)) {
+                        parameter.type = parseTypeAnnotation();
+                    }
+                    
+                    parameters.push_back(std::move(parameter));
+                } else {
+                    reportError("Expected parameter name", getCurrentLocation());
+                    break;
+                }
+            } while (match(TokenType::Comma));
+        }
+        
+        consume(TokenType::RightParen, "Expected ')' after parameters");
+    } else {
+        reportError("Expected parameter or '(' in arrow function", getCurrentLocation());
+        return nullptr;
+    }
+    
+    consume(TokenType::Arrow, "Expected '=>' in arrow function");
+    
+    // Parse body - can be expression or block statement
+    unique_ptr<Statement> body;
+    if (check(TokenType::LeftBrace)) {
+        body = parseBlockStatement();
+    } else {
+        // Expression body - wrap in return statement
+        auto expr = parseExpression();
+        if (expr) {
+            auto returnStmt = make_unique<ReturnStatement>(std::move(expr), getCurrentLocation());
+            std::vector<unique_ptr<Statement>> statements;
+            statements.push_back(std::move(returnStmt));
+            body = make_unique<BlockStatement>(std::move(statements), getCurrentLocation());
+        }
+    }
+    
+    if (!body) {
+        reportError("Expected arrow function body", getCurrentLocation());
+        return nullptr;
+    }
+    
+    return make_unique<ArrowFunction>(std::move(parameters), std::move(body), nullptr, location);
+}
+
+bool Parser::looksLikeArrowFunction() {
+    // For now, return false to disable complex lookahead
+    // TODO: Implement proper lookahead when TokenStream supports it
+    return false;
 }
 
 // Factory function

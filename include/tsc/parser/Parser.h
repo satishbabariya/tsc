@@ -76,6 +76,10 @@ private:
     unique_ptr<Expression> parseObjectLiteral();
     unique_ptr<Expression> parseIdentifier();
     
+    // Arrow functions
+    unique_ptr<Expression> parseArrowFunction();
+    bool looksLikeArrowFunction();
+    
     // TypeScript-specific
     shared_ptr<Type> parseTypeAnnotation();
     shared_ptr<Type> parsePrimaryType();

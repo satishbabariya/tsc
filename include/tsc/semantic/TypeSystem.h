@@ -44,6 +44,7 @@ enum class TypeKind {
     Interface,
     Class,
     TypeParameter,
+    Generic,
     Mapped,
     Conditional,
     
@@ -239,6 +240,40 @@ private:
 };
 
 // Error type for error recovery
+// Type parameter for generics (T, U, K, V, etc.)
+class TypeParameterType : public Type {
+public:
+    explicit TypeParameterType(const String& name, shared_ptr<Type> constraint = nullptr)
+        : Type(TypeKind::TypeParameter), name_(name), constraint_(constraint) {}
+    
+    const String& getName() const { return name_; }
+    shared_ptr<Type> getConstraint() const { return constraint_; }
+    
+    String toString() const override { return name_; }
+    bool isEquivalentTo(const Type& other) const override;
+
+private:
+    String name_;
+    shared_ptr<Type> constraint_; // For bounded type parameters like T extends string
+};
+
+// Generic type instantiation (Array<number>, Map<string, User>, etc.)
+class GenericType : public Type {
+public:
+    GenericType(shared_ptr<Type> baseType, std::vector<shared_ptr<Type>> typeArguments)
+        : Type(TypeKind::Generic), baseType_(baseType), typeArguments_(std::move(typeArguments)) {}
+    
+    shared_ptr<Type> getBaseType() const { return baseType_; }
+    const std::vector<shared_ptr<Type>>& getTypeArguments() const { return typeArguments_; }
+    
+    String toString() const override;
+    bool isEquivalentTo(const Type& other) const override;
+
+private:
+    shared_ptr<Type> baseType_;
+    std::vector<shared_ptr<Type>> typeArguments_;
+};
+
 class ErrorType : public Type {
 public:
     ErrorType() : Type(TypeKind::Error) {}
@@ -264,14 +299,20 @@ public:
     shared_ptr<Type> getErrorType() const { return errorType_; }
     
     // Type creation
-    shared_ptr<Type> createArrayType(shared_ptr<Type> elementType);
-    shared_ptr<Type> createTupleType(std::vector<shared_ptr<Type>> elementTypes);
+    shared_ptr<Type> createArrayType(shared_ptr<Type> elementType) const;
+    shared_ptr<Type> createTupleType(std::vector<shared_ptr<Type>> elementTypes) const;
     shared_ptr<Type> createFunctionType(std::vector<FunctionType::Parameter> parameters, 
-                                       shared_ptr<Type> returnType);
-    shared_ptr<Type> createObjectType(std::vector<ObjectType::Property> properties = {});
-    shared_ptr<Type> createUnionType(std::vector<shared_ptr<Type>> types);
-    shared_ptr<Type> createIntersectionType(std::vector<shared_ptr<Type>> types);
-    shared_ptr<Type> createLiteralType(TypeKind kind, const String& value);
+                                       shared_ptr<Type> returnType) const;
+    shared_ptr<Type> createObjectType(std::vector<ObjectType::Property> properties = {}) const;
+    shared_ptr<Type> createUnionType(std::vector<shared_ptr<Type>> types) const;
+    shared_ptr<Type> createIntersectionType(std::vector<shared_ptr<Type>> types) const;
+    shared_ptr<Type> createLiteralType(TypeKind kind, const String& value) const;
+    
+    // Generic type creation
+    shared_ptr<Type> createTypeParameter(const String& name, shared_ptr<Type> constraint = nullptr) const;
+    shared_ptr<Type> createGenericType(shared_ptr<Type> baseType, std::vector<shared_ptr<Type>> typeArguments) const;
+    shared_ptr<Type> instantiateGenericType(shared_ptr<Type> genericType, 
+                                           const std::vector<shared_ptr<Type>>& typeArguments) const;
     
     // Type operations
     bool areTypesCompatible(const Type& from, const Type& to) const;
