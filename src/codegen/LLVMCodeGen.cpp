@@ -213,9 +213,44 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
 }
 
 void LLVMCodeGen::visit(CallExpression& node) {
-    // For now, implement basic function calls
-    reportWarning("Function calls not yet fully implemented", node.getLocation());
-    setCurrentValue(createNullValue(getAnyType()));
+    // Generate the callee (function to call)
+    node.getCallee()->accept(*this);
+    llvm::Value* calleeValue = getCurrentValue();
+    
+    // For now, assume the callee is an identifier that maps to a function
+    // In a full implementation, we'd handle function pointers, method calls, etc.
+    llvm::Function* function = nullptr;
+    
+    if (auto identifier = dynamic_cast<Identifier*>(node.getCallee())) {
+        // Look up the function by name
+        function = module_->getFunction(identifier->getName());
+        if (!function) {
+            reportError("Undefined function: " + identifier->getName(), node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
+    } else {
+        reportError("Complex function calls not yet supported", node.getLocation());
+        setCurrentValue(createNullValue(getAnyType()));
+        return;
+    }
+    
+    // Generate arguments
+    std::vector<llvm::Value*> args;
+    for (const auto& arg : node.getArguments()) {
+        arg->accept(*this);
+        llvm::Value* argValue = getCurrentValue();
+        if (!argValue) {
+            reportError("Failed to generate argument value", arg->getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
+        args.push_back(argValue);
+    }
+    
+    // Generate the function call
+    llvm::Value* callResult = builder_->CreateCall(function, args, "call_result");
+    setCurrentValue(callResult);
 }
 
 void LLVMCodeGen::visit(ArrayLiteral& node) {
@@ -1027,11 +1062,26 @@ llvm::Function* LLVMCodeGen::generateFunctionDeclaration(const FunctionDeclarati
     // Create parameter types
     std::vector<llvm::Type*> paramTypes;
     for (const auto& param : funcDecl.getParameters()) {
-        paramTypes.push_back(getAnyType()); // Use 'any' type for parameters for now
+        if (param.type) {
+            // Use the explicit parameter type if available
+            paramTypes.push_back(mapTypeScriptTypeToLLVM(*param.type));
+        } else {
+            // Default to 'any' type if no explicit type
+            paramTypes.push_back(getAnyType());
+        }
     }
     
-    // Create function type
+    // Determine return type from function declaration
     llvm::Type* returnType = getVoidType(); // Default to void
+    if (funcDecl.getReturnType()) {
+        returnType = mapTypeScriptTypeToLLVM(*funcDecl.getReturnType());
+    } else {
+        // If no explicit return type, infer from function body
+        // For now, default to 'any' type (ptr) if the function has return statements
+        // This is a simplification - in a full implementation, we'd analyze the function body
+        returnType = getAnyType();
+    }
+    
     llvm::FunctionType* functionType = llvm::FunctionType::get(returnType, paramTypes, false);
     
     // Create function
@@ -1115,7 +1165,13 @@ llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation&
     llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
     if (currentFunc) {
         // We're in a function - can use CreateLoad
-        llvm::Type* elementType = getAnyType();
+        llvm::Type* elementType = getAnyType(); // Default fallback
+        
+        // Try to get the correct element type from the alloca instruction
+        if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(storage)) {
+            elementType = allocaInst->getAllocatedType();
+        }
+        
         return builder_->CreateLoad(elementType, storage, name + "_val");
     } else {
         // We're at global scope - can only reference constants
