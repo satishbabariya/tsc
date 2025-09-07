@@ -119,6 +119,16 @@ unique_ptr<Statement> Parser::parseStatement() {
         return parseContinueStatement();
     }
     
+    // Handle try statements
+    if (match(TokenType::Try)) {
+        return parseTryStatement();
+    }
+    
+    // Handle throw statements
+    if (match(TokenType::Throw)) {
+        return parseThrowStatement();
+    }
+    
     // Default to expression statement
     return parseExpressionStatement();
 }
@@ -374,6 +384,73 @@ unique_ptr<Statement> Parser::parseContinueStatement() {
     SourceLocation location = getCurrentLocation();
     consume(TokenType::Semicolon, "Expected ';' after 'continue'");
     return make_unique<ContinueStatement>(location);
+}
+
+unique_ptr<Statement> Parser::parseTryStatement() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Parse try block
+    consume(TokenType::LeftBrace, "Expected '{' after 'try'");
+    auto tryBlock = std::unique_ptr<BlockStatement>(static_cast<BlockStatement*>(parseBlockStatement().release()));
+    
+    // Parse optional catch clause
+    unique_ptr<CatchClause> catchClause = nullptr;
+    if (match(TokenType::Catch)) {
+        SourceLocation catchLocation = getCurrentLocation();
+        
+        // Check for optional parameter
+        String parameter;
+        bool hasParameter = false;
+        if (match(TokenType::LeftParen)) {
+            if (check(TokenType::Identifier)) {
+                Token paramToken = advance();
+                parameter = paramToken.getStringValue();
+                hasParameter = true;
+            }
+            consume(TokenType::RightParen, "Expected ')' after catch parameter");
+        }
+        
+        // Parse catch body
+        consume(TokenType::LeftBrace, "Expected '{' after catch clause");
+        auto catchBody = std::unique_ptr<BlockStatement>(static_cast<BlockStatement*>(parseBlockStatement().release()));
+        
+        if (hasParameter) {
+            catchClause = make_unique<CatchClause>(parameter, std::move(catchBody), catchLocation);
+        } else {
+            catchClause = make_unique<CatchClause>(std::move(catchBody), catchLocation);
+        }
+    }
+    
+    // Parse optional finally block
+    unique_ptr<BlockStatement> finallyBlock = nullptr;
+    if (match(TokenType::Finally)) {
+        consume(TokenType::LeftBrace, "Expected '{' after 'finally'");
+        finallyBlock = std::unique_ptr<BlockStatement>(static_cast<BlockStatement*>(parseBlockStatement().release()));
+    }
+    
+    // Must have either catch or finally (or both)
+    if (!catchClause && !finallyBlock) {
+        reportError("Missing catch or finally after try", location);
+        return nullptr;
+    }
+    
+    return make_unique<TryStatement>(std::move(tryBlock), std::move(catchClause), 
+                                   std::move(finallyBlock), location);
+}
+
+unique_ptr<Statement> Parser::parseThrowStatement() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Parse the expression to throw
+    auto expression = parseExpression();
+    if (!expression) {
+        reportError("Expected expression after 'throw'", location);
+        return nullptr;
+    }
+    
+    consume(TokenType::Semicolon, "Expected ';' after throw statement");
+    
+    return make_unique<ThrowStatement>(std::move(expression), location);
 }
 
 unique_ptr<Statement> Parser::parseExpressionStatement() {

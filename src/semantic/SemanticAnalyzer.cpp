@@ -328,6 +328,48 @@ void SemanticAnalyzer::visit(ContinueStatement& node) {
     node.setType(typeSystem_->getVoidType());
 }
 
+void SemanticAnalyzer::visit(TryStatement& node) {
+    // Analyze try block
+    node.getTryBlock()->accept(*this);
+    
+    // Analyze catch clause if present
+    if (node.hasCatch()) {
+        enterScope(Scope::ScopeType::Block);
+        
+        // Add catch parameter to scope if it exists
+        if (node.getCatchClause()->hasParameter()) {
+            const String& paramName = node.getCatchClause()->getParameter();
+            // TODO: Define proper error type for catch parameters
+            auto errorType = typeSystem_->getAnyType();
+            symbolTable_->addSymbol(paramName, SymbolKind::Variable, errorType, node.getLocation());
+        }
+        
+        node.getCatchClause()->accept(*this);
+        exitScope();
+    }
+    
+    // Analyze finally block if present
+    if (node.hasFinally()) {
+        node.getFinallyBlock()->accept(*this);
+    }
+    
+    node.setType(typeSystem_->getVoidType());
+}
+
+void SemanticAnalyzer::visit(CatchClause& node) {
+    // Analyze catch body
+    node.getBody()->accept(*this);
+}
+
+void SemanticAnalyzer::visit(ThrowStatement& node) {
+    // Analyze the expression being thrown
+    node.getExpression()->accept(*this);
+    
+    // TODO: Type check that the expression is throwable
+    // For now, allow any type to be thrown
+    node.setType(typeSystem_->getVoidType());
+}
+
 void SemanticAnalyzer::visit(VariableDeclaration& node) {
     shared_ptr<Type> varType;
     

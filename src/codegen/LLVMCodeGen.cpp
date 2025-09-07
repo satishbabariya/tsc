@@ -660,6 +660,35 @@ void LLVMCodeGen::visit(ContinueStatement& node) {
     builder_->CreateUnreachable();
 }
 
+void LLVMCodeGen::visit(TryStatement& node) {
+    // TODO: Implement proper exception handling with LLVM
+    // For now, just generate the try block and ignore catch/finally
+    reportError("Try/catch/finally statements not yet fully implemented in code generation", node.getLocation());
+    
+    // Still generate the try block to avoid crashes
+    node.getTryBlock()->accept(*this);
+}
+
+void LLVMCodeGen::visit(CatchClause& node) {
+    // TODO: Implement proper catch clause code generation
+    reportError("Catch clauses not yet fully implemented in code generation", node.getLocation());
+    
+    // Still generate the catch body to avoid crashes
+    node.getBody()->accept(*this);
+}
+
+void LLVMCodeGen::visit(ThrowStatement& node) {
+    // TODO: Implement proper exception throwing with LLVM
+    // For now, just generate the expression and create unreachable
+    reportError("Throw statements not yet fully implemented in code generation", node.getLocation());
+    
+    // Generate the expression being thrown
+    node.getExpression()->accept(*this);
+    
+    // Create unreachable to indicate this path doesn't continue
+    builder_->CreateUnreachable();
+}
+
 void LLVMCodeGen::visit(VariableDeclaration& node) {
     // Generate initializer first to determine the type
     llvm::Value* initValue = nullptr;

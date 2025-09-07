@@ -624,6 +624,82 @@ private:
     SourceLocation location_;
 };
 
+// Forward declaration
+class CatchClause;
+
+// Try statement
+class TryStatement : public Statement {
+public:
+    TryStatement(unique_ptr<BlockStatement> tryBlock,
+                 unique_ptr<CatchClause> catchClause,
+                 unique_ptr<BlockStatement> finallyBlock,
+                 const SourceLocation& loc)
+        : tryBlock_(std::move(tryBlock)), catchClause_(std::move(catchClause)),
+          finallyBlock_(std::move(finallyBlock)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Try; }
+    String toString() const override;
+    
+    BlockStatement* getTryBlock() const { return tryBlock_.get(); }
+    CatchClause* getCatchClause() const { return catchClause_.get(); }
+    BlockStatement* getFinallyBlock() const { return finallyBlock_.get(); }
+    
+    bool hasCatch() const { return catchClause_ != nullptr; }
+    bool hasFinally() const { return finallyBlock_ != nullptr; }
+
+private:
+    unique_ptr<BlockStatement> tryBlock_;
+    unique_ptr<CatchClause> catchClause_;
+    unique_ptr<BlockStatement> finallyBlock_;
+    SourceLocation location_;
+};
+
+// Catch clause
+class CatchClause : public ASTNode {
+public:
+    // Constructor with parameter (catch (e) { ... })
+    CatchClause(String parameter, unique_ptr<BlockStatement> body, const SourceLocation& loc)
+        : parameter_(parameter), hasParameter_(true), body_(std::move(body)), location_(loc) {}
+    
+    // Constructor without parameter (catch { ... })
+    CatchClause(unique_ptr<BlockStatement> body, const SourceLocation& loc)
+        : hasParameter_(false), body_(std::move(body)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    
+    const String& getParameter() const { return parameter_; }
+    BlockStatement* getBody() const { return body_.get(); }
+    bool hasParameter() const { return hasParameter_; }
+
+private:
+    String parameter_;
+    bool hasParameter_;
+    unique_ptr<BlockStatement> body_;
+    SourceLocation location_;
+};
+
+// Throw statement
+class ThrowStatement : public Statement {
+public:
+    ThrowStatement(unique_ptr<Expression> expression, const SourceLocation& loc)
+        : expression_(std::move(expression)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Throw; }
+    String toString() const override;
+    
+    Expression* getExpression() const { return expression_.get(); }
+
+private:
+    unique_ptr<Expression> expression_;
+    SourceLocation location_;
+};
+
 // Variable declaration
 class VariableDeclaration : public Declaration {
 public:
@@ -750,6 +826,9 @@ public:
     virtual void visit(CaseClause& node) = 0;
     virtual void visit(BreakStatement& node) = 0;
     virtual void visit(ContinueStatement& node) = 0;
+    virtual void visit(TryStatement& node) = 0;
+    virtual void visit(CatchClause& node) = 0;
+    virtual void visit(ThrowStatement& node) = 0;
     virtual void visit(VariableDeclaration& node) = 0;
     virtual void visit(FunctionDeclaration& node) = 0;
     

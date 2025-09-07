@@ -375,6 +375,66 @@ void ASTPrinter::visit(ContinueStatement& node) {
     output_ << "ContinueStatement" << std::endl;
 }
 
+void ASTPrinter::visit(TryStatement& node) {
+    printIndent();
+    output_ << "TryStatement:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "TryBlock:" << std::endl;
+    increaseIndent();
+    node.getTryBlock()->accept(*this);
+    decreaseIndent();
+    
+    if (node.hasCatch()) {
+        printIndent();
+        output_ << "CatchClause:" << std::endl;
+        increaseIndent();
+        node.getCatchClause()->accept(*this);
+        decreaseIndent();
+    }
+    
+    if (node.hasFinally()) {
+        printIndent();
+        output_ << "FinallyBlock:" << std::endl;
+        increaseIndent();
+        node.getFinallyBlock()->accept(*this);
+        decreaseIndent();
+    }
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(CatchClause& node) {
+    printIndent();
+    output_ << "CatchClause";
+    
+    if (node.hasParameter()) {
+        output_ << ": " << node.getParameter();
+    }
+    output_ << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Body:" << std::endl;
+    increaseIndent();
+    node.getBody()->accept(*this);
+    decreaseIndent();
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(ThrowStatement& node) {
+    printIndent();
+    output_ << "ThrowStatement:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Expression:" << std::endl;
+    increaseIndent();
+    node.getExpression()->accept(*this);
+    decreaseIndent();
+    decreaseIndent();
+}
+
 void ASTPrinter::visit(VariableDeclaration& node) {
     printIndent();
     output_ << "VariableDeclaration: " << node.getName();

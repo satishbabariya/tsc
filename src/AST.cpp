@@ -439,6 +439,52 @@ String ContinueStatement::toString() const {
     return "continue;";
 }
 
+// TryStatement implementation
+void TryStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String TryStatement::toString() const {
+    std::stringstream ss;
+    ss << "try " << tryBlock_->toString();
+    
+    if (hasCatch()) {
+        ss << " " << catchClause_->toString();
+    }
+    
+    if (hasFinally()) {
+        ss << " finally " << finallyBlock_->toString();
+    }
+    
+    return ss.str();
+}
+
+// CatchClause implementation
+void CatchClause::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String CatchClause::toString() const {
+    std::stringstream ss;
+    ss << "catch";
+    
+    if (hasParameter()) {
+        ss << " (" << parameter_ << ")";
+    }
+    
+    ss << " " << body_->toString();
+    return ss.str();
+}
+
+// ThrowStatement implementation
+void ThrowStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ThrowStatement::toString() const {
+    return "throw " + expression_->toString() + ";";
+}
+
 // VariableDeclaration implementation
 void VariableDeclaration::accept(ASTVisitor& visitor) {
     visitor.visit(*this);

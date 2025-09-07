@@ -136,6 +136,9 @@ public:
     void visit(CaseClause& node) override;
     void visit(BreakStatement& node) override;
     void visit(ContinueStatement& node) override;
+    void visit(TryStatement& node) override;
+    void visit(CatchClause& node) override;
+    void visit(ThrowStatement& node) override;
     void visit(VariableDeclaration& node) override;
     void visit(FunctionDeclaration& node) override;
     
