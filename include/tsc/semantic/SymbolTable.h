@@ -20,7 +20,10 @@ enum class SymbolKind {
     Interface,
     TypeAlias,
     Namespace,
-    Module
+    Module,
+    Property,
+    Method,
+    Type
 };
 
 // Symbol information stored in the symbol table

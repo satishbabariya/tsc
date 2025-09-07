@@ -806,6 +806,133 @@ private:
     bool generator_;
 };
 
+// Class-related declarations
+class PropertyDeclaration : public Declaration {
+public:
+    PropertyDeclaration(const String& name,
+                       shared_ptr<Type> type,
+                       unique_ptr<Expression> initializer,
+                       const SourceLocation& loc,
+                       bool isStatic = false,
+                       bool isReadonly = false,
+                       bool isPrivate = false,
+                       bool isProtected = false)
+        : name_(name), type_(type), initializer_(std::move(initializer)),
+          location_(loc), isStatic_(isStatic), isReadonly_(isReadonly),
+          isPrivate_(isPrivate), isProtected_(isProtected) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String getName() const override { return name_; }
+    String toString() const override;
+    
+    shared_ptr<Type> getType() const override { return type_; }
+    Expression* getInitializer() const { return initializer_.get(); }
+    bool isStatic() const { return isStatic_; }
+    bool isReadonly() const { return isReadonly_; }
+    bool isPrivate() const { return isPrivate_; }
+    bool isProtected() const { return isProtected_; }
+
+private:
+    String name_;
+    shared_ptr<Type> type_;
+    unique_ptr<Expression> initializer_;
+    SourceLocation location_;
+    bool isStatic_;
+    bool isReadonly_;
+    bool isPrivate_;
+    bool isProtected_;
+};
+
+class MethodDeclaration : public Declaration {
+public:
+    struct Parameter {
+        String name;
+        shared_ptr<Type> type;
+        unique_ptr<Expression> defaultValue;
+        bool optional = false;
+        bool rest = false;
+    };
+    
+    MethodDeclaration(const String& name,
+                     std::vector<Parameter> parameters,
+                     shared_ptr<Type> returnType,
+                     unique_ptr<BlockStatement> body,
+                     const SourceLocation& loc,
+                     bool isStatic = false,
+                     bool isPrivate = false,
+                     bool isProtected = false,
+                     bool isAbstract = false,
+                     bool isAsync = false)
+        : name_(name), parameters_(std::move(parameters)),
+          returnType_(returnType), body_(std::move(body)),
+          location_(loc), isStatic_(isStatic), isPrivate_(isPrivate),
+          isProtected_(isProtected), isAbstract_(isAbstract), isAsync_(isAsync) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String getName() const override { return name_; }
+    String toString() const override;
+    
+    const std::vector<Parameter>& getParameters() const { return parameters_; }
+    shared_ptr<Type> getReturnType() const { return returnType_; }
+    BlockStatement* getBody() const { return body_.get(); }
+    bool isStatic() const { return isStatic_; }
+    bool isPrivate() const { return isPrivate_; }
+    bool isProtected() const { return isProtected_; }
+    bool isAbstract() const { return isAbstract_; }
+    bool isAsync() const { return isAsync_; }
+
+private:
+    String name_;
+    std::vector<Parameter> parameters_;
+    shared_ptr<Type> returnType_;
+    unique_ptr<BlockStatement> body_;
+    SourceLocation location_;
+    bool isStatic_;
+    bool isPrivate_;
+    bool isProtected_;
+    bool isAbstract_;
+    bool isAsync_;
+};
+
+class ClassDeclaration : public Declaration {
+public:
+    ClassDeclaration(const String& name,
+                    shared_ptr<Type> baseClass,
+                    std::vector<shared_ptr<Type>> interfaces,
+                    std::vector<unique_ptr<PropertyDeclaration>> properties,
+                    std::vector<unique_ptr<MethodDeclaration>> methods,
+                    unique_ptr<MethodDeclaration> constructor,
+                    const SourceLocation& loc,
+                    bool isAbstract = false)
+        : name_(name), baseClass_(baseClass), interfaces_(std::move(interfaces)),
+          properties_(std::move(properties)), methods_(std::move(methods)),
+          constructor_(std::move(constructor)), location_(loc), isAbstract_(isAbstract) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String getName() const override { return name_; }
+    String toString() const override;
+    
+    shared_ptr<Type> getBaseClass() const { return baseClass_; }
+    const std::vector<shared_ptr<Type>>& getInterfaces() const { return interfaces_; }
+    const std::vector<unique_ptr<PropertyDeclaration>>& getProperties() const { return properties_; }
+    const std::vector<unique_ptr<MethodDeclaration>>& getMethods() const { return methods_; }
+    MethodDeclaration* getConstructor() const { return constructor_.get(); }
+    bool isAbstract() const { return isAbstract_; }
+
+private:
+    String name_;
+    shared_ptr<Type> baseClass_;
+    std::vector<shared_ptr<Type>> interfaces_;
+    std::vector<unique_ptr<PropertyDeclaration>> properties_;
+    std::vector<unique_ptr<MethodDeclaration>> methods_;
+    unique_ptr<MethodDeclaration> constructor_;
+    SourceLocation location_;
+    bool isAbstract_;
+};
+
 // Module/File AST node
 class Module : public ASTNode {
 public:
@@ -864,6 +991,11 @@ public:
     virtual void visit(ThrowStatement& node) = 0;
     virtual void visit(VariableDeclaration& node) = 0;
     virtual void visit(FunctionDeclaration& node) = 0;
+    
+    // Class-related declarations
+    virtual void visit(PropertyDeclaration& node) = 0;
+    virtual void visit(MethodDeclaration& node) = 0;
+    virtual void visit(ClassDeclaration& node) = 0;
     
     // Module
     virtual void visit(Module& node) = 0;

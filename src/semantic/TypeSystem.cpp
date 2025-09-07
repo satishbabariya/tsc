@@ -341,6 +341,12 @@ shared_ptr<Type> TypeSystem::instantiateGenericType(shared_ptr<Type> genericType
     return genericType;
 }
 
+// Class type creation method
+shared_ptr<Type> TypeSystem::createClassType(const String& name, ClassDeclaration* declaration, 
+                                            shared_ptr<Type> baseClass) const {
+    return make_shared<ClassType>(name, declaration, baseClass);
+}
+
 bool TypeSystem::areTypesCompatible(const Type& from, const Type& to) const {
     return from.isAssignableTo(to);
 }
@@ -563,6 +569,18 @@ bool GenericType::isEquivalentTo(const Type& other) const {
     }
     
     return true;
+}
+
+bool ClassType::isEquivalentTo(const Type& other) const {
+    if (other.getKind() != TypeKind::Class) {
+        return false;
+    }
+    
+    const auto& otherClass = static_cast<const ClassType&>(other);
+    
+    // Classes are equivalent if they have the same name
+    // In a full implementation, we might also check for structural compatibility
+    return name_ == otherClass.name_;
 }
 
 // Factory functions

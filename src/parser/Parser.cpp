@@ -75,6 +75,11 @@ unique_ptr<Statement> Parser::parseStatement() {
         return parseFunctionDeclaration();
     }
     
+    // Handle class declarations
+    if (check(TokenType::Class)) {
+        return parseClassDeclaration();
+    }
+    
     // Handle block statements
     if (match(TokenType::LeftBrace)) {
         return parseBlockStatement();
@@ -180,6 +185,125 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     return make_unique<FunctionDeclaration>(
         name, std::move(parameters), returnType, std::move(body), 
         nameToken.getLocation(), false, false
+    );
+}
+
+unique_ptr<Statement> Parser::parseClassDeclaration() {
+    SourceLocation location = getCurrentLocation();
+    consume(TokenType::Class, "Expected 'class'");
+    
+    Token nameToken = consume(TokenType::Identifier, "Expected class name");
+    String name = nameToken.getStringValue();
+    
+    // Optional base class (extends clause)
+    shared_ptr<Type> baseClass = nullptr;
+    if (match(TokenType::Extends)) {
+        // For now, just parse as identifier - full type resolution happens in semantic analysis
+        Token baseToken = consume(TokenType::Identifier, "Expected base class name");
+        // Create a placeholder type - will be resolved in semantic analysis
+        baseClass = typeSystem_.createClassType(baseToken.getStringValue());
+    }
+    
+    // Optional interfaces (implements clause)
+    std::vector<shared_ptr<Type>> interfaces;
+    if (match(TokenType::Implements)) {
+        do {
+            Token interfaceToken = consume(TokenType::Identifier, "Expected interface name");
+            // Create placeholder type - will be resolved in semantic analysis
+            interfaces.push_back(typeSystem_.createClassType(interfaceToken.getStringValue()));
+        } while (match(TokenType::Comma));
+    }
+    
+    consume(TokenType::LeftBrace, "Expected '{' after class header");
+    
+    // Parse class body
+    std::vector<unique_ptr<PropertyDeclaration>> properties;
+    std::vector<unique_ptr<MethodDeclaration>> methods;
+    unique_ptr<MethodDeclaration> constructor = nullptr;
+    
+    while (!check(TokenType::RightBrace) && !isAtEnd()) {
+        // Parse visibility modifiers
+        bool isPrivate = false;
+        bool isProtected = false;
+        bool isStatic = false;
+        bool isReadonly = false;
+        bool isAbstract = false;
+        
+        while (check(TokenType::Private) || check(TokenType::Protected) || check(TokenType::Public) || 
+               check(TokenType::Static) || check(TokenType::Readonly) || check(TokenType::Abstract)) {
+            if (match(TokenType::Private)) isPrivate = true;
+            else if (match(TokenType::Protected)) isProtected = true;
+            else if (match(TokenType::Public)) {} // Default, do nothing
+            else if (match(TokenType::Static)) isStatic = true;
+            else if (match(TokenType::Readonly)) isReadonly = true;
+            else if (match(TokenType::Abstract)) isAbstract = true;
+        }
+        
+        if (check(TokenType::Constructor)) {
+            // Parse constructor
+            consume(TokenType::Constructor, "Expected 'constructor'");
+            consume(TokenType::LeftParen, "Expected '(' after constructor");
+            auto parameters = parseMethodParameterList();
+            consume(TokenType::RightParen, "Expected ')' after constructor parameters");
+            
+            auto body = parseFunctionBody();
+            
+            constructor = make_unique<MethodDeclaration>(
+                "constructor", std::move(parameters), typeSystem_.getVoidType(),
+                std::move(body), getCurrentLocation(), isStatic, isPrivate, isProtected, isAbstract
+            );
+        } else if (check(TokenType::Identifier)) {
+            Token memberToken = advance();
+            String memberName = memberToken.getStringValue();
+            
+            if (check(TokenType::LeftParen)) {
+                // Method declaration
+                consume(TokenType::LeftParen, "Expected '(' after method name");
+                auto parameters = parseMethodParameterList();
+                consume(TokenType::RightParen, "Expected ')' after method parameters");
+                
+                // Optional return type
+                shared_ptr<Type> returnType = typeSystem_.getVoidType();
+                if (match(TokenType::Colon)) {
+                    returnType = parseTypeAnnotation();
+                }
+                
+                auto body = parseFunctionBody();
+                
+                methods.push_back(make_unique<MethodDeclaration>(
+                    memberName, std::move(parameters), returnType, std::move(body),
+                    memberToken.getLocation(), isStatic, isPrivate, isProtected, isAbstract
+                ));
+            } else {
+                // Property declaration
+                shared_ptr<Type> propertyType = nullptr;
+                if (match(TokenType::Colon)) {
+                    propertyType = parseTypeAnnotation();
+                }
+                
+                unique_ptr<Expression> initializer = nullptr;
+                if (match(TokenType::Equal)) {
+                    initializer = parseExpression();
+                }
+                
+                consume(TokenType::Semicolon, "Expected ';' after property declaration");
+                
+                properties.push_back(make_unique<PropertyDeclaration>(
+                    memberName, propertyType, std::move(initializer), memberToken.getLocation(),
+                    isStatic, isReadonly, isPrivate, isProtected
+                ));
+            }
+        } else {
+            reportError("Expected class member", getCurrentLocation());
+            synchronize();
+        }
+    }
+    
+    consume(TokenType::RightBrace, "Expected '}' after class body");
+    
+    return make_unique<ClassDeclaration>(
+        name, baseClass, std::move(interfaces), std::move(properties), 
+        std::move(methods), std::move(constructor), location
     );
 }
 
@@ -908,6 +1032,26 @@ std::vector<FunctionDeclaration::Parameter> Parser::parseParameterList() {
     if (!check(TokenType::RightParen)) {
         do {
             FunctionDeclaration::Parameter param;
+            Token nameToken = consume(TokenType::Identifier, "Expected parameter name");
+            param.name = nameToken.getStringValue();
+            
+            if (match(TokenType::Colon)) {
+                param.type = parseTypeAnnotation();
+            }
+            
+            parameters.push_back(std::move(param));
+        } while (match(TokenType::Comma));
+    }
+    
+    return parameters;
+}
+
+std::vector<MethodDeclaration::Parameter> Parser::parseMethodParameterList() {
+    std::vector<MethodDeclaration::Parameter> parameters;
+    
+    if (!check(TokenType::RightParen)) {
+        do {
+            MethodDeclaration::Parameter param;
             Token nameToken = consume(TokenType::Identifier, "Expected parameter name");
             param.name = nameToken.getStringValue();
             

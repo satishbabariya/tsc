@@ -629,4 +629,167 @@ String ASTPrinter::getOperatorString(AssignmentExpression::Operator op) {
     }
 }
 
+// Class-related visitor implementations
+void ASTPrinter::visit(PropertyDeclaration& node) {
+    printIndent();
+    output_ << "PropertyDeclaration: " << node.getName() << std::endl;
+    increaseIndent();
+    
+    if (node.isPrivate()) {
+        printIndent();
+        output_ << "Access: private" << std::endl;
+    } else if (node.isProtected()) {
+        printIndent();
+        output_ << "Access: protected" << std::endl;
+    } else {
+        printIndent();
+        output_ << "Access: public" << std::endl;
+    }
+    
+    if (node.isStatic()) {
+        printIndent();
+        output_ << "Static: true" << std::endl;
+    }
+    
+    if (node.isReadonly()) {
+        printIndent();
+        output_ << "Readonly: true" << std::endl;
+    }
+    
+    if (node.getType()) {
+        printIndent();
+        output_ << "Type: " << node.getType()->toString() << std::endl;
+    }
+    
+    if (node.getInitializer()) {
+        printIndent();
+        output_ << "Initializer:" << std::endl;
+        increaseIndent();
+        node.getInitializer()->accept(*this);
+        decreaseIndent();
+    }
+    
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(MethodDeclaration& node) {
+    printIndent();
+    output_ << "MethodDeclaration: " << node.getName() << std::endl;
+    increaseIndent();
+    
+    if (node.isPrivate()) {
+        printIndent();
+        output_ << "Access: private" << std::endl;
+    } else if (node.isProtected()) {
+        printIndent();
+        output_ << "Access: protected" << std::endl;
+    } else {
+        printIndent();
+        output_ << "Access: public" << std::endl;
+    }
+    
+    if (node.isStatic()) {
+        printIndent();
+        output_ << "Static: true" << std::endl;
+    }
+    
+    if (node.isAbstract()) {
+        printIndent();
+        output_ << "Abstract: true" << std::endl;
+    }
+    
+    if (!node.getParameters().empty()) {
+        printIndent();
+        output_ << "Parameters:" << std::endl;
+        increaseIndent();
+        for (const auto& param : node.getParameters()) {
+            printIndent();
+            output_ << param.name;
+            if (param.type) {
+                output_ << ": " << param.type->toString();
+            }
+            if (param.optional) {
+                output_ << " (optional)";
+            }
+            if (param.rest) {
+                output_ << " (rest)";
+            }
+            output_ << std::endl;
+        }
+        decreaseIndent();
+    }
+    
+    if (node.getReturnType()) {
+        printIndent();
+        output_ << "Return Type: " << node.getReturnType()->toString() << std::endl;
+    }
+    
+    if (node.getBody()) {
+        printIndent();
+        output_ << "Body:" << std::endl;
+        increaseIndent();
+        node.getBody()->accept(*this);
+        decreaseIndent();
+    }
+    
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(ClassDeclaration& node) {
+    printIndent();
+    output_ << "ClassDeclaration: " << node.getName() << std::endl;
+    increaseIndent();
+    
+    if (node.isAbstract()) {
+        printIndent();
+        output_ << "Abstract: true" << std::endl;
+    }
+    
+    if (node.getBaseClass()) {
+        printIndent();
+        output_ << "Base Class: " << node.getBaseClass()->toString() << std::endl;
+    }
+    
+    if (!node.getInterfaces().empty()) {
+        printIndent();
+        output_ << "Interfaces:" << std::endl;
+        increaseIndent();
+        for (const auto& interface : node.getInterfaces()) {
+            printIndent();
+            output_ << interface->toString() << std::endl;
+        }
+        decreaseIndent();
+    }
+    
+    if (node.getConstructor()) {
+        printIndent();
+        output_ << "Constructor:" << std::endl;
+        increaseIndent();
+        node.getConstructor()->accept(*this);
+        decreaseIndent();
+    }
+    
+    if (!node.getProperties().empty()) {
+        printIndent();
+        output_ << "Properties:" << std::endl;
+        increaseIndent();
+        for (const auto& property : node.getProperties()) {
+            property->accept(*this);
+        }
+        decreaseIndent();
+    }
+    
+    if (!node.getMethods().empty()) {
+        printIndent();
+        output_ << "Methods:" << std::endl;
+        increaseIndent();
+        for (const auto& method : node.getMethods()) {
+            method->accept(*this);
+        }
+        decreaseIndent();
+    }
+    
+    decreaseIndent();
+}
+
 } // namespace tsc

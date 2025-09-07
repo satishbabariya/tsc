@@ -274,6 +274,33 @@ private:
     std::vector<shared_ptr<Type>> typeArguments_;
 };
 
+// Forward declaration for ClassDeclaration
+class ClassDeclaration;
+
+class ClassType : public Type {
+public:
+    ClassType(const String& name, ClassDeclaration* declaration = nullptr, shared_ptr<Type> baseClass = nullptr)
+        : Type(TypeKind::Class), name_(name), declaration_(declaration), baseClass_(baseClass) {}
+    
+    const String& getName() const { return name_; }
+    ClassDeclaration* getDeclaration() const { return declaration_; }
+    shared_ptr<Type> getBaseClass() const { return baseClass_; }
+    const std::vector<shared_ptr<Type>>& getInterfaces() const { return interfaces_; }
+    
+    void setDeclaration(ClassDeclaration* declaration) { declaration_ = declaration; }
+    void setBaseClass(shared_ptr<Type> baseClass) { baseClass_ = baseClass; }
+    void addInterface(shared_ptr<Type> interface) { interfaces_.push_back(interface); }
+    
+    String toString() const override { return name_; }
+    bool isEquivalentTo(const Type& other) const override;
+
+private:
+    String name_;
+    ClassDeclaration* declaration_;
+    shared_ptr<Type> baseClass_;
+    std::vector<shared_ptr<Type>> interfaces_;
+};
+
 class ErrorType : public Type {
 public:
     ErrorType() : Type(TypeKind::Error) {}
@@ -313,6 +340,10 @@ public:
     shared_ptr<Type> createGenericType(shared_ptr<Type> baseType, std::vector<shared_ptr<Type>> typeArguments) const;
     shared_ptr<Type> instantiateGenericType(shared_ptr<Type> genericType, 
                                            const std::vector<shared_ptr<Type>>& typeArguments) const;
+    
+    // Class type creation
+    shared_ptr<Type> createClassType(const String& name, ClassDeclaration* declaration = nullptr, 
+                                    shared_ptr<Type> baseClass = nullptr) const;
     
     // Type operations
     bool areTypesCompatible(const Type& from, const Type& to) const;

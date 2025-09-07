@@ -1149,6 +1149,13 @@ llvm::Type* LLVMCodeGen::getAnyType() const {
     return llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
 }
 
+llvm::Type* LLVMCodeGen::convertTypeToLLVM(shared_ptr<Type> type) {
+    if (!type) {
+        return getAnyType();
+    }
+    return mapTypeScriptTypeToLLVM(*type);
+}
+
 // Value creation implementation
 llvm::Value* LLVMCodeGen::createNumberLiteral(double value) {
     return llvm::ConstantFP::get(getNumberType(), value);
@@ -1585,6 +1592,131 @@ void LLVMCodeGen::reportError(const String& message, const SourceLocation& locat
 
 void LLVMCodeGen::reportWarning(const String& message, const SourceLocation& location) {
     diagnostics_.warning(message, location);
+}
+
+// Class-related visitor implementations
+void LLVMCodeGen::visit(PropertyDeclaration& node) {
+    // For now, properties are handled as part of class layout
+    // Individual property declarations don't generate standalone code
+    // They are processed when the containing class is processed
+    
+    // If there's an initializer, we could generate code for it here
+    // but for simplicity, we'll handle initialization in constructors
+    if (node.getInitializer()) {
+        node.getInitializer()->accept(*this);
+        // Store the result for later use in constructor generation
+    }
+}
+
+void LLVMCodeGen::visit(MethodDeclaration& node) {
+    // Generate LLVM function for the method
+    std::vector<llvm::Type*> paramTypes;
+    
+    // Add 'this' pointer as first parameter for non-static methods
+    if (!node.isStatic()) {
+        paramTypes.push_back(getAnyType()); // Simplified: use generic pointer for 'this'
+    }
+    
+    // Add method parameters
+    for (const auto& param : node.getParameters()) {
+        llvm::Type* paramType = getAnyType(); // Simplified: use generic type
+        if (param.type) {
+            paramType = convertTypeToLLVM(param.type);
+        }
+        paramTypes.push_back(paramType);
+    }
+    
+    // Determine return type
+    llvm::Type* returnType = getVoidType(); // Default to void
+    if (node.getReturnType()) {
+        returnType = convertTypeToLLVM(node.getReturnType());
+    }
+    
+    // Create function type
+    llvm::FunctionType* functionType = llvm::FunctionType::get(returnType, paramTypes, false);
+    
+    // Create function with mangled name (simplified: just use method name for now)
+    String functionName = node.getName();
+    if (node.getName() == "constructor") {
+        functionName = "constructor"; // Special handling for constructors
+    }
+    
+    llvm::Function* function = llvm::Function::Create(
+        functionType, llvm::Function::ExternalLinkage, functionName, module_.get()
+    );
+    
+    // Generate function body if present
+    if (node.getBody()) {
+        llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", function);
+        builder_->SetInsertPoint(entryBlock);
+        
+        // Save current function context
+        codeGenContext_->enterFunction(function);
+        
+        // Set up parameters
+        auto paramIt = function->arg_begin();
+        if (!node.isStatic()) {
+            // Skip 'this' parameter for now
+            ++paramIt;
+        }
+        
+        for (size_t i = 0; i < node.getParameters().size(); ++i, ++paramIt) {
+            const auto& param = node.getParameters()[i];
+            llvm::Type* paramType = paramTypes[node.isStatic() ? i : i + 1];
+            llvm::Value* paramStorage = allocateVariable(param.name, paramType, node.getLocation());
+            builder_->CreateStore(&*paramIt, paramStorage);
+        }
+        
+        // Generate method body
+        node.getBody()->accept(*this);
+        
+        // Ensure function has a return
+        if (!builder_->GetInsertBlock()->getTerminator()) {
+            if (returnType->isVoidTy()) {
+                builder_->CreateRetVoid();
+            } else {
+                builder_->CreateRet(createDefaultValue(returnType));
+            }
+        }
+        
+        // Restore previous function context
+        codeGenContext_->exitFunction();
+    }
+    
+    setCurrentValue(function);
+}
+
+void LLVMCodeGen::visit(ClassDeclaration& node) {
+    // For now, implement classes as simple structs
+    // In a full implementation, we'd need vtables for virtual methods
+    
+    std::vector<llvm::Type*> memberTypes;
+    
+    // Add properties to struct layout
+    for (const auto& property : node.getProperties()) {
+        llvm::Type* propertyType = getAnyType(); // Simplified: use generic type
+        if (property->getType()) {
+            propertyType = convertTypeToLLVM(property->getType());
+        }
+        memberTypes.push_back(propertyType);
+    }
+    
+    // Create struct type for the class
+    llvm::StructType* classStruct = llvm::StructType::create(*context_, memberTypes, node.getName());
+    
+    // Generate constructor if present
+    if (node.getConstructor()) {
+        node.getConstructor()->accept(*this);
+    }
+    
+    // Generate methods
+    for (const auto& method : node.getMethods()) {
+        method->accept(*this);
+    }
+    
+    // Store class type information (simplified)
+    // In a full implementation, we'd store this in a class registry
+    setCurrentValue(llvm::Constant::getNullValue(llvm::PointerType::get(classStruct, 0)));
 }
 
 // Factory function

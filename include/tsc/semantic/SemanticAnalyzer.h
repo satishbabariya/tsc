@@ -52,6 +52,7 @@ public:
     
     // Type information access
     shared_ptr<Type> getExpressionType(const Expression& expr) const;
+    shared_ptr<Type> getDeclarationType(const Declaration& decl) const;
     Symbol* getSymbolForNode(const ASTNode& node) const;
     
     // Analysis results
@@ -91,6 +92,11 @@ public:
     void visit(VariableDeclaration& node) override;
     void visit(FunctionDeclaration& node) override;
     
+    // Class-related declarations
+    void visit(PropertyDeclaration& node) override;
+    void visit(MethodDeclaration& node) override;
+    void visit(ClassDeclaration& node) override;
+    
     void visit(Module& node) override;
 
 private:
@@ -106,6 +112,7 @@ private:
     
     // Type information storage
     std::unordered_map<const Expression*, shared_ptr<Type>> expressionTypes_;
+    std::unordered_map<const Declaration*, shared_ptr<Type>> declarationTypes_;
     std::unordered_map<const ASTNode*, Symbol*> nodeSymbols_;
     
     // Analysis phases
@@ -141,6 +148,7 @@ private:
     
     // Utilities
     void setExpressionType(const Expression& expr, shared_ptr<Type> type);
+    void setDeclarationType(const Declaration& decl, shared_ptr<Type> type);
     void setNodeSymbol(const ASTNode& node, Symbol* symbol);
     bool isValidAssignment(const Type& from, const Type& to) const;
     String formatType(const Type& type) const;

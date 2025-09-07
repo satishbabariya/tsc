@@ -601,4 +601,106 @@ String Module::toString() const {
     return ss.str();
 }
 
+// PropertyDeclaration implementation
+void PropertyDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String PropertyDeclaration::toString() const {
+    std::ostringstream oss;
+    if (isPrivate_) oss << "private ";
+    if (isProtected_) oss << "protected ";
+    if (isStatic_) oss << "static ";
+    if (isReadonly_) oss << "readonly ";
+    oss << name_;
+    if (type_) {
+        oss << ": " << type_->toString();
+    }
+    if (initializer_) {
+        oss << " = " << initializer_->toString();
+    }
+    return oss.str();
+}
+
+// MethodDeclaration implementation
+void MethodDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String MethodDeclaration::toString() const {
+    std::ostringstream oss;
+    if (isPrivate_) oss << "private ";
+    if (isProtected_) oss << "protected ";
+    if (isStatic_) oss << "static ";
+    if (isAbstract_) oss << "abstract ";
+    if (isAsync_) oss << "async ";
+    
+    oss << name_ << "(";
+    for (size_t i = 0; i < parameters_.size(); ++i) {
+        if (i > 0) oss << ", ";
+        oss << parameters_[i].name;
+        if (parameters_[i].type) {
+            oss << ": " << parameters_[i].type->toString();
+        }
+        if (parameters_[i].optional) oss << "?";
+        if (parameters_[i].rest) oss << "...";
+    }
+    oss << ")";
+    
+    if (returnType_) {
+        oss << ": " << returnType_->toString();
+    }
+    
+    if (body_) {
+        oss << " { /* method body */ }";
+    } else {
+        oss << ";";
+    }
+    
+    return oss.str();
+}
+
+// ClassDeclaration implementation
+void ClassDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ClassDeclaration::toString() const {
+    std::ostringstream oss;
+    if (isAbstract_) oss << "abstract ";
+    oss << "class " << name_;
+    
+    if (baseClass_) {
+        oss << " extends " << baseClass_->toString();
+    }
+    
+    if (!interfaces_.empty()) {
+        oss << " implements ";
+        for (size_t i = 0; i < interfaces_.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << interfaces_[i]->toString();
+        }
+    }
+    
+    oss << " {\n";
+    
+    // Constructor
+    if (constructor_) {
+        oss << "  constructor" << constructor_->toString().substr(constructor_->getName().length()) << "\n";
+    }
+    
+    // Properties
+    for (const auto& prop : properties_) {
+        oss << "  " << prop->toString() << ";\n";
+    }
+    
+    // Methods
+    for (const auto& method : methods_) {
+        oss << "  " << method->toString() << "\n";
+    }
+    
+    oss << "}";
+    return oss.str();
+}
+
 } // namespace tsc

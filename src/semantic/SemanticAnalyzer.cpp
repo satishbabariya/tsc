@@ -40,6 +40,11 @@ shared_ptr<Type> SemanticAnalyzer::getExpressionType(const Expression& expr) con
     return it != expressionTypes_.end() ? it->second : typeSystem_->getErrorType();
 }
 
+shared_ptr<Type> SemanticAnalyzer::getDeclarationType(const Declaration& decl) const {
+    auto it = declarationTypes_.find(&decl);
+    return it != declarationTypes_.end() ? it->second : typeSystem_->getErrorType();
+}
+
 Symbol* SemanticAnalyzer::getSymbolForNode(const ASTNode& node) const {
     auto it = nodeSymbols_.find(&node);
     return it != nodeSymbols_.end() ? it->second : nullptr;
@@ -643,6 +648,10 @@ void SemanticAnalyzer::setExpressionType(const Expression& expr, shared_ptr<Type
     expressionTypes_[&expr] = type;
 }
 
+void SemanticAnalyzer::setDeclarationType(const Declaration& decl, shared_ptr<Type> type) {
+    declarationTypes_[&decl] = type;
+}
+
 void SemanticAnalyzer::setNodeSymbol(const ASTNode& node, Symbol* symbol) {
     nodeSymbols_[&node] = symbol;
 }
@@ -696,6 +705,123 @@ shared_ptr<Type> SemanticAnalyzer::inferFunctionType(const FunctionDeclaration& 
     
     auto returnType = decl.getReturnType() ? decl.getReturnType() : typeSystem_->getVoidType();
     return typeSystem_->createFunctionType(std::move(params), returnType);
+}
+
+// Class-related visitor implementations
+void SemanticAnalyzer::visit(PropertyDeclaration& node) {
+    // Analyze property type
+    shared_ptr<Type> propertyType = node.getType();
+    if (!propertyType) {
+        if (node.getInitializer()) {
+            // Infer type from initializer
+            node.getInitializer()->accept(*this);
+            propertyType = getExpressionType(*node.getInitializer());
+        } else {
+            // Default to any type if no type annotation or initializer
+            propertyType = typeSystem_->getAnyType();
+        }
+    }
+    
+    // Analyze initializer if present
+    if (node.getInitializer()) {
+        node.getInitializer()->accept(*this);
+        auto initType = getExpressionType(*node.getInitializer());
+        
+        // Check type compatibility
+        if (!typeSystem_->areTypesCompatible(*initType, *propertyType)) {
+            reportError("Property initializer type '" + initType->toString() + 
+                       "' is not assignable to property type '" + propertyType->toString() + "'",
+                       node.getInitializer()->getLocation());
+        }
+    }
+    
+    // Store property type information
+    setDeclarationType(node, propertyType);
+}
+
+void SemanticAnalyzer::visit(MethodDeclaration& node) {
+    // Enter method scope
+    enterScope(Scope::ScopeType::Function, node.getName());
+    functionDepth_++;
+    
+    // Add parameters to scope
+    std::vector<FunctionType::Parameter> paramTypes;
+    for (const auto& param : node.getParameters()) {
+        FunctionType::Parameter funcParam;
+        funcParam.name = param.name;
+        funcParam.type = param.type ? param.type : typeSystem_->getAnyType();
+        funcParam.optional = param.optional;
+        paramTypes.push_back(funcParam);
+        
+        // Add parameter to symbol table
+        declareSymbol(param.name, SymbolKind::Variable, funcParam.type, node.getLocation());
+    }
+    
+    // Analyze method body
+    if (node.getBody()) {
+        node.getBody()->accept(*this);
+    }
+    
+    // Create method type
+    auto returnType = node.getReturnType() ? node.getReturnType() : typeSystem_->getVoidType();
+    auto methodType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
+    setDeclarationType(node, methodType);
+    
+    // Exit method scope
+    functionDepth_--;
+    exitScope();
+}
+
+void SemanticAnalyzer::visit(ClassDeclaration& node) {
+    // Create class type
+    auto classType = typeSystem_->createClassType(node.getName(), &node, node.getBaseClass());
+    
+    // Add class to symbol table
+    declareSymbol(node.getName(), SymbolKind::Type, classType, node.getLocation());
+    
+    // Enter class scope
+    enterScope(Scope::ScopeType::Class, node.getName());
+    
+    // Analyze base class if present
+    if (node.getBaseClass()) {
+        // Base class validation would go here
+        // For now, we assume it's valid
+    }
+    
+    // Analyze interfaces if present
+    for (const auto& interface : node.getInterfaces()) {
+        // Interface validation would go here
+        // For now, we assume they're valid
+    }
+    
+    // Analyze properties
+    for (const auto& property : node.getProperties()) {
+        property->accept(*this);
+        
+        // Add property to class scope
+        auto propType = getDeclarationType(*property);
+        declareSymbol(property->getName(), SymbolKind::Property, propType, property->getLocation());
+    }
+    
+    // Analyze constructor if present
+    if (node.getConstructor()) {
+        node.getConstructor()->accept(*this);
+    }
+    
+    // Analyze methods
+    for (const auto& method : node.getMethods()) {
+        method->accept(*this);
+        
+        // Add method to class scope
+        auto methodType = getDeclarationType(*method);
+        declareSymbol(method->getName(), SymbolKind::Method, methodType, method->getLocation());
+    }
+    
+    // Exit class scope
+    exitScope();
+    
+    // ClassDeclaration is not an Expression, so we don't call setExpressionType
+    // The class type is already stored in the symbol table above
 }
 
 // Factory function

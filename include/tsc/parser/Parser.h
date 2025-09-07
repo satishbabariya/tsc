@@ -92,6 +92,7 @@ private:
     
     // Function and class parsing
     std::vector<FunctionDeclaration::Parameter> parseParameterList();
+    std::vector<MethodDeclaration::Parameter> parseMethodParameterList();
     FunctionDeclaration::Parameter parseParameter();
     unique_ptr<BlockStatement> parseFunctionBody();
     

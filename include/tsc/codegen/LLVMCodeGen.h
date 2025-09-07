@@ -143,6 +143,11 @@ public:
     void visit(VariableDeclaration& node) override;
     void visit(FunctionDeclaration& node) override;
     
+    // Class-related declarations
+    void visit(PropertyDeclaration& node) override;
+    void visit(MethodDeclaration& node) override;
+    void visit(ClassDeclaration& node) override;
+    
     void visit(Module& module) override;
 
 private:
@@ -180,6 +185,9 @@ private:
     llvm::Type* getBooleanType() const;
     llvm::Type* getVoidType() const;
     llvm::Type* getAnyType() const;
+    
+    // Type conversion
+    llvm::Type* convertTypeToLLVM(shared_ptr<Type> type);
     
     // Value operations
     llvm::Value* createNumberLiteral(double value);

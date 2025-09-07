@@ -46,6 +46,11 @@ public:
     void visit(VariableDeclaration& node) override;
     void visit(FunctionDeclaration& node) override;
     
+    // Class-related declarations
+    void visit(PropertyDeclaration& node) override;
+    void visit(MethodDeclaration& node) override;
+    void visit(ClassDeclaration& node) override;
+    
     // Module
     void visit(Module& node) override;
 
