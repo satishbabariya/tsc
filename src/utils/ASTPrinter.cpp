@@ -138,6 +138,38 @@ void ASTPrinter::visit(IndexExpression& node) {
     decreaseIndent();
 }
 
+void ASTPrinter::visit(ObjectLiteral& node) {
+    printIndent();
+    output_ << "ObjectLiteral:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Properties (" << node.getProperties().size() << "):" << std::endl;
+    increaseIndent();
+    for (const auto& property : node.getProperties()) {
+        printIndent();
+        output_ << "Property: " << property.getKey() << std::endl;
+        increaseIndent();
+        property.getValue()->accept(*this);
+        decreaseIndent();
+    }
+    decreaseIndent();
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(PropertyAccess& node) {
+    printIndent();
+    output_ << "PropertyAccess: " << node.getProperty() << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Object:" << std::endl;
+    increaseIndent();
+    node.getObject()->accept(*this);
+    decreaseIndent();
+    decreaseIndent();
+}
+
 void ASTPrinter::visit(ExpressionStatement& node) {
     printIndent();
     output_ << "ExpressionStatement:" << std::endl;

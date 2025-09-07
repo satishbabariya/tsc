@@ -146,6 +146,28 @@ void SemanticAnalyzer::visit(IndexExpression& node) {
     }
 }
 
+void SemanticAnalyzer::visit(ObjectLiteral& node) {
+    // Analyze all property values
+    for (const auto& property : node.getProperties()) {
+        property.getValue()->accept(*this);
+    }
+    
+    // For now, infer object type as any (like a generic object)
+    // TODO: Implement proper object type inference based on properties
+    auto objectType = typeSystem_->getAnyType();
+    node.setType(objectType);
+}
+
+void SemanticAnalyzer::visit(PropertyAccess& node) {
+    // Analyze the object being accessed
+    node.getObject()->accept(*this);
+    auto objectType = getExpressionType(*node.getObject());
+    
+    // For now, assume property access returns any type
+    // TODO: Implement proper property type checking based on object type
+    node.setType(typeSystem_->getAnyType());
+}
+
 void SemanticAnalyzer::visit(ExpressionStatement& node) {
     node.getExpression()->accept(*this);
 }

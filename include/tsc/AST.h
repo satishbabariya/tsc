@@ -354,6 +354,60 @@ private:
     SourceLocation location_;
 };
 
+// Object literal expression
+class ObjectLiteral : public Expression {
+public:
+    // Property in an object literal
+    class Property {
+    public:
+        Property(String key, unique_ptr<Expression> value, const SourceLocation& loc)
+            : key_(key), value_(std::move(value)), location_(loc) {}
+        
+        const String& getKey() const { return key_; }
+        Expression* getValue() const { return value_.get(); }
+        SourceLocation getLocation() const { return location_; }
+        
+    private:
+        String key_;
+        unique_ptr<Expression> value_;
+        SourceLocation location_;
+    };
+    
+    ObjectLiteral(std::vector<Property> properties, const SourceLocation& loc)
+        : properties_(std::move(properties)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    const std::vector<Property>& getProperties() const { return properties_; }
+
+private:
+    std::vector<Property> properties_;
+    SourceLocation location_;
+};
+
+// Property access expression (obj.prop)
+class PropertyAccess : public Expression {
+public:
+    PropertyAccess(unique_ptr<Expression> object, String property, const SourceLocation& loc)
+        : object_(std::move(object)), property_(property), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::LValue; }  // Can be assigned to
+    String toString() const override;
+    
+    Expression* getObject() const { return object_.get(); }
+    const String& getProperty() const { return property_; }
+
+private:
+    unique_ptr<Expression> object_;
+    String property_;
+    SourceLocation location_;
+};
+
 // Block statement
 class BlockStatement : public Statement {
 public:
@@ -681,6 +735,8 @@ public:
     virtual void visit(CallExpression& node) = 0;
     virtual void visit(ArrayLiteral& node) = 0;
     virtual void visit(IndexExpression& node) = 0;
+    virtual void visit(ObjectLiteral& node) = 0;
+    virtual void visit(PropertyAccess& node) = 0;
     
     // Statements
     virtual void visit(ExpressionStatement& node) = 0;

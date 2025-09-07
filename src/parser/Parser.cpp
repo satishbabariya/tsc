@@ -453,10 +453,19 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
             return nullptr;
         }
         else if (match(TokenType::Dot)) {
-            // Parse member access: expr.member
-            // TODO: Implement member access parsing
-            reportError("Member access not yet implemented in postfix expressions", getCurrentLocation());
-            return nullptr;
+            // Parse property access: expr.property
+            if (!check(TokenType::Identifier)) {
+                reportError("Expected property name after '.'", getCurrentLocation());
+                return nullptr;
+            }
+            
+            Token propertyToken = advance();
+            SourceLocation location = getCurrentLocation();
+            expr = make_unique<PropertyAccess>(
+                std::move(expr),
+                propertyToken.getStringValue(),
+                location
+            );
         }
         else {
             break; // No more postfix operations
@@ -501,6 +510,10 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
         return parseArrayLiteral();
     }
     
+    if (match(TokenType::LeftBrace)) {
+        return parseObjectLiteral();
+    }
+    
     if (match(TokenType::LeftParen)) {
         auto expr = parseExpression();
         consume(TokenType::RightParen, "Expected ')' after expression");
@@ -535,6 +548,53 @@ unique_ptr<Expression> Parser::parseArrayLiteral() {
     consume(TokenType::RightBracket, "Expected ']' after array elements");
     
     return make_unique<ArrayLiteral>(std::move(elements), location);
+}
+
+unique_ptr<Expression> Parser::parseObjectLiteral() {
+    SourceLocation location = getCurrentLocation();
+    std::vector<ObjectLiteral::Property> properties;
+    
+    // Handle empty object
+    if (match(TokenType::RightBrace)) {
+        return make_unique<ObjectLiteral>(std::move(properties), location);
+    }
+    
+    // Parse properties
+    do {
+        if (check(TokenType::RightBrace)) {
+            break; // Trailing comma case: {a: 1, }
+        }
+        
+        // Parse property key (for now, only identifiers and string literals)
+        String key;
+        if (check(TokenType::Identifier)) {
+            Token keyToken = advance();
+            key = keyToken.getStringValue();
+        } else if (check(TokenType::StringLiteral)) {
+            Token keyToken = advance();
+            key = keyToken.getStringValue();
+        } else {
+            reportError("Expected property name", getCurrentLocation());
+            return nullptr;
+        }
+        
+        // Expect colon
+        consume(TokenType::Colon, "Expected ':' after property name");
+        
+        // Parse property value
+        auto value = parseExpression();
+        if (!value) {
+            reportError("Expected property value", getCurrentLocation());
+            return nullptr;
+        }
+        
+        properties.emplace_back(key, std::move(value), getCurrentLocation());
+        
+    } while (match(TokenType::Comma));
+    
+    consume(TokenType::RightBrace, "Expected '}' after object properties");
+    
+    return make_unique<ObjectLiteral>(std::move(properties), location);
 }
 
 // Utility methods

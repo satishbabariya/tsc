@@ -204,6 +204,33 @@ String IndexExpression::toString() const {
     return object_->toString() + "[" + index_->toString() + "]";
 }
 
+// ObjectLiteral implementation
+void ObjectLiteral::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ObjectLiteral::toString() const {
+    std::stringstream ss;
+    ss << "{";
+    
+    for (size_t i = 0; i < properties_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << properties_[i].getKey() << ": " << properties_[i].getValue()->toString();
+    }
+    
+    ss << "}";
+    return ss.str();
+}
+
+// PropertyAccess implementation
+void PropertyAccess::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String PropertyAccess::toString() const {
+    return object_->toString() + "." + property_;
+}
+
 // BlockStatement implementation
 void BlockStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);

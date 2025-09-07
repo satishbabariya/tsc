@@ -73,6 +73,8 @@ public:
     void visit(CallExpression& node) override;
     void visit(ArrayLiteral& node) override;
     void visit(IndexExpression& node) override;
+    void visit(ObjectLiteral& node) override;
+    void visit(PropertyAccess& node) override;
     
     void visit(ExpressionStatement& node) override;
     void visit(BlockStatement& node) override;

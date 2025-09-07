@@ -263,6 +263,20 @@ void LLVMCodeGen::visit(IndexExpression& node) {
     setCurrentValue(elementValue);
 }
 
+void LLVMCodeGen::visit(ObjectLiteral& node) {
+    // TODO: Implement proper object literal code generation
+    // For now, just return a null pointer to avoid crashes
+    reportError("Object literals not yet fully implemented in code generation", node.getLocation());
+    setCurrentValue(createNullValue(getAnyType()));
+}
+
+void LLVMCodeGen::visit(PropertyAccess& node) {
+    // TODO: Implement proper property access code generation
+    // For now, just return a null pointer to avoid crashes
+    reportError("Property access not yet fully implemented in code generation", node.getLocation());
+    setCurrentValue(createNullValue(getAnyType()));
+}
+
 void LLVMCodeGen::visit(ExpressionStatement& node) {
     node.getExpression()->accept(*this);
     // Expression statement doesn't return a value
