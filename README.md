@@ -70,7 +70,7 @@ TSC follows a traditional 4-phase compiler pipeline:
 git clone <repository-url>
 cd tsc
 
-# Create build directory
+# Create build directory (this is ignored by git)
 mkdir build && cd build
 
 # Configure with CMake
@@ -82,6 +82,8 @@ make -j10
 # Run tests (if GTest is available)
 make test
 ```
+
+**Important**: The `build/` directory contains generated files and should never be committed to git. It's already included in `.gitignore`.
 
 ### Cross-Compilation
 
