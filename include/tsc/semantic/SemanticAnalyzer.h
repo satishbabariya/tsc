@@ -19,8 +19,6 @@ public:
     DiagnosticEngine& getDiagnostics() { return diagnostics_; }
     
     // Context state
-    bool isInFunction() const { return inFunction_; }
-    void setInFunction(bool inFunction) { inFunction_ = inFunction; }
     
     shared_ptr<Type> getCurrentFunctionReturnType() const { return currentFunctionReturnType_; }
     void setCurrentFunctionReturnType(shared_ptr<Type> type) { currentFunctionReturnType_ = type; }
@@ -38,7 +36,6 @@ private:
     TypeSystem& typeSystem_;
     DiagnosticEngine& diagnostics_;
     
-    bool inFunction_ = false;
     shared_ptr<Type> currentFunctionReturnType_;
     int loopDepth_ = 0;
     size_t errorCount_ = 0;
@@ -97,14 +94,14 @@ public:
 
 private:
     // Helper methods
-    bool isInFunctionScope() const { return inFunction_; }
+    bool isInFunctionScope() const { return functionDepth_ > 0; }
     DiagnosticEngine& diagnostics_;
     unique_ptr<SymbolTable> symbolTable_;
     unique_ptr<TypeSystem> typeSystem_;
     unique_ptr<SemanticContext> context_;
     
     // Function context tracking
-    bool inFunction_ = false;
+    int functionDepth_ = 0;
     
     // Type information storage
     std::unordered_map<const Expression*, shared_ptr<Type>> expressionTypes_;

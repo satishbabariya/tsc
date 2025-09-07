@@ -121,10 +121,31 @@ void SemanticAnalyzer::visit(ArrayLiteral& node) {
         element->accept(*this);
     }
     
-    // For now, infer array type as any[] 
-    // TODO: Implement proper array type inference based on elements
-    auto arrayType = typeSystem_->createArrayType(typeSystem_->getAnyType());
-    node.setType(arrayType);
+    // Infer array type based on elements
+    shared_ptr<Type> elementType = typeSystem_->getAnyType(); // Default
+    
+    if (!node.getElements().empty()) {
+        // Get type of first element
+        elementType = getExpressionType(*node.getElements()[0]);
+        
+        // Check if all elements have the same type
+        bool allSameType = true;
+        for (size_t i = 1; i < node.getElements().size(); ++i) {
+            auto currentElementType = getExpressionType(*node.getElements()[i]);
+            if (!elementType->isEquivalentTo(*currentElementType)) {
+                allSameType = false;
+                break;
+            }
+        }
+        
+        // If elements have different types, use 'any' as element type
+        if (!allSameType) {
+            elementType = typeSystem_->getAnyType();
+        }
+    }
+    
+    auto arrayType = typeSystem_->createArrayType(elementType);
+    setExpressionType(node, arrayType);
 }
 
 void SemanticAnalyzer::visit(IndexExpression& node) {
@@ -140,9 +161,9 @@ void SemanticAnalyzer::visit(IndexExpression& node) {
     // TODO: Implement proper indexing type checking
     if (objectType && typeSystem_->isArrayType(objectType)) {
         auto elementType = typeSystem_->getArrayElementType(objectType);
-        node.setType(elementType);
+        setExpressionType(node, elementType);
     } else {
-        node.setType(typeSystem_->getAnyType());
+        setExpressionType(node, typeSystem_->getAnyType());
     }
 }
 
@@ -155,7 +176,7 @@ void SemanticAnalyzer::visit(ObjectLiteral& node) {
     // For now, infer object type as any (like a generic object)
     // TODO: Implement proper object type inference based on properties
     auto objectType = typeSystem_->getAnyType();
-    node.setType(objectType);
+    setExpressionType(node, objectType);
 }
 
 void SemanticAnalyzer::visit(PropertyAccess& node) {
@@ -165,7 +186,7 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
     
     // For now, assume property access returns any type
     // TODO: Implement proper property type checking based on object type
-    node.setType(typeSystem_->getAnyType());
+    setExpressionType(node, typeSystem_->getAnyType());
 }
 
 void SemanticAnalyzer::visit(ExpressionStatement& node) {
@@ -436,7 +457,7 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
     }
     
     // Set function context
-    inFunction_ = true;
+    functionDepth_++;
     
     // Analyze function body
     if (node.getBody()) {
@@ -444,7 +465,7 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
     }
     
     // Reset function context
-    inFunction_ = false;
+    functionDepth_--;
     
     exitScope();
 }

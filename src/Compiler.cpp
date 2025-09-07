@@ -23,8 +23,8 @@ Compiler::Compiler(const CompilerOptions& options) : options_(options) {
     // Create subsystems
     diagnostics_ = make_unique<DiagnosticEngine>();
     lexer_ = make_unique<Lexer>(*diagnostics_);
-    parser_ = createParser(*diagnostics_);
     typeChecker_ = make_unique<TypeChecker>(*diagnostics_);
+    parser_ = createParser(*diagnostics_, typeChecker_->getTypeSystem());
     codeGenerator_ = createLLVMCodeGen(*diagnostics_, options_);
     
     // Setup target

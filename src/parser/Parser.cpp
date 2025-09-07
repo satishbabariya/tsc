@@ -2,6 +2,7 @@
 #include "tsc/parser/VectorTokenStream.h"
 #include "tsc/utils/DiagnosticEngine.h"
 #include "tsc/lexer/Lexer.h"
+#include "tsc/semantic/TypeSystem.h"
 #include <unordered_map>
 
 namespace tsc {
@@ -25,7 +26,7 @@ static const std::unordered_map<TokenType, int> operatorPrecedence = {
     {TokenType::Slash, 12},
 };
 
-Parser::Parser(DiagnosticEngine& diagnostics) : diagnostics_(diagnostics) {}
+Parser::Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) : diagnostics_(diagnostics), typeSystem_(typeSystem) {}
 
 Parser::~Parser() = default;
 
@@ -525,9 +526,28 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
         }
         else if (match(TokenType::LeftParen)) {
             // Parse function call: expr(args...)
-            // TODO: Implement function call parsing
-            reportError("Function calls not yet implemented in postfix expressions", getCurrentLocation());
-            return nullptr;
+            std::vector<unique_ptr<Expression>> arguments;
+            
+            // Parse arguments if not empty
+            if (!check(TokenType::RightParen)) {
+                do {
+                    auto arg = parseExpression();
+                    if (!arg) {
+                        reportError("Expected expression in function call argument", getCurrentLocation());
+                        return nullptr;
+                    }
+                    arguments.push_back(std::move(arg));
+                } while (match(TokenType::Comma));
+            }
+            
+            consume(TokenType::RightParen, "Expected ')' after function call arguments");
+            
+            SourceLocation location = getCurrentLocation();
+            expr = make_unique<CallExpression>(
+                std::move(expr),
+                std::move(arguments),
+                location
+            );
         }
         else if (match(TokenType::Dot)) {
             // Parse property access: expr.property
@@ -770,10 +790,59 @@ SourceLocation Parser::getCurrentLocation() const {
     return peek().getLocation();
 }
 
-// Stub implementations for remaining methods
+// Parse type annotations like ": number", ": string", etc.
 shared_ptr<Type> Parser::parseTypeAnnotation() {
-    reportWarning("Type annotations not yet implemented", getCurrentLocation());
-    return nullptr;
+    // We should already have consumed the ':' token before calling this
+    
+    
+    // Handle TypeScript type keywords
+    if (check(TokenType::Number)) {
+        advance();
+        return typeSystem_.getNumberType();
+    } else if (check(TokenType::String)) {
+        advance();
+        return typeSystem_.getStringType();
+    } else if (check(TokenType::Boolean)) {
+        advance();
+        return typeSystem_.getBooleanType();
+    } else if (check(TokenType::Null)) {
+        advance();
+        return typeSystem_.getNullType();
+    } else if (check(TokenType::Undefined)) {
+        advance();
+        return typeSystem_.getUndefinedType();
+    } else if (check(TokenType::Void)) {
+        advance();
+        return typeSystem_.getVoidType();
+    } else if (check(TokenType::Any)) {
+        advance();
+        return typeSystem_.getAnyType();
+    } else if (check(TokenType::Unknown)) {
+        advance();
+        return typeSystem_.getUnknownType();
+    } else if (check(TokenType::Never)) {
+        advance();
+        return typeSystem_.getNeverType();
+    }
+    
+    // Handle regular identifiers (for custom types, interfaces, etc.)
+    if (check(TokenType::Identifier)) {
+        Token typeToken = advance();
+        String typeName = typeToken.getStringValue();
+        // For now, treat unknown identifiers as error types
+        reportError("Unknown type: " + typeName, typeToken.getLocation());
+        return typeSystem_.getErrorType();
+    }
+    
+    // Handle array types like "number[]"
+    if (check(TokenType::LeftBracket)) {
+        // For now, just report error - array type syntax needs more complex parsing
+        reportError("Array type syntax not yet implemented", getCurrentLocation());
+        return typeSystem_.getErrorType();
+    }
+    
+    reportError("Expected type name after ':'", getCurrentLocation());
+    return typeSystem_.getErrorType();
 }
 
 std::vector<FunctionDeclaration::Parameter> Parser::parseParameterList() {
@@ -815,8 +884,8 @@ unique_ptr<BlockStatement> Parser::parseFunctionBody() {
 }
 
 // Factory function
-unique_ptr<Parser> createParser(DiagnosticEngine& diagnostics) {
-    return make_unique<Parser>(diagnostics);
+unique_ptr<Parser> createParser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) {
+    return make_unique<Parser>(diagnostics, typeSystem);
 }
 
 } // namespace tsc

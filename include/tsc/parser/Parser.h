@@ -9,11 +9,12 @@ namespace tsc {
 
 class DiagnosticEngine;
 class TokenStream;
+class TypeSystem;
 
 // Parser for TypeScript syntax using recursive descent parsing
 class Parser {
 public:
-    explicit Parser(DiagnosticEngine& diagnostics);
+    explicit Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem);
     ~Parser();
     
     // Main parsing interface
@@ -28,6 +29,7 @@ public:
 
 private:
     DiagnosticEngine& diagnostics_;
+    const TypeSystem& typeSystem_;
     unique_ptr<TokenStream> tokens_;
     String filename_;
     
@@ -126,6 +128,6 @@ private:
 };
 
 // Factory function for creating parser with token stream
-unique_ptr<Parser> createParser(DiagnosticEngine& diagnostics);
+unique_ptr<Parser> createParser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem);
 
 } // namespace tsc
