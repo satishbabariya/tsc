@@ -1,0 +1,1 @@
+/usr/bin/c++  -Wall -Wextra -Wpedantic -Xlinker --dependency-file=CMakeFiles/tsc.dir/link.d CMakeFiles/tsc.dir/src/main.cpp.o -o tsc  src/libtsc_lib.a /usr/lib/x86_64-linux-gnu/libLLVM-20.so

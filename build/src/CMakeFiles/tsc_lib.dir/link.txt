@@ -1,0 +1,2 @@
+/usr/bin/ar qc libtsc_lib.a CMakeFiles/tsc_lib.dir/utils/DiagnosticEngine.cpp.o CMakeFiles/tsc_lib.dir/lexer/Lexer.cpp.o CMakeFiles/tsc_lib.dir/parser/Parser.cpp.o CMakeFiles/tsc_lib.dir/semantic/TypeChecker.cpp.o CMakeFiles/tsc_lib.dir/codegen/LLVMCodeGen.cpp.o CMakeFiles/tsc_lib.dir/AST.cpp.o CMakeFiles/tsc_lib.dir/Token.cpp.o CMakeFiles/tsc_lib.dir/Compiler.cpp.o
+/usr/bin/ranlib libtsc_lib.a
