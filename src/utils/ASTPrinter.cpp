@@ -124,6 +124,131 @@ void ASTPrinter::visit(BlockStatement& node) {
     decreaseIndent();
 }
 
+void ASTPrinter::visit(ReturnStatement& node) {
+    printIndent();
+    output_ << "ReturnStatement";
+    
+    if (node.hasValue()) {
+        output_ << ":" << std::endl;
+        increaseIndent();
+        printIndent();
+        output_ << "Value:" << std::endl;
+        increaseIndent();
+        node.getValue()->accept(*this);
+        decreaseIndent();
+        decreaseIndent();
+    } else {
+        output_ << " (void)" << std::endl;
+    }
+}
+
+void ASTPrinter::visit(IfStatement& node) {
+    printIndent();
+    output_ << "IfStatement:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Condition:" << std::endl;
+    increaseIndent();
+    node.getCondition()->accept(*this);
+    decreaseIndent();
+    
+    printIndent();
+    output_ << "Then:" << std::endl;
+    increaseIndent();
+    node.getThenStatement()->accept(*this);
+    decreaseIndent();
+    
+    if (node.hasElse()) {
+        printIndent();
+        output_ << "Else:" << std::endl;
+        increaseIndent();
+        node.getElseStatement()->accept(*this);
+        decreaseIndent();
+    }
+    
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(WhileStatement& node) {
+    printIndent();
+    output_ << "WhileStatement:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Condition:" << std::endl;
+    increaseIndent();
+    node.getCondition()->accept(*this);
+    decreaseIndent();
+    
+    printIndent();
+    output_ << "Body:" << std::endl;
+    increaseIndent();
+    node.getBody()->accept(*this);
+    decreaseIndent();
+    
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(DoWhileStatement& node) {
+    printIndent();
+    output_ << "DoWhileStatement:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Body:" << std::endl;
+    increaseIndent();
+    node.getBody()->accept(*this);
+    decreaseIndent();
+    
+    printIndent();
+    output_ << "Condition:" << std::endl;
+    increaseIndent();
+    node.getCondition()->accept(*this);
+    decreaseIndent();
+    
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(ForStatement& node) {
+    printIndent();
+    output_ << "ForStatement:" << std::endl;
+    
+    increaseIndent();
+    
+    if (node.getInit()) {
+        printIndent();
+        output_ << "Init:" << std::endl;
+        increaseIndent();
+        node.getInit()->accept(*this);
+        decreaseIndent();
+    }
+    
+    if (node.getCondition()) {
+        printIndent();
+        output_ << "Condition:" << std::endl;
+        increaseIndent();
+        node.getCondition()->accept(*this);
+        decreaseIndent();
+    }
+    
+    if (node.getIncrement()) {
+        printIndent();
+        output_ << "Increment:" << std::endl;
+        increaseIndent();
+        node.getIncrement()->accept(*this);
+        decreaseIndent();
+    }
+    
+    printIndent();
+    output_ << "Body:" << std::endl;
+    increaseIndent();
+    node.getBody()->accept(*this);
+    decreaseIndent();
+    
+    decreaseIndent();
+}
+
 void ASTPrinter::visit(VariableDeclaration& node) {
     printIndent();
     output_ << "VariableDeclaration: " << node.getName();

@@ -234,6 +234,268 @@ void LLVMCodeGen::visit(BlockStatement& node) {
     codeGenContext_->exitScope();
 }
 
+void LLVMCodeGen::visit(ReturnStatement& node) {
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    if (!currentFunc) {
+        reportError("Return statement outside function", node.getLocation());
+        return;
+    }
+    
+    if (node.hasValue()) {
+        // Generate code for return value
+        node.getValue()->accept(*this);
+        llvm::Value* returnValue = getCurrentValue();
+        
+        if (returnValue) {
+            // Convert to appropriate return type if needed
+            llvm::Type* returnType = currentFunc->getReturnType();
+            if (returnValue->getType() != returnType) {
+                // TODO: Add type conversion logic
+                // For now, just create the return with the value we have
+            }
+            builder_->CreateRet(returnValue);
+        } else {
+            reportError("Failed to generate return value", node.getLocation());
+            builder_->CreateRetVoid();
+        }
+    } else {
+        // Return void
+        builder_->CreateRetVoid();
+    }
+}
+
+void LLVMCodeGen::visit(IfStatement& node) {
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    if (!currentFunc) {
+        reportError("If statement outside function", node.getLocation());
+        return;
+    }
+    
+    // Generate condition
+    node.getCondition()->accept(*this);
+    llvm::Value* conditionValue = getCurrentValue();
+    
+    if (!conditionValue) {
+        reportError("Failed to generate condition", node.getLocation());
+        return;
+    }
+    
+    // Convert condition to boolean (simplified for now)
+    if (conditionValue->getType()->isDoubleTy()) {
+        // Compare double to 0.0
+        llvm::Value* zero = llvm::ConstantFP::get(llvm::Type::getDoubleTy(*context_), 0.0);
+        conditionValue = builder_->CreateFCmpONE(conditionValue, zero, "tobool");
+    } else if (conditionValue->getType()->isIntegerTy(1)) {
+        // Already boolean
+    } else {
+        // For other types, just use as-is (this is a simplification)
+        // TODO: Add proper type conversion
+    }
+    
+    // Create basic blocks
+    llvm::BasicBlock* thenBlock = llvm::BasicBlock::Create(*context_, "if.then", currentFunc);
+    llvm::BasicBlock* elseBlock = node.hasElse() ? 
+        llvm::BasicBlock::Create(*context_, "if.else", currentFunc) : nullptr;
+    llvm::BasicBlock* endBlock = llvm::BasicBlock::Create(*context_, "if.end", currentFunc);
+    
+    // Create conditional branch
+    if (node.hasElse()) {
+        builder_->CreateCondBr(conditionValue, thenBlock, elseBlock);
+    } else {
+        builder_->CreateCondBr(conditionValue, thenBlock, endBlock);
+    }
+    
+    // Generate then block
+    builder_->SetInsertPoint(thenBlock);
+    node.getThenStatement()->accept(*this);
+    if (!builder_->GetInsertBlock()->getTerminator()) {
+        builder_->CreateBr(endBlock);
+    }
+    
+    // Generate else block if present
+    if (node.hasElse()) {
+        builder_->SetInsertPoint(elseBlock);
+        node.getElseStatement()->accept(*this);
+        if (!builder_->GetInsertBlock()->getTerminator()) {
+            builder_->CreateBr(endBlock);
+        }
+    }
+    
+    // Continue with end block
+    builder_->SetInsertPoint(endBlock);
+}
+
+void LLVMCodeGen::visit(WhileStatement& node) {
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    if (!currentFunc) {
+        reportError("While statement outside function", node.getLocation());
+        return;
+    }
+    
+    // Create basic blocks
+    llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context_, "while.cond", currentFunc);
+    llvm::BasicBlock* bodyBlock = llvm::BasicBlock::Create(*context_, "while.body", currentFunc);
+    llvm::BasicBlock* endBlock = llvm::BasicBlock::Create(*context_, "while.end", currentFunc);
+    
+    // Jump to condition block
+    builder_->CreateBr(conditionBlock);
+    
+    // Generate condition
+    builder_->SetInsertPoint(conditionBlock);
+    node.getCondition()->accept(*this);
+    llvm::Value* conditionValue = getCurrentValue();
+    
+    if (!conditionValue) {
+        reportError("Failed to generate while condition", node.getCondition()->getLocation());
+        return;
+    }
+    
+    // Convert condition to boolean (simplified for now)
+    if (conditionValue->getType()->isDoubleTy()) {
+        // Compare double to 0.0
+        llvm::Value* zero = llvm::ConstantFP::get(llvm::Type::getDoubleTy(*context_), 0.0);
+        conditionValue = builder_->CreateFCmpONE(conditionValue, zero, "tobool");
+    } else if (conditionValue->getType()->isIntegerTy(1)) {
+        // Already boolean
+    } else {
+        // For other types, just use as-is (this is a simplification)
+        // TODO: Add proper type conversion
+    }
+    
+    // Create conditional branch
+    builder_->CreateCondBr(conditionValue, bodyBlock, endBlock);
+    
+    // Generate body
+    builder_->SetInsertPoint(bodyBlock);
+    node.getBody()->accept(*this);
+    if (!builder_->GetInsertBlock()->getTerminator()) {
+        builder_->CreateBr(conditionBlock);
+    }
+    
+    // Continue with end block
+    builder_->SetInsertPoint(endBlock);
+}
+
+void LLVMCodeGen::visit(DoWhileStatement& node) {
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    if (!currentFunc) {
+        reportError("Do-while statement outside function", node.getLocation());
+        return;
+    }
+    
+    // Create basic blocks
+    llvm::BasicBlock* bodyBlock = llvm::BasicBlock::Create(*context_, "do.body", currentFunc);
+    llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context_, "do.cond", currentFunc);
+    llvm::BasicBlock* endBlock = llvm::BasicBlock::Create(*context_, "do.end", currentFunc);
+    
+    // Jump to body block (do-while executes body at least once)
+    builder_->CreateBr(bodyBlock);
+    
+    // Generate body
+    builder_->SetInsertPoint(bodyBlock);
+    node.getBody()->accept(*this);
+    if (!builder_->GetInsertBlock()->getTerminator()) {
+        builder_->CreateBr(conditionBlock);
+    }
+    
+    // Generate condition
+    builder_->SetInsertPoint(conditionBlock);
+    node.getCondition()->accept(*this);
+    llvm::Value* conditionValue = getCurrentValue();
+    
+    if (!conditionValue) {
+        reportError("Failed to generate do-while condition", node.getCondition()->getLocation());
+        return;
+    }
+    
+    // Convert condition to boolean (simplified for now)
+    if (conditionValue->getType()->isDoubleTy()) {
+        // Compare double to 0.0
+        llvm::Value* zero = llvm::ConstantFP::get(llvm::Type::getDoubleTy(*context_), 0.0);
+        conditionValue = builder_->CreateFCmpONE(conditionValue, zero, "tobool");
+    } else if (conditionValue->getType()->isIntegerTy(1)) {
+        // Already boolean
+    } else {
+        // For other types, just use as-is (this is a simplification)
+        // TODO: Add proper type conversion
+    }
+    
+    // Create conditional branch (continue if true, exit if false)
+    builder_->CreateCondBr(conditionValue, bodyBlock, endBlock);
+    
+    // Continue with end block
+    builder_->SetInsertPoint(endBlock);
+}
+
+void LLVMCodeGen::visit(ForStatement& node) {
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    if (!currentFunc) {
+        reportError("For statement outside function", node.getLocation());
+        return;
+    }
+    
+    // Generate init if present
+    if (node.getInit()) {
+        node.getInit()->accept(*this);
+    }
+    
+    // Create basic blocks
+    llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context_, "for.cond", currentFunc);
+    llvm::BasicBlock* bodyBlock = llvm::BasicBlock::Create(*context_, "for.body", currentFunc);
+    llvm::BasicBlock* incrementBlock = llvm::BasicBlock::Create(*context_, "for.inc", currentFunc);
+    llvm::BasicBlock* endBlock = llvm::BasicBlock::Create(*context_, "for.end", currentFunc);
+    
+    // Jump to condition block
+    builder_->CreateBr(conditionBlock);
+    
+    // Generate condition
+    builder_->SetInsertPoint(conditionBlock);
+    if (node.getCondition()) {
+        node.getCondition()->accept(*this);
+        llvm::Value* conditionValue = getCurrentValue();
+        
+        if (!conditionValue) {
+            reportError("Failed to generate for condition", node.getCondition()->getLocation());
+            return;
+        }
+        
+        // Convert condition to boolean (simplified for now)
+        if (conditionValue->getType()->isDoubleTy()) {
+            // Compare double to 0.0
+            llvm::Value* zero = llvm::ConstantFP::get(llvm::Type::getDoubleTy(*context_), 0.0);
+            conditionValue = builder_->CreateFCmpONE(conditionValue, zero, "tobool");
+        } else if (conditionValue->getType()->isIntegerTy(1)) {
+            // Already boolean
+        } else {
+            // For other types, just use as-is (this is a simplification)
+            // TODO: Add proper type conversion
+        }
+        
+        // Create conditional branch
+        builder_->CreateCondBr(conditionValue, bodyBlock, endBlock);
+    } else {
+        // No condition means infinite loop (like for(;;))
+        builder_->CreateBr(bodyBlock);
+    }
+    
+    // Generate body
+    builder_->SetInsertPoint(bodyBlock);
+    node.getBody()->accept(*this);
+    if (!builder_->GetInsertBlock()->getTerminator()) {
+        builder_->CreateBr(incrementBlock);
+    }
+    
+    // Generate increment
+    builder_->SetInsertPoint(incrementBlock);
+    if (node.getIncrement()) {
+        node.getIncrement()->accept(*this);
+    }
+    builder_->CreateBr(conditionBlock);
+    
+    // Continue with end block
+    builder_->SetInsertPoint(endBlock);
+}
+
 void LLVMCodeGen::visit(VariableDeclaration& node) {
     // Generate initializer first to determine the type
     llvm::Value* initValue = nullptr;

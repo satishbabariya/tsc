@@ -194,6 +194,130 @@ String BlockStatement::toString() const {
     return ss.str();
 }
 
+// ReturnStatement implementation
+void ReturnStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ReturnStatement::toString() const {
+    std::stringstream ss;
+    ss << "return";
+    
+    if (value_) {
+        ss << " " << value_->toString();
+    }
+    
+    ss << ";";
+    return ss.str();
+}
+
+// IfStatement implementation
+void IfStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String IfStatement::toString() const {
+    std::stringstream ss;
+    ss << "if (" << condition_->toString() << ") ";
+    
+    if (auto block = dynamic_cast<BlockStatement*>(thenStatement_.get())) {
+        ss << block->toString();
+    } else {
+        ss << "{\n  " << thenStatement_->toString() << "\n}";
+    }
+    
+    if (elseStatement_) {
+        ss << " else ";
+        if (auto block = dynamic_cast<BlockStatement*>(elseStatement_.get())) {
+            ss << block->toString();
+        } else {
+            ss << "{\n  " << elseStatement_->toString() << "\n}";
+        }
+    }
+    
+    return ss.str();
+}
+
+// WhileStatement implementation
+void WhileStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String WhileStatement::toString() const {
+    std::stringstream ss;
+    ss << "while (" << condition_->toString() << ") ";
+    
+    if (auto block = dynamic_cast<BlockStatement*>(body_.get())) {
+        ss << block->toString();
+    } else {
+        ss << "{\n  " << body_->toString() << "\n}";
+    }
+    
+    return ss.str();
+}
+
+// DoWhileStatement implementation
+void DoWhileStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String DoWhileStatement::toString() const {
+    std::stringstream ss;
+    ss << "do ";
+    
+    if (auto block = dynamic_cast<BlockStatement*>(body_.get())) {
+        ss << block->toString();
+    } else {
+        ss << "{\n  " << body_->toString() << "\n}";
+    }
+    
+    ss << " while (" << condition_->toString() << ");";
+    
+    return ss.str();
+}
+
+// ForStatement implementation
+void ForStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ForStatement::toString() const {
+    std::stringstream ss;
+    ss << "for (";
+    
+    if (init_) {
+        ss << init_->toString();
+        // Remove trailing semicolon if present for cleaner output
+        String initStr = init_->toString();
+        if (!initStr.empty() && initStr.back() != ';') {
+            ss << ";";
+        }
+    } else {
+        ss << ";";
+    }
+    
+    ss << " ";
+    if (condition_) {
+        ss << condition_->toString();
+    }
+    ss << ";";
+    
+    ss << " ";
+    if (increment_) {
+        ss << increment_->toString();
+    }
+    
+    ss << ") ";
+    
+    if (auto block = dynamic_cast<BlockStatement*>(body_.get())) {
+        ss << block->toString();
+    } else {
+        ss << "{\n  " << body_->toString() << "\n}";
+    }
+    
+    return ss.str();
+}
+
 // VariableDeclaration implementation
 void VariableDeclaration::accept(ASTVisitor& visitor) {
     visitor.visit(*this);

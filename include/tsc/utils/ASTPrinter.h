@@ -26,6 +26,11 @@ public:
     // Statements
     void visit(ExpressionStatement& node) override;
     void visit(BlockStatement& node) override;
+    void visit(ReturnStatement& node) override;
+    void visit(IfStatement& node) override;
+    void visit(WhileStatement& node) override;
+    void visit(DoWhileStatement& node) override;
+    void visit(ForStatement& node) override;
     void visit(VariableDeclaration& node) override;
     void visit(FunctionDeclaration& node) override;
     

@@ -43,6 +43,7 @@ private:
     unique_ptr<Statement> parseTypeAliasDeclaration();
     unique_ptr<Statement> parseIfStatement();
     unique_ptr<Statement> parseWhileStatement();
+    unique_ptr<Statement> parseDoWhileStatement();
     unique_ptr<Statement> parseForStatement();
     unique_ptr<Statement> parseBlockStatement();
     unique_ptr<Statement> parseExpressionStatement();

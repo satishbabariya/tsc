@@ -74,16 +74,26 @@ public:
     
     void visit(ExpressionStatement& node) override;
     void visit(BlockStatement& node) override;
+    void visit(ReturnStatement& node) override;
+    void visit(IfStatement& node) override;
+    void visit(WhileStatement& node) override;
+    void visit(DoWhileStatement& node) override;
+    void visit(ForStatement& node) override;
     void visit(VariableDeclaration& node) override;
     void visit(FunctionDeclaration& node) override;
     
     void visit(Module& node) override;
 
 private:
+    // Helper methods
+    bool isInFunctionScope() const { return inFunction_; }
     DiagnosticEngine& diagnostics_;
     unique_ptr<SymbolTable> symbolTable_;
     unique_ptr<TypeSystem> typeSystem_;
     unique_ptr<SemanticContext> context_;
+    
+    // Function context tracking
+    bool inFunction_ = false;
     
     // Type information storage
     std::unordered_map<const Expression*, shared_ptr<Type>> expressionTypes_;

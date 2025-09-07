@@ -55,6 +55,7 @@ public:
         Block,
         If,
         While,
+        DoWhile,
         For,
         Return,
         Break,
@@ -332,6 +333,127 @@ private:
     SourceLocation location_;
 };
 
+// Return statement
+class ReturnStatement : public Statement {
+public:
+    ReturnStatement(unique_ptr<Expression> value, const SourceLocation& loc)
+        : value_(std::move(value)), location_(loc) {}
+    
+    ReturnStatement(const SourceLocation& loc)  // For return without value
+        : value_(nullptr), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Return; }
+    String toString() const override;
+    
+    Expression* getValue() const { return value_.get(); }
+    bool hasValue() const { return value_ != nullptr; }
+
+private:
+    unique_ptr<Expression> value_;
+    SourceLocation location_;
+};
+
+// If statement
+class IfStatement : public Statement {
+public:
+    IfStatement(unique_ptr<Expression> condition, unique_ptr<Statement> thenStmt,
+                unique_ptr<Statement> elseStmt, const SourceLocation& loc)
+        : condition_(std::move(condition)), thenStatement_(std::move(thenStmt)),
+          elseStatement_(std::move(elseStmt)), location_(loc) {}
+    
+    IfStatement(unique_ptr<Expression> condition, unique_ptr<Statement> thenStmt,
+                const SourceLocation& loc)
+        : condition_(std::move(condition)), thenStatement_(std::move(thenStmt)),
+          elseStatement_(nullptr), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::If; }
+    String toString() const override;
+    
+    Expression* getCondition() const { return condition_.get(); }
+    Statement* getThenStatement() const { return thenStatement_.get(); }
+    Statement* getElseStatement() const { return elseStatement_.get(); }
+    bool hasElse() const { return elseStatement_ != nullptr; }
+
+private:
+    unique_ptr<Expression> condition_;
+    unique_ptr<Statement> thenStatement_;
+    unique_ptr<Statement> elseStatement_;
+    SourceLocation location_;
+};
+
+// While statement
+class WhileStatement : public Statement {
+public:
+    WhileStatement(unique_ptr<Expression> condition, unique_ptr<Statement> body,
+                   const SourceLocation& loc)
+        : condition_(std::move(condition)), body_(std::move(body)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::While; }
+    String toString() const override;
+    
+    Expression* getCondition() const { return condition_.get(); }
+    Statement* getBody() const { return body_.get(); }
+
+private:
+    unique_ptr<Expression> condition_;
+    unique_ptr<Statement> body_;
+    SourceLocation location_;
+};
+
+// Do-while statement
+class DoWhileStatement : public Statement {
+public:
+    DoWhileStatement(unique_ptr<Statement> body, unique_ptr<Expression> condition,
+                     const SourceLocation& loc)
+        : body_(std::move(body)), condition_(std::move(condition)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::DoWhile; }
+    String toString() const override;
+    
+    Statement* getBody() const { return body_.get(); }
+    Expression* getCondition() const { return condition_.get(); }
+
+private:
+    unique_ptr<Statement> body_;
+    unique_ptr<Expression> condition_;
+    SourceLocation location_;
+};
+
+// For statement
+class ForStatement : public Statement {
+public:
+    ForStatement(unique_ptr<Statement> init, unique_ptr<Expression> condition,
+                 unique_ptr<Expression> increment, unique_ptr<Statement> body,
+                 const SourceLocation& loc)
+        : init_(std::move(init)), condition_(std::move(condition)),
+          increment_(std::move(increment)), body_(std::move(body)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::For; }
+    String toString() const override;
+    
+    Statement* getInit() const { return init_.get(); }
+    Expression* getCondition() const { return condition_.get(); }
+    Expression* getIncrement() const { return increment_.get(); }
+    Statement* getBody() const { return body_.get(); }
+
+private:
+    unique_ptr<Statement> init_;
+    unique_ptr<Expression> condition_;
+    unique_ptr<Expression> increment_;
+    unique_ptr<Statement> body_;
+    SourceLocation location_;
+};
+
 // Variable declaration
 class VariableDeclaration : public Declaration {
 public:
@@ -445,6 +567,11 @@ public:
     // Statements
     virtual void visit(ExpressionStatement& node) = 0;
     virtual void visit(BlockStatement& node) = 0;
+    virtual void visit(ReturnStatement& node) = 0;
+    virtual void visit(IfStatement& node) = 0;
+    virtual void visit(WhileStatement& node) = 0;
+    virtual void visit(DoWhileStatement& node) = 0;
+    virtual void visit(ForStatement& node) = 0;
     virtual void visit(VariableDeclaration& node) = 0;
     virtual void visit(FunctionDeclaration& node) = 0;
     

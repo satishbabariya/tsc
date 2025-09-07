@@ -79,6 +79,31 @@ unique_ptr<Statement> Parser::parseStatement() {
         return parseBlockStatement();
     }
     
+    // Handle return statements
+    if (match(TokenType::Return)) {
+        return parseReturnStatement();
+    }
+    
+    // Handle if statements
+    if (match(TokenType::If)) {
+        return parseIfStatement();
+    }
+    
+    // Handle while statements
+    if (match(TokenType::While)) {
+        return parseWhileStatement();
+    }
+    
+    // Handle do-while statements
+    if (match(TokenType::Do)) {
+        return parseDoWhileStatement();
+    }
+    
+    // Handle for statements
+    if (match(TokenType::For)) {
+        return parseForStatement();
+    }
+    
     // Default to expression statement
     return parseExpressionStatement();
 }
@@ -145,6 +170,125 @@ unique_ptr<Statement> Parser::parseBlockStatement() {
     
     consume(TokenType::RightBrace, "Expected '}' after block");
     return make_unique<BlockStatement>(std::move(statements), getCurrentLocation());
+}
+
+unique_ptr<Statement> Parser::parseReturnStatement() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Check if there's a return value
+    unique_ptr<Expression> value = nullptr;
+    if (!check(TokenType::Semicolon) && !isAtEnd()) {
+        value = parseExpression();
+    }
+    
+    consume(TokenType::Semicolon, "Expected ';' after return statement");
+    
+    if (value) {
+        return make_unique<ReturnStatement>(std::move(value), location);
+    } else {
+        return make_unique<ReturnStatement>(location);
+    }
+}
+
+unique_ptr<Statement> Parser::parseIfStatement() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Parse condition
+    consume(TokenType::LeftParen, "Expected '(' after 'if'");
+    auto condition = parseExpression();
+    consume(TokenType::RightParen, "Expected ')' after if condition");
+    
+    // Parse then statement
+    auto thenStmt = parseStatement();
+    
+    // Optional else clause
+    unique_ptr<Statement> elseStmt = nullptr;
+    if (match(TokenType::Else)) {
+        elseStmt = parseStatement();
+    }
+    
+    if (elseStmt) {
+        return make_unique<IfStatement>(std::move(condition), std::move(thenStmt), 
+                                       std::move(elseStmt), location);
+    } else {
+        return make_unique<IfStatement>(std::move(condition), std::move(thenStmt), location);
+    }
+}
+
+unique_ptr<Statement> Parser::parseWhileStatement() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Parse condition
+    consume(TokenType::LeftParen, "Expected '(' after 'while'");
+    auto condition = parseExpression();
+    consume(TokenType::RightParen, "Expected ')' after while condition");
+    
+    // Parse body
+    auto body = parseStatement();
+    
+    return make_unique<WhileStatement>(std::move(condition), std::move(body), location);
+}
+
+unique_ptr<Statement> Parser::parseDoWhileStatement() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Parse body
+    auto body = parseStatement();
+    
+    // Expect 'while'
+    consume(TokenType::While, "Expected 'while' after do body");
+    
+    // Parse condition
+    consume(TokenType::LeftParen, "Expected '(' after 'while'");
+    auto condition = parseExpression();
+    consume(TokenType::RightParen, "Expected ')' after while condition");
+    
+    // Expect semicolon
+    consume(TokenType::Semicolon, "Expected ';' after do-while statement");
+    
+    return make_unique<DoWhileStatement>(std::move(body), std::move(condition), location);
+}
+
+unique_ptr<Statement> Parser::parseForStatement() {
+    SourceLocation location = getCurrentLocation();
+    
+    consume(TokenType::LeftParen, "Expected '(' after 'for'");
+    
+    // Parse init (can be variable declaration or expression or empty)
+    unique_ptr<Statement> init = nullptr;
+    if (!check(TokenType::Semicolon)) {
+        if (match({TokenType::Var, TokenType::Let, TokenType::Const})) {
+            // Parse variable declaration for init
+            init = parseVariableStatement();
+        } else {
+            // Parse expression and wrap in expression statement
+            auto expr = parseExpression();
+            consume(TokenType::Semicolon, "Expected ';' after for init");
+            init = make_unique<ExpressionStatement>(std::move(expr), getCurrentLocation());
+        }
+    } else {
+        consume(TokenType::Semicolon, "Expected ';' after for init");
+    }
+    
+    // Parse condition (optional)
+    unique_ptr<Expression> condition = nullptr;
+    if (!check(TokenType::Semicolon)) {
+        condition = parseExpression();
+    }
+    consume(TokenType::Semicolon, "Expected ';' after for condition");
+    
+    // Parse increment (optional)
+    unique_ptr<Expression> increment = nullptr;
+    if (!check(TokenType::RightParen)) {
+        increment = parseExpression();
+    }
+    consume(TokenType::RightParen, "Expected ')' after for increment");
+    
+    // Parse body
+    auto body = parseStatement();
+    
+    return make_unique<ForStatement>(std::move(init), std::move(condition), 
+                                   std::move(increment), std::move(body), location);
 }
 
 unique_ptr<Statement> Parser::parseExpressionStatement() {

@@ -277,6 +277,7 @@ public:
     bool areTypesCompatible(const Type& from, const Type& to) const;
     shared_ptr<Type> getCommonType(const Type& type1, const Type& type2) const;
     shared_ptr<Type> widenType(const Type& type) const;
+    bool isConvertibleToBoolean(shared_ptr<Type> type) const;
     
     // Type inference
     shared_ptr<Type> inferTypeFromLiteral(const ASTNode& literal) const;

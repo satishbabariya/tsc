@@ -459,6 +459,30 @@ String TypeSystem::getCacheKey(TypeKind kind, const std::vector<shared_ptr<Type>
     return ss.str();
 }
 
+bool TypeSystem::isConvertibleToBoolean(shared_ptr<Type> type) const {
+    if (!type) return true; // any can be converted to boolean
+    
+    switch (type->getKind()) {
+        case TypeKind::Boolean:
+            return true;
+        case TypeKind::Number:
+        case TypeKind::String:
+        case TypeKind::Any:
+        case TypeKind::Unknown:
+            return true; // These types can be converted to boolean
+        case TypeKind::Null:
+        case TypeKind::Undefined:
+        case TypeKind::Void:
+            return true; // These are falsy
+        case TypeKind::Object:
+        case TypeKind::Array:
+        case TypeKind::Function:
+            return true; // Objects are truthy
+        default:
+            return false; // Other types require explicit conversion
+    }
+}
+
 // Factory functions
 shared_ptr<Type> createNumberType() {
     return make_shared<PrimitiveType>(TypeKind::Number);

@@ -129,6 +129,115 @@ void SemanticAnalyzer::visit(BlockStatement& node) {
     exitScope();
 }
 
+void SemanticAnalyzer::visit(ReturnStatement& node) {
+    // Check if we're inside a function
+    if (!isInFunctionScope()) {
+        reportError("Return statement outside function", node.getLocation());
+        return;
+    }
+    
+    // Analyze return value if present
+    shared_ptr<Type> returnType = typeSystem_->getVoidType();
+    if (node.hasValue()) {
+        node.getValue()->accept(*this);
+        returnType = node.getValue()->getType();
+        if (!returnType) {
+            returnType = typeSystem_->getAnyType();
+        }
+    }
+    
+    // Set the type of the return statement
+    node.setType(returnType);
+    
+    // TODO: Check return type compatibility with function signature
+    // This will be implemented when we add proper function context tracking
+}
+
+void SemanticAnalyzer::visit(IfStatement& node) {
+    // Analyze condition
+    node.getCondition()->accept(*this);
+    
+    // Check if condition is boolean-compatible
+    auto conditionType = node.getCondition()->getType();
+    if (conditionType && !typeSystem_->isConvertibleToBoolean(conditionType)) {
+        reportWarning("Condition should be boolean-compatible", node.getCondition()->getLocation());
+    }
+    
+    // Analyze then statement
+    node.getThenStatement()->accept(*this);
+    
+    // Analyze else statement if present
+    if (node.hasElse()) {
+        node.getElseStatement()->accept(*this);
+    }
+    
+    // Set type to void (statements don't have meaningful types)
+    node.setType(typeSystem_->getVoidType());
+}
+
+void SemanticAnalyzer::visit(WhileStatement& node) {
+    // Analyze condition
+    node.getCondition()->accept(*this);
+    
+    // Check if condition is boolean-compatible
+    auto conditionType = node.getCondition()->getType();
+    if (conditionType && !typeSystem_->isConvertibleToBoolean(conditionType)) {
+        reportWarning("While condition should be boolean-compatible", node.getCondition()->getLocation());
+    }
+    
+    // Analyze body
+    node.getBody()->accept(*this);
+    
+    // Set type to void
+    node.setType(typeSystem_->getVoidType());
+}
+
+void SemanticAnalyzer::visit(DoWhileStatement& node) {
+    // Analyze body first
+    node.getBody()->accept(*this);
+    
+    // Analyze condition
+    node.getCondition()->accept(*this);
+    
+    // Check if condition is boolean-compatible
+    auto conditionType = node.getCondition()->getType();
+    if (conditionType && !typeSystem_->isConvertibleToBoolean(conditionType)) {
+        reportWarning("Do-while condition should be boolean-compatible", node.getCondition()->getLocation());
+    }
+    
+    // Set type to void
+    node.setType(typeSystem_->getVoidType());
+}
+
+void SemanticAnalyzer::visit(ForStatement& node) {
+    // Analyze init if present
+    if (node.getInit()) {
+        node.getInit()->accept(*this);
+    }
+    
+    // Analyze condition if present
+    if (node.getCondition()) {
+        node.getCondition()->accept(*this);
+        
+        // Check if condition is boolean-compatible
+        auto conditionType = node.getCondition()->getType();
+        if (conditionType && !typeSystem_->isConvertibleToBoolean(conditionType)) {
+            reportWarning("For condition should be boolean-compatible", node.getCondition()->getLocation());
+        }
+    }
+    
+    // Analyze increment if present
+    if (node.getIncrement()) {
+        node.getIncrement()->accept(*this);
+    }
+    
+    // Analyze body
+    node.getBody()->accept(*this);
+    
+    // Set type to void
+    node.setType(typeSystem_->getVoidType());
+}
+
 void SemanticAnalyzer::visit(VariableDeclaration& node) {
     shared_ptr<Type> varType;
     
@@ -195,8 +304,7 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
     }
     
     // Set function context
-    context_->setInFunction(true);
-    context_->setCurrentFunctionReturnType(returnType);
+    inFunction_ = true;
     
     // Analyze function body
     if (node.getBody()) {
@@ -204,8 +312,7 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
     }
     
     // Reset function context
-    context_->setInFunction(false);
-    context_->setCurrentFunctionReturnType(nullptr);
+    inFunction_ = false;
     
     exitScope();
 }
