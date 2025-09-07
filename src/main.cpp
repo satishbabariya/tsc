@@ -1,5 +1,6 @@
 #include "tsc/Compiler.h"
 #include "tsc/utils/DiagnosticEngine.h"
+#include "tsc/utils/ASTPrinter.h"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -18,6 +19,7 @@ void printUsage(const char* programName) {
     std::cout << "  --target <triple>       Target triple (e.g., x86_64-pc-linux-gnu)\n";
     std::cout << "  --emit-llvm             Emit LLVM IR instead of object file\n";
     std::cout << "  --emit-obj              Emit object file (default)\n";
+    std::cout << "  --print-ast             Print the Abstract Syntax Tree\n";
     std::cout << "  -j<N>                   Parallel compilation jobs (default: 10)\n";
     std::cout << "  -h, --help              Show this help message\n";
     std::cout << "  -v, --version           Show version information\n";
@@ -42,6 +44,7 @@ int main(int argc, char* argv[]) {
         CompilerOptions options;
         std::vector<String> inputFiles;
         bool emitLLVM = false;
+        bool printAST = false;
         
         // Parse command line arguments
         for (int i = 1; i < argc; ++i) {
@@ -71,6 +74,8 @@ int main(int argc, char* argv[]) {
                 emitLLVM = true;
             } else if (arg == "--emit-obj") {
                 emitLLVM = false;
+            } else if (arg == "--print-ast") {
+                printAST = true;
             } else if (arg.substr(0, 2) == "-O") {
                 String level = arg.substr(2);
                 if (level == "0") options.optimizationLevel = CompilerOptions::OptLevel::O0;
@@ -141,6 +146,14 @@ int main(int argc, char* argv[]) {
             std::cerr << "Compilation failed: " << result.errorMessage << std::endl;
             compiler.getDiagnostics().printSummary();
             return 1;
+        }
+        
+        // Print AST if requested
+        if (printAST && result.ast) {
+            std::cout << "\n=== Abstract Syntax Tree ===\n";
+            ASTPrinter printer(std::cout);
+            printer.print(*result.ast);
+            std::cout << "=============================\n\n";
         }
         
         // Handle emit-llvm option

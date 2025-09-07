@@ -35,6 +35,15 @@ void NullLiteral::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
+// ExpressionStatement implementation
+void ExpressionStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ExpressionStatement::toString() const {
+    return expression_->toString() + ";";
+}
+
 // Identifier implementation
 void Identifier::accept(ASTVisitor& visitor) {
     visitor.visit(*this);

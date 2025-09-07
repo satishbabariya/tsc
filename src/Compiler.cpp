@@ -1,5 +1,6 @@
 #include "tsc/Compiler.h"
 #include "tsc/lexer/Lexer.h"
+#include "tsc/parser/Parser.h"
 #include "tsc/utils/DiagnosticEngine.h"
 
 // LLVM includes - simplified for now
@@ -11,18 +12,7 @@
 
 namespace tsc {
 
-// Forward declare the classes that are implemented in the same file
-class Parser {
-public:
-    explicit Parser(DiagnosticEngine& diagnostics) : diagnostics_(diagnostics) {}
-    unique_ptr<Module> parse(const std::vector<Token>& tokens, const String& filename) {
-        diagnostics_.note("Parser not yet implemented", SourceLocation(filename, 1, 1));
-        std::vector<unique_ptr<Statement>> statements;
-        return make_unique<Module>(filename, std::move(statements));
-    }
-private:
-    DiagnosticEngine& diagnostics_;
-};
+// Parser is now implemented in separate file
 
 class TypeChecker {
 public:
@@ -65,7 +55,7 @@ Compiler::Compiler(const CompilerOptions& options) : options_(options) {
     // Create subsystems
     diagnostics_ = make_unique<DiagnosticEngine>();
     lexer_ = make_unique<Lexer>(*diagnostics_);
-    parser_ = make_unique<Parser>(*diagnostics_);
+    parser_ = createParser(*diagnostics_);
     typeChecker_ = make_unique<TypeChecker>(*diagnostics_);
     codeGenerator_ = make_unique<CodeGenerator>(*diagnostics_, options_);
     

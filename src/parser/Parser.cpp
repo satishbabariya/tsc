@@ -1,25 +1,383 @@
-#include "tsc/AST.h"
+#include "tsc/parser/Parser.h"
+#include "tsc/parser/VectorTokenStream.h"
 #include "tsc/utils/DiagnosticEngine.h"
+#include "tsc/lexer/Lexer.h"
+#include <unordered_map>
 
 namespace tsc {
 
-class Parser {
-public:
-    explicit Parser(DiagnosticEngine& diagnostics) : diagnostics_(diagnostics) {}
-    
-    unique_ptr<Module> parse(const std::vector<Token>& tokens, const String& filename) {
-        // TODO: Implement parser based on the grammar in tsc.tm
-        // This is a placeholder implementation
-        
-        diagnostics_.note("Parser not yet implemented", SourceLocation(filename, 1, 1));
-        
-        // Create empty module for now
-        std::vector<unique_ptr<Statement>> statements;
-        return make_unique<Module>(filename, std::move(statements));
-    }
-
-private:
-    DiagnosticEngine& diagnostics_;
+// Operator precedence table (higher number = higher precedence)
+static const std::unordered_map<TokenType, int> operatorPrecedence = {
+    {TokenType::Equal, 1},
+    {TokenType::PlusEqual, 1},
+    {TokenType::MinusEqual, 1},
+    {TokenType::PipePipe, 3},
+    {TokenType::AmpersandAmpersand, 4},
+    {TokenType::EqualEqual, 8},
+    {TokenType::NotEqual, 8},
+    {TokenType::Less, 9},
+    {TokenType::Greater, 9},
+    {TokenType::Plus, 11},
+    {TokenType::Minus, 11},
+    {TokenType::Star, 12},
+    {TokenType::Slash, 12},
 };
+
+Parser::Parser(DiagnosticEngine& diagnostics) : diagnostics_(diagnostics) {}
+
+Parser::~Parser() = default;
+
+unique_ptr<Module> Parser::parse(const std::vector<Token>& tokens, const String& filename) {
+    // Create a token stream from the vector
+    auto tokenStream = make_unique<VectorTokenStream>(tokens);
+    return parse(std::move(tokenStream), filename);
+}
+
+unique_ptr<Module> Parser::parse(unique_ptr<TokenStream> tokenStream, const String& filename) {
+    tokens_ = std::move(tokenStream);
+    filename_ = filename;
+    
+    try {
+        return parseModule();
+    } catch (const CompilerError& e) {
+        reportError(e.what(), e.getLocation());
+        return nullptr;
+    }
+}
+
+unique_ptr<Module> Parser::parseModule() {
+    std::vector<unique_ptr<Statement>> statements;
+    
+    while (!isAtEnd()) {
+        try {
+            if (auto stmt = parseStatement()) {
+                statements.push_back(std::move(stmt));
+            }
+        } catch (const CompilerError&) {
+            synchronize();
+        }
+    }
+    
+    return make_unique<Module>(filename_, std::move(statements));
+}
+
+unique_ptr<Statement> Parser::parseStatement() {
+    // Handle variable declarations
+    if (match({TokenType::Var, TokenType::Let, TokenType::Const})) {
+        return parseVariableStatement();
+    }
+    
+    // Handle function declarations
+    if (check(TokenType::Function)) {
+        return parseFunctionDeclaration();
+    }
+    
+    // Handle block statements
+    if (match(TokenType::LeftBrace)) {
+        return parseBlockStatement();
+    }
+    
+    // Default to expression statement
+    return parseExpressionStatement();
+}
+
+unique_ptr<Statement> Parser::parseVariableStatement() {
+    // Parse identifier
+    Token nameToken = consume(TokenType::Identifier, "Expected variable name");
+    String name = nameToken.getStringValue();
+    
+    // Optional type annotation
+    shared_ptr<Type> typeAnnotation = nullptr;
+    if (match(TokenType::Colon)) {
+        typeAnnotation = parseTypeAnnotation();
+    }
+    
+    // Optional initializer
+    unique_ptr<Expression> initializer = nullptr;
+    if (match(TokenType::Equal)) {
+        initializer = parseExpression();
+    }
+    
+    consume(TokenType::Semicolon, "Expected ';' after variable declaration");
+    
+    return make_unique<VariableDeclaration>(
+        VariableDeclaration::Kind::Let, name, std::move(initializer), 
+        typeAnnotation, nameToken.getLocation()
+    );
+}
+
+unique_ptr<Statement> Parser::parseFunctionDeclaration() {
+    consume(TokenType::Function, "Expected 'function'");
+    
+    Token nameToken = consume(TokenType::Identifier, "Expected function name");
+    String name = nameToken.getStringValue();
+    
+    consume(TokenType::LeftParen, "Expected '(' after function name");
+    auto parameters = parseParameterList();
+    consume(TokenType::RightParen, "Expected ')' after parameters");
+    
+    // Optional return type
+    shared_ptr<Type> returnType = nullptr;
+    if (match(TokenType::Colon)) {
+        returnType = parseTypeAnnotation();
+    }
+    
+    auto body = parseFunctionBody();
+    
+    return make_unique<FunctionDeclaration>(
+        name, std::move(parameters), returnType, std::move(body), 
+        nameToken.getLocation(), false, false
+    );
+}
+
+unique_ptr<Statement> Parser::parseBlockStatement() {
+    std::vector<unique_ptr<Statement>> statements;
+    
+    while (!isAtEnd() && !check(TokenType::RightBrace)) {
+        if (auto stmt = parseStatement()) {
+            statements.push_back(std::move(stmt));
+        } else {
+            synchronize();
+        }
+    }
+    
+    consume(TokenType::RightBrace, "Expected '}' after block");
+    return make_unique<BlockStatement>(std::move(statements), getCurrentLocation());
+}
+
+unique_ptr<Statement> Parser::parseExpressionStatement() {
+    auto expr = parseExpression();
+    consume(TokenType::Semicolon, "Expected ';' after expression");
+    
+    return make_unique<ExpressionStatement>(std::move(expr), getCurrentLocation());
+}
+
+unique_ptr<Expression> Parser::parseExpression() {
+    return parseBinaryExpression();
+}
+
+unique_ptr<Expression> Parser::parseBinaryExpression(int minPrecedence) {
+    auto left = parseUnaryExpression();
+    
+    while (!isAtEnd()) {
+        TokenType opType = peek().getType();
+        int precedence = getBinaryOperatorPrecedence(opType);
+        
+        if (precedence < minPrecedence) {
+            break;
+        }
+        
+        Token opToken = advance();
+        auto right = parseBinaryExpression(precedence + 1);
+        
+        left = make_unique<BinaryExpression>(
+            std::move(left),
+            tokenToBinaryOperator(opType),
+            std::move(right),
+            opToken.getLocation()
+        );
+    }
+    
+    return left;
+}
+
+unique_ptr<Expression> Parser::parseUnaryExpression() {
+    if (check(TokenType::Plus) || check(TokenType::Minus) || 
+        check(TokenType::Exclamation)) {
+        
+        Token opToken = advance();
+        auto operand = parseUnaryExpression();
+        
+        return make_unique<UnaryExpression>(
+            tokenToUnaryOperator(opToken.getType()),
+            std::move(operand),
+            opToken.getLocation(),
+            true
+        );
+    }
+    
+    return parsePrimaryExpression();
+}
+
+unique_ptr<Expression> Parser::parsePrimaryExpression() {
+    if (check(TokenType::NumericLiteral)) {
+        Token token = advance();
+        return make_unique<NumericLiteral>(token.getNumericValue(), token.getLocation());
+    }
+    
+    if (check(TokenType::StringLiteral)) {
+        Token token = advance();
+        return make_unique<StringLiteral>(token.getStringValue(), token.getLocation());
+    }
+    
+    if (check(TokenType::True)) {
+        advance();
+        return make_unique<BooleanLiteral>(true, getCurrentLocation());
+    }
+    
+    if (check(TokenType::False)) {
+        advance();
+        return make_unique<BooleanLiteral>(false, getCurrentLocation());
+    }
+    
+    if (check(TokenType::Null)) {
+        advance();
+        return make_unique<NullLiteral>(getCurrentLocation());
+    }
+    
+    if (check(TokenType::Identifier)) {
+        Token token = advance();
+        return make_unique<Identifier>(token.getStringValue(), token.getLocation());
+    }
+    
+    if (match(TokenType::LeftParen)) {
+        auto expr = parseExpression();
+        consume(TokenType::RightParen, "Expected ')' after expression");
+        return expr;
+    }
+    
+    reportError("Unexpected token in expression", getCurrentLocation());
+    return nullptr;
+}
+
+// Utility methods
+Token Parser::peek() const {
+    return tokens_->peek();
+}
+
+Token Parser::advance() {
+    return tokens_->advance();
+}
+
+bool Parser::check(TokenType type) const {
+    return !isAtEnd() && peek().getType() == type;
+}
+
+bool Parser::match(TokenType type) {
+    if (check(type)) {
+        advance();
+        return true;
+    }
+    return false;
+}
+
+bool Parser::match(std::initializer_list<TokenType> types) {
+    for (auto type : types) {
+        if (check(type)) {
+            advance();
+            return true;
+        }
+    }
+    return false;
+}
+
+Token Parser::consume(TokenType type, const String& errorMessage) {
+    if (check(type)) {
+        return advance();
+    }
+    
+    reportError(errorMessage, getCurrentLocation());
+    throw CompilerError(errorMessage, getCurrentLocation());
+}
+
+bool Parser::isAtEnd() const {
+    return tokens_->isAtEnd();
+}
+
+int Parser::getBinaryOperatorPrecedence(TokenType type) const {
+    auto it = operatorPrecedence.find(type);
+    return it != operatorPrecedence.end() ? it->second : -1;
+}
+
+BinaryExpression::Operator Parser::tokenToBinaryOperator(TokenType type) const {
+    switch (type) {
+        case TokenType::Plus: return BinaryExpression::Operator::Add;
+        case TokenType::Minus: return BinaryExpression::Operator::Subtract;
+        case TokenType::Star: return BinaryExpression::Operator::Multiply;
+        case TokenType::Slash: return BinaryExpression::Operator::Divide;
+        case TokenType::EqualEqual: return BinaryExpression::Operator::Equal;
+        case TokenType::Less: return BinaryExpression::Operator::Less;
+        case TokenType::Greater: return BinaryExpression::Operator::Greater;
+        default:
+            return BinaryExpression::Operator::Add;
+    }
+}
+
+UnaryExpression::Operator Parser::tokenToUnaryOperator(TokenType type) const {
+    switch (type) {
+        case TokenType::Plus: return UnaryExpression::Operator::Plus;
+        case TokenType::Minus: return UnaryExpression::Operator::Minus;
+        case TokenType::Exclamation: return UnaryExpression::Operator::LogicalNot;
+        default:
+            return UnaryExpression::Operator::Plus;
+    }
+}
+
+void Parser::reportError(const String& message, const SourceLocation& location) {
+    SourceLocation loc = location.isValid() ? location : getCurrentLocation();
+    diagnostics_.error(message, loc);
+}
+
+void Parser::reportWarning(const String& message, const SourceLocation& location) {
+    SourceLocation loc = location.isValid() ? location : getCurrentLocation();
+    diagnostics_.warning(message, loc);
+}
+
+void Parser::synchronize() {
+    tokens_->synchronize();
+}
+
+SourceLocation Parser::getCurrentLocation() const {
+    return peek().getLocation();
+}
+
+// Stub implementations for remaining methods
+unique_ptr<Type> Parser::parseTypeAnnotation() {
+    reportWarning("Type annotations not yet implemented", getCurrentLocation());
+    return nullptr;
+}
+
+std::vector<FunctionDeclaration::Parameter> Parser::parseParameterList() {
+    std::vector<FunctionDeclaration::Parameter> parameters;
+    
+    if (!check(TokenType::RightParen)) {
+        do {
+            FunctionDeclaration::Parameter param;
+            Token nameToken = consume(TokenType::Identifier, "Expected parameter name");
+            param.name = nameToken.getStringValue();
+            
+            if (match(TokenType::Colon)) {
+                param.type = parseTypeAnnotation();
+            }
+            
+            parameters.push_back(std::move(param));
+        } while (match(TokenType::Comma));
+    }
+    
+    return parameters;
+}
+
+unique_ptr<BlockStatement> Parser::parseFunctionBody() {
+    consume(TokenType::LeftBrace, "Expected '{' before function body");
+    
+    std::vector<unique_ptr<Statement>> statements;
+    
+    while (!isAtEnd() && !check(TokenType::RightBrace)) {
+        if (auto stmt = parseStatement()) {
+            statements.push_back(std::move(stmt));
+        } else {
+            synchronize();
+        }
+    }
+    
+    consume(TokenType::RightBrace, "Expected '}' after function body");
+    
+    return make_unique<BlockStatement>(std::move(statements), getCurrentLocation());
+}
+
+// Factory function
+unique_ptr<Parser> createParser(DiagnosticEngine& diagnostics) {
+    return make_unique<Parser>(diagnostics);
+}
 
 } // namespace tsc

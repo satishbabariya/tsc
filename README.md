@@ -17,8 +17,13 @@ TSC is a performance-oriented compiler that takes TypeScript-like syntax and com
 - **Compiler Driver**: Multi-phase compilation pipeline
 - **Cross-Platform**: LLVM target support for multiple architectures
 
+### ✅ Recently Completed
+- **Parser Implementation**: Recursive descent parser with AST construction (Phase 2)
+- **AST Visualization**: Complete AST printer with `--print-ast` option
+- **Expression Parsing**: Binary/unary expressions with correct precedence
+- **Function Parsing**: Function declarations with parameters and bodies
+
 ### 🚧 In Progress
-- **Parser Implementation**: Converting token stream to AST (Phase 2)
 - **Semantic Analysis**: Type checking and symbol resolution (Phase 3) 
 - **LLVM Code Generation**: IR generation and optimization (Phase 4)
 
@@ -207,10 +212,13 @@ lldb ./hello
 - [x] AST node definitions
 - [x] Diagnostic engine
 
-### Phase 2: Parser 🚧
-- [ ] Recursive descent parser implementation
-- [ ] Error recovery mechanisms
-- [ ] AST construction from tokens
+### Phase 2: Parser ✅
+- [x] Recursive descent parser implementation
+- [x] Error recovery mechanisms
+- [x] AST construction from tokens
+- [x] Operator precedence handling
+- [x] Expression and statement parsing
+- [x] AST visualization tools
 
 ### Phase 3: Semantics 🚧
 - [ ] Symbol table construction

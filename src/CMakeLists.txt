@@ -2,12 +2,14 @@
 add_library(tsc_lib STATIC
     # Core utilities
     utils/DiagnosticEngine.cpp
+    utils/ASTPrinter.cpp
     
     # Lexer
     lexer/Lexer.cpp
     
     # Parser  
     parser/Parser.cpp
+    parser/VectorTokenStream.cpp
     
     # Semantic Analysis
     semantic/TypeChecker.cpp

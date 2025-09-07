@@ -68,6 +68,24 @@ public:
     virtual Kind getKind() const = 0;
 };
 
+// Expression statement for standalone expressions
+class ExpressionStatement : public Statement {
+public:
+    ExpressionStatement(unique_ptr<Expression> expression, const SourceLocation& loc)
+        : expression_(std::move(expression)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Expression; }
+    String toString() const override;
+    
+    Expression* getExpression() const { return expression_.get(); }
+
+private:
+    unique_ptr<Expression> expression_;
+    SourceLocation location_;
+};
+
 // Declaration base class
 class Declaration : public Statement {
 public:
@@ -458,6 +476,7 @@ public:
     virtual void visit(CallExpression& node) = 0;
     
     // Statements
+    virtual void visit(ExpressionStatement& node) = 0;
     virtual void visit(BlockStatement& node) = 0;
     virtual void visit(VariableDeclaration& node) = 0;
     virtual void visit(FunctionDeclaration& node) = 0;
