@@ -17,6 +17,8 @@ static const std::unordered_map<TokenType, int> operatorPrecedence = {
     {TokenType::NotEqual, 8},
     {TokenType::Less, 9},
     {TokenType::Greater, 9},
+    {TokenType::LessEqual, 9},
+    {TokenType::GreaterEqual, 9},
     {TokenType::Plus, 11},
     {TokenType::Minus, 11},
     {TokenType::Star, 12},
@@ -296,8 +298,13 @@ BinaryExpression::Operator Parser::tokenToBinaryOperator(TokenType type) const {
         case TokenType::Star: return BinaryExpression::Operator::Multiply;
         case TokenType::Slash: return BinaryExpression::Operator::Divide;
         case TokenType::EqualEqual: return BinaryExpression::Operator::Equal;
+        case TokenType::NotEqual: return BinaryExpression::Operator::NotEqual;
         case TokenType::Less: return BinaryExpression::Operator::Less;
         case TokenType::Greater: return BinaryExpression::Operator::Greater;
+        case TokenType::LessEqual: return BinaryExpression::Operator::LessEqual;
+        case TokenType::GreaterEqual: return BinaryExpression::Operator::GreaterEqual;
+        case TokenType::AmpersandAmpersand: return BinaryExpression::Operator::LogicalAnd;
+        case TokenType::PipePipe: return BinaryExpression::Operator::LogicalOr;
         default:
             return BinaryExpression::Operator::Add;
     }
@@ -332,7 +339,7 @@ SourceLocation Parser::getCurrentLocation() const {
 }
 
 // Stub implementations for remaining methods
-unique_ptr<Type> Parser::parseTypeAnnotation() {
+shared_ptr<Type> Parser::parseTypeAnnotation() {
     reportWarning("Type annotations not yet implemented", getCurrentLocation());
     return nullptr;
 }

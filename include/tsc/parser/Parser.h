@@ -72,14 +72,14 @@ private:
     unique_ptr<Expression> parseIdentifier();
     
     // TypeScript-specific
-    unique_ptr<Type> parseTypeAnnotation();
-    unique_ptr<Type> parsePrimaryType();
-    unique_ptr<Type> parseUnionType();
-    unique_ptr<Type> parseIntersectionType();
-    unique_ptr<Type> parseFunctionType();
-    unique_ptr<Type> parseArrayType();
-    unique_ptr<Type> parseTupleType();
-    unique_ptr<Type> parseObjectType();
+    shared_ptr<Type> parseTypeAnnotation();
+    shared_ptr<Type> parsePrimaryType();
+    shared_ptr<Type> parseUnionType();
+    shared_ptr<Type> parseIntersectionType();
+    shared_ptr<Type> parseFunctionType();
+    shared_ptr<Type> parseArrayType();
+    shared_ptr<Type> parseTupleType();
+    shared_ptr<Type> parseObjectType();
     
     // Function and class parsing
     std::vector<FunctionDeclaration::Parameter> parseParameterList();

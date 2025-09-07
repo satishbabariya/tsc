@@ -99,41 +99,8 @@ protected:
     bool exported_ = false;
 };
 
-// Type base class (for TypeScript type system)
-class Type {
-public:
-    virtual ~Type() = default;
-    
-    enum class Kind {
-        Primitive,    // number, string, boolean, etc.
-        Object,       // interface, class types
-        Union,        // A | B
-        Intersection, // A & B
-        Function,     // (args) => return
-        Array,        // T[]
-        Tuple,        // [T1, T2, ...]
-        Generic,      // T<U>
-        TypeVar,      // T (type variable)
-        Conditional,  // T extends U ? V : W
-        Mapped,       // { [K in keyof T]: U }
-        Literal,      // "string" | 42 | true
-        Void,         // void
-        Never,        // never
-        Any,          // any
-        Unknown       // unknown
-    };
-    
-    virtual Kind getKind() const = 0;
-    virtual String toString() const = 0;
-    virtual bool isAssignableTo(const Type& other) const = 0;
-    virtual bool equals(const Type& other) const = 0;
-    
-    // Type predicates
-    bool isPrimitive() const { return getKind() == Kind::Primitive; }
-    bool isObject() const { return getKind() == Kind::Object; }
-    bool isFunction() const { return getKind() == Kind::Function; }
-    bool isGeneric() const { return getKind() == Kind::Generic; }
-};
+// Type system is defined in semantic/TypeSystem.h
+// Only forward declaration needed here
 
 // Specific AST node types
 

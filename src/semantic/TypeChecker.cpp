@@ -1,24 +1,16 @@
-#include "tsc/AST.h"
+#include "tsc/semantic/TypeChecker.h"
 #include "tsc/utils/DiagnosticEngine.h"
 
 namespace tsc {
 
-class TypeChecker {
-public:
-    explicit TypeChecker(DiagnosticEngine& diagnostics) : diagnostics_(diagnostics) {}
-    
-    bool check(Module& module) {
-        // TODO: Implement semantic analysis and type checking
-        // This is a placeholder implementation
-        
-        diagnostics_.note("Type checker not yet implemented", 
-                         SourceLocation(module.getFilename(), 1, 1));
-        
-        return true; // No errors for now
-    }
+TypeChecker::TypeChecker(DiagnosticEngine& diagnostics) : diagnostics_(diagnostics) {
+    analyzer_ = createSemanticAnalyzer(diagnostics_);
+}
 
-private:
-    DiagnosticEngine& diagnostics_;
-};
+TypeChecker::~TypeChecker() = default;
+
+bool TypeChecker::check(Module& module) {
+    return analyzer_->analyze(module);
+}
 
 } // namespace tsc

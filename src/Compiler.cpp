@@ -1,6 +1,7 @@
 #include "tsc/Compiler.h"
 #include "tsc/lexer/Lexer.h"
 #include "tsc/parser/Parser.h"
+#include "tsc/semantic/TypeChecker.h"
 #include "tsc/utils/DiagnosticEngine.h"
 
 // LLVM includes - simplified for now
@@ -12,19 +13,7 @@
 
 namespace tsc {
 
-// Parser is now implemented in separate file
-
-class TypeChecker {
-public:
-    explicit TypeChecker(DiagnosticEngine& diagnostics) : diagnostics_(diagnostics) {}
-    bool check(Module& module) {
-        diagnostics_.note("Type checker not yet implemented", 
-                         SourceLocation(module.getFilename(), 1, 1));
-        return true;
-    }
-private:
-    DiagnosticEngine& diagnostics_;
-};
+// Parser and TypeChecker are now implemented in separate files
 
 class CodeGenerator {
 public:

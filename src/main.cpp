@@ -20,6 +20,7 @@ void printUsage(const char* programName) {
     std::cout << "  --emit-llvm             Emit LLVM IR instead of object file\n";
     std::cout << "  --emit-obj              Emit object file (default)\n";
     std::cout << "  --print-ast             Print the Abstract Syntax Tree\n";
+    std::cout << "  --print-symbols         Print the Symbol Table\n";
     std::cout << "  -j<N>                   Parallel compilation jobs (default: 10)\n";
     std::cout << "  -h, --help              Show this help message\n";
     std::cout << "  -v, --version           Show version information\n";
@@ -45,6 +46,7 @@ int main(int argc, char* argv[]) {
         std::vector<String> inputFiles;
         bool emitLLVM = false;
         bool printAST = false;
+        bool printSymbols = false;
         
         // Parse command line arguments
         for (int i = 1; i < argc; ++i) {
@@ -76,6 +78,8 @@ int main(int argc, char* argv[]) {
                 emitLLVM = false;
             } else if (arg == "--print-ast") {
                 printAST = true;
+            } else if (arg == "--print-symbols") {
+                printSymbols = true;
             } else if (arg.substr(0, 2) == "-O") {
                 String level = arg.substr(2);
                 if (level == "0") options.optimizationLevel = CompilerOptions::OptLevel::O0;
@@ -154,6 +158,15 @@ int main(int argc, char* argv[]) {
             ASTPrinter printer(std::cout);
             printer.print(*result.ast);
             std::cout << "=============================\n\n";
+        }
+        
+        // Print symbol table if requested
+        if (printSymbols && result.success) {
+            std::cout << "\n=== Symbol Table ===\n";
+            // Access symbol table through compiler
+            // This would need to be implemented in the Compiler class
+            std::cout << "Symbol table printing not yet implemented\n";
+            std::cout << "====================\n\n";
         }
         
         // Handle emit-llvm option

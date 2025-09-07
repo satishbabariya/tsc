@@ -211,7 +211,7 @@ String VariableDeclaration::toString() const {
     ss << name_;
     
     if (typeAnnotation_) {
-        ss << ": " << typeAnnotation_->toString();
+        ss << ": <type>"; // Type system not yet integrated
     }
     
     if (initializer_) {
@@ -241,14 +241,14 @@ String FunctionDeclaration::toString() const {
         if (param.rest) ss << "...";
         ss << param.name;
         if (param.optional) ss << "?";
-        if (param.type) ss << ": " << param.type->toString();
+        if (param.type) ss << ": <type>";
         if (param.defaultValue) ss << " = " << param.defaultValue->toString();
     }
     
     ss << ")";
     
     if (returnType_) {
-        ss << ": " << returnType_->toString();
+        ss << ": <type>";
     }
     
     if (body_) {
