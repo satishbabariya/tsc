@@ -477,14 +477,31 @@ unique_ptr<Expression> Parser::parseBinaryExpression(int minPrecedence) {
         }
         
         Token opToken = advance();
-        auto right = parseBinaryExpression(precedence + 1);
         
-        left = make_unique<BinaryExpression>(
-            std::move(left),
-            tokenToBinaryOperator(opType),
-            std::move(right),
-            opToken.getLocation()
-        );
+        // Handle assignment operators specially
+        if (opType == TokenType::Equal || opType == TokenType::PlusEqual || opType == TokenType::MinusEqual) {
+            auto right = parseBinaryExpression(precedence);  // Right-associative
+            AssignmentExpression::Operator assignOp = AssignmentExpression::Operator::Assign;
+            if (opType == TokenType::PlusEqual) {
+                assignOp = AssignmentExpression::Operator::AddAssign;
+            } else if (opType == TokenType::MinusEqual) {
+                assignOp = AssignmentExpression::Operator::SubtractAssign;
+            }
+            left = make_unique<AssignmentExpression>(
+                std::move(left),
+                assignOp,
+                std::move(right),
+                opToken.getLocation()
+            );
+        } else {
+            auto right = parseBinaryExpression(precedence + 1);
+            left = make_unique<BinaryExpression>(
+                std::move(left),
+                tokenToBinaryOperator(opType),
+                std::move(right),
+                opToken.getLocation()
+            );
+        }
     }
     
     return left;
