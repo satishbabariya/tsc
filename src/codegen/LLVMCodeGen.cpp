@@ -218,6 +218,51 @@ void LLVMCodeGen::visit(CallExpression& node) {
     setCurrentValue(createNullValue(getAnyType()));
 }
 
+void LLVMCodeGen::visit(ArrayLiteral& node) {
+    // TODO: Implement proper array literal code generation
+    // For now, just return a null pointer to avoid crashes
+    reportError("Array literals not yet fully implemented in code generation", node.getLocation());
+    setCurrentValue(createNullValue(getAnyType()));
+}
+
+void LLVMCodeGen::visit(IndexExpression& node) {
+    // Generate object and index values
+    node.getObject()->accept(*this);
+    llvm::Value* objectValue = getCurrentValue();
+    
+    node.getIndex()->accept(*this);
+    llvm::Value* indexValue = getCurrentValue();
+    
+    if (!objectValue || !indexValue) {
+        reportError("Failed to generate array indexing", node.getLocation());
+        setCurrentValue(createNullValue(getAnyType()));
+        return;
+    }
+    
+    // For now, implement simple array indexing
+    // TODO: Add proper bounds checking and type conversion
+    
+    // Convert index to integer if needed
+    if (indexValue->getType()->isDoubleTy()) {
+        indexValue = builder_->CreateFPToSI(indexValue, llvm::Type::getInt32Ty(*context_), "index_int");
+    }
+    
+    // Create GEP to access array element
+    std::vector<llvm::Value*> indices = {
+        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),
+        indexValue
+    };
+    
+    // Determine array type (simplified)
+    // For now, assume we're dealing with arrays of any type (ptr)
+    llvm::Type* elementType = getAnyType();
+    llvm::Value* elementPtr = builder_->CreateGEP(elementType, objectValue, indices, "indexed_element");
+    
+    // Load the element value
+    llvm::Value* elementValue = builder_->CreateLoad(getAnyType(), elementPtr, "element_value");
+    setCurrentValue(elementValue);
+}
+
 void LLVMCodeGen::visit(ExpressionStatement& node) {
     node.getExpression()->accept(*this);
     // Expression statement doesn't return a value
@@ -494,6 +539,111 @@ void LLVMCodeGen::visit(ForStatement& node) {
     
     // Continue with end block
     builder_->SetInsertPoint(endBlock);
+}
+
+void LLVMCodeGen::visit(SwitchStatement& node) {
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    if (!currentFunc) {
+        reportError("Switch statement outside function", node.getLocation());
+        return;
+    }
+    
+    // Generate discriminant
+    node.getDiscriminant()->accept(*this);
+    llvm::Value* discriminantValue = getCurrentValue();
+    
+    if (!discriminantValue) {
+        reportError("Failed to generate switch discriminant", node.getDiscriminant()->getLocation());
+        return;
+    }
+    
+    // Create basic blocks
+    llvm::BasicBlock* endBlock = llvm::BasicBlock::Create(*context_, "switch.end", currentFunc);
+    llvm::BasicBlock* defaultBlock = endBlock;  // Default to end block if no default case
+    
+    // Create blocks for each case
+    std::vector<std::pair<llvm::ConstantInt*, llvm::BasicBlock*>> caseBlocks;
+    
+    for (size_t i = 0; i < node.getCases().size(); ++i) {
+        const auto& caseClause = node.getCases()[i];
+        
+        if (caseClause->isDefault()) {
+            defaultBlock = llvm::BasicBlock::Create(*context_, "switch.default", currentFunc);
+        } else {
+            llvm::BasicBlock* caseBlock = llvm::BasicBlock::Create(*context_, 
+                "switch.case" + std::to_string(i), currentFunc);
+            
+            // For now, assume case values are integer constants
+            // TODO: Add proper constant evaluation
+            if (auto numLit = dynamic_cast<NumericLiteral*>(caseClause->getTest())) {
+                llvm::ConstantInt* caseValue = llvm::ConstantInt::get(
+                    llvm::Type::getInt32Ty(*context_), (int)numLit->getValue());
+                caseBlocks.push_back({caseValue, caseBlock});
+            }
+        }
+    }
+    
+    // Create switch instruction
+    llvm::SwitchInst* switchInst = builder_->CreateSwitch(discriminantValue, defaultBlock, caseBlocks.size());
+    
+    // Add cases to switch instruction
+    for (const auto& [caseValue, caseBlock] : caseBlocks) {
+        switchInst->addCase(caseValue, caseBlock);
+    }
+    
+    // Generate code for each case
+    for (size_t i = 0; i < node.getCases().size(); ++i) {
+        const auto& caseClause = node.getCases()[i];
+        llvm::BasicBlock* caseBlock;
+        
+        if (caseClause->isDefault()) {
+            caseBlock = defaultBlock;
+        } else {
+            // Find the corresponding case block
+            auto it = std::find_if(caseBlocks.begin(), caseBlocks.end(),
+                [i](const auto& pair) { return pair.second->getName().contains(std::to_string(i)); });
+            if (it != caseBlocks.end()) {
+                caseBlock = it->second;
+            } else {
+                continue;  // Skip if we couldn't create the case block
+            }
+        }
+        
+        builder_->SetInsertPoint(caseBlock);
+        caseClause->accept(*this);
+        
+        // If no terminator was added (no break/return), fall through to next case
+        if (!builder_->GetInsertBlock()->getTerminator()) {
+            if (i + 1 < node.getCases().size()) {
+                // Fall through to next case (simplified - should find next case block)
+                builder_->CreateBr(endBlock);
+            } else {
+                builder_->CreateBr(endBlock);
+            }
+        }
+    }
+    
+    // Continue with end block
+    builder_->SetInsertPoint(endBlock);
+}
+
+void LLVMCodeGen::visit(CaseClause& node) {
+    // Generate statements in this case
+    for (const auto& stmt : node.getStatements()) {
+        stmt->accept(*this);
+    }
+}
+
+void LLVMCodeGen::visit(BreakStatement& node) {
+    // TODO: Implement proper break handling with loop/switch context tracking
+    // For now, just create an unreachable instruction as placeholder
+    builder_->CreateUnreachable();
+}
+
+void LLVMCodeGen::visit(ContinueStatement& node) {
+    // TODO: Implement proper continue handling with loop context tracking
+    // For now, just create an unreachable instruction as placeholder
+    builder_->CreateUnreachable();
 }
 
 void LLVMCodeGen::visit(VariableDeclaration& node) {

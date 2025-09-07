@@ -45,6 +45,8 @@ private:
     unique_ptr<Statement> parseWhileStatement();
     unique_ptr<Statement> parseDoWhileStatement();
     unique_ptr<Statement> parseForStatement();
+    unique_ptr<Statement> parseSwitchStatement();
+    unique_ptr<CaseClause> parseCaseClause();
     unique_ptr<Statement> parseBlockStatement();
     unique_ptr<Statement> parseExpressionStatement();
     unique_ptr<Statement> parseReturnStatement();

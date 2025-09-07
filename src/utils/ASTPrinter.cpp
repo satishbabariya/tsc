@@ -104,6 +104,40 @@ void ASTPrinter::visit(CallExpression& node) {
     decreaseIndent();
 }
 
+void ASTPrinter::visit(ArrayLiteral& node) {
+    printIndent();
+    output_ << "ArrayLiteral:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Elements (" << node.getElements().size() << "):" << std::endl;
+    increaseIndent();
+    for (const auto& element : node.getElements()) {
+        element->accept(*this);
+    }
+    decreaseIndent();
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(IndexExpression& node) {
+    printIndent();
+    output_ << "IndexExpression:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Object:" << std::endl;
+    increaseIndent();
+    node.getObject()->accept(*this);
+    decreaseIndent();
+    
+    printIndent();
+    output_ << "Index:" << std::endl;
+    increaseIndent();
+    node.getIndex()->accept(*this);
+    decreaseIndent();
+    decreaseIndent();
+}
+
 void ASTPrinter::visit(ExpressionStatement& node) {
     printIndent();
     output_ << "ExpressionStatement:" << std::endl;
@@ -247,6 +281,66 @@ void ASTPrinter::visit(ForStatement& node) {
     decreaseIndent();
     
     decreaseIndent();
+}
+
+void ASTPrinter::visit(SwitchStatement& node) {
+    printIndent();
+    output_ << "SwitchStatement:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Discriminant:" << std::endl;
+    increaseIndent();
+    node.getDiscriminant()->accept(*this);
+    decreaseIndent();
+    
+    printIndent();
+    output_ << "Cases (" << node.getCases().size() << "):" << std::endl;
+    increaseIndent();
+    for (const auto& caseClause : node.getCases()) {
+        caseClause->accept(*this);
+    }
+    decreaseIndent();
+    
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(CaseClause& node) {
+    printIndent();
+    if (node.isDefault()) {
+        output_ << "DefaultClause:" << std::endl;
+    } else {
+        output_ << "CaseClause:" << std::endl;
+        increaseIndent();
+        printIndent();
+        output_ << "Test:" << std::endl;
+        increaseIndent();
+        node.getTest()->accept(*this);
+        decreaseIndent();
+        decreaseIndent();
+    }
+    
+    if (!node.getStatements().empty()) {
+        increaseIndent();
+        printIndent();
+        output_ << "Statements (" << node.getStatements().size() << "):" << std::endl;
+        increaseIndent();
+        for (const auto& stmt : node.getStatements()) {
+            stmt->accept(*this);
+        }
+        decreaseIndent();
+        decreaseIndent();
+    }
+}
+
+void ASTPrinter::visit(BreakStatement& node) {
+    printIndent();
+    output_ << "BreakStatement" << std::endl;
+}
+
+void ASTPrinter::visit(ContinueStatement& node) {
+    printIndent();
+    output_ << "ContinueStatement" << std::endl;
 }
 
 void ASTPrinter::visit(VariableDeclaration& node) {

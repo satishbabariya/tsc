@@ -315,6 +315,45 @@ private:
     SourceLocation location_;
 };
 
+// Array literal expression
+class ArrayLiteral : public Expression {
+public:
+    ArrayLiteral(std::vector<unique_ptr<Expression>> elements, const SourceLocation& loc)
+        : elements_(std::move(elements)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    const std::vector<unique_ptr<Expression>>& getElements() const { return elements_; }
+
+private:
+    std::vector<unique_ptr<Expression>> elements_;
+    SourceLocation location_;
+};
+
+// Index expression (array access)
+class IndexExpression : public Expression {
+public:
+    IndexExpression(unique_ptr<Expression> object, unique_ptr<Expression> index,
+                    const SourceLocation& loc)
+        : object_(std::move(object)), index_(std::move(index)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::LValue; }  // Can be assigned to
+    String toString() const override;
+    
+    Expression* getObject() const { return object_.get(); }
+    Expression* getIndex() const { return index_.get(); }
+
+private:
+    unique_ptr<Expression> object_;
+    unique_ptr<Expression> index_;
+    SourceLocation location_;
+};
+
 // Block statement
 class BlockStatement : public Statement {
 public:
@@ -454,6 +493,83 @@ private:
     SourceLocation location_;
 };
 
+// Case clause for switch statements
+class CaseClause : public ASTNode {
+public:
+    CaseClause(unique_ptr<Expression> test, std::vector<unique_ptr<Statement>> statements,
+               const SourceLocation& loc)
+        : test_(std::move(test)), statements_(std::move(statements)), location_(loc) {}
+    
+    // Constructor for default case
+    CaseClause(std::vector<unique_ptr<Statement>> statements, const SourceLocation& loc)
+        : test_(nullptr), statements_(std::move(statements)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    
+    Expression* getTest() const { return test_.get(); }
+    const std::vector<unique_ptr<Statement>>& getStatements() const { return statements_; }
+    bool isDefault() const { return test_ == nullptr; }
+
+private:
+    unique_ptr<Expression> test_;  // null for default case
+    std::vector<unique_ptr<Statement>> statements_;
+    SourceLocation location_;
+};
+
+// Switch statement
+class SwitchStatement : public Statement {
+public:
+    SwitchStatement(unique_ptr<Expression> discriminant, 
+                    std::vector<unique_ptr<CaseClause>> cases,
+                    const SourceLocation& loc)
+        : discriminant_(std::move(discriminant)), cases_(std::move(cases)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Switch; }
+    String toString() const override;
+    
+    Expression* getDiscriminant() const { return discriminant_.get(); }
+    const std::vector<unique_ptr<CaseClause>>& getCases() const { return cases_; }
+
+private:
+    unique_ptr<Expression> discriminant_;
+    std::vector<unique_ptr<CaseClause>> cases_;
+    SourceLocation location_;
+};
+
+// Break statement
+class BreakStatement : public Statement {
+public:
+    BreakStatement(const SourceLocation& loc)
+        : location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Break; }
+    String toString() const override;
+
+private:
+    SourceLocation location_;
+};
+
+// Continue statement
+class ContinueStatement : public Statement {
+public:
+    ContinueStatement(const SourceLocation& loc)
+        : location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Continue; }
+    String toString() const override;
+
+private:
+    SourceLocation location_;
+};
+
 // Variable declaration
 class VariableDeclaration : public Declaration {
 public:
@@ -563,6 +679,8 @@ public:
     virtual void visit(UnaryExpression& node) = 0;
     virtual void visit(AssignmentExpression& node) = 0;
     virtual void visit(CallExpression& node) = 0;
+    virtual void visit(ArrayLiteral& node) = 0;
+    virtual void visit(IndexExpression& node) = 0;
     
     // Statements
     virtual void visit(ExpressionStatement& node) = 0;
@@ -572,6 +690,10 @@ public:
     virtual void visit(WhileStatement& node) = 0;
     virtual void visit(DoWhileStatement& node) = 0;
     virtual void visit(ForStatement& node) = 0;
+    virtual void visit(SwitchStatement& node) = 0;
+    virtual void visit(CaseClause& node) = 0;
+    virtual void visit(BreakStatement& node) = 0;
+    virtual void visit(ContinueStatement& node) = 0;
     virtual void visit(VariableDeclaration& node) = 0;
     virtual void visit(FunctionDeclaration& node) = 0;
     

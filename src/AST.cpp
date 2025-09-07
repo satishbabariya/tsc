@@ -177,6 +177,33 @@ String CallExpression::toString() const {
     return ss.str();
 }
 
+// ArrayLiteral implementation
+void ArrayLiteral::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ArrayLiteral::toString() const {
+    std::stringstream ss;
+    ss << "[";
+    
+    for (size_t i = 0; i < elements_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << elements_[i]->toString();
+    }
+    
+    ss << "]";
+    return ss.str();
+}
+
+// IndexExpression implementation
+void IndexExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String IndexExpression::toString() const {
+    return object_->toString() + "[" + index_->toString() + "]";
+}
+
 // BlockStatement implementation
 void BlockStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
@@ -316,6 +343,73 @@ String ForStatement::toString() const {
     }
     
     return ss.str();
+}
+
+// CaseClause implementation
+void CaseClause::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String CaseClause::toString() const {
+    std::stringstream ss;
+    
+    if (isDefault()) {
+        ss << "default:";
+    } else {
+        ss << "case " << test_->toString() << ":";
+    }
+    
+    if (!statements_.empty()) {
+        ss << "\n";
+        for (const auto& stmt : statements_) {
+            ss << "  " << stmt->toString() << "\n";
+        }
+    }
+    
+    return ss.str();
+}
+
+// SwitchStatement implementation
+void SwitchStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String SwitchStatement::toString() const {
+    std::stringstream ss;
+    ss << "switch (" << discriminant_->toString() << ") {\n";
+    
+    for (const auto& caseClause : cases_) {
+        String caseStr = caseClause->toString();
+        // Add indentation to each line
+        std::istringstream iss(caseStr);
+        std::string line;
+        while (std::getline(iss, line)) {
+            if (!line.empty()) {
+                ss << "  " << line << "\n";
+            }
+        }
+    }
+    
+    ss << "}";
+    return ss.str();
+}
+
+// BreakStatement implementation
+void BreakStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String BreakStatement::toString() const {
+    return "break;";
+}
+
+// ContinueStatement implementation
+void ContinueStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ContinueStatement::toString() const {
+    return "continue;";
 }
 
 // VariableDeclaration implementation

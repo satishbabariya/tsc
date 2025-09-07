@@ -104,6 +104,21 @@ unique_ptr<Statement> Parser::parseStatement() {
         return parseForStatement();
     }
     
+    // Handle switch statements
+    if (match(TokenType::Switch)) {
+        return parseSwitchStatement();
+    }
+    
+    // Handle break statements
+    if (match(TokenType::Break)) {
+        return parseBreakStatement();
+    }
+    
+    // Handle continue statements
+    if (match(TokenType::Continue)) {
+        return parseContinueStatement();
+    }
+    
     // Default to expression statement
     return parseExpressionStatement();
 }
@@ -291,6 +306,76 @@ unique_ptr<Statement> Parser::parseForStatement() {
                                    std::move(increment), std::move(body), location);
 }
 
+unique_ptr<Statement> Parser::parseSwitchStatement() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Parse discriminant
+    consume(TokenType::LeftParen, "Expected '(' after 'switch'");
+    auto discriminant = parseExpression();
+    consume(TokenType::RightParen, "Expected ')' after switch discriminant");
+    
+    // Parse case block
+    consume(TokenType::LeftBrace, "Expected '{' after switch discriminant");
+    
+    std::vector<unique_ptr<CaseClause>> cases;
+    while (!check(TokenType::RightBrace) && !isAtEnd()) {
+        auto caseClause = parseCaseClause();
+        if (caseClause) {
+            cases.push_back(std::move(caseClause));
+        }
+    }
+    
+    consume(TokenType::RightBrace, "Expected '}' after switch cases");
+    
+    return make_unique<SwitchStatement>(std::move(discriminant), std::move(cases), location);
+}
+
+unique_ptr<CaseClause> Parser::parseCaseClause() {
+    SourceLocation location = getCurrentLocation();
+    
+    unique_ptr<Expression> test = nullptr;
+    
+    if (match(TokenType::Case)) {
+        // Parse case expression
+        test = parseExpression();
+        consume(TokenType::Colon, "Expected ':' after case expression");
+    } else if (match(TokenType::Default)) {
+        // Default case (test remains null)
+        consume(TokenType::Colon, "Expected ':' after 'default'");
+    } else {
+        reportError("Expected 'case' or 'default'", getCurrentLocation());
+        return nullptr;
+    }
+    
+    // Parse statements until next case/default or end of block
+    std::vector<unique_ptr<Statement>> statements;
+    while (!check(TokenType::Case) && !check(TokenType::Default) && 
+           !check(TokenType::RightBrace) && !isAtEnd()) {
+        auto stmt = parseStatement();
+        if (stmt) {
+            statements.push_back(std::move(stmt));
+        }
+    }
+    
+    if (test) {
+        return make_unique<CaseClause>(std::move(test), std::move(statements), location);
+    } else {
+        return make_unique<CaseClause>(std::move(statements), location);
+    }
+}
+
+unique_ptr<Statement> Parser::parseBreakStatement() {
+    SourceLocation location = getCurrentLocation();
+    consume(TokenType::Semicolon, "Expected ';' after 'break'");
+    return make_unique<BreakStatement>(location);
+}
+
+unique_ptr<Statement> Parser::parseContinueStatement() {
+    SourceLocation location = getCurrentLocation();
+    consume(TokenType::Semicolon, "Expected ';' after 'continue'");
+    return make_unique<ContinueStatement>(location);
+}
+
 unique_ptr<Statement> Parser::parseExpressionStatement() {
     auto expr = parseExpression();
     consume(TokenType::Semicolon, "Expected ';' after expression");
@@ -342,7 +427,43 @@ unique_ptr<Expression> Parser::parseUnaryExpression() {
         );
     }
     
-    return parsePrimaryExpression();
+    return parsePostfixExpression();
+}
+
+unique_ptr<Expression> Parser::parsePostfixExpression() {
+    auto expr = parsePrimaryExpression();
+    
+    while (true) {
+        if (match(TokenType::LeftBracket)) {
+            // Parse array indexing: expr[index]
+            auto index = parseExpression();
+            consume(TokenType::RightBracket, "Expected ']' after array index");
+            
+            SourceLocation location = getCurrentLocation();
+            expr = make_unique<IndexExpression>(
+                std::move(expr),
+                std::move(index),
+                location
+            );
+        }
+        else if (match(TokenType::LeftParen)) {
+            // Parse function call: expr(args...)
+            // TODO: Implement function call parsing
+            reportError("Function calls not yet implemented in postfix expressions", getCurrentLocation());
+            return nullptr;
+        }
+        else if (match(TokenType::Dot)) {
+            // Parse member access: expr.member
+            // TODO: Implement member access parsing
+            reportError("Member access not yet implemented in postfix expressions", getCurrentLocation());
+            return nullptr;
+        }
+        else {
+            break; // No more postfix operations
+        }
+    }
+    
+    return expr;
 }
 
 unique_ptr<Expression> Parser::parsePrimaryExpression() {
@@ -376,6 +497,10 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
         return make_unique<Identifier>(token.getStringValue(), token.getLocation());
     }
     
+    if (match(TokenType::LeftBracket)) {
+        return parseArrayLiteral();
+    }
+    
     if (match(TokenType::LeftParen)) {
         auto expr = parseExpression();
         consume(TokenType::RightParen, "Expected ')' after expression");
@@ -384,6 +509,32 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
     
     reportError("Unexpected token in expression", getCurrentLocation());
     return nullptr;
+}
+
+unique_ptr<Expression> Parser::parseArrayLiteral() {
+    SourceLocation location = getCurrentLocation();
+    std::vector<unique_ptr<Expression>> elements;
+    
+    // Handle empty array
+    if (match(TokenType::RightBracket)) {
+        return make_unique<ArrayLiteral>(std::move(elements), location);
+    }
+    
+    // Parse elements
+    do {
+        if (check(TokenType::RightBracket)) {
+            break; // Trailing comma case: [1, 2, ]
+        }
+        
+        auto element = parseExpression();
+        if (element) {
+            elements.push_back(std::move(element));
+        }
+    } while (match(TokenType::Comma));
+    
+    consume(TokenType::RightBracket, "Expected ']' after array elements");
+    
+    return make_unique<ArrayLiteral>(std::move(elements), location);
 }
 
 // Utility methods

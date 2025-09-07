@@ -71,6 +71,8 @@ public:
     void visit(UnaryExpression& node) override;
     void visit(AssignmentExpression& node) override;
     void visit(CallExpression& node) override;
+    void visit(ArrayLiteral& node) override;
+    void visit(IndexExpression& node) override;
     
     void visit(ExpressionStatement& node) override;
     void visit(BlockStatement& node) override;
@@ -79,6 +81,10 @@ public:
     void visit(WhileStatement& node) override;
     void visit(DoWhileStatement& node) override;
     void visit(ForStatement& node) override;
+    void visit(SwitchStatement& node) override;
+    void visit(CaseClause& node) override;
+    void visit(BreakStatement& node) override;
+    void visit(ContinueStatement& node) override;
     void visit(VariableDeclaration& node) override;
     void visit(FunctionDeclaration& node) override;
     

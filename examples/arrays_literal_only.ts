@@ -1,0 +1,1 @@
+let numbers = [10, 20];

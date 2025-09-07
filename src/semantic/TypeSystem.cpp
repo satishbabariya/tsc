@@ -483,6 +483,19 @@ bool TypeSystem::isConvertibleToBoolean(shared_ptr<Type> type) const {
     }
 }
 
+bool TypeSystem::isArrayType(shared_ptr<Type> type) const {
+    return type && type->getKind() == TypeKind::Array;
+}
+
+shared_ptr<Type> TypeSystem::getArrayElementType(shared_ptr<Type> arrayType) const {
+    if (!isArrayType(arrayType)) {
+        return nullptr;
+    }
+    
+    auto array = static_cast<const ArrayType*>(arrayType.get());
+    return array->getElementType();
+}
+
 // Factory functions
 shared_ptr<Type> createNumberType() {
     return make_shared<PrimitiveType>(TypeKind::Number);

@@ -115,6 +115,37 @@ void SemanticAnalyzer::visit(CallExpression& node) {
     checkFunctionCall(node);
 }
 
+void SemanticAnalyzer::visit(ArrayLiteral& node) {
+    // Analyze all elements
+    for (const auto& element : node.getElements()) {
+        element->accept(*this);
+    }
+    
+    // For now, infer array type as any[] 
+    // TODO: Implement proper array type inference based on elements
+    auto arrayType = typeSystem_->createArrayType(typeSystem_->getAnyType());
+    node.setType(arrayType);
+}
+
+void SemanticAnalyzer::visit(IndexExpression& node) {
+    // Analyze object and index
+    node.getObject()->accept(*this);
+    node.getIndex()->accept(*this);
+    
+    auto objectType = getExpressionType(*node.getObject());
+    auto indexType = getExpressionType(*node.getIndex());
+    
+    // Check if object is indexable (array, string, etc.)
+    // For now, assume it returns the element type or any
+    // TODO: Implement proper indexing type checking
+    if (objectType && typeSystem_->isArrayType(objectType)) {
+        auto elementType = typeSystem_->getArrayElementType(objectType);
+        node.setType(elementType);
+    } else {
+        node.setType(typeSystem_->getAnyType());
+    }
+}
+
 void SemanticAnalyzer::visit(ExpressionStatement& node) {
     node.getExpression()->accept(*this);
 }
@@ -235,6 +266,43 @@ void SemanticAnalyzer::visit(ForStatement& node) {
     node.getBody()->accept(*this);
     
     // Set type to void
+    node.setType(typeSystem_->getVoidType());
+}
+
+void SemanticAnalyzer::visit(SwitchStatement& node) {
+    // Analyze discriminant
+    node.getDiscriminant()->accept(*this);
+    
+    // Analyze all case clauses
+    for (const auto& caseClause : node.getCases()) {
+        caseClause->accept(*this);
+    }
+    
+    // Set type to void
+    node.setType(typeSystem_->getVoidType());
+}
+
+void SemanticAnalyzer::visit(CaseClause& node) {
+    // Analyze test expression if present (not for default case)
+    if (!node.isDefault() && node.getTest()) {
+        node.getTest()->accept(*this);
+    }
+    
+    // Analyze all statements in this case
+    for (const auto& stmt : node.getStatements()) {
+        stmt->accept(*this);
+    }
+}
+
+void SemanticAnalyzer::visit(BreakStatement& node) {
+    // TODO: Check if break is in valid context (loop or switch)
+    // For now, just set type to void
+    node.setType(typeSystem_->getVoidType());
+}
+
+void SemanticAnalyzer::visit(ContinueStatement& node) {
+    // TODO: Check if continue is in valid context (loop)
+    // For now, just set type to void
     node.setType(typeSystem_->getVoidType());
 }
 
