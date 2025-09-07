@@ -4,6 +4,7 @@
 #include "tsc/semantic/TypeChecker.h"
 #include "tsc/codegen/LLVMCodeGen.h"
 #include "tsc/utils/DiagnosticEngine.h"
+#include <cstdlib>  // For system() and std::remove()
 
 // LLVM includes - simplified for now
 // Full LLVM integration will be added in Phase 4
@@ -197,22 +198,54 @@ String Compiler::generateLLVMIR(const Module& module) {
 }
 
 bool Compiler::generateObjectFile(const String& llvmIR, const String& outputFile) {
-    // TODO: Implement LLVM IR to object file compilation
-    // This is a placeholder implementation
+    // For now, use clang to compile LLVM IR to object file
+    // In a full implementation, we'd use LLVM's MC layer directly
     try {
-        std::ofstream file(outputFile + ".ll");
-        file << llvmIR;
-        file.close();
-        return true;
+        // Write LLVM IR to a temporary file
+        String tempIRFile = outputFile + ".tmp.ll";
+        std::ofstream irFile(tempIRFile);
+        if (!irFile.is_open()) {
+            return false;
+        }
+        irFile << llvmIR;
+        irFile.close();
+        
+        // Use clang to compile LLVM IR to object file
+        String command = "clang -c " + tempIRFile + " -o " + outputFile;
+        int result = system(command.c_str());
+        
+        // Clean up temporary file
+        std::remove(tempIRFile.c_str());
+        
+        return result == 0;
     } catch (...) {
         return false;
     }
 }
 
 bool Compiler::linkExecutable(const std::vector<String>& objectFiles, const String& outputFile) {
-    // TODO: Implement linking using system linker or LLVM's lld
-    // This is a placeholder implementation
-    return true;
+    // Use clang to link object files into executable
+    // In a full implementation, we'd use LLVM's lld or system linker directly
+    try {
+        if (objectFiles.empty()) {
+            return false;
+        }
+        
+        // Build clang command
+        String command = "clang";
+        for (const auto& objFile : objectFiles) {
+            command += " " + objFile;
+        }
+        command += " -o " + outputFile;
+        
+        // Add standard libraries and runtime
+        // For now, use default C runtime
+        
+        int result = system(command.c_str());
+        return result == 0;
+    } catch (...) {
+        return false;
+    }
 }
 
 void Compiler::setTarget(const TargetInfo& target) {

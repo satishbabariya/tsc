@@ -425,24 +425,11 @@ void SemanticAnalyzer::visit(VariableDeclaration& node) {
 }
 
 void SemanticAnalyzer::visit(FunctionDeclaration& node) {
-    // Create function type
-    std::vector<FunctionType::Parameter> paramTypes;
-    for (const auto& param : node.getParameters()) {
-        FunctionType::Parameter funcParam;
-        funcParam.name = param.name;
-        funcParam.type = param.type ? param.type : typeSystem_->getAnyType();
-        funcParam.optional = param.optional;
-        funcParam.rest = param.rest;
-        paramTypes.push_back(funcParam);
-    }
-    
-    auto returnType = node.getReturnType() ? node.getReturnType() : typeSystem_->getVoidType();
-    auto functionType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
-    
-    // Add function symbol
-    if (!symbolTable_->addSymbol(node.getName(), SymbolKind::Function, functionType,
-                                 node.getLocation(), &node)) {
-        reportError("Failed to declare function: " + node.getName(), node.getLocation());
+    // Check if function symbol already exists (from first pass)
+    Symbol* existingSymbol = symbolTable_->lookupSymbol(node.getName());
+    if (!existingSymbol) {
+        // This shouldn't happen if collectFunctionDeclarations worked correctly
+        reportError("Function symbol not found in second pass: " + node.getName(), node.getLocation());
         return;
     }
     
@@ -479,8 +466,46 @@ void SemanticAnalyzer::visit(Module& module) {
 
 // Analysis phase implementations
 void SemanticAnalyzer::performSymbolResolution(Module& module) {
-    // Symbol resolution is performed during the main visitor traversal
+    // Two-pass symbol resolution:
+    // Pass 1: Collect all function declarations
+    collectFunctionDeclarations(module);
+    
+    // Pass 2: Process all statements including function bodies
     module.accept(*this);
+}
+
+void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
+    // First pass: only collect function signatures, don't process bodies
+    // Debug: Check how many statements we're processing
+    const auto& statements = module.getStatements();
+    // std::cout << "DEBUG: collectFunctionDeclarations found " << statements.size() << " statements" << std::endl;
+    
+    for (const auto& stmt : statements) {
+        if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
+            // std::cout << "DEBUG: Found function declaration: " << funcDecl->getName() << std::endl;
+            // Create function type
+            std::vector<FunctionType::Parameter> paramTypes;
+            for (const auto& param : funcDecl->getParameters()) {
+                FunctionType::Parameter funcParam;
+                funcParam.name = param.name;
+                funcParam.type = param.type ? param.type : typeSystem_->getAnyType();
+                funcParam.optional = param.optional;
+                funcParam.rest = param.rest;
+                paramTypes.push_back(funcParam);
+            }
+            
+            auto returnType = funcDecl->getReturnType() ? funcDecl->getReturnType() : typeSystem_->getVoidType();
+            auto functionType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
+            
+            // Add function symbol (signature only, no body processing)
+            if (!symbolTable_->addSymbol(funcDecl->getName(), SymbolKind::Function, functionType,
+                                         funcDecl->getLocation(), funcDecl)) {
+                reportError("Failed to declare function: " + funcDecl->getName(), funcDecl->getLocation());
+            } else {
+                // std::cout << "DEBUG: Successfully added function " << funcDecl->getName() << " to symbol table" << std::endl;
+            }
+        }
+    }
 }
 
 void SemanticAnalyzer::performTypeChecking(Module& module) {

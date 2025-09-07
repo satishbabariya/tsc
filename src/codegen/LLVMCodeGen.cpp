@@ -154,6 +154,16 @@ void LLVMCodeGen::visit(NullLiteral& node) {
 }
 
 void LLVMCodeGen::visit(Identifier& node) {
+    // First, check if this identifier refers to a function
+    llvm::Function* function = module_->getFunction(node.getName());
+    if (function) {
+        // This is a function identifier - return the function as a value
+        // In LLVM, functions can be treated as values (function pointers)
+        setCurrentValue(function);
+        return;
+    }
+    
+    // If not a function, try to load as a variable
     llvm::Value* value = loadVariable(node.getName(), node.getLocation());
     if (!value) {
         reportError("Undefined variable: " + node.getName(), node.getLocation());
@@ -600,21 +610,33 @@ void LLVMCodeGen::visit(IfStatement& node) {
     // Generate then block
     builder_->SetInsertPoint(thenBlock);
     node.getThenStatement()->accept(*this);
-    if (!builder_->GetInsertBlock()->getTerminator()) {
+    bool thenHasTerminator = builder_->GetInsertBlock()->getTerminator() != nullptr;
+    if (!thenHasTerminator) {
         builder_->CreateBr(endBlock);
     }
     
     // Generate else block if present
+    bool elseHasTerminator = false;
     if (node.hasElse()) {
         builder_->SetInsertPoint(elseBlock);
         node.getElseStatement()->accept(*this);
-        if (!builder_->GetInsertBlock()->getTerminator()) {
+        elseHasTerminator = builder_->GetInsertBlock()->getTerminator() != nullptr;
+        if (!elseHasTerminator) {
             builder_->CreateBr(endBlock);
         }
     }
     
-    // Continue with end block
-    builder_->SetInsertPoint(endBlock);
+    // Handle end block
+    bool bothBranchesTerminate = thenHasTerminator && (!node.hasElse() || elseHasTerminator);
+    
+    if (bothBranchesTerminate) {
+        // Both branches terminate (or only then branch exists and terminates)
+        // End block is unreachable - remove it to avoid verification errors
+        endBlock->eraseFromParent();
+    } else {
+        // At least one branch doesn't terminate - continue with end block
+        builder_->SetInsertPoint(endBlock);
+    }
 }
 
 void LLVMCodeGen::visit(WhileStatement& node) {

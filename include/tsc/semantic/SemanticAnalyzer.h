@@ -109,6 +109,7 @@ private:
     
     // Analysis phases
     void performSymbolResolution(Module& module);
+    void collectFunctionDeclarations(Module& module);
     void performTypeChecking(Module& module);
     void performFlowAnalysis(Module& module);
     
