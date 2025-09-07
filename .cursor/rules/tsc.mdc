@@ -1,0 +1,118 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+# TSC (TypeScript Compiler) Project Rules
+
+## Project Overview
+This is a TypeScript-syntax static language compiler that generates native binaries using LLVM. The project focuses on static compilation with no JavaScript runtime overhead.
+
+## Core Principles
+- **Static compilation only**: No interpretation or JavaScript runtime
+- **TypeScript syntax**: Familiar syntax but compiles to native code
+- **LLVM backend**: All code generation targets LLVM IR
+- **Minimal runtime**: No garbage collector, manual memory management
+- **Cross-platform**: Support all LLVM target platforms
+
+## File Structure Rules
+
+### Grammar Files
+- `tsc.tm` - Main grammar file (TextMapper format)
+- DO NOT modify grammar without explicit user request
+- Grammar is TypeScript-syntax focused (no JavaScript compatibility)
+- Template literals are supported, JSX is NOT supported
+- Division operator disambiguation has been simplified
+
+### Documentation
+- `docs/ARCHITECTURE.md` - High-level architecture overview
+- Keep documentation in sync with actual implementation
+- Focus on static compilation aspects
+- Emphasize TypeScript-syntax nature (not full TypeScript compatibility)
+
+## Code Style Guidelines
+
+### Memory Management
+- Use manual memory management patterns
+- Prefer stack allocation for small, short-lived objects
+- Use smart pointers (unique_ptr, shared_ptr) for heap objects
+- NEVER introduce garbage collection concepts
+
+### Type System
+- Leverage static typing for optimization
+- Map TypeScript types to LLVM types efficiently
+- Use structural-to-nominal type conversion
+- Implement monomorphization for generics
+
+### Performance
+- Prioritize compilation speed and runtime performance
+- Use LLVM optimization passes
+- Design for zero-cost abstractions
+- Consider LLVM IR generation efficiency
+
+## Restrictions
+
+### What NOT to do:
+- Do NOT add JavaScript compatibility features
+- Do NOT add JSX support (already removed)
+- Do NOT introduce garbage collection
+- Do NOT add dynamic typing features
+- Do NOT add browser/web-specific APIs
+- Do NOT modify the grammar without explicit permission
+- Do NOT add C/C++ interoperability (project excludes this)
+
+### Language Features to Avoid:
+- `eval()` or dynamic code execution
+- Prototype-based inheritance
+- Dynamic property access
+- Runtime type checking (beyond debug builds)
+- JavaScript-specific quirks or legacy features
+
+## Build System
+- Use LLVM toolchain
+- Support cross-compilation
+- Generate native binaries (.exe, .so, etc.)
+- Use parallel compilation with `-j10` flag when running make commands
+- Target LLDB for debugging support
+
+## Testing Strategy
+- Focus on static compilation correctness
+- Test LLVM IR generation
+- Verify cross-platform compatibility
+- Performance benchmarks for compilation speed
+
+## Error Handling
+- Provide clear compile-time error messages
+- Include source location information
+- Use panic/abort for unrecoverable runtime errors
+- Debug builds should include additional safety checks
+
+## When in Doubt
+- Ask the user before making significant changes
+- Prioritize static compilation over dynamic features
+- Choose performance over convenience
+- Maintain TypeScript syntax compatibility where possible
+- Follow LLVM best practices
+
+## Memory Patterns to Use
+```typescript
+// Preferred patterns:
+unique_ptr<T>  // Exclusive ownership
+shared_ptr<T>  // Reference counted
+weak_ptr<T>    // Non-owning reference
+
+// Stack allocation for small objects
+let value: number = 42;  // Stack allocated
+
+// Explicit heap allocation (syntax TBD)
+let array = new Array<number>(1000);  // Heap allocated
+```
+
+## Debugging Support
+- Generate DWARF debug information
+- Preserve TypeScript identifiers in debug info
+- Support LLDB source-level debugging
+- Map LLVM IR back to original source locations
+
+Remember: This is a static compiler, not a JavaScript runtime replacement. Every feature should be evaluated through the lens of "can this be efficiently compiled to native code?"
