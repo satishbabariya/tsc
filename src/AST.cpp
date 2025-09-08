@@ -870,38 +870,6 @@ String TypeAliasDeclaration::toString() const {
     return "type " + name_ + " = " + aliasedType_->toString();
 }
 
-// ArrowFunction implementation
-void ArrowFunction::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String ArrowFunction::toString() const {
-    std::ostringstream oss;
-    
-    // Parameters
-    if (parameters_.size() == 1 && !parameters_[0].type) {
-        // Single parameter without type annotation
-        oss << parameters_[0].name;
-    } else {
-        oss << "(";
-        for (size_t i = 0; i < parameters_.size(); ++i) {
-            if (i > 0) oss << ", ";
-            oss << parameters_[i].name;
-            if (parameters_[i].type) {
-                oss << ": " << parameters_[i].type->toString();
-            }
-        }
-        oss << ")";
-    }
-    
-    oss << " => ";
-    
-    // Body (simplified - assume it's a block)
-    oss << body_->toString();
-    
-    return oss.str();
-}
-
 // FunctionExpression implementation
 void FunctionExpression::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
@@ -938,6 +906,18 @@ String FunctionExpression::toString() const {
     // Body
     oss << body_->toString();
     
+    return oss.str();
+}
+
+// ForOfStatement implementation
+void ForOfStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ForOfStatement::toString() const {
+    std::ostringstream oss;
+    oss << "for (" << variable_ << " of " << iterable_->toString() << ") ";
+    oss << body_->toString();
     return oss.str();
 }
 

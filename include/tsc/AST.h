@@ -58,6 +58,7 @@ public:
         While,
         DoWhile,
         For,
+        ForOf,
         Return,
         Break,
         Continue,
@@ -760,6 +761,30 @@ private:
     SourceLocation location_;
 };
 
+// For-of statement (for (variable of iterable) body)
+class ForOfStatement : public Statement {
+public:
+    ForOfStatement(const String& variable, unique_ptr<Expression> iterable,
+                   unique_ptr<Statement> body, const SourceLocation& loc)
+        : variable_(variable), iterable_(std::move(iterable)),
+          body_(std::move(body)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::ForOf; }
+    String toString() const override;
+    
+    const String& getVariable() const { return variable_; }
+    Expression* getIterable() const { return iterable_.get(); }
+    Statement* getBody() const { return body_.get(); }
+
+private:
+    String variable_;
+    unique_ptr<Expression> iterable_;
+    unique_ptr<Statement> body_;
+    SourceLocation location_;
+};
+
 // Case clause for switch statements
 class CaseClause : public ASTNode {
 public:
@@ -1285,6 +1310,7 @@ public:
     virtual void visit(WhileStatement& node) = 0;
     virtual void visit(DoWhileStatement& node) = 0;
     virtual void visit(ForStatement& node) = 0;
+    virtual void visit(ForOfStatement& node) = 0;
     virtual void visit(SwitchStatement& node) = 0;
     virtual void visit(CaseClause& node) = 0;
     virtual void visit(BreakStatement& node) = 0;

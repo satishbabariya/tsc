@@ -48,6 +48,7 @@ private:
     unique_ptr<Statement> parseWhileStatement();
     unique_ptr<Statement> parseDoWhileStatement();
     unique_ptr<Statement> parseForStatement();
+    unique_ptr<Statement> parseForOfStatement();
     unique_ptr<Statement> parseSwitchStatement();
     unique_ptr<CaseClause> parseCaseClause();
     unique_ptr<Statement> parseBlockStatement();
@@ -88,11 +89,8 @@ private:
     
     // TypeScript-specific
     shared_ptr<Type> parseTypeAnnotation();
-    shared_ptr<Type> parsePrimaryType();
     shared_ptr<Type> parseUnionType();
-    shared_ptr<Type> parseIntersectionType();
-    shared_ptr<Type> parseFunctionType();
-    shared_ptr<Type> parseArrayType();
+    shared_ptr<Type> parsePrimaryType();
     shared_ptr<Type> parseTupleType();
     shared_ptr<Type> parseObjectType();
     

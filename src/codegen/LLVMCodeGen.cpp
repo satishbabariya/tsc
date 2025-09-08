@@ -1260,6 +1260,99 @@ void LLVMCodeGen::visit(ForStatement& node) {
     builder_->SetInsertPoint(endBlock);
 }
 
+void LLVMCodeGen::visit(ForOfStatement& node) {
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    if (!currentFunc) {
+        reportError("For-of statement outside function", node.getLocation());
+        return;
+    }
+    
+    // Generate the iterable expression
+    node.getIterable()->accept(*this);
+    llvm::Value* iterableValue = getCurrentValue();
+    
+    if (!iterableValue) {
+        reportError("Failed to generate iterable expression", node.getIterable()->getLocation());
+        return;
+    }
+    
+    // For now, we'll implement a simplified version that works with arrays
+    // TODO: Add proper iterator protocol support
+    
+    // Get array length (assuming it's an array)
+    llvm::Value* arrayPtr = iterableValue;
+    
+    // For arrays created by ArrayLiteral, we need to get the length
+    // This is a simplified implementation - we'll assume the array is stored as:
+    // struct { i32 length, [0 x elementType] data }
+    
+    // Create the array structure type
+    llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
+        llvm::Type::getInt32Ty(*context_),  // length
+        llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 0)  // data (flexible array)
+    });
+    
+    llvm::Value* lengthPtr = builder_->CreateStructGEP(arrayStructType, arrayPtr, 0, "length.ptr");
+    llvm::Value* arrayLength = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "array.length");
+    
+    // Create loop variable
+    const String& varName = node.getVariable();
+    
+    // For now, assume the element type is double (simplified)
+    // TODO: Get the actual element type from semantic analysis
+    llvm::Type* elementType = llvm::Type::getDoubleTy(*context_);
+    llvm::AllocaInst* loopVar = builder_->CreateAlloca(elementType, nullptr, varName);
+    
+    // Store the variable in the current scope (for now, we'll use setSymbolValue)
+    codeGenContext_->setSymbolValue(varName, loopVar);
+    
+    // Create index variable
+    llvm::AllocaInst* indexVar = builder_->CreateAlloca(llvm::Type::getInt32Ty(*context_), nullptr, "for.of.index");
+    builder_->CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), indexVar);
+    
+    // Create basic blocks
+    llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context_, "forof.cond", currentFunc);
+    llvm::BasicBlock* bodyBlock = llvm::BasicBlock::Create(*context_, "forof.body", currentFunc);
+    llvm::BasicBlock* incrementBlock = llvm::BasicBlock::Create(*context_, "forof.inc", currentFunc);
+    llvm::BasicBlock* endBlock = llvm::BasicBlock::Create(*context_, "forof.end", currentFunc);
+    
+    // Jump to condition block
+    builder_->CreateBr(conditionBlock);
+    
+    // Generate condition: index < array.length
+    builder_->SetInsertPoint(conditionBlock);
+    llvm::Value* currentIndex = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), indexVar, "current.index");
+    llvm::Value* condition = builder_->CreateICmpSLT(currentIndex, arrayLength, "forof.cond");
+    builder_->CreateCondBr(condition, bodyBlock, endBlock);
+    
+    // Generate body
+    builder_->SetInsertPoint(bodyBlock);
+    
+    // Load current element: array.data[index]
+    llvm::Value* dataPtr = builder_->CreateStructGEP(arrayStructType, arrayPtr, 1, "data.ptr");
+    llvm::Value* elementPtr = builder_->CreateGEP(elementType, dataPtr, currentIndex, "element.ptr");
+    llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element.value");
+    
+    // Store element in loop variable
+    builder_->CreateStore(elementValue, loopVar);
+    
+    // Generate loop body
+    node.getBody()->accept(*this);
+    if (!builder_->GetInsertBlock()->getTerminator()) {
+        builder_->CreateBr(incrementBlock);
+    }
+    
+    // Generate increment: index++
+    builder_->SetInsertPoint(incrementBlock);
+    llvm::Value* currentIndexInc = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), indexVar, "current.index.inc");
+    llvm::Value* nextIndex = builder_->CreateAdd(currentIndexInc, llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1), "next.index");
+    builder_->CreateStore(nextIndex, indexVar);
+    builder_->CreateBr(conditionBlock);
+    
+    // Continue with end block
+    builder_->SetInsertPoint(endBlock);
+}
+
 void LLVMCodeGen::visit(SwitchStatement& node) {
     llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
     if (!currentFunc) {
@@ -1576,6 +1669,10 @@ llvm::Type* LLVMCodeGen::mapTypeScriptTypeToLLVM(const Type& type) {
             return getBooleanType();
         case TypeKind::Void:
             return getVoidType();
+        case TypeKind::Union:
+            // For now, treat union types as 'any' type (void*)
+            // TODO: Implement proper tagged union representation
+            return getAnyType();
         case TypeKind::Any:
         default:
             return getAnyType();
@@ -2073,6 +2170,10 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
             if (!found_ && node.getIncrement()) node.getIncrement()->accept(*this);
             if (!found_) node.getBody()->accept(*this);
         }
+        void visit(ForOfStatement& node) override {
+            node.getIterable()->accept(*this);
+            if (!found_) node.getBody()->accept(*this);
+        }
         void visit(SwitchStatement& node) override {
             node.getDiscriminant()->accept(*this);
             if (!found_) {
@@ -2119,6 +2220,7 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(EnumMember& node) override {}
         void visit(TypeAliasDeclaration& node) override {}
         void visit(ArrowFunction& node) override {}
+        void visit(FunctionExpression& node) override {}
         void visit(Module& node) override {}
     };
     

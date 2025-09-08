@@ -435,6 +435,30 @@ void ASTPrinter::visit(ForStatement& node) {
     decreaseIndent();
 }
 
+void ASTPrinter::visit(ForOfStatement& node) {
+    printIndent();
+    output_ << "ForOfStatement:" << std::endl;
+    
+    increaseIndent();
+    
+    printIndent();
+    output_ << "Variable: " << node.getVariable() << std::endl;
+    
+    printIndent();
+    output_ << "Iterable:" << std::endl;
+    increaseIndent();
+    node.getIterable()->accept(*this);
+    decreaseIndent();
+    
+    printIndent();
+    output_ << "Body:" << std::endl;
+    increaseIndent();
+    node.getBody()->accept(*this);
+    decreaseIndent();
+    
+    decreaseIndent();
+}
+
 void ASTPrinter::visit(SwitchStatement& node) {
     printIndent();
     output_ << "SwitchStatement:" << std::endl;
@@ -969,6 +993,52 @@ void ASTPrinter::visit(TypeAliasDeclaration& node) {
     printIndent();
     output_ << "TypeAliasDeclaration: " << node.getName() 
             << " = " << node.getAliasedType()->toString() << std::endl;
+}
+
+void ASTPrinter::visit(FunctionExpression& node) {
+    printIndent();
+    output_ << "FunctionExpression";
+    if (!node.getName().empty()) {
+        output_ << " (" << node.getName() << ")";
+    }
+    output_ << ":" << std::endl;
+    increaseIndent();
+    
+    if (!node.getParameters().empty()) {
+        printIndent();
+        output_ << "Parameters:" << std::endl;
+        increaseIndent();
+        for (const auto& param : node.getParameters()) {
+            printIndent();
+            output_ << param.name;
+            if (param.type) {
+                output_ << ": " << param.type->toString();
+            }
+            if (param.optional) {
+                output_ << " (optional)";
+            }
+            if (param.rest) {
+                output_ << " (rest)";
+            }
+            output_ << std::endl;
+        }
+        decreaseIndent();
+    }
+    
+    if (node.getReturnType()) {
+        printIndent();
+        output_ << "Return Type: " << node.getReturnType()->toString() << std::endl;
+    }
+    
+    if (node.getBody()) {
+        printIndent();
+        output_ << "Body:" << std::endl;
+        increaseIndent();
+        node.getBody()->accept(*this);
+        decreaseIndent();
+    }
+    
+    decreaseIndent();
 }
 
 } // namespace tsc

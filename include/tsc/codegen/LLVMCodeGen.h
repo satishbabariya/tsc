@@ -131,6 +131,7 @@ public:
     void visit(PropertyAccess& node) override;
     void visit(ArrowFunction& node) override;
     void visit(FunctionExpression& node) override;
+    void visit(ForOfStatement& node) override;
     
     void visit(ExpressionStatement& node) override;
     void visit(BlockStatement& node) override;

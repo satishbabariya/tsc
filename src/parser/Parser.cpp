@@ -558,18 +558,90 @@ unique_ptr<Statement> Parser::parseForStatement() {
     
     consume(TokenType::LeftParen, "Expected '(' after 'for'");
     
-    // Parse init (can be variable declaration or expression or empty)
+    // Check for for-of loop: for (const/let/var variable of iterable)
+    if (check(TokenType::Const) || check(TokenType::Let) || check(TokenType::Var)) {
+        // Save the variable declaration type
+        TokenType varType = advance().getType();
+        
+        // Parse variable name
+        Token varToken = consume(TokenType::Identifier, "Expected variable name in for-of loop");
+        String varName = varToken.getStringValue();
+        
+        // Check for 'of' keyword
+        if (check(TokenType::Of)) {
+            advance(); // consume 'of'
+            
+            // Parse iterable expression
+            auto iterable = parseExpression();
+            
+            consume(TokenType::RightParen, "Expected ')' after for-of iterable");
+            
+            // Parse body
+            auto body = parseStatement();
+            
+            // Create ForOfStatement with variable name
+            return make_unique<ForOfStatement>(varName, std::move(iterable), std::move(body), location);
+        } else {
+            // This is a regular for loop with variable declaration
+            // Reset and parse as regular for loop
+            // We need to backtrack here, but since we don't have backtracking,
+            // we'll parse the variable declaration manually
+            
+            // Optional type annotation
+            shared_ptr<Type> typeAnnotation = nullptr;
+            if (match(TokenType::Colon)) {
+                typeAnnotation = parseTypeAnnotation();
+            }
+            
+            // Optional initializer
+            unique_ptr<Expression> initializer = nullptr;
+            if (match(TokenType::Equal)) {
+                initializer = parseAssignmentExpression();
+            }
+            
+            consume(TokenType::Semicolon, "Expected ';' after for init");
+            
+            // Convert TokenType to VariableDeclaration::Kind
+            VariableDeclaration::Kind kind;
+            switch (varType) {
+                case TokenType::Var: kind = VariableDeclaration::Kind::Var; break;
+                case TokenType::Let: kind = VariableDeclaration::Kind::Let; break;
+                case TokenType::Const: kind = VariableDeclaration::Kind::Const; break;
+                default: kind = VariableDeclaration::Kind::Let; break; // fallback
+            }
+            
+            auto init = make_unique<VariableDeclaration>(kind, varName, std::move(initializer), typeAnnotation, varToken.getLocation());
+            
+            // Parse condition (optional)
+            unique_ptr<Expression> condition = nullptr;
+            if (!check(TokenType::Semicolon)) {
+                condition = parseExpression();
+            }
+            consume(TokenType::Semicolon, "Expected ';' after for condition");
+            
+            // Parse increment (optional)
+            unique_ptr<Expression> increment = nullptr;
+            if (!check(TokenType::RightParen)) {
+                increment = parseExpression();
+            }
+            consume(TokenType::RightParen, "Expected ')' after for increment");
+            
+            // Parse body
+            auto body = parseStatement();
+            
+            return make_unique<ForStatement>(std::move(init), std::move(condition), 
+                                           std::move(increment), std::move(body), location);
+        }
+    }
+    
+    // Regular for loop without variable declaration
+    // Parse init (can be expression or empty)
     unique_ptr<Statement> init = nullptr;
     if (!check(TokenType::Semicolon)) {
-        if (match({TokenType::Var, TokenType::Let, TokenType::Const})) {
-            // Parse variable declaration for init
-            init = parseVariableStatement();
-        } else {
-            // Parse expression and wrap in expression statement
-            auto expr = parseExpression();
-            consume(TokenType::Semicolon, "Expected ';' after for init");
-            init = make_unique<ExpressionStatement>(std::move(expr), getCurrentLocation());
-        }
+        // Parse expression and wrap in expression statement
+        auto expr = parseExpression();
+        consume(TokenType::Semicolon, "Expected ';' after for init");
+        init = make_unique<ExpressionStatement>(std::move(expr), getCurrentLocation());
     } else {
         consume(TokenType::Semicolon, "Expected ';' after for init");
     }
@@ -1229,9 +1301,39 @@ SourceLocation Parser::getCurrentLocation() const {
 
 // Parse type annotations like ": number", ": string", etc.
 shared_ptr<Type> Parser::parseTypeAnnotation() {
-    // We should already have consumed the ':' token before calling this
+    // Parse union types: type1 | type2 | type3
+    return parseUnionType();
+}
+
+shared_ptr<Type> Parser::parseUnionType() {
+    auto firstType = parsePrimaryType();
+    if (!firstType) {
+        return nullptr;
+    }
     
+    // Check if this is a union type (has '|' operator)
+    std::vector<shared_ptr<Type>> unionTypes;
+    unionTypes.push_back(firstType);
     
+    while (match(TokenType::Pipe)) {
+        auto nextType = parsePrimaryType();
+        if (!nextType) {
+            reportError("Expected type after '|' in union type", getCurrentLocation());
+            return typeSystem_.getErrorType();
+        }
+        unionTypes.push_back(nextType);
+    }
+    
+    // If we only have one type, return it directly
+    if (unionTypes.size() == 1) {
+        return unionTypes[0];
+    }
+    
+    // Create union type
+    return typeSystem_.createUnionType(std::move(unionTypes));
+}
+
+shared_ptr<Type> Parser::parsePrimaryType() {
     // Handle TypeScript type keywords
     if (check(TokenType::Number)) {
         advance();
@@ -1317,7 +1419,7 @@ shared_ptr<Type> Parser::parseTypeAnnotation() {
         return typeSystem_.getErrorType();
     }
     
-    reportError("Expected type name after ':'", getCurrentLocation());
+    reportError("Expected type name", getCurrentLocation());
     return typeSystem_.getErrorType();
 }
 
@@ -1578,7 +1680,7 @@ unique_ptr<Expression> Parser::parseFunctionExpression() {
     
     // Parse function body (must be a block statement)
     unique_ptr<Statement> body = nullptr;
-    if (check(TokenType::LeftBrace)) {
+    if (match(TokenType::LeftBrace)) {
         body = parseBlockStatement();
     } else {
         reportError("Expected '{' for function expression body", getCurrentLocation());

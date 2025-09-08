@@ -599,6 +599,47 @@ void SemanticAnalyzer::visit(ForStatement& node) {
     node.setType(typeSystem_->getVoidType());
 }
 
+void SemanticAnalyzer::visit(ForOfStatement& node) {
+    // Enter a new scope for the loop
+    enterScope(Scope::ScopeType::Block);
+    
+    // Analyze the iterable expression first
+    node.getIterable()->accept(*this);
+    auto iterableType = node.getIterable()->getType();
+    
+    // For now, we'll assume arrays are the primary iterable type
+    // TODO: Add proper iterable interface support
+    shared_ptr<Type> elementType = typeSystem_->getAnyType();
+    
+    if (iterableType) {
+        // Check if it's an array type - for now we'll infer the element type
+        // This is a simplified implementation
+        if (auto arrayType = dynamic_cast<ArrayType*>(iterableType.get())) {
+            elementType = arrayType->getElementType();
+        } else {
+            // For non-array types, we'll use 'any' for now
+            reportWarning("For-of loop requires an iterable type (array expected)", node.getIterable()->getLocation());
+        }
+    }
+    
+    // Add the loop variable to the current scope
+    const String& varName = node.getVariable();
+    
+    // Add variable to symbol table
+    if (!symbolTable_->addSymbol(varName, SymbolKind::Variable, elementType, node.getLocation())) {
+        reportError("Variable '" + varName + "' already declared in this scope", node.getLocation());
+    }
+    
+    // Analyze the body
+    node.getBody()->accept(*this);
+    
+    // Exit the loop scope
+    exitScope();
+    
+    // Set the for-of statement type to void
+    node.setType(typeSystem_->getVoidType());
+}
+
 void SemanticAnalyzer::visit(SwitchStatement& node) {
     // Analyze discriminant
     node.getDiscriminant()->accept(*this);
