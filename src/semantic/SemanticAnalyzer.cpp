@@ -138,8 +138,9 @@ void SemanticAnalyzer::visit(SuperExpression& node) {
         return;
     }
     
-    // Set the type to the base class type
-    setExpressionType(node, classType->getBaseClass());
+    // Set the type to the resolved base class type
+    auto baseClassType = resolveType(classType->getBaseClass());
+    setExpressionType(node, baseClassType);
 }
 
 void SemanticAnalyzer::visit(NewExpression& node) {
@@ -276,6 +277,8 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
     node.getObject()->accept(*this);
     auto objectType = getExpressionType(*node.getObject());
     
+    // Note: SuperExpression is handled by the regular class property access logic below
+    
     // Check if this is an enum member access
     if (objectType->getKind() == TypeKind::Enum) {
         const auto& enumType = static_cast<const EnumType&>(*objectType);
@@ -306,26 +309,10 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
         const auto& classType = static_cast<const ClassType&>(*objectType);
         String memberName = node.getProperty();
         
-        // Check if the class has this member
-        ClassDeclaration* classDecl = classType.getDeclaration();
-        if (classDecl) {
-            // Look for property in class declaration
-            for (const auto& property : classDecl->getProperties()) {
-                if (property->getName() == memberName) {
-                    // Found the property - return its type
-                    setExpressionType(node, property->getType());
-                    return;
-                }
-            }
-            
-            // Look for method in class declaration
-            for (const auto& method : classDecl->getMethods()) {
-                if (method->getName() == memberName) {
-                    // Found the method - return its function type
-                    setExpressionType(node, getDeclarationType(*method));
-                    return;
-                }
-            }
+        // Check if the class has this member (including inherited members)
+        if (auto memberType = findClassMember(classType, memberName)) {
+            setExpressionType(node, memberType);
+            return;
         }
         
         // If we get here, the member wasn't found
@@ -588,8 +575,8 @@ void SemanticAnalyzer::visit(VariableDeclaration& node) {
     } else {
         // No initializer - use explicit type or infer as 'any'
         if (node.getTypeAnnotation()) {
-            // TODO: Parse type annotation
-            varType = typeSystem_->getAnyType();
+            // Resolve the type annotation
+            varType = resolveType(node.getTypeAnnotation());
         } else {
             varType = typeSystem_->getUndefinedType();
         }
@@ -977,6 +964,10 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
             auto baseClassType = std::static_pointer_cast<ClassType>(resolvedBaseType);
             if (baseClassType->getName() == node.getName()) {
                 reportError("Class cannot extend itself", node.getLocation());
+            } else {
+                // Update the ClassType with the resolved base class type
+                auto currentClassType = std::static_pointer_cast<ClassType>(classType);
+                currentClassType->setBaseClass(resolvedBaseType);
             }
         }
     }
@@ -1142,7 +1133,25 @@ void SemanticAnalyzer::visit(TypeAliasDeclaration& node) {
 }
 
 shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
-    if (!type || type->getKind() != TypeKind::Unresolved) {
+    if (!type) {
+        return type;
+    }
+    
+    if (type->getKind() != TypeKind::Unresolved) {
+        // Not an unresolved type - return as is
+        // But if it's a ClassType without declaration pointer, try to fix it
+        if (type->getKind() == TypeKind::Class) {
+            auto classType = std::static_pointer_cast<ClassType>(type);
+            if (!classType->getDeclaration()) {
+                // Try to find the declaration in the symbol table
+                Symbol* symbol = resolveSymbol(classType->getName(), SourceLocation());
+                if (symbol && symbol->getKind() == SymbolKind::Type && symbol->getDeclaration()) {
+                    if (auto classDecl = dynamic_cast<ClassDeclaration*>(symbol->getDeclaration())) {
+                        classType->setDeclaration(classDecl);
+                    }
+                }
+            }
+        }
         return type; // Already resolved or not an unresolved type
     }
     
@@ -1152,11 +1161,69 @@ shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
     // Look up the type name in the symbol table
     Symbol* symbol = resolveSymbol(typeName, SourceLocation());
     if (symbol && symbol->getKind() == SymbolKind::Type) {
-        return symbol->getType(); // Return the resolved type
+        auto resolvedType = symbol->getType();
+        
+        // Always ensure ClassType has correct declaration pointer
+        if (resolvedType->getKind() == TypeKind::Class) {
+            auto classType = std::static_pointer_cast<ClassType>(resolvedType);
+            if (!classType->getDeclaration() && symbol->getDeclaration()) {
+                // Set the declaration pointer if it's missing
+                if (auto classDecl = dynamic_cast<ClassDeclaration*>(symbol->getDeclaration())) {
+                    classType->setDeclaration(classDecl);
+                }
+            }
+        }
+        
+        return resolvedType; // Return the resolved type
     }
     
     // If not found, return error type
     return typeSystem_->getErrorType();
+}
+
+shared_ptr<Type> SemanticAnalyzer::findClassMember(const ClassType& classType, const String& memberName) {
+    ClassDeclaration* classDecl = classType.getDeclaration();
+    
+    // If the ClassType doesn't have a declaration pointer, try to find it in the symbol table
+    if (!classDecl) {
+        Symbol* symbol = resolveSymbol(classType.getName(), SourceLocation());
+        if (symbol && symbol->getKind() == SymbolKind::Type && symbol->getDeclaration()) {
+            classDecl = dynamic_cast<ClassDeclaration*>(symbol->getDeclaration());
+        }
+    }
+    
+    if (!classDecl) {
+        return nullptr;
+    }
+    
+    // Debug: check what methods are in the class
+    // (This would normally be removed in production code)
+    
+    // Look for property in current class
+    for (const auto& property : classDecl->getProperties()) {
+        if (property->getName() == memberName) {
+            return property->getType();
+        }
+    }
+    
+    // Look for method in current class
+    for (const auto& method : classDecl->getMethods()) {
+        if (method->getName() == memberName) {
+            return getDeclarationType(*method);
+        }
+    }
+    
+    // If not found in current class, look in base class
+    if (classDecl->getBaseClass()) {
+        auto resolvedBaseType = resolveType(classDecl->getBaseClass());
+        if (resolvedBaseType && resolvedBaseType->getKind() == TypeKind::Class) {
+            const auto& baseClassType = static_cast<const ClassType&>(*resolvedBaseType);
+            return findClassMember(baseClassType, memberName);
+        }
+    }
+    
+    // Member not found
+    return nullptr;
 }
 
 // Factory function

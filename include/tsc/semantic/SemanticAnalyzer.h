@@ -134,6 +134,9 @@ private:
                       const SourceLocation& location, ASTNode* declaration = nullptr);
     Symbol* resolveSymbol(const String& name, const SourceLocation& location);
     
+    // Class member lookup (with inheritance)
+    shared_ptr<Type> findClassMember(const ClassType& classType, const String& memberName);
+    
     // Type checking helpers
     void checkAssignment(const Expression& left, const Expression& right, 
                         const SourceLocation& location);
