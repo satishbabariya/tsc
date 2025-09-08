@@ -1208,6 +1208,14 @@ void LLVMCodeGen::visit(FunctionDeclaration& node) {
     generateFunctionBody(function, node);
 }
 
+void LLVMCodeGen::visit(TypeParameter& node) {
+    // Type parameters don't generate code - they're compile-time constructs
+    // In a full implementation with runtime type information, we might generate
+    // metadata or type information here
+    // For now, this is a no-op
+    setCurrentValue(llvm::Constant::getNullValue(getAnyType()));
+}
+
 void LLVMCodeGen::visit(Module& module) {
     // Set module name
     module_->setModuleIdentifier(module.getFilename());

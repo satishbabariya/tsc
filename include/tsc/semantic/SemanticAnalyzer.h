@@ -93,6 +93,7 @@ public:
     void visit(ThrowStatement& node) override;
     void visit(VariableDeclaration& node) override;
     void visit(FunctionDeclaration& node) override;
+    void visit(TypeParameter& node) override;
     
     // Class-related declarations
     void visit(PropertyDeclaration& node) override;

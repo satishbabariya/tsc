@@ -337,16 +337,25 @@ public:
                   const SourceLocation& loc)
         : callee_(std::move(callee)), arguments_(std::move(arguments)), location_(loc) {}
     
+    CallExpression(unique_ptr<Expression> callee,
+                  std::vector<shared_ptr<Type>> typeArguments,
+                  std::vector<unique_ptr<Expression>> arguments,
+                  const SourceLocation& loc)
+        : callee_(std::move(callee)), typeArguments_(std::move(typeArguments)), arguments_(std::move(arguments)), location_(loc) {}
+    
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::RValue; }
     String toString() const override;
     
     Expression* getCallee() const { return callee_.get(); }
+    const std::vector<shared_ptr<Type>>& getTypeArguments() const { return typeArguments_; }
     const std::vector<unique_ptr<Expression>>& getArguments() const { return arguments_; }
+    bool hasTypeArguments() const { return !typeArguments_.empty(); }
 
 private:
     unique_ptr<Expression> callee_;
+    std::vector<shared_ptr<Type>> typeArguments_;
     std::vector<unique_ptr<Expression>> arguments_;
     SourceLocation location_;
 };
@@ -807,9 +816,7 @@ public:
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
-    String toString() const override { 
-        return name_ + (constraint_ ? " extends " + constraint_->toString() : ""); 
-    }
+    String toString() const override;
     
     const String& getName() const { return name_; }
     shared_ptr<Type> getConstraint() const { return constraint_; }

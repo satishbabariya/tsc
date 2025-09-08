@@ -535,6 +535,18 @@ void ASTPrinter::visit(FunctionDeclaration& node) {
     output_ << std::endl;
     
     increaseIndent();
+    
+    // Print type parameters if any
+    if (!node.getTypeParameters().empty()) {
+        printIndent();
+        output_ << "Type Parameters (" << node.getTypeParameters().size() << "):" << std::endl;
+        increaseIndent();
+        for (const auto& typeParam : node.getTypeParameters()) {
+            typeParam->accept(*this);
+        }
+        decreaseIndent();
+    }
+    
     printIndent();
     output_ << "Parameters (" << node.getParameters().size() << "):" << std::endl;
     increaseIndent();
@@ -555,6 +567,15 @@ void ASTPrinter::visit(FunctionDeclaration& node) {
         decreaseIndent();
     }
     decreaseIndent();
+}
+
+void ASTPrinter::visit(TypeParameter& node) {
+    printIndent();
+    output_ << "TypeParameter: " << node.getName();
+    if (node.getConstraint()) {
+        output_ << " extends " << node.getConstraint()->toString();
+    }
+    output_ << std::endl;
 }
 
 void ASTPrinter::visit(Module& node) {

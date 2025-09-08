@@ -586,6 +586,11 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
     // Analyze function body in new scope
     enterScope(Scope::ScopeType::Function, node.getName());
     
+    // Add type parameters to function scope first
+    for (const auto& typeParam : node.getTypeParameters()) {
+        typeParam->accept(*this);
+    }
+    
     // Add parameters to function scope
     for (const auto& param : node.getParameters()) {
         auto paramType = param.type ? param.type : typeSystem_->getAnyType();
@@ -605,6 +610,19 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
     functionDepth_--;
     
     exitScope();
+}
+
+void SemanticAnalyzer::visit(TypeParameter& node) {
+    // Create type parameter type
+    auto typeParam = typeSystem_->createTypeParameter(node.getName(), node.getConstraint());
+    
+    // Add type parameter to symbol table as a type
+    declareSymbol(node.getName(), SymbolKind::Type, typeParam, node.getLocation());
+    
+    // Set the node's type (though TypeParameter isn't an Expression, this maintains consistency)
+    if (auto expr = dynamic_cast<Expression*>(&node)) {
+        setExpressionType(*expr, typeParam);
+    }
 }
 
 void SemanticAnalyzer::visit(Module& module) {

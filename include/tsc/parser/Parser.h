@@ -102,6 +102,9 @@ private:
     std::vector<unique_ptr<TypeParameter>> parseTypeParameterList();
     unique_ptr<TypeParameter> parseTypeParameter();
     
+    // Generic type arguments
+    std::vector<shared_ptr<Type>> parseTypeArgumentList();
+    
     // Utility methods
     Token peek() const;
     Token advance();

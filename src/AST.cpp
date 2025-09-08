@@ -187,7 +187,19 @@ void CallExpression::accept(ASTVisitor& visitor) {
 
 String CallExpression::toString() const {
     std::stringstream ss;
-    ss << callee_->toString() << "(";
+    ss << callee_->toString();
+    
+    // Add type arguments if present
+    if (!typeArguments_.empty()) {
+        ss << "<";
+        for (size_t i = 0; i < typeArguments_.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << typeArguments_[i]->toString();
+        }
+        ss << ">";
+    }
+    
+    ss << "(";
     
     for (size_t i = 0; i < arguments_.size(); ++i) {
         if (i > 0) ss << ", ";
@@ -570,6 +582,10 @@ String VariableDeclaration::toString() const {
 // TypeParameter implementation
 void TypeParameter::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
+}
+
+String TypeParameter::toString() const {
+    return name_ + (constraint_ ? " extends " + constraint_->toString() : "");
 }
 
 // FunctionDeclaration implementation
