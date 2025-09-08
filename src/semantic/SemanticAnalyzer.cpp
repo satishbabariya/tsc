@@ -198,6 +198,32 @@ void SemanticAnalyzer::visit(AssignmentExpression& node) {
     setExpressionType(node, rightType);
 }
 
+void SemanticAnalyzer::visit(ConditionalExpression& node) {
+    // Analyze all three expressions
+    node.getCondition()->accept(*this);
+    node.getTrueExpression()->accept(*this);
+    node.getFalseExpression()->accept(*this);
+    
+    // Get types
+    auto conditionType = getExpressionType(*node.getCondition());
+    auto trueType = getExpressionType(*node.getTrueExpression());
+    auto falseType = getExpressionType(*node.getFalseExpression());
+    
+    // Condition should be boolean (but we allow any type for now)
+    // TODO: Add proper boolean conversion checking
+    
+    // Result type is the union of true and false types
+    // For now, use the true type if both are the same, otherwise use any
+    shared_ptr<Type> resultType;
+    if (trueType == falseType) {
+        resultType = trueType;
+    } else {
+        resultType = typeSystem_->getAnyType();
+    }
+    
+    setExpressionType(node, resultType);
+}
+
 void SemanticAnalyzer::visit(CallExpression& node) {
     // Analyze callee and arguments
     node.getCallee()->accept(*this);

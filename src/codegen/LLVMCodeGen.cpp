@@ -323,6 +323,82 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
     }
 }
 
+void LLVMCodeGen::visit(ConditionalExpression& node) {
+    // Generate condition
+    node.getCondition()->accept(*this);
+    llvm::Value* conditionValue = getCurrentValue();
+    
+    // Convert condition to boolean if necessary
+    if (conditionValue->getType() != llvm::Type::getInt1Ty(*context_)) {
+        if (conditionValue->getType()->isDoubleTy()) {
+            // Convert number to boolean (non-zero is true)
+            llvm::Value* zero = llvm::ConstantFP::get(*context_, llvm::APFloat(0.0));
+            conditionValue = builder_->CreateFCmpUNE(conditionValue, zero, "tobool");
+        } else if (conditionValue->getType()->isPointerTy()) {
+            // Convert pointer to boolean (non-null is true)
+            llvm::Value* null = llvm::Constant::getNullValue(conditionValue->getType());
+            conditionValue = builder_->CreateICmpNE(conditionValue, null, "tobool");
+        } else {
+            // For other types, assume already boolean or convert to boolean
+            conditionValue = builder_->CreateICmpNE(
+                conditionValue,
+                llvm::Constant::getNullValue(conditionValue->getType()),
+                "tobool"
+            );
+        }
+    }
+    
+    // Get current function for creating basic blocks
+    llvm::Function* currentFunc = builder_->GetInsertBlock()->getParent();
+    
+    // Create basic blocks
+    llvm::BasicBlock* trueBlock = llvm::BasicBlock::Create(*context_, "cond_true", currentFunc);
+    llvm::BasicBlock* falseBlock = llvm::BasicBlock::Create(*context_, "cond_false", currentFunc);
+    llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(*context_, "cond_end", currentFunc);
+    
+    // Branch based on condition
+    builder_->CreateCondBr(conditionValue, trueBlock, falseBlock);
+    
+    // Determine result type (use any type for simplicity)
+    llvm::Type* resultType = getAnyType();
+    
+    // Generate true branch
+    builder_->SetInsertPoint(trueBlock);
+    node.getTrueExpression()->accept(*this);
+    llvm::Value* trueValue = getCurrentValue();
+    
+    // Convert true value to result type in the true block
+    if (trueValue->getType() != resultType) {
+        trueValue = convertValueToType(trueValue, resultType);
+    }
+    
+    llvm::BasicBlock* trueEndBlock = builder_->GetInsertBlock(); // May have changed due to nested expressions
+    builder_->CreateBr(mergeBlock);
+    
+    // Generate false branch
+    builder_->SetInsertPoint(falseBlock);
+    node.getFalseExpression()->accept(*this);
+    llvm::Value* falseValue = getCurrentValue();
+    
+    // Convert false value to result type in the false block
+    if (falseValue->getType() != resultType) {
+        falseValue = convertValueToType(falseValue, resultType);
+    }
+    
+    llvm::BasicBlock* falseEndBlock = builder_->GetInsertBlock(); // May have changed due to nested expressions
+    builder_->CreateBr(mergeBlock);
+    
+    // Merge point
+    builder_->SetInsertPoint(mergeBlock);
+    
+    // Create PHI node to select the appropriate value
+    llvm::PHINode* phiNode = builder_->CreatePHI(resultType, 2, "cond_result");
+    phiNode->addIncoming(trueValue, trueEndBlock);
+    phiNode->addIncoming(falseValue, falseEndBlock);
+    
+    setCurrentValue(phiNode);
+}
+
 void LLVMCodeGen::visit(CallExpression& node) {
     // Generate the callee (function to call)
     node.getCallee()->accept(*this);
@@ -1783,6 +1859,11 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(AssignmentExpression& node) override {
             node.getLeft()->accept(*this);
             if (!found_) node.getRight()->accept(*this);
+        }
+        void visit(ConditionalExpression& node) override {
+            node.getCondition()->accept(*this);
+            if (!found_) node.getTrueExpression()->accept(*this);
+            if (!found_) node.getFalseExpression()->accept(*this);
         }
         void visit(CallExpression& node) override {
             node.getCallee()->accept(*this);

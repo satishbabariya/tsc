@@ -24,6 +24,7 @@ public:
     void visit(BinaryExpression& node) override;
     void visit(UnaryExpression& node) override;
     void visit(AssignmentExpression& node) override;
+    void visit(ConditionalExpression& node) override;
     void visit(CallExpression& node) override;
     void visit(ArrayLiteral& node) override;
     void visit(IndexExpression& node) override;

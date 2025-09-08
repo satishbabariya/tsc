@@ -740,7 +740,60 @@ unique_ptr<Statement> Parser::parseExpressionStatement() {
 }
 
 unique_ptr<Expression> Parser::parseExpression() {
-    return parseBinaryExpression();
+    return parseAssignmentExpression();
+}
+
+unique_ptr<Expression> Parser::parseAssignmentExpression() {
+    auto expr = parseConditionalExpression();
+    
+    // Handle assignment operators
+    if (check(TokenType::Equal) || check(TokenType::PlusEqual) || check(TokenType::MinusEqual)) {
+        Token opToken = advance();
+        auto right = parseAssignmentExpression(); // Right-associative
+        
+        AssignmentExpression::Operator assignOp = AssignmentExpression::Operator::Assign;
+        if (opToken.getType() == TokenType::PlusEqual) {
+            assignOp = AssignmentExpression::Operator::AddAssign;
+        } else if (opToken.getType() == TokenType::MinusEqual) {
+            assignOp = AssignmentExpression::Operator::SubtractAssign;
+        }
+        
+        return make_unique<AssignmentExpression>(
+            std::move(expr),
+            assignOp,
+            std::move(right),
+            opToken.getLocation()
+        );
+    }
+    
+    return expr;
+}
+
+unique_ptr<Expression> Parser::parseConditionalExpression() {
+    auto condition = parseBinaryExpression();
+    
+    // Check for ternary operator
+    if (check(TokenType::Question)) {
+        advance(); // consume '?'
+        auto trueExpr = parseAssignmentExpression();
+        
+        if (!check(TokenType::Colon)) {
+            reportError("Expected ':' in ternary expression");
+            return condition;
+        }
+        advance(); // consume ':'
+        
+        auto falseExpr = parseConditionalExpression(); // Right-associative
+        
+        return make_unique<ConditionalExpression>(
+            std::move(condition),
+            std::move(trueExpr),
+            std::move(falseExpr),
+            condition->getLocation()
+        );
+    }
+    
+    return condition;
 }
 
 unique_ptr<Expression> Parser::parseBinaryExpression(int minPrecedence) {
@@ -755,31 +808,13 @@ unique_ptr<Expression> Parser::parseBinaryExpression(int minPrecedence) {
         }
         
         Token opToken = advance();
-        
-        // Handle assignment operators specially
-        if (opType == TokenType::Equal || opType == TokenType::PlusEqual || opType == TokenType::MinusEqual) {
-            auto right = parseBinaryExpression(precedence);  // Right-associative
-            AssignmentExpression::Operator assignOp = AssignmentExpression::Operator::Assign;
-            if (opType == TokenType::PlusEqual) {
-                assignOp = AssignmentExpression::Operator::AddAssign;
-            } else if (opType == TokenType::MinusEqual) {
-                assignOp = AssignmentExpression::Operator::SubtractAssign;
-            }
-            left = make_unique<AssignmentExpression>(
-                std::move(left),
-                assignOp,
-                std::move(right),
-                opToken.getLocation()
-            );
-        } else {
-            auto right = parseBinaryExpression(precedence + 1);
-            left = make_unique<BinaryExpression>(
-                std::move(left),
-                tokenToBinaryOperator(opType),
-                std::move(right),
-                opToken.getLocation()
-            );
-        }
+        auto right = parseBinaryExpression(precedence + 1);
+        left = make_unique<BinaryExpression>(
+            std::move(left),
+            tokenToBinaryOperator(opType),
+            std::move(right),
+            opToken.getLocation()
+        );
     }
     
     return left;

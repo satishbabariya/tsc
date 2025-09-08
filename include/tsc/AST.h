@@ -343,6 +343,32 @@ private:
     SourceLocation location_;
 };
 
+// Conditional (ternary) expression: condition ? trueExpr : falseExpr
+class ConditionalExpression : public Expression {
+public:
+    ConditionalExpression(unique_ptr<Expression> condition,
+                         unique_ptr<Expression> trueExpr,
+                         unique_ptr<Expression> falseExpr,
+                         const SourceLocation& loc)
+        : condition_(std::move(condition)), trueExpr_(std::move(trueExpr)),
+          falseExpr_(std::move(falseExpr)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    Expression* getCondition() const { return condition_.get(); }
+    Expression* getTrueExpression() const { return trueExpr_.get(); }
+    Expression* getFalseExpression() const { return falseExpr_.get(); }
+
+private:
+    unique_ptr<Expression> condition_;
+    unique_ptr<Expression> trueExpr_;
+    unique_ptr<Expression> falseExpr_;
+    SourceLocation location_;
+};
+
 // Function calls
 class CallExpression : public Expression {
 public:
@@ -1145,6 +1171,7 @@ public:
     virtual void visit(BinaryExpression& node) = 0;
     virtual void visit(UnaryExpression& node) = 0;
     virtual void visit(AssignmentExpression& node) = 0;
+    virtual void visit(ConditionalExpression& node) = 0;
     virtual void visit(CallExpression& node) = 0;
     virtual void visit(ArrayLiteral& node) = 0;
     virtual void visit(IndexExpression& node) = 0;

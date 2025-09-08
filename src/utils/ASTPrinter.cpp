@@ -117,6 +117,31 @@ void ASTPrinter::visit(AssignmentExpression& node) {
     decreaseIndent();
 }
 
+void ASTPrinter::visit(ConditionalExpression& node) {
+    printIndent();
+    output_ << "ConditionalExpression:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Condition:" << std::endl;
+    increaseIndent();
+    node.getCondition()->accept(*this);
+    decreaseIndent();
+    
+    printIndent();
+    output_ << "TrueExpression:" << std::endl;
+    increaseIndent();
+    node.getTrueExpression()->accept(*this);
+    decreaseIndent();
+    
+    printIndent();
+    output_ << "FalseExpression:" << std::endl;
+    increaseIndent();
+    node.getFalseExpression()->accept(*this);
+    decreaseIndent();
+    decreaseIndent();
+}
+
 void ASTPrinter::visit(CallExpression& node) {
     printIndent();
     output_ << "CallExpression:" << std::endl;

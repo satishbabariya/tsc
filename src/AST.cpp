@@ -185,6 +185,19 @@ String AssignmentExpression::toString() const {
     return ss.str();
 }
 
+// ConditionalExpression implementation
+void ConditionalExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ConditionalExpression::toString() const {
+    std::stringstream ss;
+    ss << condition_->toString() << " ? " 
+       << trueExpr_->toString() << " : " 
+       << falseExpr_->toString();
+    return ss.str();
+}
+
 // CallExpression implementation
 void CallExpression::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
