@@ -819,8 +819,22 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
                 location
             );
         }
-        else if (match(TokenType::LeftParen)) {
-            // Parse function call: expr(args...)
+        else if (check(TokenType::Less) || check(TokenType::LeftParen)) {
+            // Parse function call with optional type arguments: expr<T>(args...) or expr(args...)
+            std::vector<shared_ptr<Type>> typeArguments;
+            
+            // Parse type arguments if present
+            if (match(TokenType::Less)) {
+                if (!check(TokenType::Greater)) {
+                    do {
+                        typeArguments.push_back(parseTypeAnnotation());
+                    } while (match(TokenType::Comma));
+                }
+                consume(TokenType::Greater, "Expected '>' after type arguments");
+            }
+            
+            // Now parse the function call
+            consume(TokenType::LeftParen, "Expected '(' after function name or type arguments");
             std::vector<unique_ptr<Expression>> arguments;
             
             // Parse arguments if not empty
@@ -838,11 +852,20 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
             consume(TokenType::RightParen, "Expected ')' after function call arguments");
             
             SourceLocation location = getCurrentLocation();
-            expr = make_unique<CallExpression>(
-                std::move(expr),
-                std::move(arguments),
-                location
-            );
+            if (typeArguments.empty()) {
+                expr = make_unique<CallExpression>(
+                    std::move(expr),
+                    std::move(arguments),
+                    location
+                );
+            } else {
+                expr = make_unique<CallExpression>(
+                    std::move(expr),
+                    std::move(typeArguments),
+                    std::move(arguments),
+                    location
+                );
+            }
         }
         else if (match(TokenType::Dot)) {
             // Parse property access: expr.property
@@ -1297,6 +1320,22 @@ unique_ptr<TypeParameter> Parser::parseTypeParameter() {
     }
     
     return make_unique<TypeParameter>(name, constraint, nameToken.getLocation());
+}
+
+std::vector<shared_ptr<Type>> Parser::parseTypeArgumentList() {
+    std::vector<shared_ptr<Type>> typeArguments;
+    
+    consume(TokenType::Less, "Expected '<' before type arguments");
+    
+    if (!check(TokenType::Greater)) {
+        do {
+            typeArguments.push_back(parseTypeAnnotation());
+        } while (match(TokenType::Comma));
+    }
+    
+    consume(TokenType::Greater, "Expected '>' after type arguments");
+    
+    return typeArguments;
 }
 
 // Arrow function parsing
