@@ -344,7 +344,32 @@ shared_ptr<Type> TypeSystem::instantiateGenericType(shared_ptr<Type> genericType
 // Class type creation method
 shared_ptr<Type> TypeSystem::createClassType(const String& name, ClassDeclaration* declaration, 
                                             shared_ptr<Type> baseClass) const {
-    return make_shared<ClassType>(name, declaration, baseClass);
+    // Create a cache key for the class type
+    String cacheKey = "class:" + name;
+    
+    // Check if we already have a canonical instance for this class
+    auto it = typeCache_.find(cacheKey);
+    if (it != typeCache_.end()) {
+        // Return the existing canonical instance, but update its properties if needed
+        auto existingClassType = std::static_pointer_cast<ClassType>(it->second);
+        
+        // Update declaration pointer if it was missing and now provided
+        if (!existingClassType->getDeclaration() && declaration) {
+            existingClassType->setDeclaration(declaration);
+        }
+        
+        // Update base class if it was missing and now provided
+        if (!existingClassType->getBaseClass() && baseClass) {
+            existingClassType->setBaseClass(baseClass);
+        }
+        
+        return existingClassType;
+    }
+    
+    // Create new canonical instance and cache it
+    auto classType = make_shared<ClassType>(name, declaration, baseClass);
+    typeCache_[cacheKey] = classType;
+    return classType;
 }
 
 shared_ptr<Type> TypeSystem::createInterfaceType(const String& name, InterfaceDeclaration* declaration) const {

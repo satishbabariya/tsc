@@ -476,8 +476,8 @@ private:
     shared_ptr<Type> neverType_;
     shared_ptr<Type> errorType_;
     
-    // Type cache for performance
-    std::unordered_map<String, shared_ptr<Type>> typeCache_;
+    // Type cache for performance (mutable to allow caching in const methods)
+    mutable std::unordered_map<String, shared_ptr<Type>> typeCache_;
     
     void initializeBuiltinTypes();
     String getCacheKey(TypeKind kind, const std::vector<shared_ptr<Type>>& types) const;
