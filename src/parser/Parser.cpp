@@ -90,6 +90,11 @@ unique_ptr<Statement> Parser::parseStatement() {
         return parseEnumDeclaration();
     }
     
+    // Handle type alias declarations
+    if (check(TokenType::Type)) {
+        return parseTypeAliasDeclaration();
+    }
+    
     // Handle block statements
     if (match(TokenType::LeftBrace)) {
         return parseBlockStatement();
@@ -429,6 +434,25 @@ unique_ptr<Statement> Parser::parseEnumDeclaration() {
     return make_unique<EnumDeclaration>(
         name, std::move(members), location, isConst
     );
+}
+
+unique_ptr<Statement> Parser::parseTypeAliasDeclaration() {
+    SourceLocation location = getCurrentLocation();
+    consume(TokenType::Type, "Expected 'type'");
+    
+    Token nameToken = consume(TokenType::Identifier, "Expected type alias name");
+    String name = nameToken.getStringValue();
+    
+    consume(TokenType::Equal, "Expected '=' after type alias name");
+    
+    // Parse the type expression
+    // For now, we'll parse basic type references
+    // In a full implementation, we'd handle union types, object types, etc.
+    shared_ptr<Type> aliasedType = parseTypeAnnotation();
+    
+    consume(TokenType::Semicolon, "Expected ';' after type alias declaration");
+    
+    return make_unique<TypeAliasDeclaration>(name, aliasedType, location);
 }
 
 unique_ptr<Statement> Parser::parseBlockStatement() {

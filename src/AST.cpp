@@ -789,4 +789,13 @@ String EnumDeclaration::toString() const {
     return oss.str();
 }
 
+// TypeAliasDeclaration implementation
+void TypeAliasDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String TypeAliasDeclaration::toString() const {
+    return "type " + name_ + " = " + aliasedType_->toString();
+}
+
 } // namespace tsc

@@ -891,4 +891,10 @@ void ASTPrinter::visit(EnumDeclaration& node) {
     decreaseIndent();
 }
 
+void ASTPrinter::visit(TypeAliasDeclaration& node) {
+    printIndent();
+    output_ << "TypeAliasDeclaration: " << node.getName() 
+            << " = " << node.getAliasedType()->toString() << std::endl;
+}
+
 } // namespace tsc

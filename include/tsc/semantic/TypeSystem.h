@@ -18,6 +18,7 @@ class BinaryExpression;
 class UnaryExpression;
 class InterfaceDeclaration;
 class EnumDeclaration;
+class TypeAliasDeclaration;
 
 // Type categories for the TypeScript type system
 enum class TypeKind {
@@ -49,6 +50,7 @@ enum class TypeKind {
     Generic,
     Mapped,
     Conditional,
+    Alias,
     
     // Special
     Error  // For error recovery
@@ -344,6 +346,28 @@ private:
     EnumDeclaration* declaration_;
 };
 
+// Type alias
+class AliasType : public Type {
+public:
+    AliasType(const String& name, shared_ptr<Type> aliasedType, TypeAliasDeclaration* declaration = nullptr)
+        : Type(TypeKind::Alias), name_(name), aliasedType_(aliasedType), declaration_(declaration) {}
+    
+    const String& getName() const { return name_; }
+    shared_ptr<Type> getAliasedType() const { return aliasedType_; }
+    TypeAliasDeclaration* getDeclaration() const { return declaration_; }
+    
+    void setDeclaration(TypeAliasDeclaration* declaration) { declaration_ = declaration; }
+    
+    String toString() const override { return name_; }
+    bool isEquivalentTo(const Type& other) const override;
+    bool isAssignableTo(const Type& to) const override;
+
+private:
+    String name_;
+    shared_ptr<Type> aliasedType_;
+    TypeAliasDeclaration* declaration_;
+};
+
 class ErrorType : public Type {
 public:
     ErrorType() : Type(TypeKind::Error) {}
@@ -393,6 +417,9 @@ public:
     
     // Enum type creation
     shared_ptr<Type> createEnumType(const String& name, EnumDeclaration* declaration = nullptr) const;
+    
+    // Type alias creation
+    shared_ptr<Type> createAliasType(const String& name, shared_ptr<Type> aliasedType, TypeAliasDeclaration* declaration = nullptr) const;
     
     // Type operations
     bool areTypesCompatible(const Type& from, const Type& to) const;

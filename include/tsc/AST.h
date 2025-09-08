@@ -1041,6 +1041,27 @@ private:
     bool isConst_;
 };
 
+// Type alias declaration
+class TypeAliasDeclaration : public Declaration {
+public:
+    TypeAliasDeclaration(const String& name,
+                        shared_ptr<Type> aliasedType,
+                        const SourceLocation& loc)
+        : name_(name), aliasedType_(aliasedType), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String getName() const override { return name_; }
+    String toString() const override;
+    
+    shared_ptr<Type> getAliasedType() const { return aliasedType_; }
+
+private:
+    String name_;
+    shared_ptr<Type> aliasedType_;
+    SourceLocation location_;
+};
+
 // Module/File AST node
 class Module : public ASTNode {
 public:
@@ -1109,6 +1130,7 @@ public:
     virtual void visit(InterfaceDeclaration& node) = 0;
     virtual void visit(EnumMember& node) = 0;
     virtual void visit(EnumDeclaration& node) = 0;
+    virtual void visit(TypeAliasDeclaration& node) = 0;
     
     // Module
     virtual void visit(Module& node) = 0;

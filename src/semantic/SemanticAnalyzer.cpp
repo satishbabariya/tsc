@@ -239,6 +239,32 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
     node.getObject()->accept(*this);
     auto objectType = getExpressionType(*node.getObject());
     
+    // Check if this is an enum member access
+    if (objectType->getKind() == TypeKind::Enum) {
+        const auto& enumType = static_cast<const EnumType&>(*objectType);
+        String memberName = node.getProperty();
+        
+        // Check if the enum has this member
+        // We need to look up the member in the enum's declaration scope
+        EnumDeclaration* enumDecl = enumType.getDeclaration();
+        if (enumDecl) {
+            // Look for the member in the enum declaration
+            for (const auto& member : enumDecl->getMembers()) {
+                if (member->getName() == memberName) {
+                    // Found the member - return its type (number for now)
+                    setExpressionType(node, typeSystem_->getNumberType());
+                    return;
+                }
+            }
+        }
+        
+        // If we get here, the member wasn't found
+        reportError("Enum '" + enumType.getName() + "' has no member '" + memberName + "'", node.getLocation());
+        setExpressionType(node, typeSystem_->getErrorType());
+        return;
+    }
+    
+    // Handle other property access types (classes, objects, etc.)
     // For now, assume property access returns any type
     // TODO: Implement proper property type checking based on object type
     setExpressionType(node, typeSystem_->getAnyType());
@@ -985,6 +1011,17 @@ void SemanticAnalyzer::visit(EnumDeclaration& node) {
     
     // EnumDeclaration is not an Expression, so we don't call setExpressionType
     // The enum type is already stored in the symbol table above
+}
+
+void SemanticAnalyzer::visit(TypeAliasDeclaration& node) {
+    // Create alias type
+    auto aliasType = typeSystem_->createAliasType(node.getName(), node.getAliasedType(), &node);
+    
+    // Add type alias to symbol table
+    declareSymbol(node.getName(), SymbolKind::Type, aliasType, node.getLocation());
+    
+    // TypeAliasDeclaration is not an Expression, so we don't call setExpressionType
+    // The alias type is already stored in the symbol table above
 }
 
 // Factory function

@@ -355,6 +355,10 @@ shared_ptr<Type> TypeSystem::createEnumType(const String& name, EnumDeclaration*
     return make_shared<EnumType>(name, declaration);
 }
 
+shared_ptr<Type> TypeSystem::createAliasType(const String& name, shared_ptr<Type> aliasedType, TypeAliasDeclaration* declaration) const {
+    return make_shared<AliasType>(name, aliasedType, declaration);
+}
+
 bool TypeSystem::areTypesCompatible(const Type& from, const Type& to) const {
     return from.isAssignableTo(to);
 }
@@ -615,6 +619,23 @@ bool EnumType::isEquivalentTo(const Type& other) const {
     // Enums are equivalent if they have the same name
     // In a full implementation, we might also check for structural compatibility
     return name_ == otherEnum.name_;
+}
+
+// AliasType implementation
+bool AliasType::isEquivalentTo(const Type& other) const {
+    // Alias types are equivalent if they resolve to equivalent types
+    if (other.getKind() == TypeKind::Alias) {
+        const auto& otherAlias = static_cast<const AliasType&>(other);
+        return aliasedType_->isEquivalentTo(*otherAlias.aliasedType_);
+    }
+    
+    // An alias type is equivalent to its aliased type
+    return aliasedType_->isEquivalentTo(other);
+}
+
+bool AliasType::isAssignableTo(const Type& to) const {
+    // Delegate to the aliased type
+    return aliasedType_->isAssignableTo(to);
 }
 
 // Factory functions

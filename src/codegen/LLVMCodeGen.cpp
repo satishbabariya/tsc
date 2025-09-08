@@ -521,7 +521,32 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
 }
 
 void LLVMCodeGen::visit(PropertyAccess& node) {
-    // Generate the object
+    // Check if this is an enum member access first
+    // For enum member access, we don't need the object value, we need the global constant
+    if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {
+        // Look up the identifier to see if it's an enum type
+        Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
+        if (symbol && symbol->getType()->getKind() == TypeKind::Enum) {
+            // This is enum member access - return the global constant
+            String memberName = node.getProperty();
+            String globalName = identifier->getName() + "_" + memberName;
+            
+            // Look up the global constant
+            llvm::GlobalVariable* globalVar = module_->getGlobalVariable(globalName);
+            if (globalVar) {
+                // Load the constant value
+                llvm::Value* memberValue = builder_->CreateLoad(globalVar->getValueType(), globalVar, "enum_member");
+                setCurrentValue(memberValue);
+                return;
+            } else {
+                reportError("Enum member '" + globalName + "' not found", node.getLocation());
+                setCurrentValue(createNullValue(getNumberType()));
+                return;
+            }
+        }
+    }
+    
+    // Generate the object for non-enum property access
     node.getObject()->accept(*this);
     llvm::Value* objectValue = getCurrentValue();
     
@@ -1842,6 +1867,20 @@ void LLVMCodeGen::visit(EnumDeclaration& node) {
     }
     
     // Enum declarations don't produce a value themselves
+    setCurrentValue(llvm::Constant::getNullValue(getAnyType()));
+}
+
+void LLVMCodeGen::visit(TypeAliasDeclaration& node) {
+    // Type aliases don't generate direct code in LLVM
+    // They are used during semantic analysis for type checking
+    // The aliased type information is stored in the type system
+    
+    // For now, we'll just ignore type aliases in code generation
+    // In a full implementation, we might:
+    // 1. Generate type information for runtime type checking
+    // 2. Create debug metadata for better debugging support
+    
+    // No-op for now
     setCurrentValue(llvm::Constant::getNullValue(getAnyType()));
 }
 
