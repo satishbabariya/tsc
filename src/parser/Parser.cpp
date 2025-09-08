@@ -819,7 +819,7 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
                 location
             );
         }
-        else if (check(TokenType::Less) || check(TokenType::LeftParen)) {
+        else if (check(TokenType::LeftParen) || (check(TokenType::Less) && isTypeArgumentList())) {
             // Parse function call with optional type arguments: expr<T>(args...) or expr(args...)
             std::vector<shared_ptr<Type>> typeArguments;
             
@@ -1413,6 +1413,34 @@ bool Parser::looksLikeArrowFunction() {
     // For now, return false to disable complex lookahead
     // TODO: Implement proper lookahead when TokenStream supports it
     return false;
+}
+
+bool Parser::isTypeArgumentList() const {
+    // Simple heuristic: only treat '<' as type arguments if it's immediately
+    // followed by a type token (identifier for custom types, or built-in type keywords)
+    // This avoids complex lookahead while catching most cases
+    
+    if (isAtEnd()) {
+        return false;
+    }
+    
+    // Look at the token immediately after '<'
+    TokenType nextType = peek().getType();
+    
+    // Type arguments typically start with:
+    // - Identifiers (custom type names): Foo, Bar, MyClass, etc.
+    // - Built-in type keywords: number, string, boolean, etc.
+    // 
+    // Exclude numeric literals (10, 42) and string literals ("hello")
+    // as these are likely to be comparison operands, not type arguments
+    return nextType == TokenType::Identifier ||
+           nextType == TokenType::Number ||    // 'number' type keyword
+           nextType == TokenType::String ||    // 'string' type keyword
+           nextType == TokenType::Boolean ||   // 'boolean' type keyword
+           nextType == TokenType::Null ||      // 'null' type keyword
+           nextType == TokenType::Undefined || // 'undefined' type keyword
+           nextType == TokenType::Void ||      // 'void' type keyword
+           nextType == TokenType::Any;         // 'any' type keyword
 }
 
 // Factory function

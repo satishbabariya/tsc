@@ -127,6 +127,9 @@ private:
     UnaryExpression::Operator tokenToUnaryOperator(TokenType type) const;
     AssignmentExpression::Operator tokenToAssignmentOperator(TokenType type) const;
     
+    // Lookahead helpers
+    bool isTypeArgumentList() const;
+    
     // Type checking helpers
     bool isTypeToken(TokenType type) const;
     bool isStatementStart(TokenType type) const;

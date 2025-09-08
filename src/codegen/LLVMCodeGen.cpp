@@ -778,8 +778,8 @@ void LLVMCodeGen::visit(ReturnStatement& node) {
             // Convert to appropriate return type if needed
             llvm::Type* returnType = currentFunc->getReturnType();
             if (returnValue->getType() != returnType) {
-                // TODO: Add type conversion logic
-                // For now, just create the return with the value we have
+                // Perform type conversion
+                returnValue = convertValueToType(returnValue, returnType);
             }
             builder_->CreateRet(returnValue);
         } else {
@@ -1319,6 +1319,47 @@ llvm::Type* LLVMCodeGen::convertTypeToLLVM(shared_ptr<Type> type) {
     return mapTypeScriptTypeToLLVM(*type);
 }
 
+llvm::Value* LLVMCodeGen::convertValueToType(llvm::Value* value, llvm::Type* targetType) {
+    if (!value || !targetType) {
+        return value;
+    }
+    
+    llvm::Type* sourceType = value->getType();
+    if (sourceType == targetType) {
+        return value; // No conversion needed
+    }
+    
+    // Handle common type conversions
+    if (targetType->isPointerTy() && sourceType->isDoubleTy()) {
+        // Convert number to any (pointer) - box the value
+        // For now, just cast to pointer (this is a simplification)
+        return builder_->CreateIntToPtr(
+            builder_->CreateFPToUI(value, llvm::Type::getInt64Ty(*context_)),
+            targetType
+        );
+    } else if (targetType->isDoubleTy() && sourceType->isPointerTy()) {
+        // Convert any (pointer) to number - unbox the value
+        return builder_->CreateUIToFP(
+            builder_->CreatePtrToInt(value, llvm::Type::getInt64Ty(*context_)),
+            targetType
+        );
+    } else if (targetType->isPointerTy()) {
+        // Convert to any type (pointer)
+        if (sourceType->isIntegerTy()) {
+            return builder_->CreateIntToPtr(value, targetType);
+        } else if (sourceType->isDoubleTy()) {
+            return builder_->CreateIntToPtr(
+                builder_->CreateFPToUI(value, llvm::Type::getInt64Ty(*context_)),
+                targetType
+            );
+        }
+    }
+    
+    // If no specific conversion is available, return the original value
+    // This might still cause LLVM verification errors, but it's better than crashing
+    return value;
+}
+
 // Value creation implementation
 llvm::Value* LLVMCodeGen::createNumberLiteral(double value) {
     return llvm::ConstantFP::get(getNumberType(), value);
@@ -1568,10 +1609,14 @@ llvm::Function* LLVMCodeGen::generateFunctionDeclaration(const FunctionDeclarati
     if (funcDecl.getReturnType()) {
         returnType = mapTypeScriptTypeToLLVM(*funcDecl.getReturnType());
     } else {
-        // If no explicit return type, infer from function body
-        // For now, default to 'any' type (ptr) if the function has return statements
-        // This is a simplification - in a full implementation, we'd analyze the function body
-        returnType = getAnyType();
+        // If no explicit return type, analyze function body to infer return type
+        if (hasReturnStatements(funcDecl)) {
+            // Function has return statements, so it likely returns a value
+            returnType = getAnyType();
+        } else {
+            // Function has no return statements, so it's likely void
+            returnType = getVoidType();
+        }
     }
     
     llvm::FunctionType* functionType = llvm::FunctionType::get(returnType, paramTypes, false);
@@ -1619,12 +1664,170 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     
     // Add return if not present
     if (!builder_->GetInsertBlock()->getTerminator()) {
-        builder_->CreateRetVoid();
+        llvm::Type* returnType = function->getReturnType();
+        if (returnType->isVoidTy()) {
+            builder_->CreateRetVoid();
+        } else {
+            // Return a default value of the appropriate type
+            // For functions without explicit return statements, return null/undefined
+            llvm::Value* defaultValue = createDefaultValue(returnType);
+            builder_->CreateRet(defaultValue);
+        }
     }
     
     // Exit function context
     codeGenContext_->exitScope();
     codeGenContext_->exitFunction();
+}
+
+bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
+    // Simple visitor to check if function body contains return statements
+    class ReturnStatementChecker : public ASTVisitor {
+    private:
+        bool found_ = false;
+        
+    public:
+        bool hasReturnStatements() const { return found_; }
+        
+        void visit(ReturnStatement& node) override {
+            found_ = true;
+        }
+        
+        // Default implementations for all other node types (no-op)
+        void visit(NumericLiteral& node) override {}
+        void visit(StringLiteral& node) override {}
+        void visit(BooleanLiteral& node) override {}
+        void visit(NullLiteral& node) override {}
+        void visit(Identifier& node) override {}
+        void visit(BinaryExpression& node) override {
+            node.getLeft()->accept(*this);
+            if (!found_) node.getRight()->accept(*this);
+        }
+        void visit(UnaryExpression& node) override {
+            node.getOperand()->accept(*this);
+        }
+        void visit(AssignmentExpression& node) override {
+            node.getLeft()->accept(*this);
+            if (!found_) node.getRight()->accept(*this);
+        }
+        void visit(CallExpression& node) override {
+            node.getCallee()->accept(*this);
+            if (!found_) {
+                for (const auto& arg : node.getArguments()) {
+                    arg->accept(*this);
+                    if (found_) break;
+                }
+            }
+        }
+        void visit(PropertyAccess& node) override {
+            node.getObject()->accept(*this);
+        }
+        void visit(IndexExpression& node) override {
+            node.getObject()->accept(*this);
+            if (!found_) node.getIndex()->accept(*this);
+        }
+        void visit(ArrayLiteral& node) override {
+            for (const auto& element : node.getElements()) {
+                element->accept(*this);
+                if (found_) break;
+            }
+        }
+        void visit(ObjectLiteral& node) override {
+            for (const auto& property : node.getProperties()) {
+                property.getValue()->accept(*this);
+                if (found_) break;
+            }
+        }
+        void visit(ThisExpression& node) override {}
+        void visit(NewExpression& node) override {
+            for (const auto& arg : node.getArguments()) {
+                arg->accept(*this);
+                if (found_) break;
+            }
+        }
+        void visit(SuperExpression& node) override {}
+        void visit(ExpressionStatement& node) override {
+            node.getExpression()->accept(*this);
+        }
+        void visit(BlockStatement& node) override {
+            for (const auto& stmt : node.getStatements()) {
+                stmt->accept(*this);
+                if (found_) break;
+            }
+        }
+        void visit(IfStatement& node) override {
+            node.getCondition()->accept(*this);
+            if (!found_) node.getThenStatement()->accept(*this);
+            if (!found_ && node.getElseStatement()) node.getElseStatement()->accept(*this);
+        }
+        void visit(WhileStatement& node) override {
+            node.getCondition()->accept(*this);
+            if (!found_) node.getBody()->accept(*this);
+        }
+        void visit(DoWhileStatement& node) override {
+            node.getBody()->accept(*this);
+            if (!found_) node.getCondition()->accept(*this);
+        }
+        void visit(ForStatement& node) override {
+            if (node.getInit()) node.getInit()->accept(*this);
+            if (!found_ && node.getCondition()) node.getCondition()->accept(*this);
+            if (!found_ && node.getIncrement()) node.getIncrement()->accept(*this);
+            if (!found_) node.getBody()->accept(*this);
+        }
+        void visit(SwitchStatement& node) override {
+            node.getDiscriminant()->accept(*this);
+            if (!found_) {
+                for (const auto& clause : node.getCases()) {
+                    clause->accept(*this);
+                    if (found_) break;
+                }
+            }
+        }
+        void visit(CaseClause& node) override {
+            if (node.getTest()) node.getTest()->accept(*this);
+            if (!found_) {
+                for (const auto& stmt : node.getStatements()) {
+                    stmt->accept(*this);
+                    if (found_) break;
+                }
+            }
+        }
+        void visit(BreakStatement& node) override {}
+        void visit(ContinueStatement& node) override {}
+        void visit(TryStatement& node) override {
+            node.getTryBlock()->accept(*this);
+            if (!found_ && node.getCatchClause()) node.getCatchClause()->accept(*this);
+            if (!found_ && node.getFinallyBlock()) node.getFinallyBlock()->accept(*this);
+        }
+        void visit(CatchClause& node) override {
+            node.getBody()->accept(*this);
+        }
+        void visit(ThrowStatement& node) override {
+            if (node.getExpression()) node.getExpression()->accept(*this);
+        }
+        void visit(VariableDeclaration& node) override {
+            if (node.getInitializer()) node.getInitializer()->accept(*this);
+        }
+        void visit(FunctionDeclaration& node) override {
+            // Don't traverse into nested functions
+        }
+        void visit(TypeParameter& node) override {}
+        void visit(ClassDeclaration& node) override {}
+        void visit(PropertyDeclaration& node) override {}
+        void visit(MethodDeclaration& node) override {}
+        void visit(InterfaceDeclaration& node) override {}
+        void visit(EnumDeclaration& node) override {}
+        void visit(EnumMember& node) override {}
+        void visit(TypeAliasDeclaration& node) override {}
+        void visit(ArrowFunction& node) override {}
+        void visit(Module& node) override {}
+    };
+    
+    ReturnStatementChecker checker;
+    if (funcDecl.getBody()) {
+        funcDecl.getBody()->accept(checker);
+    }
+    return checker.hasReturnStatements();
 }
 
 // Memory management implementation

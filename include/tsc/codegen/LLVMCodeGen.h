@@ -193,6 +193,7 @@ private:
     llvm::Type* getBooleanType() const;
     llvm::Type* getVoidType() const;
     llvm::Type* getAnyType() const;
+    llvm::Value* convertValueToType(llvm::Value* value, llvm::Type* targetType);
     
     // Type conversion
     llvm::Type* convertTypeToLLVM(shared_ptr<Type> type);
@@ -224,6 +225,7 @@ private:
     // Function generation
     llvm::Function* generateFunctionDeclaration(const FunctionDeclaration& funcDecl);
     void generateFunctionBody(llvm::Function* function, const FunctionDeclaration& funcDecl);
+    bool hasReturnStatements(const FunctionDeclaration& funcDecl);
     
     // Built-in functions
     void declareBuiltinFunctions();
