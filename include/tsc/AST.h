@@ -3,6 +3,7 @@
 #include "tsc/Common.h"
 #include "tsc/Token.h"
 #include <vector>
+#include <stdexcept>
 
 namespace tsc {
 
@@ -141,6 +142,66 @@ private:
     String value_;
     SourceLocation location_;
 };
+
+// TODO: Template literals support
+// Template literal element (text or expression)
+/*
+class TemplateElement {
+public:
+    TemplateElement(const String& text, bool isExpression = false)
+        : text_(text), isExpression_(isExpression) {}
+    
+    TemplateElement(unique_ptr<Expression> expression)
+        : expression_(std::move(expression)), isExpression_(true) {}
+    
+    // Delete copy constructor - TemplateElement is move-only
+    TemplateElement(const TemplateElement&) = delete;
+    TemplateElement& operator=(const TemplateElement&) = delete;
+    
+    // Move constructor
+    TemplateElement(TemplateElement&& other) noexcept
+        : text_(std::move(other.text_)), 
+          expression_(std::move(other.expression_)),
+          isExpression_(other.isExpression_) {}
+    
+    // Move assignment
+    TemplateElement& operator=(TemplateElement&& other) noexcept {
+        if (this != &other) {
+            text_ = std::move(other.text_);
+            expression_ = std::move(other.expression_);
+            isExpression_ = other.isExpression_;
+        }
+        return *this;
+    }
+    
+    bool isExpression() const { return isExpression_; }
+    const String& getText() const { return text_; }
+    Expression* getExpression() const { return expression_.get(); }
+
+private:
+    String text_;
+    unique_ptr<Expression> expression_;
+    bool isExpression_ = false;
+};
+
+// Template literals: `Hello ${name}!`
+class TemplateLiteral : public Expression {
+public:
+    TemplateLiteral(vector<TemplateElement> elements, const SourceLocation& loc)
+        : elements_(std::move(elements)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    const vector<TemplateElement>& getElements() const { return elements_; }
+
+private:
+    vector<TemplateElement> elements_;
+    SourceLocation location_;
+};
+*/
 
 class BooleanLiteral : public Expression {
 public:
@@ -519,6 +580,41 @@ public:
     shared_ptr<Type> getReturnType() const { return returnType_; }
 
 private:
+    std::vector<Parameter> parameters_;
+    unique_ptr<Statement> body_;
+    shared_ptr<Type> returnType_;
+    SourceLocation location_;
+};
+
+// Function expression (function(param) { body } or function name(param) { body })
+class FunctionExpression : public Expression {
+public:
+    struct Parameter {
+        String name;
+        shared_ptr<Type> type;
+        bool optional = false;
+        bool rest = false;
+        SourceLocation location;
+    };
+
+    FunctionExpression(const String& name, std::vector<Parameter> parameters, 
+                       unique_ptr<Statement> body, shared_ptr<Type> returnType, 
+                       const SourceLocation& loc)
+        : name_(name), parameters_(std::move(parameters)), body_(std::move(body)), 
+          returnType_(returnType), location_(loc) {}
+
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+
+    const String& getName() const { return name_; }
+    const std::vector<Parameter>& getParameters() const { return parameters_; }
+    Statement* getBody() const { return body_.get(); }
+    shared_ptr<Type> getReturnType() const { return returnType_; }
+
+private:
+    String name_; // Optional name (empty for anonymous function expressions)
     std::vector<Parameter> parameters_;
     unique_ptr<Statement> body_;
     shared_ptr<Type> returnType_;
@@ -1162,6 +1258,7 @@ public:
     // Expressions
     virtual void visit(NumericLiteral& node) = 0;
     virtual void visit(StringLiteral& node) = 0;
+    // virtual void visit(TemplateLiteral& node) = 0;  // TODO: Template literals
     virtual void visit(BooleanLiteral& node) = 0;
     virtual void visit(NullLiteral& node) = 0;
     virtual void visit(Identifier& node) = 0;
@@ -1178,6 +1275,7 @@ public:
     virtual void visit(ObjectLiteral& node) = 0;
     virtual void visit(PropertyAccess& node) = 0;
     virtual void visit(ArrowFunction& node) = 0;
+    virtual void visit(FunctionExpression& node) = 0;
     
     // Statements
     virtual void visit(ExpressionStatement& node) = 0;

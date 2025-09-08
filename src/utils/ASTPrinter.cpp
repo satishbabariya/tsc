@@ -21,6 +21,29 @@ void ASTPrinter::visit(StringLiteral& node) {
     output_ << "StringLiteral: \"" << node.getValue() << "\"" << std::endl;
 }
 
+// TODO: Template literals ASTPrinter
+/*
+void ASTPrinter::visit(TemplateLiteral& node) {
+    printIndent();
+    output_ << "TemplateLiteral:" << std::endl;
+    
+    increaseIndent();
+    for (size_t i = 0; i < node.getElements().size(); ++i) {
+        const auto& element = node.getElements()[i];
+        printIndent();
+        if (element.isExpression()) {
+            output_ << "Expression[" << i << "]:" << std::endl;
+            increaseIndent();
+            element.getExpression()->accept(*this);
+            decreaseIndent();
+        } else {
+            output_ << "Text[" << i << "]: \"" << element.getText() << "\"" << std::endl;
+        }
+    }
+    decreaseIndent();
+}
+*/
+
 void ASTPrinter::visit(BooleanLiteral& node) {
     printIndent();
     output_ << "BooleanLiteral: " << (node.getValue() ? "true" : "false") << std::endl;

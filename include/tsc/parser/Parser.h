@@ -65,6 +65,7 @@ private:
     unique_ptr<Expression> parseUnaryExpression();
     unique_ptr<Expression> parsePostfixExpression();
     unique_ptr<Expression> parsePrimaryExpression();
+    // unique_ptr<Expression> parseTemplateLiteral();  // TODO: Template literals
     unique_ptr<Expression> parseCallExpression(unique_ptr<Expression> callee);
     unique_ptr<Expression> parseMemberExpression(unique_ptr<Expression> object);
     
@@ -81,6 +82,9 @@ private:
     // Arrow functions
     unique_ptr<Expression> parseArrowFunction();
     bool looksLikeArrowFunction();
+    
+    // Function expressions
+    unique_ptr<Expression> parseFunctionExpression();
     
     // TypeScript-specific
     shared_ptr<Type> parseTypeAnnotation();

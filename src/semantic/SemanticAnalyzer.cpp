@@ -61,6 +61,21 @@ void SemanticAnalyzer::visit(StringLiteral& node) {
     setExpressionType(node, type);
 }
 
+// TODO: Template literals semantic analysis
+/*
+void SemanticAnalyzer::visit(TemplateLiteral& node) {
+    // Analyze all expressions within the template literal
+    for (const auto& element : node.getElements()) {
+        if (element.isExpression()) {
+            element.getExpression()->accept(*this);
+        }
+    }
+    
+    // Template literals result in strings
+    setExpressionType(node, typeSystem_->getStringType());
+}
+*/
+
 void SemanticAnalyzer::visit(BooleanLiteral& node) {
     auto type = typeSystem_->getBooleanType();
     setExpressionType(node, type);
@@ -380,7 +395,79 @@ void SemanticAnalyzer::visit(ArrowFunction& node) {
     functionDepth_--;
     
     // Determine return type
-    auto returnType = node.getReturnType() ? node.getReturnType() : typeSystem_->getVoidType();
+    auto returnType = node.getReturnType();
+    if (!returnType) {
+        // For arrow functions, try to infer return type from body
+        returnType = inferReturnType(*node.getBody());
+        if (!returnType) {
+            returnType = typeSystem_->getVoidType();
+        }
+    }
+    
+    // Create function type
+    auto functionType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
+    setExpressionType(node, functionType);
+    
+    exitScope();
+}
+
+shared_ptr<Type> SemanticAnalyzer::inferReturnType(const Statement& body) {
+    // Simple return type inference for arrow functions
+    // Look for return statements and infer type from the first one
+    
+    // For now, let's implement a simple version without a full visitor
+    // We'll just check if it's a BlockStatement with a ReturnStatement
+    
+    if (auto blockStmt = dynamic_cast<const BlockStatement*>(&body)) {
+        for (const auto& stmt : blockStmt->getStatements()) {
+            if (auto returnStmt = dynamic_cast<const ReturnStatement*>(stmt.get())) {
+                if (returnStmt->getValue()) {
+                    return getExpressionType(*returnStmt->getValue());
+                }
+            }
+        }
+    }
+    
+    // If we can't infer, return null (caller will use void)
+    return nullptr;
+}
+
+void SemanticAnalyzer::visit(FunctionExpression& node) {
+    // Function expressions are similar to arrow functions but with slightly different semantics
+    // Create function type
+    std::vector<FunctionType::Parameter> paramTypes;
+    
+    // Enter new scope for function expression parameters
+    enterScope(Scope::ScopeType::Function, "function_expression");
+    
+    for (const auto& param : node.getParameters()) {
+        // Add parameter to scope
+        auto paramType = param.type ? param.type : typeSystem_->getAnyType();
+        symbolTable_->addSymbol(param.name, SymbolKind::Parameter, paramType, param.location);
+        
+        // Add to function type
+        FunctionType::Parameter funcParam;
+        funcParam.name = param.name;
+        funcParam.type = paramType;
+        funcParam.optional = param.optional;
+        funcParam.rest = param.rest;
+        paramTypes.push_back(funcParam);
+    }
+    
+    // Analyze function body
+    functionDepth_++;
+    node.getBody()->accept(*this);
+    functionDepth_--;
+    
+    // Determine return type
+    auto returnType = node.getReturnType();
+    if (!returnType) {
+        // For function expressions, try to infer return type from body
+        returnType = inferReturnType(*node.getBody());
+        if (!returnType) {
+            returnType = typeSystem_->getVoidType();
+        }
+    }
     
     // Create function type
     auto functionType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);

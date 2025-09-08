@@ -22,6 +22,27 @@ String StringLiteral::toString() const {
     return "\"" + value_ + "\"";
 }
 
+// TODO: TemplateLiteral implementation
+/*
+void TemplateLiteral::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String TemplateLiteral::toString() const {
+    std::stringstream ss;
+    ss << "`";
+    for (const auto& element : elements_) {
+        if (element.isExpression()) {
+            ss << "${" << element.getExpression()->toString() << "}";
+        } else {
+            ss << element.getText();
+        }
+    }
+    ss << "`";
+    return ss.str();
+}
+*/
+
 // BooleanLiteral implementation
 void BooleanLiteral::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
@@ -847,6 +868,77 @@ void TypeAliasDeclaration::accept(ASTVisitor& visitor) {
 
 String TypeAliasDeclaration::toString() const {
     return "type " + name_ + " = " + aliasedType_->toString();
+}
+
+// ArrowFunction implementation
+void ArrowFunction::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ArrowFunction::toString() const {
+    std::ostringstream oss;
+    
+    // Parameters
+    if (parameters_.size() == 1 && !parameters_[0].type) {
+        // Single parameter without type annotation
+        oss << parameters_[0].name;
+    } else {
+        oss << "(";
+        for (size_t i = 0; i < parameters_.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << parameters_[i].name;
+            if (parameters_[i].type) {
+                oss << ": " << parameters_[i].type->toString();
+            }
+        }
+        oss << ")";
+    }
+    
+    oss << " => ";
+    
+    // Body (simplified - assume it's a block)
+    oss << body_->toString();
+    
+    return oss.str();
+}
+
+// FunctionExpression implementation
+void FunctionExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String FunctionExpression::toString() const {
+    std::ostringstream oss;
+    
+    oss << "function";
+    
+    // Optional name
+    if (!name_.empty()) {
+        oss << " " << name_;
+    }
+    
+    // Parameters
+    oss << "(";
+    for (size_t i = 0; i < parameters_.size(); ++i) {
+        if (i > 0) oss << ", ";
+        oss << parameters_[i].name;
+        if (parameters_[i].type) {
+            oss << ": " << parameters_[i].type->toString();
+        }
+    }
+    oss << ")";
+    
+    // Return type
+    if (returnType_) {
+        oss << ": " << returnType_->toString();
+    }
+    
+    oss << " ";
+    
+    // Body
+    oss << body_->toString();
+    
+    return oss.str();
 }
 
 } // namespace tsc

@@ -145,6 +145,56 @@ void LLVMCodeGen::visit(StringLiteral& node) {
     setCurrentValue(createStringLiteral(node.getValue()));
 }
 
+// TODO: Template literals code generation
+/*
+void LLVMCodeGen::visit(TemplateLiteral& node) {
+    // Build the template literal by concatenating all parts
+    llvm::Value* result = nullptr;
+    
+    for (const auto& element : node.getElements()) {
+        llvm::Value* elementValue = nullptr;
+        
+        if (element.isExpression()) {
+            // Generate code for the expression
+            element.getExpression()->accept(*this);
+            elementValue = getCurrentValue();
+            
+            // Convert expression result to string
+            if (elementValue->getType()->isDoubleTy()) {
+                // Convert number to string
+                llvm::Function* numberToStringFunc = getOrCreateNumberToStringFunction();
+                elementValue = builder_->CreateCall(numberToStringFunc, {elementValue}, "num_to_str");
+            } else if (elementValue->getType()->isIntegerTy(1)) {
+                // Convert boolean to string
+                llvm::Function* boolToStringFunc = getOrCreateBooleanToStringFunction();
+                elementValue = builder_->CreateCall(boolToStringFunc, {elementValue}, "bool_to_str");
+            } else if (elementValue->getType() != getStringType()) {
+                // For other types, convert to string representation (simplified)
+                elementValue = createStringLiteral("[object]");
+            }
+        } else {
+            // Text element
+            elementValue = createStringLiteral(element.getText());
+        }
+        
+        // Concatenate with previous result
+        if (result == nullptr) {
+            result = elementValue;
+        } else {
+            llvm::Function* concatFunc = getOrCreateStringConcatFunction();
+            result = builder_->CreateCall(concatFunc, {result, elementValue}, "template_concat");
+        }
+    }
+    
+    // If no elements, return empty string
+    if (result == nullptr) {
+        result = createStringLiteral("");
+    }
+    
+    setCurrentValue(result);
+}
+*/
+
 void LLVMCodeGen::visit(BooleanLiteral& node) {
     setCurrentValue(createBooleanLiteral(node.getValue()));
 }
@@ -409,12 +459,21 @@ void LLVMCodeGen::visit(CallExpression& node) {
     llvm::Function* function = nullptr;
     
     if (auto identifier = dynamic_cast<Identifier*>(node.getCallee())) {
-        // Look up the function by name
+        // First try to look up as an LLVM function (for regular function declarations)
         function = module_->getFunction(identifier->getName());
+        
         if (!function) {
-            reportError("Undefined function: " + identifier->getName(), node.getLocation());
-            setCurrentValue(createNullValue(getAnyType()));
-            return;
+            // If not found as LLVM function, check if it's a variable with function type
+            // This handles arrow functions and function expressions stored in variables
+            if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
+                function = llvm::cast<llvm::Function>(calleeValue);
+            } else {
+                // For now, we don't support function pointers/values in call expressions
+                // This would require more complex LLVM IR generation
+                reportError("Function calls through variables not yet fully supported: " + identifier->getName(), node.getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
         }
     } else if (auto superExpr = dynamic_cast<SuperExpression*>(node.getCallee())) {
         // Handle super() constructor calls
@@ -769,6 +828,89 @@ void LLVMCodeGen::visit(ArrowFunction& node) {
         returnType = mapTypeScriptTypeToLLVM(*node.getReturnType());
     } else {
         // For arrow functions, try to infer from body
+        returnType = getAnyType(); // Simplified - assume any type
+    }
+    
+    // Create function type
+    llvm::FunctionType* funcType = llvm::FunctionType::get(returnType, paramTypes, false);
+    
+    // Create function
+    llvm::Function* function = llvm::Function::Create(funcType, llvm::Function::InternalLinkage, 
+                                                     functionName, module_.get());
+    
+    // Save current insertion point
+    llvm::BasicBlock* savedBlock = builder_->GetInsertBlock();
+    llvm::Function* savedFunction = codeGenContext_->getCurrentFunction();
+    
+    // Create entry block
+    llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", function);
+    builder_->SetInsertPoint(entryBlock);
+    codeGenContext_->enterFunction(function);
+    
+    // Create parameters and add to symbol table
+    auto paramIt = function->arg_begin();
+    for (size_t i = 0; i < node.getParameters().size(); ++i, ++paramIt) {
+        const auto& param = node.getParameters()[i];
+        llvm::Argument* arg = &(*paramIt);
+        arg->setName(param.name);
+        
+        // Allocate space for parameter
+        llvm::Value* paramStorage = allocateVariable(param.name, arg->getType(), param.location);
+        builder_->CreateStore(arg, paramStorage);
+    }
+    
+    // Generate function body
+    node.getBody()->accept(*this);
+    
+    // Ensure function has a return
+    if (!builder_->GetInsertBlock()->getTerminator()) {
+        if (returnType->isVoidTy()) {
+            builder_->CreateRetVoid();
+        } else {
+            // Return default value for the type
+            llvm::Value* defaultValue = createDefaultValue(returnType);
+            builder_->CreateRet(defaultValue);
+        }
+    }
+    
+    // Restore insertion point
+    if (savedBlock) {
+        builder_->SetInsertPoint(savedBlock);
+    }
+    if (savedFunction) {
+        codeGenContext_->enterFunction(savedFunction);
+    } else {
+        codeGenContext_->exitFunction();
+    }
+    
+    // Return the function as a value (function pointer)
+    setCurrentValue(function);
+}
+
+void LLVMCodeGen::visit(FunctionExpression& node) {
+    // Function expressions are similar to arrow functions but use 'function' syntax
+    // Generate function name (anonymous or named)
+    static int functionExpressionCounter = 0;
+    String functionName = node.getName().empty() 
+        ? "function_expr_" + std::to_string(functionExpressionCounter++)
+        : "function_expr_" + node.getName() + "_" + std::to_string(functionExpressionCounter++);
+    
+    // Create parameter types
+    std::vector<llvm::Type*> paramTypes;
+    for (const auto& param : node.getParameters()) {
+        if (param.type) {
+            paramTypes.push_back(mapTypeScriptTypeToLLVM(*param.type));
+        } else {
+            paramTypes.push_back(getAnyType());
+        }
+    }
+    
+    // Determine return type
+    llvm::Type* returnType = getVoidType(); // Default
+    if (node.getReturnType()) {
+        returnType = mapTypeScriptTypeToLLVM(*node.getReturnType());
+    } else {
+        // For function expressions, try to infer from body
         returnType = getAnyType(); // Simplified - assume any type
     }
     
@@ -1846,6 +1988,8 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         // Default implementations for all other node types (no-op)
         void visit(NumericLiteral& node) override {}
         void visit(StringLiteral& node) override {}
+        // TODO: Template literals
+        // void visit(TemplateLiteral& node) override { }
         void visit(BooleanLiteral& node) override {}
         void visit(NullLiteral& node) override {}
         void visit(Identifier& node) override {}

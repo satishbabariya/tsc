@@ -744,6 +744,15 @@ unique_ptr<Expression> Parser::parseExpression() {
 }
 
 unique_ptr<Expression> Parser::parseAssignmentExpression() {
+    // Check for arrow functions using a simple heuristic
+    if (looksLikeArrowFunction()) {
+        auto arrowFunc = parseArrowFunction();
+        if (arrowFunc) {
+            return arrowFunc;
+        }
+        // If arrow function parsing failed, fall through to normal expression parsing
+    }
+    
     auto expr = parseConditionalExpression();
     
     // Handle assignment operators
@@ -936,6 +945,11 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
         return make_unique<StringLiteral>(token.getStringValue(), token.getLocation());
     }
     
+    // TODO: Template literals support
+    // if (check(TokenType::NoSubstitutionTemplate) || check(TokenType::TemplateHead)) {
+    //     return parseTemplateLiteral();
+    // }
+    
     if (check(TokenType::True)) {
         advance();
         return make_unique<BooleanLiteral>(true, getCurrentLocation());
@@ -969,6 +983,10 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
     if (check(TokenType::New)) {
         advance();
         return parseNewExpression();
+    }
+    
+    if (check(TokenType::Function)) {
+        return parseFunctionExpression();
     }
     
     if (match(TokenType::LeftBracket)) {
@@ -1085,6 +1103,33 @@ unique_ptr<Expression> Parser::parseNewExpression() {
     
     return make_unique<NewExpression>(std::move(constructor), std::move(arguments), location);
 }
+
+// TODO: Template literals parser
+/*
+unique_ptr<Expression> Parser::parseTemplateLiteral() {
+    SourceLocation location = getCurrentLocation();
+    vector<TemplateElement> elements;
+    
+    if (check(TokenType::NoSubstitutionTemplate)) {
+        // Simple template literal without expressions: `hello world`
+        Token token = advance();
+        elements.emplace_back(TemplateElement(token.getStringValue()));
+        return make_unique<TemplateLiteral>(std::move(elements), location);
+    }
+    
+    // For now, just treat TemplateHead as a simple string literal
+    // TODO: Implement full template literal parsing with expressions
+    if (check(TokenType::TemplateHead)) {
+        Token token = advance();
+        elements.emplace_back(TemplateElement(token.getStringValue()));
+        return make_unique<TemplateLiteral>(std::move(elements), location);
+    }
+    
+    // Fallback: create an empty template literal
+    elements.emplace_back(TemplateElement(""));
+    return make_unique<TemplateLiteral>(std::move(elements), location);
+}
+*/
 
 // Utility methods
 Token Parser::peek() const {
@@ -1386,6 +1431,13 @@ unique_ptr<Expression> Parser::parseArrowFunction() {
     if (check(TokenType::Identifier)) {
         // Single parameter without parentheses: identifier => body
         Token param = advance();
+        
+        // Must be followed by arrow
+        if (!check(TokenType::Arrow)) {
+            reportError("Expected '=>' after parameter", getCurrentLocation());
+            return nullptr;
+        }
+        
         ArrowFunction::Parameter parameter;
         parameter.name = param.getStringValue();
         parameter.location = param.getLocation();
@@ -1413,13 +1465,27 @@ unique_ptr<Expression> Parser::parseArrowFunction() {
             } while (match(TokenType::Comma));
         }
         
-        consume(TokenType::RightParen, "Expected ')' after parameters");
+        if (!match(TokenType::RightParen)) {
+            reportError("Expected ')' after parameters", getCurrentLocation());
+            return nullptr;
+        }
+        
+        // Must be followed by arrow
+        if (!check(TokenType::Arrow)) {
+            // This is not an arrow function, it's a parenthesized expression
+            // We need to return nullptr to let the caller handle this
+            reportError("Expected '=>' after parameters", getCurrentLocation());
+            return nullptr;
+        }
     } else {
         reportError("Expected parameter or '(' in arrow function", getCurrentLocation());
         return nullptr;
     }
     
-    consume(TokenType::Arrow, "Expected '=>' in arrow function");
+    if (!match(TokenType::Arrow)) {
+        reportError("Expected '=>' in arrow function", getCurrentLocation());
+        return nullptr;
+    }
     
     // Parse body - can be expression or block statement
     unique_ptr<Statement> body;
@@ -1445,9 +1511,86 @@ unique_ptr<Expression> Parser::parseArrowFunction() {
 }
 
 bool Parser::looksLikeArrowFunction() {
-    // For now, return false to disable complex lookahead
-    // TODO: Implement proper lookahead when TokenStream supports it
+    // Simple heuristic for arrow function detection
+    // Pattern 1: identifier => (single parameter)
+    if (check(TokenType::Identifier)) {
+        // We need to peek ahead to see if there's an arrow
+        // Since we can't backtrack easily, let's try a different approach
+        // For now, let's be conservative and only detect simple cases
+        return false; // Will implement this step by step
+    }
+    
+    // Pattern 2: (params) => 
+    if (check(TokenType::LeftParen)) {
+        // For now, assume any parenthesized expression could be arrow function parameters
+        // We'll let parseArrowFunction() handle the actual validation
+        return true;
+    }
+    
     return false;
+}
+
+unique_ptr<Expression> Parser::parseFunctionExpression() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Consume 'function' keyword
+    consume(TokenType::Function, "Expected 'function' keyword");
+    
+    // Optional function name (for named function expressions)
+    String functionName = "";
+    if (check(TokenType::Identifier)) {
+        Token nameToken = advance();
+        functionName = nameToken.getStringValue();
+    }
+    
+    // Parse parameter list
+    std::vector<FunctionExpression::Parameter> parameters;
+    consume(TokenType::LeftParen, "Expected '(' after function name or 'function'");
+    
+    if (!check(TokenType::RightParen)) {
+        do {
+            if (check(TokenType::Identifier)) {
+                Token param = advance();
+                FunctionExpression::Parameter parameter;
+                parameter.name = param.getStringValue();
+                parameter.location = param.getLocation();
+                
+                // Optional type annotation
+                if (match(TokenType::Colon)) {
+                    parameter.type = parseTypeAnnotation();
+                }
+                
+                parameters.push_back(std::move(parameter));
+            } else {
+                reportError("Expected parameter name", getCurrentLocation());
+                break;
+            }
+        } while (match(TokenType::Comma));
+    }
+    
+    consume(TokenType::RightParen, "Expected ')' after parameters");
+    
+    // Optional return type annotation
+    shared_ptr<Type> returnType = nullptr;
+    if (match(TokenType::Colon)) {
+        returnType = parseTypeAnnotation();
+    }
+    
+    // Parse function body (must be a block statement)
+    unique_ptr<Statement> body = nullptr;
+    if (check(TokenType::LeftBrace)) {
+        body = parseBlockStatement();
+    } else {
+        reportError("Expected '{' for function expression body", getCurrentLocation());
+        return nullptr;
+    }
+    
+    if (!body) {
+        reportError("Expected function expression body", getCurrentLocation());
+        return nullptr;
+    }
+    
+    return make_unique<FunctionExpression>(functionName, std::move(parameters), std::move(body), returnType, location);
 }
 
 bool Parser::isTypeArgumentList() const {
