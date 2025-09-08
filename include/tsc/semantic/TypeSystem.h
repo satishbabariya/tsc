@@ -37,6 +37,7 @@ enum class TypeKind {
     Array,
     Tuple,
     Object,
+    Unresolved,
     Function,
     Union,
     Intersection,
@@ -368,6 +369,27 @@ private:
     TypeAliasDeclaration* declaration_;
 };
 
+// Unresolved type (for identifiers that need to be resolved later)
+class UnresolvedType : public Type {
+public:
+    UnresolvedType(const String& name) : Type(TypeKind::Unresolved), name_(name) {}
+    
+    const String& getName() const { return name_; }
+    
+    bool isEquivalentTo(const Type& other) const override {
+        if (other.getKind() != TypeKind::Unresolved) return false;
+        const auto& otherUnresolved = static_cast<const UnresolvedType&>(other);
+        return name_ == otherUnresolved.name_;
+    }
+    
+    String toString() const override {
+        return name_;
+    }
+
+private:
+    String name_;
+};
+
 class ErrorType : public Type {
 public:
     ErrorType() : Type(TypeKind::Error) {}
@@ -401,6 +423,7 @@ public:
     shared_ptr<Type> createUnionType(std::vector<shared_ptr<Type>> types) const;
     shared_ptr<Type> createIntersectionType(std::vector<shared_ptr<Type>> types) const;
     shared_ptr<Type> createLiteralType(TypeKind kind, const String& value) const;
+    shared_ptr<Type> createUnresolvedType(const String& name) const;
     
     // Generic type creation
     shared_ptr<Type> createTypeParameter(const String& name, shared_ptr<Type> constraint = nullptr) const;

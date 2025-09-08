@@ -144,6 +144,9 @@ private:
     shared_ptr<Type> inferVariableType(const VariableDeclaration& decl);
     shared_ptr<Type> inferFunctionType(const FunctionDeclaration& decl);
     
+    // Type resolution
+    shared_ptr<Type> resolveType(shared_ptr<Type> type);
+    
     // Error reporting
     void reportError(const String& message, const SourceLocation& location);
     void reportWarning(const String& message, const SourceLocation& location);

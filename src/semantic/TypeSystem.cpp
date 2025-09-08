@@ -663,4 +663,8 @@ shared_ptr<Type> createErrorType() {
     return make_shared<ErrorType>();
 }
 
+shared_ptr<Type> TypeSystem::createUnresolvedType(const String& name) const {
+    return make_shared<UnresolvedType>(name);
+}
+
 } // namespace tsc

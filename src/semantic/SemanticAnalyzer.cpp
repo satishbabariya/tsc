@@ -264,7 +264,40 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
         return;
     }
     
-    // Handle other property access types (classes, objects, etc.)
+    // Check if this is a class property/method access
+    if (objectType->getKind() == TypeKind::Class) {
+        const auto& classType = static_cast<const ClassType&>(*objectType);
+        String memberName = node.getProperty();
+        
+        // Check if the class has this member
+        ClassDeclaration* classDecl = classType.getDeclaration();
+        if (classDecl) {
+            // Look for property in class declaration
+            for (const auto& property : classDecl->getProperties()) {
+                if (property->getName() == memberName) {
+                    // Found the property - return its type
+                    setExpressionType(node, property->getType());
+                    return;
+                }
+            }
+            
+            // Look for method in class declaration
+            for (const auto& method : classDecl->getMethods()) {
+                if (method->getName() == memberName) {
+                    // Found the method - return its function type
+                    setExpressionType(node, getDeclarationType(*method));
+                    return;
+                }
+            }
+        }
+        
+        // If we get here, the member wasn't found
+        reportError("Class '" + classType.getName() + "' has no member '" + memberName + "'", node.getLocation());
+        setExpressionType(node, typeSystem_->getErrorType());
+        return;
+    }
+    
+    // Handle other property access types (objects, etc.)
     // For now, assume property access returns any type
     // TODO: Implement proper property type checking based on object type
     setExpressionType(node, typeSystem_->getAnyType());
@@ -1022,6 +1055,24 @@ void SemanticAnalyzer::visit(TypeAliasDeclaration& node) {
     
     // TypeAliasDeclaration is not an Expression, so we don't call setExpressionType
     // The alias type is already stored in the symbol table above
+}
+
+shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
+    if (!type || type->getKind() != TypeKind::Unresolved) {
+        return type; // Already resolved or not an unresolved type
+    }
+    
+    const auto& unresolvedType = static_cast<const UnresolvedType&>(*type);
+    String typeName = unresolvedType.getName();
+    
+    // Look up the type name in the symbol table
+    Symbol* symbol = resolveSymbol(typeName, SourceLocation());
+    if (symbol && symbol->getKind() == SymbolKind::Type) {
+        return symbol->getType(); // Return the resolved type
+    }
+    
+    // If not found, return error type
+    return typeSystem_->getErrorType();
 }
 
 // Factory function

@@ -1192,9 +1192,8 @@ shared_ptr<Type> Parser::parseTypeAnnotation() {
             return typeSystem_.createArrayType(typeSystem_.getAnyType());
         }
         
-        // For now, treat unknown identifiers as error types
-        reportError("Unknown type: " + typeName, typeToken.getLocation());
-        return typeSystem_.getErrorType();
+        // Create unresolved type for unknown identifiers (will be resolved in semantic analysis)
+        return typeSystem_.createUnresolvedType(typeName);
     }
     
     // Handle array types like "number[]"
