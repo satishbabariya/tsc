@@ -98,6 +98,10 @@ private:
     FunctionDeclaration::Parameter parseParameter();
     unique_ptr<BlockStatement> parseFunctionBody();
     
+    // Generic type parsing
+    std::vector<unique_ptr<TypeParameter>> parseTypeParameterList();
+    unique_ptr<TypeParameter> parseTypeParameter();
+    
     // Utility methods
     Token peek() const;
     Token advance();

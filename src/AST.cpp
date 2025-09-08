@@ -567,6 +567,11 @@ String VariableDeclaration::toString() const {
     return ss.str();
 }
 
+// TypeParameter implementation
+void TypeParameter::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
 // FunctionDeclaration implementation
 void FunctionDeclaration::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
@@ -578,7 +583,19 @@ String FunctionDeclaration::toString() const {
     if (async_) ss << "async ";
     ss << "function";
     if (generator_) ss << "*";
-    ss << " " << name_ << "(";
+    ss << " " << name_;
+    
+    // Add type parameters
+    if (!typeParameters_.empty()) {
+        ss << "<";
+        for (size_t i = 0; i < typeParameters_.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << typeParameters_[i]->toString();
+        }
+        ss << ">";
+    }
+    
+    ss << "(";
     
     for (size_t i = 0; i < parameters_.size(); ++i) {
         if (i > 0) ss << ", ";

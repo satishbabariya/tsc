@@ -799,6 +799,27 @@ private:
     SourceLocation location_;
 };
 
+// Type parameter for generic functions/classes
+class TypeParameter : public ASTNode {
+public:
+    TypeParameter(const String& name, shared_ptr<Type> constraint = nullptr, const SourceLocation& loc = {})
+        : name_(name), constraint_(constraint), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override { 
+        return name_ + (constraint_ ? " extends " + constraint_->toString() : ""); 
+    }
+    
+    const String& getName() const { return name_; }
+    shared_ptr<Type> getConstraint() const { return constraint_; }
+
+private:
+    String name_;
+    shared_ptr<Type> constraint_;
+    SourceLocation location_;
+};
+
 // Function declaration
 class FunctionDeclaration : public Declaration {
 public:
@@ -811,13 +832,14 @@ public:
     };
     
     FunctionDeclaration(const String& name,
+                       std::vector<unique_ptr<TypeParameter>> typeParameters,
                        std::vector<Parameter> parameters,
                        shared_ptr<Type> returnType,
                        unique_ptr<BlockStatement> body,
                        const SourceLocation& loc,
                        bool async = false,
                        bool generator = false)
-        : name_(name), parameters_(std::move(parameters)),
+        : name_(name), typeParameters_(std::move(typeParameters)), parameters_(std::move(parameters)),
           returnType_(returnType), body_(std::move(body)),
           location_(loc), async_(async), generator_(generator) {}
     
@@ -826,14 +848,17 @@ public:
     String getName() const override { return name_; }
     String toString() const override;
     
+    const std::vector<unique_ptr<TypeParameter>>& getTypeParameters() const { return typeParameters_; }
     const std::vector<Parameter>& getParameters() const { return parameters_; }
     shared_ptr<Type> getReturnType() const { return returnType_; }
     BlockStatement* getBody() const { return body_.get(); }
     bool isAsync() const { return async_; }
     bool isGenerator() const { return generator_; }
+    bool isGeneric() const { return !typeParameters_.empty(); }
 
 private:
     String name_;
+    std::vector<unique_ptr<TypeParameter>> typeParameters_;
     std::vector<Parameter> parameters_;
     shared_ptr<Type> returnType_;
     unique_ptr<BlockStatement> body_;
@@ -1122,6 +1147,7 @@ public:
     virtual void visit(ThrowStatement& node) = 0;
     virtual void visit(VariableDeclaration& node) = 0;
     virtual void visit(FunctionDeclaration& node) = 0;
+    virtual void visit(TypeParameter& node) = 0;
     
     // Class-related declarations
     virtual void visit(PropertyDeclaration& node) = 0;

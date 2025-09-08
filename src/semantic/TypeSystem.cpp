@@ -667,4 +667,24 @@ shared_ptr<Type> TypeSystem::createUnresolvedType(const String& name) const {
     return make_shared<UnresolvedType>(name);
 }
 
+shared_ptr<Type> TypeSystem::createTypeParameter(const String& name, shared_ptr<Type> constraint) const {
+    return make_shared<TypeParameterType>(name, constraint);
+}
+
+shared_ptr<Type> TypeSystem::createGenericType(shared_ptr<Type> baseType, std::vector<shared_ptr<Type>> typeArguments) const {
+    return make_shared<GenericType>(baseType, std::move(typeArguments));
+}
+
+shared_ptr<Type> TypeSystem::instantiateGenericType(shared_ptr<Type> genericType, 
+                                                   const std::vector<shared_ptr<Type>>& typeArguments) const {
+    // For now, this is a simplified implementation
+    // In a full implementation, this would substitute type parameters with actual types
+    if (genericType->getKind() != TypeKind::Generic) {
+        return genericType; // Not a generic type, return as-is
+    }
+    
+    const auto& generic = static_cast<const GenericType&>(*genericType);
+    return make_shared<GenericType>(generic.getBaseType(), typeArguments);
+}
+
 } // namespace tsc

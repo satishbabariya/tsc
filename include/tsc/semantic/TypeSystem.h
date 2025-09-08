@@ -390,6 +390,69 @@ private:
     String name_;
 };
 
+// Type parameter (e.g., T in function<T>)
+class TypeParameterType : public Type {
+public:
+    TypeParameterType(const String& name, shared_ptr<Type> constraint = nullptr)
+        : Type(TypeKind::TypeParameter), name_(name), constraint_(constraint) {}
+    
+    const String& getName() const { return name_; }
+    shared_ptr<Type> getConstraint() const { return constraint_; }
+    
+    bool isEquivalentTo(const Type& other) const override {
+        if (other.getKind() != TypeKind::TypeParameter) return false;
+        const auto& otherParam = static_cast<const TypeParameterType&>(other);
+        return name_ == otherParam.name_;
+    }
+    
+    String toString() const override {
+        return name_ + (constraint_ ? " extends " + constraint_->toString() : "");
+    }
+
+private:
+    String name_;
+    shared_ptr<Type> constraint_;
+};
+
+// Generic type (e.g., Array<T>, Map<K, V>)
+class GenericType : public Type {
+public:
+    GenericType(shared_ptr<Type> baseType, std::vector<shared_ptr<Type>> typeArguments)
+        : Type(TypeKind::Generic), baseType_(baseType), typeArguments_(std::move(typeArguments)) {}
+    
+    shared_ptr<Type> getBaseType() const { return baseType_; }
+    const std::vector<shared_ptr<Type>>& getTypeArguments() const { return typeArguments_; }
+    
+    bool isEquivalentTo(const Type& other) const override {
+        if (other.getKind() != TypeKind::Generic) return false;
+        const auto& otherGeneric = static_cast<const GenericType&>(other);
+        
+        if (!baseType_->isEquivalentTo(*otherGeneric.baseType_)) return false;
+        if (typeArguments_.size() != otherGeneric.typeArguments_.size()) return false;
+        
+        for (size_t i = 0; i < typeArguments_.size(); ++i) {
+            if (!typeArguments_[i]->isEquivalentTo(*otherGeneric.typeArguments_[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    String toString() const override {
+        String result = baseType_->toString() + "<";
+        for (size_t i = 0; i < typeArguments_.size(); ++i) {
+            if (i > 0) result += ", ";
+            result += typeArguments_[i]->toString();
+        }
+        result += ">";
+        return result;
+    }
+
+private:
+    shared_ptr<Type> baseType_;
+    std::vector<shared_ptr<Type>> typeArguments_;
+};
+
 class ErrorType : public Type {
 public:
     ErrorType() : Type(TypeKind::Error) {}

@@ -185,6 +185,12 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     Token nameToken = consume(TokenType::Identifier, "Expected function name");
     String name = nameToken.getStringValue();
     
+    // Parse optional type parameters
+    std::vector<unique_ptr<TypeParameter>> typeParameters;
+    if (check(TokenType::Less)) {
+        typeParameters = parseTypeParameterList();
+    }
+    
     consume(TokenType::LeftParen, "Expected '(' after function name");
     auto parameters = parseParameterList();
     consume(TokenType::RightParen, "Expected ')' after parameters");
@@ -198,7 +204,7 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     auto body = parseFunctionBody();
     
     return make_unique<FunctionDeclaration>(
-        name, std::move(parameters), returnType, std::move(body), 
+        name, std::move(typeParameters), std::move(parameters), returnType, std::move(body), 
         nameToken.getLocation(), false, false
     );
 }
@@ -1263,6 +1269,34 @@ unique_ptr<BlockStatement> Parser::parseFunctionBody() {
     consume(TokenType::RightBrace, "Expected '}' after function body");
     
     return make_unique<BlockStatement>(std::move(statements), getCurrentLocation());
+}
+
+std::vector<unique_ptr<TypeParameter>> Parser::parseTypeParameterList() {
+    std::vector<unique_ptr<TypeParameter>> typeParameters;
+    
+    consume(TokenType::Less, "Expected '<' before type parameters");
+    
+    if (!check(TokenType::Greater)) {
+        do {
+            typeParameters.push_back(parseTypeParameter());
+        } while (match(TokenType::Comma));
+    }
+    
+    consume(TokenType::Greater, "Expected '>' after type parameters");
+    
+    return typeParameters;
+}
+
+unique_ptr<TypeParameter> Parser::parseTypeParameter() {
+    Token nameToken = consume(TokenType::Identifier, "Expected type parameter name");
+    String name = nameToken.getStringValue();
+    
+    shared_ptr<Type> constraint = nullptr;
+    if (match(TokenType::Extends)) {
+        constraint = parseTypeAnnotation();
+    }
+    
+    return make_unique<TypeParameter>(name, constraint, nameToken.getLocation());
 }
 
 // Arrow function parsing
