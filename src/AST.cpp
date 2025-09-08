@@ -756,4 +756,37 @@ String InterfaceDeclaration::toString() const {
     return oss.str();
 }
 
+// EnumMember implementation
+void EnumMember::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String EnumMember::toString() const {
+    if (hasValue()) {
+        return name_ + " = " + value_->toString();
+    } else {
+        return name_;
+    }
+}
+
+// EnumDeclaration implementation
+void EnumDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String EnumDeclaration::toString() const {
+    std::ostringstream oss;
+    if (isConst_) oss << "const ";
+    oss << "enum " << name_ << " {\n";
+    
+    for (size_t i = 0; i < members_.size(); ++i) {
+        oss << "  " << members_[i]->toString();
+        if (i < members_.size() - 1) oss << ",";
+        oss << "\n";
+    }
+    
+    oss << "}";
+    return oss.str();
+}
+
 } // namespace tsc

@@ -17,6 +17,7 @@ class ASTNode;
 class BinaryExpression;
 class UnaryExpression;
 class InterfaceDeclaration;
+class EnumDeclaration;
 
 // Type categories for the TypeScript type system
 enum class TypeKind {
@@ -324,6 +325,25 @@ private:
     std::vector<shared_ptr<Type>> extends_;
 };
 
+// Enum types
+class EnumType : public Type {
+public:
+    EnumType(const String& name, EnumDeclaration* declaration = nullptr)
+        : Type(TypeKind::Enum), name_(name), declaration_(declaration) {}
+    
+    const String& getName() const { return name_; }
+    EnumDeclaration* getDeclaration() const { return declaration_; }
+    
+    void setDeclaration(EnumDeclaration* declaration) { declaration_ = declaration; }
+    
+    String toString() const override { return name_; }
+    bool isEquivalentTo(const Type& other) const override;
+
+private:
+    String name_;
+    EnumDeclaration* declaration_;
+};
+
 class ErrorType : public Type {
 public:
     ErrorType() : Type(TypeKind::Error) {}
@@ -370,6 +390,9 @@ public:
     
     // Interface type creation  
     shared_ptr<Type> createInterfaceType(const String& name, InterfaceDeclaration* declaration = nullptr) const;
+    
+    // Enum type creation
+    shared_ptr<Type> createEnumType(const String& name, EnumDeclaration* declaration = nullptr) const;
     
     // Type operations
     bool areTypesCompatible(const Type& from, const Type& to) const;

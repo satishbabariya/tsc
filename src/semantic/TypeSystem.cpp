@@ -351,6 +351,10 @@ shared_ptr<Type> TypeSystem::createInterfaceType(const String& name, InterfaceDe
     return make_shared<InterfaceType>(name, declaration);
 }
 
+shared_ptr<Type> TypeSystem::createEnumType(const String& name, EnumDeclaration* declaration) const {
+    return make_shared<EnumType>(name, declaration);
+}
+
 bool TypeSystem::areTypesCompatible(const Type& from, const Type& to) const {
     return from.isAssignableTo(to);
 }
@@ -598,6 +602,19 @@ bool InterfaceType::isEquivalentTo(const Type& other) const {
     // Interfaces are equivalent if they have the same name
     // In a full implementation, we might also check for structural compatibility
     return name_ == otherInterface.name_;
+}
+
+// EnumType implementation
+bool EnumType::isEquivalentTo(const Type& other) const {
+    if (other.getKind() != TypeKind::Enum) {
+        return false;
+    }
+    
+    const auto& otherEnum = static_cast<const EnumType&>(other);
+    
+    // Enums are equivalent if they have the same name
+    // In a full implementation, we might also check for structural compatibility
+    return name_ == otherEnum.name_;
 }
 
 // Factory functions

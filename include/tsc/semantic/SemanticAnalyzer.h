@@ -99,6 +99,8 @@ public:
     void visit(MethodDeclaration& node) override;
     void visit(ClassDeclaration& node) override;
     void visit(InterfaceDeclaration& node) override;
+    void visit(EnumMember& node) override;
+    void visit(EnumDeclaration& node) override;
     
     void visit(Module& node) override;
 

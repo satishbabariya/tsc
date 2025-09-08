@@ -997,6 +997,50 @@ private:
     SourceLocation location_;
 };
 
+// Enum member
+class EnumMember : public ASTNode {
+public:
+    EnumMember(const String& name, unique_ptr<Expression> value, const SourceLocation& loc)
+        : name_(name), value_(std::move(value)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    
+    const String& getName() const { return name_; }
+    Expression* getValue() const { return value_.get(); }
+    bool hasValue() const { return value_ != nullptr; }
+
+private:
+    String name_;
+    unique_ptr<Expression> value_;
+    SourceLocation location_;
+};
+
+// Enum declaration
+class EnumDeclaration : public Declaration {
+public:
+    EnumDeclaration(const String& name,
+                   std::vector<unique_ptr<EnumMember>> members,
+                   const SourceLocation& loc,
+                   bool isConst = false)
+        : name_(name), members_(std::move(members)), location_(loc), isConst_(isConst) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String getName() const override { return name_; }
+    String toString() const override;
+    
+    const std::vector<unique_ptr<EnumMember>>& getMembers() const { return members_; }
+    bool isConst() const { return isConst_; }
+
+private:
+    String name_;
+    std::vector<unique_ptr<EnumMember>> members_;
+    SourceLocation location_;
+    bool isConst_;
+};
+
 // Module/File AST node
 class Module : public ASTNode {
 public:
@@ -1063,6 +1107,8 @@ public:
     virtual void visit(MethodDeclaration& node) = 0;
     virtual void visit(ClassDeclaration& node) = 0;
     virtual void visit(InterfaceDeclaration& node) = 0;
+    virtual void visit(EnumMember& node) = 0;
+    virtual void visit(EnumDeclaration& node) = 0;
     
     // Module
     virtual void visit(Module& node) = 0;

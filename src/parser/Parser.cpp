@@ -85,6 +85,11 @@ unique_ptr<Statement> Parser::parseStatement() {
         return parseInterfaceDeclaration();
     }
     
+    // Handle enum declarations
+    if (check(TokenType::Enum)) {
+        return parseEnumDeclaration();
+    }
+    
     // Handle block statements
     if (match(TokenType::LeftBrace)) {
         return parseBlockStatement();
@@ -378,6 +383,51 @@ unique_ptr<Statement> Parser::parseInterfaceDeclaration() {
     
     return make_unique<InterfaceDeclaration>(
         name, std::move(extends), std::move(properties), std::move(methods), location
+    );
+}
+
+unique_ptr<Statement> Parser::parseEnumDeclaration() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Check for const enum
+    bool isConst = false;
+    if (match(TokenType::Const)) {
+        isConst = true;
+    }
+    
+    consume(TokenType::Enum, "Expected 'enum'");
+    
+    Token nameToken = consume(TokenType::Identifier, "Expected enum name");
+    String name = nameToken.getStringValue();
+    
+    consume(TokenType::LeftBrace, "Expected '{' after enum name");
+    
+    // Parse enum members
+    std::vector<unique_ptr<EnumMember>> members;
+    
+    while (!check(TokenType::RightBrace) && !isAtEnd()) {
+        Token memberToken = consume(TokenType::Identifier, "Expected enum member name");
+        String memberName = memberToken.getStringValue();
+        
+        unique_ptr<Expression> value = nullptr;
+        if (match(TokenType::Equal)) {
+            value = parseExpression();
+        }
+        
+        members.push_back(make_unique<EnumMember>(
+            memberName, std::move(value), memberToken.getLocation()
+        ));
+        
+        // Handle trailing comma
+        if (!match(TokenType::Comma)) {
+            break;
+        }
+    }
+    
+    consume(TokenType::RightBrace, "Expected '}' after enum body");
+    
+    return make_unique<EnumDeclaration>(
+        name, std::move(members), location, isConst
     );
 }
 

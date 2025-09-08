@@ -1790,6 +1790,61 @@ void LLVMCodeGen::visit(InterfaceDeclaration& node) {
     // No-op for now
 }
 
+void LLVMCodeGen::visit(EnumMember& node) {
+    // Enum members don't generate code directly
+    // They are handled as part of the containing enum
+    // No-op for now
+}
+
+void LLVMCodeGen::visit(EnumDeclaration& node) {
+    // Generate constants for enum members
+    // In TypeScript/JavaScript, enums are typically compiled to objects or constants
+    
+    int currentValue = 0;
+    
+    for (const auto& member : node.getMembers()) {
+        llvm::Value* memberValue = nullptr;
+        
+        if (member->hasValue()) {
+            // Member has explicit value - evaluate it
+            member->getValue()->accept(*this);
+            memberValue = getCurrentValue();
+        } else {
+            // Auto-increment numeric value
+            memberValue = llvm::ConstantFP::get(getNumberType(), static_cast<double>(currentValue));
+        }
+        
+        // Create a global constant for the enum member
+        String globalName = node.getName() + "_" + member->getName();
+        
+        // Ensure we have a constant value
+        llvm::Constant* constantValue = nullptr;
+        if (llvm::Constant* constVal = llvm::dyn_cast<llvm::Constant>(memberValue)) {
+            constantValue = constVal;
+        } else {
+            // Fallback to the current auto-increment value
+            constantValue = llvm::ConstantFP::get(getNumberType(), static_cast<double>(currentValue));
+        }
+        
+        llvm::GlobalVariable* globalVar = new llvm::GlobalVariable(
+            *module_,
+            getNumberType(),
+            true, // isConstant
+            llvm::GlobalValue::ExternalLinkage,
+            constantValue,
+            globalName
+        );
+        
+        // Store the global variable for later reference
+        // In a full implementation, we'd have a more sophisticated enum value tracking system
+        
+        currentValue++;
+    }
+    
+    // Enum declarations don't produce a value themselves
+    setCurrentValue(llvm::Constant::getNullValue(getAnyType()));
+}
+
 // Factory function
 unique_ptr<LLVMCodeGen> createLLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& options) {
     return std::make_unique<LLVMCodeGen>(diagnostics, options);

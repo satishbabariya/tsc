@@ -859,4 +859,36 @@ void ASTPrinter::visit(InterfaceDeclaration& node) {
     decreaseIndent();
 }
 
+void ASTPrinter::visit(EnumMember& node) {
+    printIndent();
+    output_ << "EnumMember: " << node.getName();
+    if (node.hasValue()) {
+        output_ << " = ";
+        node.getValue()->accept(*this);
+    }
+    output_ << std::endl;
+}
+
+void ASTPrinter::visit(EnumDeclaration& node) {
+    printIndent();
+    output_ << "EnumDeclaration: ";
+    if (node.isConst()) {
+        output_ << "const ";
+    }
+    output_ << node.getName() << std::endl;
+    increaseIndent();
+    
+    if (!node.getMembers().empty()) {
+        printIndent();
+        output_ << "Members:" << std::endl;
+        increaseIndent();
+        for (const auto& member : node.getMembers()) {
+            member->accept(*this);
+        }
+        decreaseIndent();
+    }
+    
+    decreaseIndent();
+}
+
 } // namespace tsc

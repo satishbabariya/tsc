@@ -42,6 +42,7 @@ private:
     unique_ptr<Statement> parseFunctionDeclaration();
     unique_ptr<Statement> parseClassDeclaration();
     unique_ptr<Statement> parseInterfaceDeclaration();
+    unique_ptr<Statement> parseEnumDeclaration();
     unique_ptr<Statement> parseTypeAliasDeclaration();
     unique_ptr<Statement> parseIfStatement();
     unique_ptr<Statement> parseWhileStatement();

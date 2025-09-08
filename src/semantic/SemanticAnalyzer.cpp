@@ -915,6 +915,78 @@ void SemanticAnalyzer::visit(InterfaceDeclaration& node) {
     // The interface type is already stored in the symbol table above
 }
 
+void SemanticAnalyzer::visit(EnumMember& node) {
+    // Analyze the value expression if present
+    if (node.hasValue()) {
+        node.getValue()->accept(*this);
+        
+        // Get the type of the value expression
+        auto valueType = getExpressionType(*node.getValue());
+        
+        // For now, we'll accept number and string types for enum values
+        // In a full implementation, we'd do more sophisticated type checking
+        if (!valueType->isEquivalentTo(*typeSystem_->getNumberType()) && 
+            !valueType->isEquivalentTo(*typeSystem_->getStringType())) {
+            reportError("Enum member value must be a number or string", node.getLocation());
+        }
+    }
+    
+    // Enum members have number type by default (auto-incremented)
+    // or the type of their explicit value
+    auto memberType = typeSystem_->getNumberType();
+    if (node.hasValue()) {
+        memberType = getExpressionType(*node.getValue());
+    }
+    
+    // Note: We don't call setExpressionType because EnumMember is not an Expression
+    // The member's type information is handled by the containing EnumDeclaration
+}
+
+void SemanticAnalyzer::visit(EnumDeclaration& node) {
+    // Create enum type
+    auto enumType = typeSystem_->createEnumType(node.getName(), &node);
+    
+    // Add enum to symbol table
+    declareSymbol(node.getName(), SymbolKind::Type, enumType, node.getLocation());
+    
+    // Enter enum scope (using Class scope type since enums are similar)
+    enterScope(Scope::ScopeType::Class, node.getName());
+    
+    // Track the current auto-increment value for numeric enums
+    int currentValue = 0;
+    
+    // Analyze enum members
+    for (const auto& member : node.getMembers()) {
+        member->accept(*this);
+        
+        // Determine member value and type
+        shared_ptr<Type> memberType = typeSystem_->getNumberType();
+        
+        if (member->hasValue()) {
+            // Member has explicit value
+            auto valueType = getExpressionType(*member->getValue());
+            memberType = valueType;
+            
+            // If it's a numeric literal, update the auto-increment counter
+            // This is a simplified implementation
+            currentValue++;
+        } else {
+            // Member uses auto-increment (numeric enum)
+            memberType = typeSystem_->getNumberType();
+            currentValue++;
+        }
+        
+        // Add member to enum scope as a constant
+        declareSymbol(member->getName(), SymbolKind::Variable, memberType, member->getLocation());
+    }
+    
+    // Exit enum scope
+    exitScope();
+    
+    // EnumDeclaration is not an Expression, so we don't call setExpressionType
+    // The enum type is already stored in the symbol table above
+}
+
 // Factory function
 unique_ptr<SemanticAnalyzer> createSemanticAnalyzer(DiagnosticEngine& diagnostics) {
     return make_unique<SemanticAnalyzer>(diagnostics);
