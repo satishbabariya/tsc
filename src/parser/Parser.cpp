@@ -80,6 +80,11 @@ unique_ptr<Statement> Parser::parseStatement() {
         return parseClassDeclaration();
     }
     
+    // Handle interface declarations
+    if (check(TokenType::Interface)) {
+        return parseInterfaceDeclaration();
+    }
+    
     // Handle block statements
     if (match(TokenType::LeftBrace)) {
         return parseBlockStatement();
@@ -304,6 +309,75 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     return make_unique<ClassDeclaration>(
         name, baseClass, std::move(interfaces), std::move(properties), 
         std::move(methods), std::move(constructor), location
+    );
+}
+
+unique_ptr<Statement> Parser::parseInterfaceDeclaration() {
+    SourceLocation location = getCurrentLocation();
+    consume(TokenType::Interface, "Expected 'interface'");
+    
+    Token nameToken = consume(TokenType::Identifier, "Expected interface name");
+    String name = nameToken.getStringValue();
+    
+    // Optional extends clause
+    std::vector<shared_ptr<Type>> extends;
+    if (match(TokenType::Extends)) {
+        do {
+            Token extendsToken = consume(TokenType::Identifier, "Expected interface name");
+            // Create placeholder type - will be resolved in semantic analysis
+            extends.push_back(typeSystem_.createInterfaceType(extendsToken.getStringValue()));
+        } while (match(TokenType::Comma));
+    }
+    
+    consume(TokenType::LeftBrace, "Expected '{' after interface header");
+    
+    // Parse interface body (properties and method signatures)
+    std::vector<unique_ptr<PropertyDeclaration>> properties;
+    std::vector<unique_ptr<MethodDeclaration>> methods;
+    
+    while (!check(TokenType::RightBrace) && !isAtEnd()) {
+        Token memberToken = consume(TokenType::Identifier, "Expected interface member");
+        String memberName = memberToken.getStringValue();
+        
+        if (check(TokenType::LeftParen)) {
+            // Method signature
+            consume(TokenType::LeftParen, "Expected '(' after method name");
+            auto parameters = parseMethodParameterList();
+            consume(TokenType::RightParen, "Expected ')' after method parameters");
+            
+            // Return type is required for interface methods
+            shared_ptr<Type> returnType = typeSystem_.getVoidType();
+            if (match(TokenType::Colon)) {
+                returnType = parseTypeAnnotation();
+            }
+            
+            consume(TokenType::Semicolon, "Expected ';' after interface method signature");
+            
+            // Interface methods have no body (nullptr)
+            methods.push_back(make_unique<MethodDeclaration>(
+                memberName, std::move(parameters), returnType, nullptr,
+                memberToken.getLocation(), false, false, false, false
+            ));
+        } else {
+            // Property signature
+            shared_ptr<Type> propertyType = nullptr;
+            if (match(TokenType::Colon)) {
+                propertyType = parseTypeAnnotation();
+            }
+            
+            consume(TokenType::Semicolon, "Expected ';' after interface property");
+            
+            properties.push_back(make_unique<PropertyDeclaration>(
+                memberName, propertyType, nullptr, memberToken.getLocation(),
+                false, false, false, false
+            ));
+        }
+    }
+    
+    consume(TokenType::RightBrace, "Expected '}' after interface body");
+    
+    return make_unique<InterfaceDeclaration>(
+        name, std::move(extends), std::move(properties), std::move(methods), location
     );
 }
 

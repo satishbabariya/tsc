@@ -16,6 +16,7 @@ namespace tsc {
 class ASTNode;
 class BinaryExpression;
 class UnaryExpression;
+class InterfaceDeclaration;
 
 // Type categories for the TypeScript type system
 enum class TypeKind {
@@ -301,6 +302,28 @@ private:
     std::vector<shared_ptr<Type>> interfaces_;
 };
 
+// Interface types
+class InterfaceType : public Type {
+public:
+    InterfaceType(const String& name, InterfaceDeclaration* declaration = nullptr)
+        : Type(TypeKind::Interface), name_(name), declaration_(declaration) {}
+    
+    const String& getName() const { return name_; }
+    InterfaceDeclaration* getDeclaration() const { return declaration_; }
+    const std::vector<shared_ptr<Type>>& getExtends() const { return extends_; }
+    
+    void setDeclaration(InterfaceDeclaration* declaration) { declaration_ = declaration; }
+    void addExtends(shared_ptr<Type> interface) { extends_.push_back(interface); }
+    
+    String toString() const override { return name_; }
+    bool isEquivalentTo(const Type& other) const override;
+
+private:
+    String name_;
+    InterfaceDeclaration* declaration_;
+    std::vector<shared_ptr<Type>> extends_;
+};
+
 class ErrorType : public Type {
 public:
     ErrorType() : Type(TypeKind::Error) {}
@@ -344,6 +367,9 @@ public:
     // Class type creation
     shared_ptr<Type> createClassType(const String& name, ClassDeclaration* declaration = nullptr, 
                                     shared_ptr<Type> baseClass = nullptr) const;
+    
+    // Interface type creation  
+    shared_ptr<Type> createInterfaceType(const String& name, InterfaceDeclaration* declaration = nullptr) const;
     
     // Type operations
     bool areTypesCompatible(const Type& from, const Type& to) const;

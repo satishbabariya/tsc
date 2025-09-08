@@ -723,4 +723,37 @@ String ClassDeclaration::toString() const {
     return oss.str();
 }
 
+// InterfaceDeclaration implementation
+void InterfaceDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String InterfaceDeclaration::toString() const {
+    std::ostringstream oss;
+    oss << "interface " << name_;
+    
+    if (!extends_.empty()) {
+        oss << " extends ";
+        for (size_t i = 0; i < extends_.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << extends_[i]->toString();
+        }
+    }
+    
+    oss << " {\n";
+    
+    // Properties
+    for (const auto& prop : properties_) {
+        oss << "  " << prop->toString() << ";\n";
+    }
+    
+    // Methods (interfaces only have method signatures)
+    for (const auto& method : methods_) {
+        oss << "  " << method->toString() << ";\n";
+    }
+    
+    oss << "}";
+    return oss.str();
+}
+
 } // namespace tsc

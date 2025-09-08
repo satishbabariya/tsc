@@ -1776,6 +1776,20 @@ void LLVMCodeGen::visit(ClassDeclaration& node) {
     setCurrentValue(llvm::Constant::getNullValue(llvm::PointerType::get(classStruct, 0)));
 }
 
+void LLVMCodeGen::visit(InterfaceDeclaration& node) {
+    // Interfaces don't generate direct code in LLVM
+    // They are used for type checking during semantic analysis
+    // The actual implementation will be in classes that implement the interface
+    
+    // For now, we'll just ignore interfaces in code generation
+    // In a full implementation, we might:
+    // 1. Generate type information for runtime type checking
+    // 2. Create vtable layouts for interface methods
+    // 3. Generate interface dispatch code
+    
+    // No-op for now
+}
+
 // Factory function
 unique_ptr<LLVMCodeGen> createLLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& options) {
     return std::make_unique<LLVMCodeGen>(diagnostics, options);

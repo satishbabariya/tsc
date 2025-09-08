@@ -874,6 +874,47 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     // The class type is already stored in the symbol table above
 }
 
+void SemanticAnalyzer::visit(InterfaceDeclaration& node) {
+    // Create interface type
+    auto interfaceType = typeSystem_->createInterfaceType(node.getName(), &node);
+    
+    // Add interface to symbol table
+    declareSymbol(node.getName(), SymbolKind::Type, interfaceType, node.getLocation());
+    
+    // Enter interface scope (using Class scope type since interfaces are similar)
+    enterScope(Scope::ScopeType::Class, node.getName());
+    
+    // Analyze extended interfaces if present
+    for (const auto& extended : node.getExtends()) {
+        // Interface extension validation would go here
+        // For now, we assume they're valid
+    }
+    
+    // Analyze property signatures
+    for (const auto& property : node.getProperties()) {
+        property->accept(*this);
+        
+        // Add property to interface scope
+        auto propType = getDeclarationType(*property);
+        declareSymbol(property->getName(), SymbolKind::Property, propType, property->getLocation());
+    }
+    
+    // Analyze method signatures
+    for (const auto& method : node.getMethods()) {
+        method->accept(*this);
+        
+        // Add method to interface scope
+        auto methodType = getDeclarationType(*method);
+        declareSymbol(method->getName(), SymbolKind::Method, methodType, method->getLocation());
+    }
+    
+    // Exit interface scope
+    exitScope();
+    
+    // InterfaceDeclaration is not an Expression, so we don't call setExpressionType
+    // The interface type is already stored in the symbol table above
+}
+
 // Factory function
 unique_ptr<SemanticAnalyzer> createSemanticAnalyzer(DiagnosticEngine& diagnostics) {
     return make_unique<SemanticAnalyzer>(diagnostics);

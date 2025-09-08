@@ -820,4 +820,43 @@ void ASTPrinter::visit(ClassDeclaration& node) {
     decreaseIndent();
 }
 
+void ASTPrinter::visit(InterfaceDeclaration& node) {
+    printIndent();
+    output_ << "InterfaceDeclaration: " << node.getName() << std::endl;
+    increaseIndent();
+    
+    if (!node.getExtends().empty()) {
+        printIndent();
+        output_ << "Extends:" << std::endl;
+        increaseIndent();
+        for (const auto& extended : node.getExtends()) {
+            printIndent();
+            output_ << extended->toString() << std::endl;
+        }
+        decreaseIndent();
+    }
+    
+    if (!node.getProperties().empty()) {
+        printIndent();
+        output_ << "Properties:" << std::endl;
+        increaseIndent();
+        for (const auto& property : node.getProperties()) {
+            property->accept(*this);
+        }
+        decreaseIndent();
+    }
+    
+    if (!node.getMethods().empty()) {
+        printIndent();
+        output_ << "Method Signatures:" << std::endl;
+        increaseIndent();
+        for (const auto& method : node.getMethods()) {
+            method->accept(*this);
+        }
+        decreaseIndent();
+    }
+    
+    decreaseIndent();
+}
+
 } // namespace tsc

@@ -149,6 +149,7 @@ public:
     void visit(PropertyDeclaration& node) override;
     void visit(MethodDeclaration& node) override;
     void visit(ClassDeclaration& node) override;
+    void visit(InterfaceDeclaration& node) override;
     
     void visit(Module& module) override;
 

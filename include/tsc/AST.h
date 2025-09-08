@@ -969,6 +969,34 @@ private:
     bool isAbstract_;
 };
 
+// Interface declaration
+class InterfaceDeclaration : public Declaration {
+public:
+    InterfaceDeclaration(const String& name,
+                        std::vector<shared_ptr<Type>> extends,
+                        std::vector<unique_ptr<PropertyDeclaration>> properties,
+                        std::vector<unique_ptr<MethodDeclaration>> methods,
+                        const SourceLocation& loc)
+        : name_(name), extends_(std::move(extends)),
+          properties_(std::move(properties)), methods_(std::move(methods)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String getName() const override { return name_; }
+    String toString() const override;
+    
+    const std::vector<shared_ptr<Type>>& getExtends() const { return extends_; }
+    const std::vector<unique_ptr<PropertyDeclaration>>& getProperties() const { return properties_; }
+    const std::vector<unique_ptr<MethodDeclaration>>& getMethods() const { return methods_; }
+
+private:
+    String name_;
+    std::vector<shared_ptr<Type>> extends_;
+    std::vector<unique_ptr<PropertyDeclaration>> properties_;
+    std::vector<unique_ptr<MethodDeclaration>> methods_;
+    SourceLocation location_;
+};
+
 // Module/File AST node
 class Module : public ASTNode {
 public:
@@ -1034,6 +1062,7 @@ public:
     virtual void visit(PropertyDeclaration& node) = 0;
     virtual void visit(MethodDeclaration& node) = 0;
     virtual void visit(ClassDeclaration& node) = 0;
+    virtual void visit(InterfaceDeclaration& node) = 0;
     
     // Module
     virtual void visit(Module& node) = 0;

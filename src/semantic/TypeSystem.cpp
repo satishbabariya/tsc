@@ -347,6 +347,10 @@ shared_ptr<Type> TypeSystem::createClassType(const String& name, ClassDeclaratio
     return make_shared<ClassType>(name, declaration, baseClass);
 }
 
+shared_ptr<Type> TypeSystem::createInterfaceType(const String& name, InterfaceDeclaration* declaration) const {
+    return make_shared<InterfaceType>(name, declaration);
+}
+
 bool TypeSystem::areTypesCompatible(const Type& from, const Type& to) const {
     return from.isAssignableTo(to);
 }
@@ -581,6 +585,19 @@ bool ClassType::isEquivalentTo(const Type& other) const {
     // Classes are equivalent if they have the same name
     // In a full implementation, we might also check for structural compatibility
     return name_ == otherClass.name_;
+}
+
+// InterfaceType implementation
+bool InterfaceType::isEquivalentTo(const Type& other) const {
+    if (other.getKind() != TypeKind::Interface) {
+        return false;
+    }
+    
+    const auto& otherInterface = static_cast<const InterfaceType&>(other);
+    
+    // Interfaces are equivalent if they have the same name
+    // In a full implementation, we might also check for structural compatibility
+    return name_ == otherInterface.name_;
 }
 
 // Factory functions
