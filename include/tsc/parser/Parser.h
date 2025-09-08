@@ -74,6 +74,7 @@ private:
     unique_ptr<Expression> parseNullLiteral();
     unique_ptr<Expression> parseArrayLiteral();
     unique_ptr<Expression> parseObjectLiteral();
+    unique_ptr<Expression> parseNewExpression();
     unique_ptr<Expression> parseIdentifier();
     
     // Arrow functions

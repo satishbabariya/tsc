@@ -192,6 +192,42 @@ private:
     SourceLocation location_;
 };
 
+// This expression
+class ThisExpression : public Expression {
+public:
+    ThisExpression(const SourceLocation& loc) : location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override { return "this"; }
+
+private:
+    SourceLocation location_;
+};
+
+// New expression for object instantiation
+class NewExpression : public Expression {
+public:
+    NewExpression(unique_ptr<Expression> constructor, 
+                  std::vector<unique_ptr<Expression>> arguments,
+                  const SourceLocation& loc)
+        : constructor_(std::move(constructor)), arguments_(std::move(arguments)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    Expression* getConstructor() const { return constructor_.get(); }
+    const std::vector<unique_ptr<Expression>>& getArguments() const { return arguments_; }
+
+private:
+    unique_ptr<Expression> constructor_;
+    std::vector<unique_ptr<Expression>> arguments_;
+    SourceLocation location_;
+};
+
 // Binary expressions
 class BinaryExpression : public Expression {
 public:
@@ -964,6 +1000,8 @@ public:
     virtual void visit(BooleanLiteral& node) = 0;
     virtual void visit(NullLiteral& node) = 0;
     virtual void visit(Identifier& node) = 0;
+    virtual void visit(ThisExpression& node) = 0;
+    virtual void visit(NewExpression& node) = 0;
     virtual void visit(BinaryExpression& node) = 0;
     virtual void visit(UnaryExpression& node) = 0;
     virtual void visit(AssignmentExpression& node) = 0;

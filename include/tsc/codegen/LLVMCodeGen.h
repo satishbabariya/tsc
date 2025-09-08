@@ -116,6 +116,8 @@ public:
     void visit(BooleanLiteral& node) override;
     void visit(NullLiteral& node) override;
     void visit(Identifier& node) override;
+    void visit(ThisExpression& node) override;
+    void visit(NewExpression& node) override;
     void visit(BinaryExpression& node) override;
     void visit(UnaryExpression& node) override;
     void visit(AssignmentExpression& node) override;

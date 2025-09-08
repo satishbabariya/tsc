@@ -50,6 +50,26 @@ void Identifier::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
+// ThisExpression implementation
+void ThisExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// NewExpression implementation
+void NewExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String NewExpression::toString() const {
+    String result = "new " + constructor_->toString() + "(";
+    for (size_t i = 0; i < arguments_.size(); ++i) {
+        if (i > 0) result += ", ";
+        result += arguments_[i]->toString();
+    }
+    result += ")";
+    return result;
+}
+
 // BinaryExpression implementation
 void BinaryExpression::accept(ASTVisitor& visitor) {
     visitor.visit(*this);

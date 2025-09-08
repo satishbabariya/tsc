@@ -173,6 +173,63 @@ void LLVMCodeGen::visit(Identifier& node) {
     }
 }
 
+void LLVMCodeGen::visit(ThisExpression& node) {
+    // In class methods, 'this' is the first parameter
+    llvm::Function* currentFunction = builder_->GetInsertBlock()->getParent();
+    
+    if (currentFunction->arg_size() > 0) {
+        // Get the first argument, which should be 'this'
+        llvm::Argument* thisArg = currentFunction->arg_begin();
+        setCurrentValue(thisArg);
+    } else {
+        // Not in a method context, create a null value
+        reportError("'this' used outside of method context", node.getLocation());
+        setCurrentValue(createNullValue(getAnyType()));
+    }
+}
+
+void LLVMCodeGen::visit(NewExpression& node) {
+    // For now, implement a basic object allocation
+    // In a full implementation, this would:
+    // 1. Allocate memory for the object
+    // 2. Call the constructor with the allocated memory
+    // 3. Return the constructed object
+    
+    if (auto identifier = dynamic_cast<Identifier*>(node.getConstructor())) {
+        // Try to find the constructor function
+        llvm::Function* constructor = module_->getFunction(identifier->getName());
+        if (constructor) {
+            // Allocate space for the object (simplified)
+            llvm::Type* objectType = getAnyType(); // Placeholder
+            llvm::Value* objectPtr = builder_->CreateAlloca(objectType, nullptr, "new_object");
+            
+            // Generate arguments for constructor call
+            std::vector<llvm::Value*> args;
+            args.push_back(objectPtr); // 'this' pointer
+            
+            for (const auto& arg : node.getArguments()) {
+                arg->accept(*this);
+                args.push_back(getCurrentValue());
+            }
+            
+            // Call constructor
+            if (args.size() <= constructor->arg_size()) {
+                builder_->CreateCall(constructor, args);
+            }
+            
+            // Return the object pointer
+            setCurrentValue(objectPtr);
+        } else {
+            reportError("Constructor not found: " + identifier->getName(), node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+        }
+    } else {
+        // For complex constructor expressions, create a null value
+        reportError("Complex constructor expressions not yet supported", node.getLocation());
+        setCurrentValue(createNullValue(getAnyType()));
+    }
+}
+
 void LLVMCodeGen::visit(BinaryExpression& node) {
     // Generate left and right operands
     node.getLeft()->accept(*this);

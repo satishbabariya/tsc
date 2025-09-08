@@ -744,6 +744,16 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
         return make_unique<Identifier>(token.getStringValue(), token.getLocation());
     }
     
+    if (check(TokenType::This)) {
+        advance();
+        return make_unique<ThisExpression>(getCurrentLocation());
+    }
+    
+    if (check(TokenType::New)) {
+        advance();
+        return parseNewExpression();
+    }
+    
     if (match(TokenType::LeftBracket)) {
         return parseArrayLiteral();
     }
@@ -833,6 +843,30 @@ unique_ptr<Expression> Parser::parseObjectLiteral() {
     consume(TokenType::RightBrace, "Expected '}' after object properties");
     
     return make_unique<ObjectLiteral>(std::move(properties), location);
+}
+
+unique_ptr<Expression> Parser::parseNewExpression() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Parse the constructor expression (e.g., "Person", "MyClass")
+    auto constructor = parsePrimaryExpression();
+    
+    // Parse arguments if present
+    std::vector<unique_ptr<Expression>> arguments;
+    if (match(TokenType::LeftParen)) {
+        // Parse arguments if not empty
+        if (!check(TokenType::RightParen)) {
+            do {
+                auto arg = parseExpression();
+                if (arg) {
+                    arguments.push_back(std::move(arg));
+                }
+            } while (match(TokenType::Comma));
+        }
+        consume(TokenType::RightParen, "Expected ')' after constructor arguments");
+    }
+    
+    return make_unique<NewExpression>(std::move(constructor), std::move(arguments), location);
 }
 
 // Utility methods

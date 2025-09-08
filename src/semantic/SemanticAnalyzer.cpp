@@ -83,6 +83,56 @@ void SemanticAnalyzer::visit(Identifier& node) {
     }
 }
 
+void SemanticAnalyzer::visit(ThisExpression& node) {
+    // 'this' is only valid within a class method or constructor
+    auto currentScope = symbolTable_->getCurrentScope();
+    
+    // Walk up the scope chain to find a class scope
+    while (currentScope && currentScope->getType() != Scope::ScopeType::Class) {
+        currentScope = currentScope->getParent();
+    }
+    
+    if (!currentScope) {
+        reportError("'this' keyword used outside of class context", node.getLocation());
+        setExpressionType(node, typeSystem_->getErrorType());
+        return;
+    }
+    
+    // Get the class type from the class scope
+    // For now, we'll use a generic object type as a placeholder
+    // In a full implementation, we'd get the actual class type from the scope
+    auto thisType = typeSystem_->getAnyType(); // Placeholder
+    setExpressionType(node, thisType);
+}
+
+void SemanticAnalyzer::visit(NewExpression& node) {
+    // Analyze the constructor expression
+    node.getConstructor()->accept(*this);
+    auto constructorType = getExpressionType(*node.getConstructor());
+    
+    // Analyze arguments
+    for (const auto& arg : node.getArguments()) {
+        arg->accept(*this);
+    }
+    
+    // For now, assume the constructor creates an instance of the same type
+    // In a full implementation, we'd check if this is a valid constructor
+    // and determine the resulting instance type
+    if (auto identifier = dynamic_cast<Identifier*>(node.getConstructor())) {
+        // Try to find the class type in the symbol table
+        Symbol* classSymbol = resolveSymbol(identifier->getName(), node.getLocation());
+        if (classSymbol && classSymbol->getKind() == SymbolKind::Type) {
+            setExpressionType(node, classSymbol->getType());
+        } else {
+            reportError("Constructor '" + identifier->getName() + "' not found", node.getLocation());
+            setExpressionType(node, typeSystem_->getErrorType());
+        }
+    } else {
+        // For complex constructor expressions, use a generic type
+        setExpressionType(node, typeSystem_->getAnyType());
+    }
+}
+
 void SemanticAnalyzer::visit(BinaryExpression& node) {
     // Analyze operands first
     node.getLeft()->accept(*this);

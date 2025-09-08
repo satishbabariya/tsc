@@ -36,6 +36,34 @@ void ASTPrinter::visit(Identifier& node) {
     output_ << "Identifier: " << node.getName() << std::endl;
 }
 
+void ASTPrinter::visit(ThisExpression& node) {
+    printIndent();
+    output_ << "ThisExpression: this" << std::endl;
+}
+
+void ASTPrinter::visit(NewExpression& node) {
+    printIndent();
+    output_ << "NewExpression:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Constructor:" << std::endl;
+    increaseIndent();
+    node.getConstructor()->accept(*this);
+    decreaseIndent();
+    
+    if (!node.getArguments().empty()) {
+        printIndent();
+        output_ << "Arguments (" << node.getArguments().size() << "):" << std::endl;
+        increaseIndent();
+        for (const auto& arg : node.getArguments()) {
+            arg->accept(*this);
+        }
+        decreaseIndent();
+    }
+    decreaseIndent();
+}
+
 void ASTPrinter::visit(BinaryExpression& node) {
     printIndent();
     output_ << "BinaryExpression: " << getOperatorString(node.getOperator()) << std::endl;
