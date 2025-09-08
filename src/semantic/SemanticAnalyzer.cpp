@@ -105,6 +105,43 @@ void SemanticAnalyzer::visit(ThisExpression& node) {
     setExpressionType(node, thisType);
 }
 
+void SemanticAnalyzer::visit(SuperExpression& node) {
+    // 'super' is only valid within a class method or constructor that has inheritance
+    auto currentScope = symbolTable_->getCurrentScope();
+    
+    // Walk up the scope chain to find a class scope
+    while (currentScope && currentScope->getType() != Scope::ScopeType::Class) {
+        currentScope = currentScope->getParent();
+    }
+    
+    if (!currentScope) {
+        reportError("'super' keyword used outside of class context", node.getLocation());
+        setExpressionType(node, typeSystem_->getErrorType());
+        return;
+    }
+    
+    // Find the current class declaration to check if it has a base class
+    // For now, we'll look up the class type in the symbol table
+    String className = currentScope->getName();
+    auto classSymbol = resolveSymbol(className, node.getLocation());
+    
+    if (!classSymbol || classSymbol->getKind() != SymbolKind::Type) {
+        reportError("Cannot find current class type", node.getLocation());
+        setExpressionType(node, typeSystem_->getErrorType());
+        return;
+    }
+    
+    auto classType = std::dynamic_pointer_cast<ClassType>(classSymbol->getType());
+    if (!classType || !classType->getBaseClass()) {
+        reportError("'super' used in class that does not extend another class", node.getLocation());
+        setExpressionType(node, typeSystem_->getErrorType());
+        return;
+    }
+    
+    // Set the type to the base class type
+    setExpressionType(node, classType->getBaseClass());
+}
+
 void SemanticAnalyzer::visit(NewExpression& node) {
     // Analyze the constructor expression
     node.getConstructor()->accept(*this);
@@ -711,6 +748,24 @@ void SemanticAnalyzer::checkAssignment(const Expression& left, const Expression&
 void SemanticAnalyzer::checkFunctionCall(const CallExpression& call) {
     auto calleeType = getExpressionType(*call.getCallee());
     
+    // Special handling for super() calls
+    if (auto superExpr = dynamic_cast<const SuperExpression*>(call.getCallee())) {
+        // super() calls are constructor calls to the parent class
+        if (calleeType->getKind() == TypeKind::Class) {
+            // This is a valid super constructor call
+            setExpressionType(call, typeSystem_->getVoidType());
+            return;
+        } else if (calleeType->getKind() != TypeKind::Error) {
+            reportError("'super' must be called as a constructor", call.getLocation());
+            setExpressionType(call, typeSystem_->getErrorType());
+            return;
+        } else {
+            // Error already reported in SuperExpression analysis
+            setExpressionType(call, typeSystem_->getErrorType());
+            return;
+        }
+    }
+    
     if (!calleeType->isCallable()) {
         reportError("Expression is not callable", call.getLocation());
         setExpressionType(call, typeSystem_->getErrorType());
@@ -911,8 +966,19 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     
     // Analyze base class if present
     if (node.getBaseClass()) {
-        // Base class validation would go here
-        // For now, we assume it's valid
+        // Resolve the base class type
+        auto resolvedBaseType = resolveType(node.getBaseClass());
+        if (resolvedBaseType->getKind() == TypeKind::Error) {
+            reportError("Base class type not found: " + node.getBaseClass()->toString(), node.getLocation());
+        } else if (resolvedBaseType->getKind() != TypeKind::Class) {
+            reportError("Base class must be a class type", node.getLocation());
+        } else {
+            // Check for circular inheritance (simplified check)
+            auto baseClassType = std::static_pointer_cast<ClassType>(resolvedBaseType);
+            if (baseClassType->getName() == node.getName()) {
+                reportError("Class cannot extend itself", node.getLocation());
+            }
+        }
     }
     
     // Analyze interfaces if present

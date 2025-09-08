@@ -206,6 +206,20 @@ private:
     SourceLocation location_;
 };
 
+// Super expression for parent class access
+class SuperExpression : public Expression {
+public:
+    SuperExpression(const SourceLocation& loc) : location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override { return "super"; }
+
+private:
+    SourceLocation location_;
+};
+
 // New expression for object instantiation
 class NewExpression : public Expression {
 public:
@@ -1126,6 +1140,7 @@ public:
     virtual void visit(NullLiteral& node) = 0;
     virtual void visit(Identifier& node) = 0;
     virtual void visit(ThisExpression& node) = 0;
+    virtual void visit(SuperExpression& node) = 0;
     virtual void visit(NewExpression& node) = 0;
     virtual void visit(BinaryExpression& node) = 0;
     virtual void visit(UnaryExpression& node) = 0;

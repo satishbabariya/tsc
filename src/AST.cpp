@@ -55,6 +55,11 @@ void ThisExpression::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
+// SuperExpression implementation
+void SuperExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
 // NewExpression implementation
 void NewExpression::accept(ASTVisitor& visitor) {
     visitor.visit(*this);

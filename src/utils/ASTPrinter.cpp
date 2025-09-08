@@ -41,6 +41,11 @@ void ASTPrinter::visit(ThisExpression& node) {
     output_ << "ThisExpression: this" << std::endl;
 }
 
+void ASTPrinter::visit(SuperExpression& node) {
+    printIndent();
+    output_ << "SuperExpression: super" << std::endl;
+}
+
 void ASTPrinter::visit(NewExpression& node) {
     printIndent();
     output_ << "NewExpression:" << std::endl;

@@ -926,6 +926,11 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
         return make_unique<ThisExpression>(getCurrentLocation());
     }
     
+    if (check(TokenType::Super)) {
+        advance();
+        return make_unique<SuperExpression>(getCurrentLocation());
+    }
+    
     if (check(TokenType::New)) {
         advance();
         return parseNewExpression();

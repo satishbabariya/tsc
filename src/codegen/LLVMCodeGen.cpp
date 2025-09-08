@@ -188,6 +188,28 @@ void LLVMCodeGen::visit(ThisExpression& node) {
     }
 }
 
+void LLVMCodeGen::visit(SuperExpression& node) {
+    // 'super' refers to the parent class instance
+    // For now, implement a placeholder that returns the 'this' pointer
+    // In a full implementation, this would:
+    // 1. Get the current 'this' pointer
+    // 2. Cast it to the parent class type
+    // 3. Return the parent class reference
+    
+    llvm::Function* currentFunction = builder_->GetInsertBlock()->getParent();
+    
+    if (currentFunction->arg_size() > 0) {
+        // Get the first argument, which should be 'this'
+        // Cast it to parent class type (placeholder implementation)
+        llvm::Argument* thisArg = currentFunction->arg_begin();
+        setCurrentValue(thisArg);
+    } else {
+        // Not in a method context, create a null value
+        reportError("'super' used outside of method context", node.getLocation());
+        setCurrentValue(createNullValue(getAnyType()));
+    }
+}
+
 void LLVMCodeGen::visit(NewExpression& node) {
     // For now, implement a basic object allocation
     // In a full implementation, this would:
@@ -318,6 +340,16 @@ void LLVMCodeGen::visit(CallExpression& node) {
             setCurrentValue(createNullValue(getAnyType()));
             return;
         }
+    } else if (auto superExpr = dynamic_cast<SuperExpression*>(node.getCallee())) {
+        // Handle super() constructor calls
+        // For now, this is a simplified implementation
+        // In a full implementation, we would:
+        // 1. Find the parent class constructor
+        // 2. Call it with the current 'this' pointer and arguments
+        
+        // For now, just create a no-op to allow compilation
+        setCurrentValue(createNullValue(getAnyType()));
+        return;
     } else {
         reportError("Complex function calls not yet supported", node.getLocation());
         setCurrentValue(createNullValue(getAnyType()));
