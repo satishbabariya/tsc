@@ -236,6 +236,15 @@ bool Compiler::linkExecutable(const std::vector<String>& objectFiles, const Stri
         for (const auto& objFile : objectFiles) {
             command += " " + objFile;
         }
+        
+        // Add our runtime library (if it exists)
+        String runtimePath = "runtime.o";
+        std::ifstream runtimeFile(runtimePath);
+        if (runtimeFile.good()) {
+            command += " " + runtimePath;
+            runtimeFile.close();
+        }
+        
         command += " -o " + outputFile;
         
         // Add standard libraries and runtime

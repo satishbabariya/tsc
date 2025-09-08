@@ -370,7 +370,13 @@ void LLVMCodeGen::visit(CallExpression& node) {
     }
     
     // Generate the function call
-    llvm::Value* callResult = builder_->CreateCall(function, args, "call_result");
+    llvm::Value* callResult;
+    if (function->getReturnType()->isVoidTy()) {
+        // Don't assign a name to void function calls
+        callResult = builder_->CreateCall(function, args);
+    } else {
+        callResult = builder_->CreateCall(function, args, "call_result");
+    }
     setCurrentValue(callResult);
 }
 
@@ -1149,21 +1155,66 @@ void LLVMCodeGen::visit(ContinueStatement& node) {
 
 void LLVMCodeGen::visit(TryStatement& node) {
     // Simplified try-catch-finally implementation
-    // This doesn't implement proper exception handling but allows basic execution flow
+    llvm::Function* currentFunc = builder_->GetInsertBlock()->getParent();
     
-    // Generate the try block
-    node.getTryBlock()->accept(*this);
+    // Create basic blocks for try, catch, finally, and continuation
+    llvm::BasicBlock* tryBlock = llvm::BasicBlock::Create(*context_, "try", currentFunc);
+    llvm::BasicBlock* catchBlock = nullptr;
+    llvm::BasicBlock* finallyBlock = nullptr;
+    llvm::BasicBlock* continueBlock = llvm::BasicBlock::Create(*context_, "try_continue", currentFunc);
     
-    // If there's a finally block, always execute it
-    if (node.getFinallyBlock()) {
-        node.getFinallyBlock()->accept(*this);
+    if (node.getCatchClause()) {
+        catchBlock = llvm::BasicBlock::Create(*context_, "catch", currentFunc);
     }
     
-    // Note: catch blocks are not implemented in this simplified version
-    // In a full implementation, we would need LLVM exception handling with:
-    // - Invoke instructions instead of Call instructions
-    // - Landing pads for exception handling
-    // - Personality functions and exception tables
+    if (node.getFinallyBlock()) {
+        finallyBlock = llvm::BasicBlock::Create(*context_, "finally", currentFunc);
+    }
+    
+    // Jump to try block
+    builder_->CreateBr(tryBlock);
+    
+    // Generate try block
+    builder_->SetInsertPoint(tryBlock);
+    node.getTryBlock()->accept(*this);
+    
+    // If try block doesn't end with a terminator, jump to finally/continue
+    if (!builder_->GetInsertBlock()->getTerminator()) {
+        if (finallyBlock) {
+            builder_->CreateBr(finallyBlock);
+        } else {
+            builder_->CreateBr(continueBlock);
+        }
+    }
+    
+    // Generate catch block (simplified - just jumps to finally/continue)
+    if (catchBlock) {
+        builder_->SetInsertPoint(catchBlock);
+        if (node.getCatchClause()) {
+            node.getCatchClause()->accept(*this);
+        }
+        
+        if (!builder_->GetInsertBlock()->getTerminator()) {
+            if (finallyBlock) {
+                builder_->CreateBr(finallyBlock);
+            } else {
+                builder_->CreateBr(continueBlock);
+            }
+        }
+    }
+    
+    // Generate finally block
+    if (finallyBlock) {
+        builder_->SetInsertPoint(finallyBlock);
+        node.getFinallyBlock()->accept(*this);
+        
+        if (!builder_->GetInsertBlock()->getTerminator()) {
+            builder_->CreateBr(continueBlock);
+        }
+    }
+    
+    // Continue execution
+    builder_->SetInsertPoint(continueBlock);
 }
 
 void LLVMCodeGen::visit(CatchClause& node) {
@@ -1178,15 +1229,38 @@ void LLVMCodeGen::visit(CatchClause& node) {
 }
 
 void LLVMCodeGen::visit(ThrowStatement& node) {
-    // TODO: Implement proper exception throwing with LLVM
-    // For now, just generate the expression and create unreachable
-    reportError("Throw statements not yet fully implemented in code generation", node.getLocation());
+    // Generate the exception expression
+    if (node.getExpression()) {
+        node.getExpression()->accept(*this);
+        llvm::Value* exceptionValue = getCurrentValue();
+        
+        // Get or create the __throw_exception runtime function
+        llvm::Function* throwFunc = getOrCreateThrowFunction();
+        
+        // Convert exception value to any type (generic exception)
+        if (exceptionValue && exceptionValue->getType() != getAnyType()) {
+            exceptionValue = convertValueToType(exceptionValue, getAnyType());
+        }
+        
+        // Call the throw function
+        if (exceptionValue) {
+            builder_->CreateCall(throwFunc, {exceptionValue});
+        } else {
+            // Throw null exception
+            llvm::Value* nullException = llvm::Constant::getNullValue(getAnyType());
+            builder_->CreateCall(throwFunc, {nullException});
+        }
+    } else {
+        // Re-throw current exception (bare throw)
+        llvm::Function* rethrowFunc = getOrCreateRethrowFunction();
+        builder_->CreateCall(rethrowFunc);
+    }
     
-    // Generate the expression being thrown
-    node.getExpression()->accept(*this);
-    
-    // Create unreachable to indicate this path doesn't continue
-    builder_->CreateUnreachable();
+    // After throwing, this code path is unreachable
+    // Only create unreachable if the current block doesn't already have a terminator
+    if (!builder_->GetInsertBlock()->getTerminator()) {
+        builder_->CreateUnreachable();
+    }
 }
 
 void LLVMCodeGen::visit(VariableDeclaration& node) {
@@ -1894,6 +1968,8 @@ void LLVMCodeGen::storeVariable(const String& name, llvm::Value* value, const So
 // Built-in functions implementation
 void LLVMCodeGen::declareBuiltinFunctions() {
     getOrCreateStringConcatFunction();
+    getOrCreateThrowFunction();
+    getOrCreateRethrowFunction();
 }
 
 llvm::Function* LLVMCodeGen::getOrCreateStringConcatFunction() {
@@ -1904,6 +1980,28 @@ llvm::Function* LLVMCodeGen::getOrCreateStringConcatFunction() {
     llvm::FunctionType* concatType = llvm::FunctionType::get(
         getStringType(), {getStringType(), getStringType()}, false);
     return llvm::Function::Create(concatType, llvm::Function::ExternalLinkage, "string_concat", module_.get());
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateThrowFunction() {
+    if (auto existing = module_->getFunction("__throw_exception")) {
+        return existing;
+    }
+    
+    // void __throw_exception(any exception_value)
+    llvm::FunctionType* throwType = llvm::FunctionType::get(
+        getVoidType(), {getAnyType()}, false);
+    return llvm::Function::Create(throwType, llvm::Function::ExternalLinkage, "__throw_exception", module_.get());
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateRethrowFunction() {
+    if (auto existing = module_->getFunction("__rethrow_exception")) {
+        return existing;
+    }
+    
+    // void __rethrow_exception()
+    llvm::FunctionType* rethrowType = llvm::FunctionType::get(
+        getVoidType(), {}, false);
+    return llvm::Function::Create(rethrowType, llvm::Function::ExternalLinkage, "__rethrow_exception", module_.get());
 }
 
 // Optimization implementation

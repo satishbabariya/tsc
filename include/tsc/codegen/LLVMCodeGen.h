@@ -233,6 +233,8 @@ private:
     llvm::Function* getOrCreateStringConcatFunction();
     llvm::Function* getOrCreateNumberToStringFunction();
     llvm::Function* getOrCreateBooleanToStringFunction();
+    llvm::Function* getOrCreateThrowFunction();
+    llvm::Function* getOrCreateRethrowFunction();
     
     // Memory management
     llvm::Value* allocateVariable(const String& name, llvm::Type* type, const SourceLocation& location);
