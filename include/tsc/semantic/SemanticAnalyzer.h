@@ -157,6 +157,9 @@ private:
     // Type resolution
     shared_ptr<Type> resolveType(shared_ptr<Type> type);
     
+    // Inheritance resolution
+    void resolveInheritance(Module& module);
+    
     // Error reporting
     void reportError(const String& message, const SourceLocation& location);
     void reportWarning(const String& message, const SourceLocation& location);

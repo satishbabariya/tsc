@@ -923,11 +923,14 @@ void SemanticAnalyzer::visit(Module& module) {
 
 // Analysis phase implementations
 void SemanticAnalyzer::performSymbolResolution(Module& module) {
-    // Two-pass symbol resolution:
-    // Pass 1: Collect all function declarations
+    // Three-pass symbol resolution:
+    // Pass 1: Collect all function and class declarations
     collectFunctionDeclarations(module);
     
-    // Pass 2: Process all statements including function bodies
+    // Pass 2: Resolve inheritance relationships
+    resolveInheritance(module);
+    
+    // Pass 3: Process all statements including function bodies
     module.accept(*this);
 }
 
@@ -940,8 +943,8 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
     for (const auto& stmt : statements) {
         if (auto classDecl = dynamic_cast<ClassDeclaration*>(stmt.get())) {
             // Collect class declarations first so they're available for constructor calls
-            // Create class type and add to symbol table (without processing body)
-            auto classType = typeSystem_->createClassType(classDecl->getName(), classDecl, classDecl->getBaseClass());
+            // Create class type WITHOUT base class (will be resolved in second pass)
+            auto classType = typeSystem_->createClassType(classDecl->getName(), classDecl, nullptr);
             declareSymbol(classDecl->getName(), SymbolKind::Class, classType, classDecl->getLocation());
         } else if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
             // std::cout << "DEBUG: Found function declaration: " << funcDecl->getName() << std::endl;
@@ -965,6 +968,31 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
                 reportError("Failed to declare function: " + funcDecl->getName(), funcDecl->getLocation());
             } else {
                 // std::cout << "DEBUG: Successfully added function " << funcDecl->getName() << " to symbol table" << std::endl;
+            }
+        }
+    }
+}
+
+void SemanticAnalyzer::resolveInheritance(Module& module) {
+    // Second pass: resolve inheritance relationships for all classes
+    const auto& statements = module.getStatements();
+    
+    for (const auto& stmt : statements) {
+        if (auto classDecl = dynamic_cast<ClassDeclaration*>(stmt.get())) {
+            // Resolve base class for this class declaration
+            if (classDecl->getBaseClass()) {
+                // Look up the class type in the symbol table
+                Symbol* classSymbol = symbolTable_->lookupSymbol(classDecl->getName());
+                if (classSymbol && classSymbol->getKind() == SymbolKind::Class) {
+                    auto classType = std::static_pointer_cast<ClassType>(classSymbol->getType());
+                    
+                    // Resolve the base class type
+                    auto resolvedBaseType = resolveType(classDecl->getBaseClass());
+                    if (resolvedBaseType->getKind() != TypeKind::Error) {
+                        // Set the resolved base class on the class type
+                        classType->setBaseClass(resolvedBaseType);
+                    }
+                }
             }
         }
     }
@@ -1244,8 +1272,8 @@ void SemanticAnalyzer::visit(MethodDeclaration& node) {
 }
 
 void SemanticAnalyzer::visit(ClassDeclaration& node) {
-    // Create class type first
-    auto classType = typeSystem_->createClassType(node.getName(), &node, node.getBaseClass());
+    // Create class type first (without base class, will be resolved later)
+    auto classType = typeSystem_->createClassType(node.getName(), &node, nullptr);
     
     // Add class to symbol table or update existing symbol from first pass
     Symbol* existingSymbol = symbolTable_->lookupSymbol(node.getName());
