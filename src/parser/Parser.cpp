@@ -1649,9 +1649,10 @@ bool Parser::looksLikeArrowFunction() {
     
     // Pattern 2: (params) => 
     if (check(TokenType::LeftParen)) {
-        // For now, assume any parenthesized expression could be arrow function parameters
-        // We'll let parseArrowFunction() handle the actual validation
-        return true;
+        // TODO: Implement proper lookahead for arrow function detection
+        // For now, be conservative and let parenthesized expressions be handled normally
+        // This prevents parsing errors with complex arithmetic expressions like (a + b)
+        return false;
     }
     
     return false;
