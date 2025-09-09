@@ -1069,8 +1069,11 @@ void LLVMCodeGen::visit(IfStatement& node) {
     // Generate then block
     builder_->SetInsertPoint(thenBlock);
     node.getThenStatement()->accept(*this);
-    bool thenHasTerminator = builder_->GetInsertBlock()->getTerminator() != nullptr;
-    if (!thenHasTerminator) {
+    
+    // Check if then block has terminator after generating its content
+    llvm::BasicBlock* currentThenBlock = builder_->GetInsertBlock();
+    bool thenHasTerminator = currentThenBlock && currentThenBlock->getTerminator() != nullptr;
+    if (!thenHasTerminator && currentThenBlock) {
         builder_->CreateBr(endBlock);
     }
     
@@ -1079,8 +1082,11 @@ void LLVMCodeGen::visit(IfStatement& node) {
     if (node.hasElse()) {
         builder_->SetInsertPoint(elseBlock);
         node.getElseStatement()->accept(*this);
-        elseHasTerminator = builder_->GetInsertBlock()->getTerminator() != nullptr;
-        if (!elseHasTerminator) {
+        
+        // Check if else block has terminator after generating its content
+        llvm::BasicBlock* currentElseBlock = builder_->GetInsertBlock();
+        elseHasTerminator = currentElseBlock && currentElseBlock->getTerminator() != nullptr;
+        if (!elseHasTerminator && currentElseBlock) {
             builder_->CreateBr(endBlock);
         }
     }
@@ -1089,8 +1095,7 @@ void LLVMCodeGen::visit(IfStatement& node) {
     bool bothBranchesTerminate = thenHasTerminator && (!node.hasElse() || elseHasTerminator);
     
     if (bothBranchesTerminate) {
-        // Both branches terminate (or only then branch exists and terminates)
-        // End block is unreachable - remove it to avoid verification errors
+        // Both branches terminate - end block is unreachable, remove it
         endBlock->eraseFromParent();
     } else {
         // At least one branch doesn't terminate - continue with end block
