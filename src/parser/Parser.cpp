@@ -8,10 +8,9 @@
 namespace tsc {
 
 // Operator precedence table (higher number = higher precedence)
+// Note: Assignment operators (Equal, PlusEqual, MinusEqual) are NOT included here
+// because they are handled by parseAssignmentExpression(), not parseBinaryExpression()
 static const std::unordered_map<TokenType, int> operatorPrecedence = {
-    {TokenType::Equal, 1},
-    {TokenType::PlusEqual, 1},
-    {TokenType::MinusEqual, 1},
     {TokenType::PipePipe, 3},
     {TokenType::AmpersandAmpersand, 4},
     {TokenType::EqualEqual, 8},

@@ -1205,7 +1205,8 @@ void SemanticAnalyzer::visit(MethodDeclaration& node) {
     for (const auto& param : node.getParameters()) {
         FunctionType::Parameter funcParam;
         funcParam.name = param.name;
-        funcParam.type = param.type ? param.type : typeSystem_->getAnyType();
+        // Resolve parameter types to handle generic type parameters
+        funcParam.type = param.type ? resolveType(param.type) : typeSystem_->getAnyType();
         funcParam.optional = param.optional;
         paramTypes.push_back(funcParam);
         

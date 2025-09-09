@@ -567,6 +567,9 @@ bool TypeParameterType::isEquivalentTo(const Type& other) const {
     }
     
     const auto& otherParam = static_cast<const TypeParameterType&>(other);
+    // For now, treat all type parameters with the same name as equivalent
+    // TODO: In a more sophisticated implementation, we'd check scope context
+    // to ensure they're from the same generic declaration
     return name_ == otherParam.name_;
 }
 
