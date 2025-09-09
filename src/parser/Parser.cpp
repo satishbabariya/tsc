@@ -1174,6 +1174,13 @@ unique_ptr<Expression> Parser::parseNewExpression() {
     // Parse the constructor expression (e.g., "Person", "MyClass")
     auto constructor = parsePrimaryExpression();
     
+    // Parse optional type arguments (e.g., "<number>", "<string, boolean>")
+    std::vector<shared_ptr<Type>> typeArguments;
+    if (check(TokenType::Less)) {
+        // Use the existing type argument parsing infrastructure
+        typeArguments = parseTypeArgumentList();
+    }
+    
     // Parse arguments if present
     std::vector<unique_ptr<Expression>> arguments;
     if (match(TokenType::LeftParen)) {
@@ -1189,7 +1196,8 @@ unique_ptr<Expression> Parser::parseNewExpression() {
         consume(TokenType::RightParen, "Expected ')' after constructor arguments");
     }
     
-    return make_unique<NewExpression>(std::move(constructor), std::move(arguments), location);
+    return make_unique<NewExpression>(std::move(constructor), std::move(typeArguments), 
+                                     std::move(arguments), location);
 }
 
 // TODO: Template literals parser

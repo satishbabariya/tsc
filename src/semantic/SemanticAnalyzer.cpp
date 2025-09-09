@@ -173,9 +173,31 @@ void SemanticAnalyzer::visit(NewExpression& node) {
             
             // Check if this is a class type that can be instantiated
             if (classType->getKind() == TypeKind::Class) {
-                // For generic classes, we might need to infer type arguments from constructor arguments
-                // For now, just use the class type directly
-                setExpressionType(node, classType);
+                // Handle explicit type arguments for generic classes
+                if (node.hasExplicitTypeArguments()) {
+                    // Process explicit type arguments (e.g., Container<number>)
+                    const auto& typeArguments = node.getTypeArguments();
+                    
+                    // Resolve each type argument
+                    std::vector<shared_ptr<Type>> resolvedTypeArgs;
+                    for (const auto& typeArg : typeArguments) {
+                        auto resolvedType = resolveType(typeArg);
+                        if (resolvedType->getKind() == TypeKind::Error) {
+                            reportError("Invalid type argument: " + typeArg->toString(), node.getLocation());
+                            setExpressionType(node, typeSystem_->getErrorType());
+                            return;
+                        }
+                        resolvedTypeArgs.push_back(resolvedType);
+                    }
+                    
+                    // Create a generic type instance (e.g., Container<number>)
+                    auto genericType = typeSystem_->createGenericType(classType, resolvedTypeArgs);
+                    setExpressionType(node, genericType);
+                } else {
+                    // No explicit type arguments - use the raw class type
+                    // TODO: In the future, we might infer type arguments from constructor arguments
+                    setExpressionType(node, classType);
+                }
             } else {
                 reportError("'" + identifier->getName() + "' is not a class type", node.getLocation());
                 setExpressionType(node, typeSystem_->getErrorType());

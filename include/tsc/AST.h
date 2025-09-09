@@ -286,6 +286,14 @@ private:
 class NewExpression : public Expression {
 public:
     NewExpression(unique_ptr<Expression> constructor, 
+                  std::vector<shared_ptr<Type>> typeArguments,
+                  std::vector<unique_ptr<Expression>> arguments,
+                  const SourceLocation& loc)
+        : constructor_(std::move(constructor)), typeArguments_(std::move(typeArguments)), 
+          arguments_(std::move(arguments)), location_(loc) {}
+    
+    // Backward compatibility constructor without type arguments
+    NewExpression(unique_ptr<Expression> constructor, 
                   std::vector<unique_ptr<Expression>> arguments,
                   const SourceLocation& loc)
         : constructor_(std::move(constructor)), arguments_(std::move(arguments)), location_(loc) {}
@@ -296,10 +304,13 @@ public:
     String toString() const override;
     
     Expression* getConstructor() const { return constructor_.get(); }
+    const std::vector<shared_ptr<Type>>& getTypeArguments() const { return typeArguments_; }
     const std::vector<unique_ptr<Expression>>& getArguments() const { return arguments_; }
+    bool hasExplicitTypeArguments() const { return !typeArguments_.empty(); }
 
 private:
     unique_ptr<Expression> constructor_;
+    std::vector<shared_ptr<Type>> typeArguments_;
     std::vector<unique_ptr<Expression>> arguments_;
     SourceLocation location_;
 };
