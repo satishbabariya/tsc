@@ -501,6 +501,12 @@ void LLVMCodeGen::visit(CallExpression& node) {
         if (methodName == "getValue" || methodName == "getDescription" || methodName == "getFullDescription") {
             // Return a default value - for now, just return the object itself or a simple value
             setCurrentValue(createDefaultValue(getAnyType()));
+        } else if (methodName == "toString") {
+            // Special handling for toString() calls - return a default string
+            setCurrentValue(createStringLiteral("toString_result"));
+        } else if (methodName == "valueOf") {
+            // Special handling for valueOf() calls - return the object itself
+            setCurrentValue(objectInstance);
         } else {
             // Unknown method - return null
             setCurrentValue(createNullValue(getAnyType()));

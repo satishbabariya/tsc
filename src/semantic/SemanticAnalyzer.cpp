@@ -419,6 +419,31 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
         }
     }
     
+    // Check if this is a property access on a generic type parameter
+    if (objectType->getKind() == TypeKind::TypeParameter) {
+        const auto& typeParamType = static_cast<const TypeParameterType&>(*objectType);
+        String memberName = node.getProperty();
+        
+        // All types have certain built-in methods
+        if (memberName == "toString") {
+            // toString() method returns string
+            auto stringReturnType = typeSystem_->getStringType();
+            auto toStringType = typeSystem_->createFunctionType({}, stringReturnType);
+            setExpressionType(node, toStringType);
+            return;
+        } else if (memberName == "valueOf") {
+            // valueOf() method returns the same type as the type parameter
+            auto valueOfType = typeSystem_->createFunctionType({}, objectType);
+            setExpressionType(node, valueOfType);
+            return;
+        } else {
+            // Unknown method on generic type parameter
+            reportError("Generic type parameter '" + typeParamType.getName() + "' has no member '" + memberName + "'", node.getLocation());
+            setExpressionType(node, typeSystem_->getErrorType());
+            return;
+        }
+    }
+    
     // Handle other property access types (objects, etc.)
     // For now, assume property access returns any type
     // TODO: Implement proper property type checking based on object type
@@ -828,7 +853,7 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
     
     // Add parameters to function scope
     for (const auto& param : node.getParameters()) {
-        auto paramType = param.type ? param.type : typeSystem_->getAnyType();
+        auto paramType = param.type ? resolveType(param.type) : typeSystem_->getAnyType();
         symbolTable_->addSymbol(param.name, SymbolKind::Parameter, paramType,
                                node.getLocation());
     }
@@ -1133,6 +1158,9 @@ void SemanticAnalyzer::visit(PropertyDeclaration& node) {
             // Default to any type if no type annotation or initializer
             propertyType = typeSystem_->getAnyType();
         }
+    } else {
+        // Resolve the property type (important for generic type parameters)
+        propertyType = resolveType(propertyType);
     }
     
     // Analyze initializer if present
