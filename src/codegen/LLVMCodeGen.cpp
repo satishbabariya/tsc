@@ -1097,14 +1097,36 @@ void LLVMCodeGen::visit(IfStatement& node) {
     if (!bothBranchesTerminate) {
         // At least one branch doesn't terminate - continue with end block
         builder_->SetInsertPoint(endBlock);
-    } else {
-        // Both branches terminate - end block is unreachable
-        // Add unreachable terminator to satisfy LLVM requirements
-        if (!endBlock->getTerminator()) {
-            builder_->SetInsertPoint(endBlock);
-            builder_->CreateUnreachable();
+    }
+    // For unreachable blocks, the general terminator placement will handle it
+}
+
+// Robust unreachable block terminator placement
+void LLVMCodeGen::ensureBlockTerminators(llvm::Function* function) {
+    if (!function) return;
+    
+    // Iterate through all basic blocks in the function
+    for (auto& block : *function) {
+        // Check if the block has no terminator
+        if (!block.getTerminator()) {
+            addUnreachableTerminator(&block);
         }
     }
+}
+
+void LLVMCodeGen::addUnreachableTerminator(llvm::BasicBlock* block) {
+    if (!block || block->getTerminator()) {
+        return; // Block already has a terminator
+    }
+    
+    // Set insertion point to the block that needs a terminator
+    builder_->SetInsertPoint(block);
+    
+    // Add unreachable terminator
+    builder_->CreateUnreachable();
+    
+    // Don't restore insertion point - we're at the end of function generation
+    // and don't need to continue generating code
 }
 
 void LLVMCodeGen::visit(WhileStatement& node) {
@@ -2085,6 +2107,9 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
             builder_->CreateRet(defaultValue);
         }
     }
+    
+    // Ensure all basic blocks have terminators (handle unreachable blocks)
+    ensureBlockTerminators(function);
     
     // Exit function context
     codeGenContext_->exitScope();

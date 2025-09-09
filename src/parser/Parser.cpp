@@ -216,6 +216,22 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     Token nameToken = consume(TokenType::Identifier, "Expected class name");
     String name = nameToken.getStringValue();
     
+    // Optional type parameters
+    std::vector<unique_ptr<TypeParameter>> typeParameters;
+    if (match(TokenType::Less)) {
+        do {
+            Token typeParamToken = consume(TokenType::Identifier, "Expected type parameter name");
+            auto typeParam = make_unique<TypeParameter>(
+                typeParamToken.getStringValue(),
+                nullptr, // constraint - not implemented yet
+                getCurrentLocation()
+            );
+            typeParameters.push_back(std::move(typeParam));
+        } while (match(TokenType::Comma));
+        
+        consume(TokenType::Greater, "Expected '>' after type parameters");
+    }
+    
     // Optional base class (extends clause)
     shared_ptr<Type> baseClass = nullptr;
     if (match(TokenType::Extends)) {
@@ -323,7 +339,7 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     consume(TokenType::RightBrace, "Expected '}' after class body");
     
     return make_unique<ClassDeclaration>(
-        name, baseClass, std::move(interfaces), std::move(properties), 
+        name, std::move(typeParameters), baseClass, std::move(interfaces), std::move(properties), 
         std::move(methods), std::move(constructor), location
     );
 }

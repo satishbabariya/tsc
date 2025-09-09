@@ -1128,6 +1128,7 @@ private:
 class ClassDeclaration : public Declaration {
 public:
     ClassDeclaration(const String& name,
+                    std::vector<unique_ptr<TypeParameter>> typeParameters,
                     shared_ptr<Type> baseClass,
                     std::vector<shared_ptr<Type>> interfaces,
                     std::vector<unique_ptr<PropertyDeclaration>> properties,
@@ -1135,7 +1136,7 @@ public:
                     unique_ptr<MethodDeclaration> constructor,
                     const SourceLocation& loc,
                     bool isAbstract = false)
-        : name_(name), baseClass_(baseClass), interfaces_(std::move(interfaces)),
+        : name_(name), typeParameters_(std::move(typeParameters)), baseClass_(baseClass), interfaces_(std::move(interfaces)),
           properties_(std::move(properties)), methods_(std::move(methods)),
           constructor_(std::move(constructor)), location_(loc), isAbstract_(isAbstract) {}
     
@@ -1144,6 +1145,7 @@ public:
     String getName() const override { return name_; }
     String toString() const override;
     
+    const std::vector<unique_ptr<TypeParameter>>& getTypeParameters() const { return typeParameters_; }
     shared_ptr<Type> getBaseClass() const { return baseClass_; }
     const std::vector<shared_ptr<Type>>& getInterfaces() const { return interfaces_; }
     const std::vector<unique_ptr<PropertyDeclaration>>& getProperties() const { return properties_; }
@@ -1153,6 +1155,7 @@ public:
 
 private:
     String name_;
+    std::vector<unique_ptr<TypeParameter>> typeParameters_;
     shared_ptr<Type> baseClass_;
     std::vector<shared_ptr<Type>> interfaces_;
     std::vector<unique_ptr<PropertyDeclaration>> properties_;

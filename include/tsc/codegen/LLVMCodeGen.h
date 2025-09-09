@@ -231,6 +231,10 @@ private:
     void generateFunctionBody(llvm::Function* function, const FunctionDeclaration& funcDecl);
     bool hasReturnStatements(const FunctionDeclaration& funcDecl);
     
+    // Unreachable block handling
+    void ensureBlockTerminators(llvm::Function* function);
+    void addUnreachableTerminator(llvm::BasicBlock* block);
+    
     // Built-in functions
     void declareBuiltinFunctions();
     llvm::Function* getOrCreatePrintFunction();
