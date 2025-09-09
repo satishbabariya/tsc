@@ -151,21 +151,35 @@ void SemanticAnalyzer::visit(SuperExpression& node) {
     String className = currentScope->getName();
     auto classSymbol = resolveSymbol(className, node.getLocation());
     
-    if (!classSymbol || classSymbol->getKind() != SymbolKind::Type) {
+    if (!classSymbol || classSymbol->getKind() != SymbolKind::Class) {
         reportError("Cannot find current class type", node.getLocation());
         setExpressionType(node, typeSystem_->getErrorType());
         return;
     }
     
-    auto classType = std::dynamic_pointer_cast<ClassType>(classSymbol->getType());
-    if (!classType || !classType->getBaseClass()) {
+    shared_ptr<Type> currentType = classSymbol->getType();
+    shared_ptr<Type> baseClass = nullptr;
+    
+    if (currentType->getKind() == TypeKind::Class) {
+        auto classType = std::static_pointer_cast<ClassType>(currentType);
+        baseClass = classType->getBaseClass();
+    } else if (currentType->getKind() == TypeKind::Generic) {
+        auto genericType = std::static_pointer_cast<GenericType>(currentType);
+        auto baseType = genericType->getBaseType();
+        if (baseType->getKind() == TypeKind::Class) {
+            auto classType = std::static_pointer_cast<ClassType>(baseType);
+            baseClass = classType->getBaseClass();
+        }
+    }
+    
+    if (!baseClass) {
         reportError("'super' used in class that does not extend another class", node.getLocation());
         setExpressionType(node, typeSystem_->getErrorType());
         return;
     }
     
     // Set the type to the resolved base class type
-    auto baseClassType = resolveType(classType->getBaseClass());
+    auto baseClassType = resolveType(baseClass);
     setExpressionType(node, baseClassType);
 }
 
@@ -994,7 +1008,7 @@ void SemanticAnalyzer::checkFunctionCall(const CallExpression& call) {
     // Special handling for super() calls
     if (auto superExpr = dynamic_cast<const SuperExpression*>(call.getCallee())) {
         // super() calls are constructor calls to the parent class
-        if (calleeType->getKind() == TypeKind::Class) {
+        if (calleeType->getKind() == TypeKind::Class || calleeType->getKind() == TypeKind::Generic) {
             // This is a valid super constructor call
             setExpressionType(call, typeSystem_->getVoidType());
             return;
@@ -1261,17 +1275,38 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
         auto resolvedBaseType = resolveType(node.getBaseClass());
         if (resolvedBaseType->getKind() == TypeKind::Error) {
             reportError("Base class type not found: " + node.getBaseClass()->toString(), node.getLocation());
-        } else if (resolvedBaseType->getKind() != TypeKind::Class) {
+        } else if (resolvedBaseType->getKind() != TypeKind::Class && resolvedBaseType->getKind() != TypeKind::Generic) {
             reportError("Base class must be a class type", node.getLocation());
         } else {
             // Check for circular inheritance (simplified check)
-            auto baseClassType = std::static_pointer_cast<ClassType>(resolvedBaseType);
-            if (baseClassType->getName() == node.getName()) {
+            String baseClassName;
+            if (resolvedBaseType->getKind() == TypeKind::Class) {
+                auto baseClassType = std::static_pointer_cast<ClassType>(resolvedBaseType);
+                baseClassName = baseClassType->getName();
+            } else if (resolvedBaseType->getKind() == TypeKind::Generic) {
+                auto genericBaseType = std::static_pointer_cast<GenericType>(resolvedBaseType);
+                auto baseType = genericBaseType->getBaseType();
+                if (baseType->getKind() == TypeKind::Class) {
+                    auto baseClassType = std::static_pointer_cast<ClassType>(baseType);
+                    baseClassName = baseClassType->getName();
+                }
+            }
+            
+            if (baseClassName == node.getName()) {
                 reportError("Class cannot extend itself", node.getLocation());
             } else {
                 // Update the ClassType with the resolved base class type
-                auto currentClassType = std::static_pointer_cast<ClassType>(classType);
-                currentClassType->setBaseClass(resolvedBaseType);
+                if (classType->getKind() == TypeKind::Class) {
+                    auto currentClassType = std::static_pointer_cast<ClassType>(classType);
+                    currentClassType->setBaseClass(resolvedBaseType);
+                } else if (classType->getKind() == TypeKind::Generic) {
+                    auto currentGenericType = std::static_pointer_cast<GenericType>(classType);
+                    auto currentBaseType = currentGenericType->getBaseType();
+                    if (currentBaseType->getKind() == TypeKind::Class) {
+                        auto currentClassType = std::static_pointer_cast<ClassType>(currentBaseType);
+                        currentClassType->setBaseClass(resolvedBaseType);
+                    }
+                }
             }
         }
     }

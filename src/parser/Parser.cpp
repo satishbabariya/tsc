@@ -234,10 +234,12 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     // Optional base class (extends clause)
     shared_ptr<Type> baseClass = nullptr;
     if (match(TokenType::Extends)) {
-        // For now, just parse as identifier - full type resolution happens in semantic analysis
-        Token baseToken = consume(TokenType::Identifier, "Expected base class name");
-        // Create a placeholder type - will be resolved in semantic analysis
-        baseClass = typeSystem_.createClassType(baseToken.getStringValue());
+        // Parse full type annotation to support generic base classes like Container<T>
+        baseClass = parseTypeAnnotation();
+        if (!baseClass) {
+            reportError("Expected base class type after 'extends'", getCurrentLocation());
+            baseClass = typeSystem_.getErrorType();
+        }
     }
     
     // Optional interfaces (implements clause)
