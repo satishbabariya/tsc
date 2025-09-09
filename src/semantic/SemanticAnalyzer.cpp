@@ -179,7 +179,7 @@ void SemanticAnalyzer::visit(NewExpression& node) {
     if (auto identifier = dynamic_cast<Identifier*>(node.getConstructor())) {
         // Try to find the class type in the symbol table
         Symbol* classSymbol = resolveSymbol(identifier->getName(), node.getLocation());
-        if (classSymbol && classSymbol->getKind() == SymbolKind::Type) {
+        if (classSymbol && classSymbol->getKind() == SymbolKind::Class) {
             auto classType = classSymbol->getType();
             
             // Check if this is a class type that can be instantiated
