@@ -787,6 +787,29 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         return;
     }
     
+    // Check if this is property access on a generic type (i8*)
+    if (objectValue->getType() == getAnyType()) {
+        // This is property access on a generic type - handle specially
+        String propertyName = node.getProperty();
+        
+        // For now, provide stub implementations for common methods
+        if (propertyName == "toString") {
+            // Return a function pointer to a toString implementation
+            // For simplicity, just return a string literal for now
+            llvm::Value* stringResult = createStringLiteral("generic_toString");
+            setCurrentValue(stringResult);
+            return;
+        } else if (propertyName == "valueOf") {
+            // Return the object itself for valueOf
+            setCurrentValue(objectValue);
+            return;
+        } else {
+            // Unknown property on generic type - return null
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
+    }
+    
     // For now, implement a very simplified property access
     // In a full implementation, we'd need:
     // 1. Property name -> index mapping
@@ -1650,8 +1673,27 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
         node.getInitializer()->accept(*this);
         initValue = getCurrentValue();
         
-        // Use the initializer's type if available
-        if (initValue) {
+        // Check if this variable should have a generic type by looking up its symbol
+        Symbol* varSymbol = symbolTable_->lookupSymbol(node.getName());
+        if (varSymbol && varSymbol->getType()->getKind() == TypeKind::TypeParameter) {
+            // This variable has a TypeParameterType - use getAnyType() for LLVM type
+            llvmType = getAnyType(); // i8* for generic types
+            
+            // Convert the initializer value to match the generic type if needed
+            if (initValue && initValue->getType() != llvmType) {
+                // Cast the initializer value to the generic type
+                if (initValue->getType()->isPointerTy()) {
+                    // Pointer to pointer cast
+                    initValue = builder_->CreateBitCast(initValue, llvmType, "generic_cast");
+                } else {
+                    // Value to pointer cast - store in temporary and get pointer
+                    llvm::Value* tempAlloca = builder_->CreateAlloca(initValue->getType(), nullptr, "temp_generic");
+                    builder_->CreateStore(initValue, tempAlloca);
+                    initValue = builder_->CreateBitCast(tempAlloca, llvmType, "generic_cast");
+                }
+            }
+        } else if (initValue) {
+            // Use the initializer's type for non-generic variables
             llvmType = initValue->getType();
         }
     }

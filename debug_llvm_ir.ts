@@ -1,7 +1,13 @@
-function test(): number {
-    let x = 10;
-    if (true) {
-        x = 20;
+// Minimal test to examine LLVM IR generation
+class Container<T> {
+    value: T;
+    
+    test(): T {
+        let temp = this.value;  // This should create an alloca and store
+        return temp;            // This should load the value
     }
-    return x;
+}
+
+function main(): number {
+    return 0;
 }
