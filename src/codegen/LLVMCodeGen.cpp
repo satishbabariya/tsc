@@ -1833,8 +1833,8 @@ llvm::Value* LLVMCodeGen::generateBinaryOp(BinaryExpression::Operator op, llvm::
                                            llvm::Value* right, llvm::Type* leftType, llvm::Type* rightType) {
     switch (op) {
         case BinaryExpression::Operator::Add:
-            // Check if it's string concatenation
-            if (leftType->isPointerTy() || rightType->isPointerTy()) {
+            // Check if it's string concatenation (both operands must be string type)
+            if (leftType == getStringType() && rightType == getStringType()) {
                 return generateStringConcat(left, right);
             }
             return generateArithmeticOp(op, left, right);
