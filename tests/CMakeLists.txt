@@ -37,6 +37,18 @@ target_link_libraries(tsc_semantic_tests
 # Add custom tests to CTest
 add_test(NAME SemanticAnalyzerTests COMMAND tsc_semantic_tests)
 
+# Integration tests for generic classes and LLVM bug fix validation
+add_executable(tsc_integration_tests
+    test_integration.cpp
+)
+
+target_link_libraries(tsc_integration_tests
+    tsc_lib
+    ${llvm_libs}
+)
+
+add_test(NAME IntegrationTests COMMAND tsc_integration_tests)
+
 # Integration tests using the compiler binary
 add_test(NAME BasicCompilation 
          COMMAND tsc ${CMAKE_CURRENT_SOURCE_DIR}/examples/hello.ts)
