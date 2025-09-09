@@ -913,8 +913,36 @@ void SemanticAnalyzer::checkFunctionCall(const CallExpression& call) {
         return;
     }
     
-    // For now, assume function calls return 'any'
-    // In a full implementation, we'd extract the return type from the function type
+    // Handle generic function calls with basic monomorphization
+    if (auto identifier = dynamic_cast<const Identifier*>(call.getCallee())) {
+        Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
+        if (symbol && symbol->getKind() == SymbolKind::Function) {
+            // Check if this is a generic function call
+            if (auto functionType = dynamic_cast<const FunctionType*>(calleeType.get())) {
+                // Extract return type from function type
+                auto returnType = functionType->getReturnType();
+                
+                // Basic type inference for generic functions
+                if (returnType && returnType->getKind() == TypeKind::TypeParameter) {
+                    // If return type is a type parameter, try to infer it from arguments
+                    if (!call.getArguments().empty()) {
+                        auto firstArgType = getExpressionType(*call.getArguments()[0]);
+                        if (firstArgType && firstArgType->getKind() != TypeKind::Error) {
+                            // Use the first argument's type as the return type (simple inference)
+                            setExpressionType(call, firstArgType);
+                            return;
+                        }
+                    }
+                }
+                
+                // Use the function's declared return type
+                setExpressionType(call, returnType ? returnType : typeSystem_->getAnyType());
+                return;
+            }
+        }
+    }
+    
+    // For other function calls, assume they return 'any'
     setExpressionType(call, typeSystem_->getAnyType());
 }
 

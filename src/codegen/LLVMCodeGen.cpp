@@ -491,16 +491,25 @@ void LLVMCodeGen::visit(CallExpression& node) {
         return;
     }
     
-    // Generate arguments
+    // Generate arguments with type conversion
     std::vector<llvm::Value*> args;
-    for (const auto& arg : node.getArguments()) {
-        arg->accept(*this);
+    llvm::FunctionType* funcType = function->getFunctionType();
+    
+    for (size_t i = 0; i < node.getArguments().size(); ++i) {
+        node.getArguments()[i]->accept(*this);
         llvm::Value* argValue = getCurrentValue();
         if (!argValue) {
-            reportError("Failed to generate argument value", arg->getLocation());
+            reportError("Failed to generate argument value", node.getArguments()[i]->getLocation());
             setCurrentValue(createNullValue(getAnyType()));
             return;
         }
+        
+        // Convert argument type to match expected parameter type if needed
+        if (i < funcType->getNumParams()) {
+            llvm::Type* expectedType = funcType->getParamType(i);
+            argValue = convertValueToType(argValue, expectedType);
+        }
+        
         args.push_back(argValue);
     }
     
@@ -1672,6 +1681,10 @@ llvm::Type* LLVMCodeGen::mapTypeScriptTypeToLLVM(const Type& type) {
         case TypeKind::Union:
             // For now, treat union types as 'any' type (void*)
             // TODO: Implement proper tagged union representation
+            return getAnyType();
+        case TypeKind::TypeParameter:
+            // For now, treat type parameters as 'any' type (void*)
+            // TODO: Implement proper monomorphization
             return getAnyType();
         case TypeKind::Any:
         default:
