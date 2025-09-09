@@ -1422,8 +1422,8 @@ shared_ptr<Type> Parser::parsePrimaryType() {
             }
             
             // For other generic types, create a generic type
-            // In a full implementation, we'd look up the base type in a symbol table
-            auto baseType = typeSystem_.createTypeParameter(typeName);
+            // Create unresolved base type that will be resolved in semantic analysis
+            auto baseType = typeSystem_.createUnresolvedType(typeName);
             return typeSystem_.createGenericType(baseType, std::move(typeArguments));
         }
         

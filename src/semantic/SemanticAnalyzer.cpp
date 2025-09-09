@@ -1477,8 +1477,34 @@ shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
     }
     
     if (type->getKind() != TypeKind::Unresolved) {
-        // Not an unresolved type - return as is
-        // But if it's a ClassType without declaration pointer, try to fix it
+        // Handle GenericType that might have unresolved components
+        if (type->getKind() == TypeKind::Generic) {
+            auto genericType = std::static_pointer_cast<GenericType>(type);
+            
+            // Resolve base type
+            auto resolvedBaseType = resolveType(genericType->getBaseType());
+            
+            // Resolve type arguments
+            std::vector<shared_ptr<Type>> resolvedTypeArgs;
+            bool needsReconstruction = false;
+            
+            for (const auto& typeArg : genericType->getTypeArguments()) {
+                auto resolvedTypeArg = resolveType(typeArg);
+                resolvedTypeArgs.push_back(resolvedTypeArg);
+                if (resolvedTypeArg != typeArg) {
+                    needsReconstruction = true;
+                }
+            }
+            
+            // If base type or any type argument changed, create new GenericType
+            if (resolvedBaseType != genericType->getBaseType() || needsReconstruction) {
+                return typeSystem_->createGenericType(resolvedBaseType, std::move(resolvedTypeArgs));
+            }
+            
+            return type; // No changes needed
+        }
+        
+        // Handle ClassType without declaration pointer
         if (type->getKind() == TypeKind::Class) {
             auto classType = std::static_pointer_cast<ClassType>(type);
             if (!classType->getDeclaration()) {
@@ -1499,7 +1525,7 @@ shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
     
     // Look up the type name in the symbol table
     Symbol* symbol = resolveSymbol(typeName, SourceLocation());
-    if (symbol && symbol->getKind() == SymbolKind::Type) {
+    if (symbol && (symbol->getKind() == SymbolKind::Type || symbol->getKind() == SymbolKind::Class)) {
         auto resolvedType = symbol->getType();
         
         // Always ensure ClassType has correct declaration pointer
