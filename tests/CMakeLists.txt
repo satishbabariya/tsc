@@ -49,6 +49,18 @@ target_link_libraries(tsc_integration_tests
 
 add_test(NAME IntegrationTests COMMAND tsc_integration_tests)
 
+# Class-level generics unit tests
+add_executable(tsc_class_generics_tests
+    test_class_level_generics.cpp
+)
+
+target_link_libraries(tsc_class_generics_tests
+    tsc_lib
+    ${llvm_libs}
+)
+
+add_test(NAME ClassLevelGenericsTests COMMAND tsc_class_generics_tests)
+
 # Integration tests using the compiler binary
 add_test(NAME BasicCompilation 
          COMMAND tsc ${CMAKE_CURRENT_SOURCE_DIR}/examples/hello.ts)

@@ -1214,21 +1214,8 @@ void SemanticAnalyzer::visit(MethodDeclaration& node) {
 }
 
 void SemanticAnalyzer::visit(ClassDeclaration& node) {
-    // Process type parameters first
-    std::vector<shared_ptr<Type>> typeParameters;
-    for (const auto& typeParam : node.getTypeParameters()) {
-        auto paramType = typeSystem_->createTypeParameter(typeParam->getName(), typeParam->getConstraint());
-        typeParameters.push_back(paramType);
-        
-        // Add type parameter to current scope so it can be referenced within the class
-        declareSymbol(typeParam->getName(), SymbolKind::Type, paramType, typeParam->getLocation());
-    }
-    
-    // Create class type
+    // Create class type first
     auto classType = typeSystem_->createClassType(node.getName(), &node, node.getBaseClass());
-    
-    // If this is a generic class, we need to store the type parameters information
-    // For now, we'll store the base class type and handle instantiation during NewExpression
     
     // Add class to symbol table or update existing symbol from first pass
     Symbol* existingSymbol = symbolTable_->lookupSymbol(node.getName());
@@ -1239,8 +1226,18 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
         declareSymbol(node.getName(), SymbolKind::Type, classType, node.getLocation());
     }
     
-    // Enter class scope
+    // Enter class scope FIRST
     enterScope(Scope::ScopeType::Class, node.getName());
+    
+    // Process type parameters AFTER entering class scope
+    std::vector<shared_ptr<Type>> typeParameters;
+    for (const auto& typeParam : node.getTypeParameters()) {
+        auto paramType = typeSystem_->createTypeParameter(typeParam->getName(), typeParam->getConstraint());
+        typeParameters.push_back(paramType);
+        
+        // Add type parameter to class scope so it can be referenced within the class
+        declareSymbol(typeParam->getName(), SymbolKind::Type, paramType, typeParam->getLocation());
+    }
     
     // Analyze base class if present
     if (node.getBaseClass()) {
@@ -1493,7 +1490,7 @@ shared_ptr<Type> SemanticAnalyzer::findClassMember(const ClassType& classType, c
     // Look for property in current class
     for (const auto& property : classDecl->getProperties()) {
         if (property->getName() == memberName) {
-            return property->getType();
+            return getDeclarationType(*property);
         }
     }
     
