@@ -2,12 +2,13 @@
 find_package(GTest QUIET)
 
 if(GTest_FOUND)
-    # Unit tests
+    # Unit tests with GTest
     add_executable(tsc_tests
         test_lexer.cpp
         test_parser.cpp
         test_ast.cpp
         test_compiler.cpp
+        test_semantic_analyzer.cpp
     )
     
     target_link_libraries(tsc_tests
@@ -20,8 +21,21 @@ if(GTest_FOUND)
     # Add tests to CTest
     add_test(NAME TSCTests COMMAND tsc_tests)
 else()
-    message(STATUS "GTest not found, skipping unit tests")
+    message(STATUS "GTest not found, using custom test framework")
 endif()
+
+# Custom semantic analyzer tests (no external dependencies)
+add_executable(tsc_semantic_tests
+    test_semantic_analyzer_simple.cpp
+)
+
+target_link_libraries(tsc_semantic_tests
+    tsc_lib
+    ${llvm_libs}
+)
+
+# Add custom tests to CTest
+add_test(NAME SemanticAnalyzerTests COMMAND tsc_semantic_tests)
 
 # Integration tests using the compiler binary
 add_test(NAME BasicCompilation 
