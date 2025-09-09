@@ -18,6 +18,9 @@ bool SemanticAnalyzer::analyze(Module& module) {
     try {
         // Multi-phase semantic analysis
         performSymbolResolution(module);
+        resolveDeferredSuperExpressions();
+        resolveDeferredSuperPropertyAccesses();
+        resolveDeferredSuperCallExpressions();
         performTypeChecking(module);
         performFlowAnalysis(module);
         
@@ -180,6 +183,22 @@ void SemanticAnalyzer::visit(SuperExpression& node) {
     
     // Set the type to the resolved base class type
     auto baseClassType = resolveType(baseClass);
+    
+    // If resolution failed, defer this super expression for later resolution
+    if (baseClassType->getKind() == TypeKind::Error) {
+        // Store this super expression for deferred resolution
+        DeferredSuperExpression deferred;
+        deferred.expression = &node;
+        deferred.className = className;
+        deferred.location = node.getLocation();
+        deferredSuperExpressions_.push_back(deferred);
+        
+        
+        // Set a placeholder type for now
+        setExpressionType(node, typeSystem_->getAnyType());
+        return;
+    }
+    
     setExpressionType(node, baseClassType);
 }
 
@@ -301,6 +320,36 @@ void SemanticAnalyzer::visit(CallExpression& node) {
         arg->accept(*this);
     }
     
+    // Check if this is a call to a deferred super property access
+    if (auto propertyAccess = dynamic_cast<const PropertyAccess*>(node.getCallee())) {
+        if (dynamic_cast<const SuperExpression*>(propertyAccess->getObject())) {
+            // Check if this property access was deferred
+            auto calleeType = getExpressionType(*propertyAccess);
+            if (calleeType->getKind() == TypeKind::Any) {
+                // This is likely a deferred super property access, defer the call expression too
+                auto currentScope = symbolTable_->getCurrentScope();
+                while (currentScope && currentScope->getType() != Scope::ScopeType::Class) {
+                    currentScope = currentScope->getParent();
+                }
+                
+                if (currentScope) {
+                    DeferredSuperCallExpression deferred;
+                    deferred.callExpression = &node;
+                    deferred.propertyAccess = const_cast<PropertyAccess*>(propertyAccess);
+                    deferred.className = currentScope->getName();
+                    deferred.memberName = propertyAccess->getProperty();
+                    deferred.location = node.getLocation();
+                    deferredSuperCallExpressions_.push_back(deferred);
+                    
+                    
+                    // Set a placeholder type for now
+                    setExpressionType(node, typeSystem_->getAnyType());
+                    return;
+                }
+            }
+        }
+    }
+    
     checkFunctionCall(node);
 }
 
@@ -374,6 +423,7 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
     auto objectType = getExpressionType(*node.getObject());
     
     
+    
     // Note: SuperExpression is handled by the regular class property access logic below
     
     // Check if this is an enum member access
@@ -430,6 +480,31 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
             
             // Check if the class has this member (including inherited members)
             if (auto memberType = findClassMember(classType, memberName)) {
+                
+                // If this is a super property access and the member type is Error, defer resolution
+                if (dynamic_cast<const SuperExpression*>(node.getObject()) && memberType->getKind() == TypeKind::Error) {
+                    // Find the current class name for deferred resolution
+                    auto currentScope = symbolTable_->getCurrentScope();
+                    while (currentScope && currentScope->getType() != Scope::ScopeType::Class) {
+                        currentScope = currentScope->getParent();
+                    }
+                    
+                    if (currentScope) {
+                        // Store this property access for deferred resolution
+                        DeferredSuperPropertyAccess deferred;
+                        deferred.propertyAccess = &node;
+                        deferred.className = currentScope->getName();
+                        deferred.memberName = memberName;
+                        deferred.location = node.getLocation();
+                        deferredSuperPropertyAccesses_.push_back(deferred);
+                        
+                        
+                        // Set a placeholder type for now
+                        setExpressionType(node, typeSystem_->getAnyType());
+                        return;
+                    }
+                }
+                
                 setExpressionType(node, memberType);
                 return;
             }
@@ -996,6 +1071,167 @@ void SemanticAnalyzer::resolveInheritance(Module& module) {
             }
         }
     }
+}
+
+void SemanticAnalyzer::resolveDeferredSuperExpressions() {
+    
+    // Resolve all deferred super expressions now that inheritance is fully resolved
+    for (const auto& deferred : deferredSuperExpressions_) {
+        SuperExpression* superExpr = deferred.expression;
+        const String& className = deferred.className;
+        
+        // Find the class symbol
+        auto classSymbol = resolveSymbol(className, deferred.location);
+        
+        if (!classSymbol || classSymbol->getKind() != SymbolKind::Class) {
+            reportError("Cannot find current class type for deferred super resolution", deferred.location);
+            setExpressionType(*superExpr, typeSystem_->getErrorType());
+            continue;
+        }
+        
+        shared_ptr<Type> currentType = classSymbol->getType();
+        shared_ptr<Type> baseClass = nullptr;
+        
+        if (currentType->getKind() == TypeKind::Class) {
+            auto classType = std::static_pointer_cast<ClassType>(currentType);
+            baseClass = classType->getBaseClass();
+        } else if (currentType->getKind() == TypeKind::Generic) {
+            auto genericType = std::static_pointer_cast<GenericType>(currentType);
+            auto baseType = genericType->getBaseType();
+            if (baseType->getKind() == TypeKind::Class) {
+                auto classType = std::static_pointer_cast<ClassType>(baseType);
+                baseClass = classType->getBaseClass();
+            }
+        }
+        
+        if (!baseClass) {
+            reportError("'super' used in class that does not extend another class", deferred.location);
+            setExpressionType(*superExpr, typeSystem_->getErrorType());
+            continue;
+        }
+        
+        // Now resolve the base class type - this should work now that inheritance is resolved
+        auto baseClassType = resolveType(baseClass);
+        if (baseClassType->getKind() == TypeKind::Error) {
+            reportError("Cannot resolve base class type for 'super'", deferred.location);
+            setExpressionType(*superExpr, typeSystem_->getErrorType());
+            continue;
+        }
+        
+        // Set the resolved type
+        setExpressionType(*superExpr, baseClassType);
+    }
+    
+    // Clear the deferred list
+    deferredSuperExpressions_.clear();
+}
+
+void SemanticAnalyzer::resolveDeferredSuperPropertyAccesses() {
+    
+    // Resolve all deferred super property accesses now that all classes are fully processed
+    for (const auto& deferred : deferredSuperPropertyAccesses_) {
+        PropertyAccess* propertyAccess = deferred.propertyAccess;
+        const String& className = deferred.className;
+        const String& memberName = deferred.memberName;
+        
+        // Find the class symbol
+        auto classSymbol = resolveSymbol(className, deferred.location);
+        
+        if (!classSymbol || classSymbol->getKind() != SymbolKind::Class) {
+            reportError("Cannot find current class type for deferred super property access", deferred.location);
+            setExpressionType(*propertyAccess, typeSystem_->getErrorType());
+            continue;
+        }
+        
+        shared_ptr<Type> currentType = classSymbol->getType();
+        shared_ptr<Type> baseClass = nullptr;
+        
+        if (currentType->getKind() == TypeKind::Class) {
+            auto classType = std::static_pointer_cast<ClassType>(currentType);
+            baseClass = classType->getBaseClass();
+        } else if (currentType->getKind() == TypeKind::Generic) {
+            auto genericType = std::static_pointer_cast<GenericType>(currentType);
+            auto baseType = genericType->getBaseType();
+            if (baseType->getKind() == TypeKind::Class) {
+                auto classType = std::static_pointer_cast<ClassType>(baseType);
+                baseClass = classType->getBaseClass();
+            }
+        }
+        
+        if (!baseClass) {
+            reportError("'super' used in class that does not extend another class", deferred.location);
+            setExpressionType(*propertyAccess, typeSystem_->getErrorType());
+            continue;
+        }
+        
+        // Now resolve the base class type and find the member
+        auto baseClassType = resolveType(baseClass);
+        if (baseClassType->getKind() == TypeKind::Error) {
+            reportError("Cannot resolve base class type for 'super' property access", deferred.location);
+            setExpressionType(*propertyAccess, typeSystem_->getErrorType());
+            continue;
+        }
+        
+        // Find the member in the base class
+        shared_ptr<Type> memberType = nullptr;
+        if (baseClassType->getKind() == TypeKind::Class) {
+            const auto& classType = static_cast<const ClassType&>(*baseClassType);
+            memberType = findClassMember(classType, memberName);
+        } else if (baseClassType->getKind() == TypeKind::Generic) {
+            const auto& genericType = static_cast<const GenericType&>(*baseClassType);
+            auto baseType = genericType.getBaseType();
+            if (baseType->getKind() == TypeKind::Class) {
+                const auto& classType = static_cast<const ClassType&>(*baseType);
+                memberType = findClassMember(classType, memberName);
+            }
+        }
+        
+        if (!memberType || memberType->getKind() == TypeKind::Error) {
+            reportError("Cannot resolve member '" + memberName + "' in base class for 'super' property access", deferred.location);
+            setExpressionType(*propertyAccess, typeSystem_->getErrorType());
+            continue;
+        }
+        
+        
+        // Set the resolved type
+        setExpressionType(*propertyAccess, memberType);
+    }
+    
+    // Clear the deferred list
+    deferredSuperPropertyAccesses_.clear();
+}
+
+void SemanticAnalyzer::resolveDeferredSuperCallExpressions() {
+    
+    // Resolve all deferred super call expressions now that property access is resolved
+    for (const auto& deferred : deferredSuperCallExpressions_) {
+        CallExpression* callExpression = deferred.callExpression;
+        PropertyAccess* propertyAccess = deferred.propertyAccess;
+        
+        // Get the resolved type of the property access (should be resolved by now)
+        auto calleeType = getExpressionType(*propertyAccess);
+        
+        
+        // Check if the callee is callable
+        if (!calleeType->isCallable()) {
+            reportError("Expression is not callable", callExpression->getLocation());
+            setExpressionType(*callExpression, typeSystem_->getErrorType());
+            continue;
+        }
+        
+        // For function calls, return the function's return type
+        if (calleeType->getKind() == TypeKind::Function) {
+            const auto& funcType = static_cast<const FunctionType&>(*calleeType);
+            setExpressionType(*callExpression, funcType.getReturnType());
+        } else {
+            // For other callable types, use any type for now
+            setExpressionType(*callExpression, typeSystem_->getAnyType());
+        }
+        
+    }
+    
+    // Clear the deferred list
+    deferredSuperCallExpressions_.clear();
 }
 
 void SemanticAnalyzer::performTypeChecking(Module& module) {
@@ -1575,6 +1811,7 @@ shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
 }
 
 shared_ptr<Type> SemanticAnalyzer::findClassMember(const ClassType& classType, const String& memberName) {
+    
     ClassDeclaration* classDecl = classType.getDeclaration();
     
     // If the ClassType doesn't have a declaration pointer, try to find it in the symbol table

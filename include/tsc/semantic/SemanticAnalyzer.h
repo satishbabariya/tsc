@@ -128,6 +128,33 @@ private:
     std::unordered_map<const Declaration*, shared_ptr<Type>> declarationTypes_;
     std::unordered_map<const ASTNode*, Symbol*> nodeSymbols_;
     
+    // Deferred super resolution
+    struct DeferredSuperExpression {
+        SuperExpression* expression;
+        String className;
+        SourceLocation location;
+    };
+    std::vector<DeferredSuperExpression> deferredSuperExpressions_;
+    
+    // Deferred property access on super
+    struct DeferredSuperPropertyAccess {
+        PropertyAccess* propertyAccess;
+        String className;
+        String memberName;
+        SourceLocation location;
+    };
+    std::vector<DeferredSuperPropertyAccess> deferredSuperPropertyAccesses_;
+    
+    // Deferred call expressions on super property access
+    struct DeferredSuperCallExpression {
+        CallExpression* callExpression;
+        PropertyAccess* propertyAccess;
+        String className;
+        String memberName;
+        SourceLocation location;
+    };
+    std::vector<DeferredSuperCallExpression> deferredSuperCallExpressions_;
+    
     // Analysis phases
     void performSymbolResolution(Module& module);
     void collectFunctionDeclarations(Module& module);
@@ -159,6 +186,9 @@ private:
     
     // Inheritance resolution
     void resolveInheritance(Module& module);
+    void resolveDeferredSuperExpressions();
+    void resolveDeferredSuperPropertyAccesses();
+    void resolveDeferredSuperCallExpressions();
     
     // Error reporting
     void reportError(const String& message, const SourceLocation& location);
