@@ -1609,9 +1609,19 @@ shared_ptr<Type> SemanticAnalyzer::findClassMember(const ClassType& classType, c
     // If not found in current class, look in base class
     if (classDecl->getBaseClass()) {
         auto resolvedBaseType = resolveType(classDecl->getBaseClass());
-        if (resolvedBaseType && resolvedBaseType->getKind() == TypeKind::Class) {
-            const auto& baseClassType = static_cast<const ClassType&>(*resolvedBaseType);
-            return findClassMember(baseClassType, memberName);
+        if (resolvedBaseType) {
+            if (resolvedBaseType->getKind() == TypeKind::Class) {
+                const auto& baseClassType = static_cast<const ClassType&>(*resolvedBaseType);
+                return findClassMember(baseClassType, memberName);
+            } else if (resolvedBaseType->getKind() == TypeKind::Generic) {
+                // Handle generic base classes (e.g., MiddleGeneric<T, U>)
+                const auto& genericBaseType = static_cast<const GenericType&>(*resolvedBaseType);
+                auto baseType = genericBaseType.getBaseType();
+                if (baseType->getKind() == TypeKind::Class) {
+                    const auto& baseClassType = static_cast<const ClassType&>(*baseType);
+                    return findClassMember(baseClassType, memberName);
+                }
+            }
         }
     }
     
