@@ -392,6 +392,33 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
         return;
     }
     
+    // Check if this is a generic class property/method access
+    if (objectType->getKind() == TypeKind::Generic) {
+        const auto& genericType = static_cast<const GenericType&>(*objectType);
+        auto baseType = genericType.getBaseType();
+        
+        // The base type should be a ClassType
+        if (baseType->getKind() == TypeKind::Class) {
+            const auto& classType = static_cast<const ClassType&>(*baseType);
+            String memberName = node.getProperty();
+            
+            // Check if the class has this member (including inherited members)
+            if (auto memberType = findClassMember(classType, memberName)) {
+                setExpressionType(node, memberType);
+                return;
+            }
+            
+            // If we get here, the member wasn't found
+            reportError("Class '" + classType.getName() + "' has no member '" + memberName + "'", node.getLocation());
+            setExpressionType(node, typeSystem_->getErrorType());
+            return;
+        } else {
+            reportError("Generic type base is not a class", node.getLocation());
+            setExpressionType(node, typeSystem_->getErrorType());
+            return;
+        }
+    }
+    
     // Handle other property access types (objects, etc.)
     // For now, assume property access returns any type
     // TODO: Implement proper property type checking based on object type
