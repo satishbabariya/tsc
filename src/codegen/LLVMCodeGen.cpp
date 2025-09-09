@@ -268,33 +268,30 @@ void LLVMCodeGen::visit(NewExpression& node) {
     // 3. Return the constructed object
     
     if (auto identifier = dynamic_cast<Identifier*>(node.getConstructor())) {
-        // Try to find the constructor function
-        llvm::Function* constructor = module_->getFunction(identifier->getName());
-        if (constructor) {
-            // Allocate space for the object (simplified)
-            llvm::Type* objectType = getAnyType(); // Placeholder
-            llvm::Value* objectPtr = builder_->CreateAlloca(objectType, nullptr, "new_object");
-            
-            // Generate arguments for constructor call
-            std::vector<llvm::Value*> args;
-            args.push_back(objectPtr); // 'this' pointer
-            
-            for (const auto& arg : node.getArguments()) {
-                arg->accept(*this);
-                args.push_back(getCurrentValue());
-            }
-            
-            // Call constructor
-            if (args.size() <= constructor->arg_size()) {
-                builder_->CreateCall(constructor, args);
-            }
-            
-            // Return the object pointer
-            setCurrentValue(objectPtr);
-        } else {
-            reportError("Constructor not found: " + identifier->getName(), node.getLocation());
-            setCurrentValue(createNullValue(getAnyType()));
+        // For classes, we need to:
+        // 1. Allocate memory for the object based on the class type
+        // 2. Initialize the object (simplified for now)
+        // 3. Return the object pointer
+        
+        // Allocate space for the object (simplified - using generic pointer for now)
+        llvm::Type* objectType = getAnyType(); // This should be the actual class type
+        llvm::Value* objectPtr = builder_->CreateAlloca(objectType, nullptr, "new_object");
+        
+        // For now, just initialize with a default value
+        // In a full implementation, we would:
+        // - Call the actual constructor method
+        // - Initialize all fields properly
+        // - Handle constructor arguments
+        
+        // Initialize arguments (simplified)
+        for (const auto& arg : node.getArguments()) {
+            arg->accept(*this);
+            // For now, we don't use the arguments in object construction
+            // This would be handled by the actual constructor call
         }
+        
+        // Return the object pointer
+        setCurrentValue(objectPtr);
     } else {
         // For complex constructor expressions, create a null value
         reportError("Complex constructor expressions not yet supported", node.getLocation());

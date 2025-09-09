@@ -159,29 +159,37 @@ void SemanticAnalyzer::visit(SuperExpression& node) {
 }
 
 void SemanticAnalyzer::visit(NewExpression& node) {
-    // Analyze the constructor expression
-    node.getConstructor()->accept(*this);
-    auto constructorType = getExpressionType(*node.getConstructor());
-    
-    // Analyze arguments
+    // Analyze arguments first
     for (const auto& arg : node.getArguments()) {
         arg->accept(*this);
     }
     
-    // For now, assume the constructor creates an instance of the same type
-    // In a full implementation, we'd check if this is a valid constructor
-    // and determine the resulting instance type
+    // Handle constructor expression
     if (auto identifier = dynamic_cast<Identifier*>(node.getConstructor())) {
         // Try to find the class type in the symbol table
         Symbol* classSymbol = resolveSymbol(identifier->getName(), node.getLocation());
         if (classSymbol && classSymbol->getKind() == SymbolKind::Type) {
-            setExpressionType(node, classSymbol->getType());
+            auto classType = classSymbol->getType();
+            
+            // Check if this is a class type that can be instantiated
+            if (classType->getKind() == TypeKind::Class) {
+                // For generic classes, we might need to infer type arguments from constructor arguments
+                // For now, just use the class type directly
+                setExpressionType(node, classType);
+            } else {
+                reportError("'" + identifier->getName() + "' is not a class type", node.getLocation());
+                setExpressionType(node, typeSystem_->getErrorType());
+            }
         } else {
             reportError("Constructor '" + identifier->getName() + "' not found", node.getLocation());
             setExpressionType(node, typeSystem_->getErrorType());
         }
     } else {
-        // For complex constructor expressions, use a generic type
+        // For complex constructor expressions, analyze them
+        node.getConstructor()->accept(*this);
+        auto constructorType = getExpressionType(*node.getConstructor());
+        
+        // For complex constructor expressions, use the constructor's type or any type
         setExpressionType(node, typeSystem_->getAnyType());
     }
 }
@@ -821,13 +829,18 @@ void SemanticAnalyzer::performSymbolResolution(Module& module) {
 }
 
 void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
-    // First pass: only collect function signatures, don't process bodies
+    // First pass: collect function signatures and class declarations, don't process bodies
     // Debug: Check how many statements we're processing
     const auto& statements = module.getStatements();
     // std::cout << "DEBUG: collectFunctionDeclarations found " << statements.size() << " statements" << std::endl;
     
     for (const auto& stmt : statements) {
-        if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
+        if (auto classDecl = dynamic_cast<ClassDeclaration*>(stmt.get())) {
+            // Collect class declarations first so they're available for constructor calls
+            // Create class type and add to symbol table (without processing body)
+            auto classType = typeSystem_->createClassType(classDecl->getName(), classDecl, classDecl->getBaseClass());
+            declareSymbol(classDecl->getName(), SymbolKind::Type, classType, classDecl->getLocation());
+        } else if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
             // std::cout << "DEBUG: Found function declaration: " << funcDecl->getName() << std::endl;
             // Create function type
             std::vector<FunctionType::Parameter> paramTypes;
@@ -1124,11 +1137,30 @@ void SemanticAnalyzer::visit(MethodDeclaration& node) {
 }
 
 void SemanticAnalyzer::visit(ClassDeclaration& node) {
+    // Process type parameters first
+    std::vector<shared_ptr<Type>> typeParameters;
+    for (const auto& typeParam : node.getTypeParameters()) {
+        auto paramType = typeSystem_->createTypeParameter(typeParam->getName(), typeParam->getConstraint());
+        typeParameters.push_back(paramType);
+        
+        // Add type parameter to current scope so it can be referenced within the class
+        declareSymbol(typeParam->getName(), SymbolKind::Type, paramType, typeParam->getLocation());
+    }
+    
     // Create class type
     auto classType = typeSystem_->createClassType(node.getName(), &node, node.getBaseClass());
     
-    // Add class to symbol table
-    declareSymbol(node.getName(), SymbolKind::Type, classType, node.getLocation());
+    // If this is a generic class, we need to store the type parameters information
+    // For now, we'll store the base class type and handle instantiation during NewExpression
+    
+    // Add class to symbol table or update existing symbol from first pass
+    Symbol* existingSymbol = symbolTable_->lookupSymbol(node.getName());
+    if (existingSymbol) {
+        // Update the existing symbol with the more complete class type
+        existingSymbol->setType(classType);
+    } else {
+        declareSymbol(node.getName(), SymbolKind::Type, classType, node.getLocation());
+    }
     
     // Enter class scope
     enterScope(Scope::ScopeType::Class, node.getName());
