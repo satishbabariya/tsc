@@ -1094,12 +1094,16 @@ void LLVMCodeGen::visit(IfStatement& node) {
     // Handle end block
     bool bothBranchesTerminate = thenHasTerminator && (!node.hasElse() || elseHasTerminator);
     
-    if (bothBranchesTerminate) {
-        // Both branches terminate - end block is unreachable, remove it
-        endBlock->eraseFromParent();
-    } else {
+    if (!bothBranchesTerminate) {
         // At least one branch doesn't terminate - continue with end block
         builder_->SetInsertPoint(endBlock);
+    } else {
+        // Both branches terminate - end block is unreachable
+        // Add unreachable terminator to satisfy LLVM requirements
+        if (!endBlock->getTerminator()) {
+            builder_->SetInsertPoint(endBlock);
+            builder_->CreateUnreachable();
+        }
     }
 }
 
