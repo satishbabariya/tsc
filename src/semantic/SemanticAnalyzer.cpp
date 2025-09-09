@@ -90,6 +90,8 @@ void SemanticAnalyzer::visit(Identifier& node) {
     Symbol* symbol = resolveSymbol(node.getName(), node.getLocation());
     if (symbol) {
         symbol->markUsed();
+        
+        
         setExpressionType(node, symbol->getType());
         setNodeSymbol(node, symbol);
     } else {
@@ -114,10 +116,19 @@ void SemanticAnalyzer::visit(ThisExpression& node) {
     }
     
     // Get the class type from the class scope
-    // For now, we'll use a generic object type as a placeholder
-    // In a full implementation, we'd get the actual class type from the scope
-    auto thisType = typeSystem_->getAnyType(); // Placeholder
-    setExpressionType(node, thisType);
+    String className = currentScope->getName();
+    
+    // Look up the class symbol to get its type
+    Symbol* classSymbol = symbolTable_->lookupSymbol(className);
+    
+    if (classSymbol && classSymbol->getKind() == SymbolKind::Class) {
+        auto classType = classSymbol->getType();
+        setExpressionType(node, classType);
+    } else {
+        // Fallback to Any if we can't find the class
+        auto thisType = typeSystem_->getAnyType();
+        setExpressionType(node, thisType);
+    }
 }
 
 void SemanticAnalyzer::visit(SuperExpression& node) {
@@ -347,6 +358,7 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
     // Analyze the object being accessed
     node.getObject()->accept(*this);
     auto objectType = getExpressionType(*node.getObject());
+    
     
     // Note: SuperExpression is handled by the regular class property access logic below
     
@@ -808,6 +820,7 @@ void SemanticAnalyzer::visit(VariableDeclaration& node) {
     if (node.getInitializer()) {
         node.getInitializer()->accept(*this);
         varType = getExpressionType(*node.getInitializer());
+        
     } else {
         // No initializer - use explicit type or infer as 'any'
         if (node.getTypeAnnotation()) {
@@ -828,6 +841,8 @@ void SemanticAnalyzer::visit(VariableDeclaration& node) {
     
     // Add symbol to current scope
     bool mutable_ = (node.getDeclarationKind() != VariableDeclaration::Kind::Const);
+    
+    
     if (!symbolTable_->addSymbol(node.getName(), SymbolKind::Variable, varType, 
                                  node.getLocation(), &node)) {
         reportError("Failed to declare variable: " + node.getName(), node.getLocation());
@@ -913,7 +928,7 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
             // Collect class declarations first so they're available for constructor calls
             // Create class type and add to symbol table (without processing body)
             auto classType = typeSystem_->createClassType(classDecl->getName(), classDecl, classDecl->getBaseClass());
-            declareSymbol(classDecl->getName(), SymbolKind::Type, classType, classDecl->getLocation());
+            declareSymbol(classDecl->getName(), SymbolKind::Class, classType, classDecl->getLocation());
         } else if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
             // std::cout << "DEBUG: Found function declaration: " << funcDecl->getName() << std::endl;
             // Create function type
@@ -1223,7 +1238,7 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
         // Update the existing symbol with the more complete class type
         existingSymbol->setType(classType);
     } else {
-        declareSymbol(node.getName(), SymbolKind::Type, classType, node.getLocation());
+        declareSymbol(node.getName(), SymbolKind::Class, classType, node.getLocation());
     }
     
     // Enter class scope FIRST
