@@ -1602,7 +1602,8 @@ PredefinedType -> TsPredefinedType:
 ;
 
 TypeReference -> TsTypeReference:
-    TypeName .noLineBreak TypeArguments? %prec resolveShift ;
+    TypeName .noLineBreak (?= '<' Type) TypeArguments %prec resolveShift
+  | TypeName %prec resolveShift ;
 
 TypeName -> TsTypeName:
     ref+=IdentifierReference<+WithoutPredefinedTypes, ~Yield, ~Await>
