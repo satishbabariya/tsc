@@ -1607,6 +1607,7 @@ TypeReference -> TsTypeReference:
 TypeName -> TsTypeName:
     ref+=IdentifierReference<+WithoutPredefinedTypes, ~Yield, ~Await>
   | (NamespaceName -> TsNamespaceName) '.' ref+=IdentifierReference<~Yield, ~Await, +WithDefault>
+  | 'Array' -> TsArrayTypeName
 ;
 
 NamespaceName:
