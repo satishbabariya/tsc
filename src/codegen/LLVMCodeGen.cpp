@@ -261,34 +261,57 @@ void LLVMCodeGen::visit(SuperExpression& node) {
 }
 
 void LLVMCodeGen::visit(NewExpression& node) {
-    // For now, implement a basic object allocation
-    // In a full implementation, this would:
-    // 1. Allocate memory for the object
-    // 2. Call the constructor with the allocated memory
-    // 3. Return the constructed object
-    
     if (auto identifier = dynamic_cast<Identifier*>(node.getConstructor())) {
-        // For classes, we need to:
-        // 1. Allocate memory for the object based on the class type
-        // 2. Initialize the object (simplified for now)
-        // 3. Return the object pointer
+        String className = identifier->getName();
         
-        // Allocate space for the object (simplified - using generic pointer for now)
-        llvm::Type* objectType = getAnyType(); // This should be the actual class type
-        llvm::Value* objectPtr = builder_->CreateAlloca(objectType, nullptr, "new_object");
+        // Get the class type from the symbol table
+        Symbol* classSymbol = symbolTable_->lookupSymbol(className);
+        if (!classSymbol || classSymbol->getKind() != SymbolKind::Class) {
+            reportError("Class not found: " + className, node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
         
-        // For now, just initialize with a default value
-        // In a full implementation, we would:
-        // - Call the actual constructor method
-        // - Initialize all fields properly
-        // - Handle constructor arguments
+        // Get the class type and map it to LLVM type
+        shared_ptr<Type> classType = classSymbol->getType();
+        llvm::Type* objectType = mapTypeScriptTypeToLLVM(*classType);
         
-        // Initialize arguments (simplified)
+        // Allocate memory on the heap using malloc
+        llvm::Function* mallocFunc = getOrCreateMallocFunction();
+        llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
+        llvm::Value* objectSize = llvm::ConstantInt::get(sizeType, 8); // Simplified: assume 8 bytes for now
+        llvm::Value* objectPtr = builder_->CreateCall(mallocFunc, {objectSize}, "malloced_object");
+        
+        // Cast the void* to the object type
+        objectPtr = builder_->CreateBitCast(objectPtr, llvm::PointerType::get(objectType, 0), "object_ptr");
+        
+        // Process constructor arguments
+        std::vector<llvm::Value*> constructorArgs;
+        constructorArgs.push_back(objectPtr); // First argument is 'this'
+        
         for (const auto& arg : node.getArguments()) {
             arg->accept(*this);
-            // For now, we don't use the arguments in object construction
-            // This would be handled by the actual constructor call
+            llvm::Value* argValue = getCurrentValue();
+            if (!argValue) {
+                reportError("Failed to generate constructor argument", arg->getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+            constructorArgs.push_back(argValue);
         }
+        
+        // Call the constructor
+        String constructorName = "constructor";
+        llvm::Function* constructorFunc = module_->getFunction(constructorName);
+        if (constructorFunc) {
+            builder_->CreateCall(constructorFunc, constructorArgs);
+        } else {
+            // If no constructor found, just initialize with default values
+            // This is a simplified approach for now
+        }
+        
+        // Store the object pointer for potential cleanup later
+        // TODO: Implement proper RAII or reference counting for automatic cleanup
         
         // Return the object pointer
         setCurrentValue(objectPtr);
@@ -1778,6 +1801,14 @@ llvm::Type* LLVMCodeGen::mapTypeScriptTypeToLLVM(const Type& type) {
             return getBooleanType();
         case TypeKind::Void:
             return getVoidType();
+        case TypeKind::Class:
+            // For classes, return a pointer to a struct (simplified)
+            // TODO: Implement proper class layout
+            return getAnyType(); // For now, use generic pointer
+        case TypeKind::Generic:
+            // For generic types, return a pointer to the base type
+            // TODO: Implement proper monomorphization
+            return getAnyType();
         case TypeKind::Union:
             // For now, treat union types as 'any' type (void*)
             // TODO: Implement proper tagged union representation
@@ -2121,6 +2152,11 @@ llvm::Function* LLVMCodeGen::generateFunctionDeclaration(const FunctionDeclarati
         }
     }
     
+    // Special case: main function should return int, not double
+    if (funcDecl.getName() == "main") {
+        returnType = llvm::Type::getInt32Ty(*context_);
+    }
+    
     llvm::FunctionType* functionType = llvm::FunctionType::get(returnType, paramTypes, false);
     
     // Create function
@@ -2164,6 +2200,10 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
         funcDecl.getBody()->accept(*this);
     }
     
+    // Add cleanup for malloc'd objects before return
+    // TODO: Implement proper tracking of malloc'd objects for cleanup
+    // For now, this is a simplified approach that doesn't track individual allocations
+    
     // Add return if not present
     if (!builder_->GetInsertBlock()->getTerminator()) {
         llvm::Type* returnType = function->getReturnType();
@@ -2174,6 +2214,23 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
             // For functions without explicit return statements, return null/undefined
             llvm::Value* defaultValue = createDefaultValue(returnType);
             builder_->CreateRet(defaultValue);
+        }
+    } else {
+        // Check if we need to convert return values for main function
+        if (funcDecl.getName() == "main" && function->getReturnType()->isIntegerTy()) {
+            // Find the return instruction and convert double to int if needed
+            llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
+            if (currentBlock && !currentBlock->empty()) {
+                llvm::Instruction* lastInst = &currentBlock->back();
+                if (auto* retInst = llvm::dyn_cast<llvm::ReturnInst>(lastInst)) {
+                    llvm::Value* retValue = retInst->getReturnValue();
+                    if (retValue && retValue->getType()->isDoubleTy()) {
+                        // Convert double to int
+                        llvm::Value* intValue = builder_->CreateFPToSI(retValue, llvm::Type::getInt32Ty(*context_));
+                        retInst->setOperand(0, intValue);
+                    }
+                }
+            }
         }
     }
     
@@ -2707,6 +2764,55 @@ void LLVMCodeGen::visit(TypeAliasDeclaration& node) {
     
     // No-op for now
     setCurrentValue(llvm::Constant::getNullValue(getAnyType()));
+}
+
+// Memory management functions
+llvm::Function* LLVMCodeGen::getOrCreateMallocFunction() {
+    if (builtinFunctions_.find("malloc") != builtinFunctions_.end()) {
+        return builtinFunctions_["malloc"];
+    }
+    
+    // Create malloc function declaration
+    llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
+    llvm::FunctionType* mallocType = llvm::FunctionType::get(
+        llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0), // Return type: void*
+        {sizeType}, // Parameter: size_t
+        false // Not variadic
+    );
+    
+    llvm::Function* mallocFunc = llvm::Function::Create(
+        mallocType,
+        llvm::Function::ExternalLinkage,
+        "malloc",
+        module_.get()
+    );
+    
+    builtinFunctions_["malloc"] = mallocFunc;
+    return mallocFunc;
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateFreeFunction() {
+    if (builtinFunctions_.find("free") != builtinFunctions_.end()) {
+        return builtinFunctions_["free"];
+    }
+    
+    // Create free function declaration
+    llvm::Type* ptrType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    llvm::FunctionType* freeType = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(*context_), // Return type: void
+        {ptrType}, // Parameter: void*
+        false // Not variadic
+    );
+    
+    llvm::Function* freeFunc = llvm::Function::Create(
+        freeType,
+        llvm::Function::ExternalLinkage,
+        "free",
+        module_.get()
+    );
+    
+    builtinFunctions_["free"] = freeFunc;
+    return freeFunc;
 }
 
 // Factory function

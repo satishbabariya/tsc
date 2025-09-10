@@ -199,6 +199,10 @@ private:
     llvm::Type* getAnyType() const;
     llvm::Value* convertValueToType(llvm::Value* value, llvm::Type* targetType);
     
+    // Memory management functions
+    llvm::Function* getOrCreateMallocFunction();
+    llvm::Function* getOrCreateFreeFunction();
+    
     // Type conversion
     llvm::Type* convertTypeToLLVM(shared_ptr<Type> type);
     
