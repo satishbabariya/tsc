@@ -219,10 +219,9 @@ void LLVMCodeGen::visit(Identifier& node) {
     // Check if this is a captured variable in a closure
     llvm::Value* capturedValue = codeGenContext_->getSymbolValue("__closure_env_" + node.getName());
     if (capturedValue) {
-        // Load the value from the captured variable pointer
-        llvm::Type* valueType = mapTypeScriptTypeToLLVM(*symbolTable_->lookupSymbol(node.getName())->getType());
-        llvm::Value* loadedValue = builder_->CreateLoad(valueType, capturedValue);
-        setCurrentValue(loadedValue);
+        // Use the captured value directly (it's already loaded from the closure environment)
+        setCurrentValue(capturedValue);
+        std::cout << "DEBUG: Using captured variable " << node.getName() << " from closure environment" << std::endl;
         return;
     }
     
@@ -566,7 +565,18 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         llvm::Value* funcPtrField = builder_->CreateGEP(closureType, calleeValue, funcPtrIndices);
                         
                         // Load the function pointer from the closure struct
-                        auto llvmFunctionType = convertFunctionTypeToLLVM(*functionType);
+                        // For closure functions, we need to use the modified function type that includes the closure environment parameter
+                        std::vector<llvm::Type*> paramTypes;
+                        paramTypes.push_back(llvm::PointerType::getUnqual(closureType));
+                        
+                        // Add regular parameters
+                        for (const auto& param : functionType->getParameters()) {
+                            llvm::Type* paramType = convertTypeToLLVM(param.type);
+                            paramTypes.push_back(paramType);
+                        }
+                        
+                        llvm::Type* returnType = convertTypeToLLVM(functionType->getReturnType());
+                        auto llvmFunctionType = llvm::FunctionType::get(returnType, paramTypes, false);
                         functionPtr = builder_->CreateLoad(llvmFunctionType->getPointerTo(), funcPtrField);
                         
                         std::cout << "DEBUG: Extracted function pointer from closure struct" << std::endl;
@@ -597,6 +607,9 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         
                         // Call the closure function
                         std::cout << "DEBUG: Calling closure function with " << args.size() << " arguments" << std::endl;
+                        for (size_t i = 0; i < args.size(); i++) {
+                            std::cout << "DEBUG: Argument " << i << ": " << (args[i] ? "valid" : "null") << std::endl;
+                        }
                         llvm::FunctionCallee callee = llvm::FunctionCallee(llvm::cast<llvm::FunctionType>(llvmFunctionType), functionPtr);
                         llvm::Value* result = builder_->CreateCall(callee, args, "call_result");
                         setCurrentValue(result);
@@ -2529,13 +2542,14 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
         for (size_t i = 0; i < capturedVars.size(); ++i) {
             const auto& symbol = capturedVars[i];
             if (symbol) {
-                // Get pointer to the captured variable in the closure
-                llvm::Value* indices[] = {
-                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // struct pointer
-                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i + 1) // field index
-                };
-                llvm::Value* fieldPtr = builder_->CreateGEP(closureType, closureEnv, indices);
-                llvm::Value* capturedValue = builder_->CreateLoad(getAnyType(), fieldPtr);
+        // Get pointer to the captured variable in the closure
+        llvm::Value* indices[] = {
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // struct pointer
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i + 1) // field index
+        };
+        llvm::Value* fieldPtr = builder_->CreateGEP(closureType, closureEnv, indices);
+        llvm::Value* capturedValue = builder_->CreateLoad(getAnyType(), fieldPtr);
+        std::cout << "DEBUG: Accessed captured variable " << symbol->getName() << " from closure environment" << std::endl;
                 
                 // Store in symbol table for access during function body generation
                 codeGenContext_->setSymbolValue("__closure_env_" + symbol->getName(), capturedValue);
@@ -3171,25 +3185,54 @@ llvm::Function* LLVMCodeGen::getOrCreateFreeFunction() {
 
 // Closure support methods
 
+String LLVMCodeGen::generateClosureTypeKey(const std::vector<Symbol*>& capturedVariables) const {
+    String key = "closure_";
+    for (const auto& symbol : capturedVariables) {
+        if (symbol) {
+            key += symbol->getName() + "_" + std::to_string(static_cast<int>(symbol->getType()->getKind()));
+        }
+    }
+    return key;
+}
+
 llvm::StructType* LLVMCodeGen::createClosureStructType(const std::vector<Symbol*>& capturedVariables) {
+    // Generate cache key for this closure type
+    String cacheKey = generateClosureTypeKey(capturedVariables);
+    std::cout << "DEBUG: createClosureStructType cache key: " << cacheKey << std::endl;
+    
+    // Check if we already have this closure type
+    auto it = closureTypeCache_.find(cacheKey);
+    if (it != closureTypeCache_.end()) {
+        std::cout << "DEBUG: Found cached closure type for key: " << cacheKey << std::endl;
+        return it->second;
+    }
+    
+    // Create new closure struct type
+    llvm::StructType* closureType;
     if (capturedVariables.empty()) {
         // Return a simple struct with just a function pointer if no captured variables
         std::vector<llvm::Type*> structTypes = {llvm::PointerType::getUnqual(llvm::Type::getVoidTy(*context_))};
-        return llvm::StructType::create(*context_, structTypes, "closure_t");
+        closureType = llvm::StructType::create(*context_, structTypes, "closure_t");
+    } else {
+        // Create struct with function pointer + captured variables
+        std::vector<llvm::Type*> structTypes;
+        structTypes.push_back(llvm::PointerType::getUnqual(llvm::Type::getVoidTy(*context_))); // function pointer
+        
+        for (const auto& symbol : capturedVariables) {
+            // For now, use 'any' type for all captured variables
+            // In a more sophisticated implementation, we'd use the actual symbol type
+            (void)symbol; // Suppress unused variable warning
+            structTypes.push_back(getAnyType());
+        }
+        
+        closureType = llvm::StructType::create(*context_, structTypes, "closure_t");
     }
     
-    // Create struct with function pointer + captured variables
-    std::vector<llvm::Type*> structTypes;
-    structTypes.push_back(llvm::PointerType::getUnqual(llvm::Type::getVoidTy(*context_))); // function pointer
+    // Cache the type for future use
+    closureTypeCache_[cacheKey] = closureType;
+    std::cout << "DEBUG: Created new closure type for key: " << cacheKey << std::endl;
     
-    for (const auto& symbol : capturedVariables) {
-        // For now, use 'any' type for all captured variables
-        // In a more sophisticated implementation, we'd use the actual symbol type
-        (void)symbol; // Suppress unused variable warning
-        structTypes.push_back(getAnyType());
-    }
-    
-    return llvm::StructType::create(*context_, structTypes, "closure_t");
+    return closureType;
 }
 
 llvm::Value* LLVMCodeGen::createClosureEnvironment(const std::vector<Symbol*>& capturedVariables) {
@@ -3210,6 +3253,7 @@ llvm::Value* LLVMCodeGen::createClosureEnvironment(const std::vector<Symbol*>& c
     // Allocate memory
     llvm::Value* closurePtr = builder_->CreateCall(mallocFunc, {structSize});
     closurePtr = builder_->CreateBitCast(closurePtr, llvm::PointerType::getUnqual(closureType));
+    std::cout << "DEBUG: Allocated closure environment with malloc, size: " << module_->getDataLayout().getTypeAllocSize(closureType) << " bytes" << std::endl;
     
     // Store captured variables in the closure
     for (size_t i = 0; i < capturedVariables.size(); ++i) {
@@ -3227,11 +3271,12 @@ llvm::Value* LLVMCodeGen::createClosureEnvironment(const std::vector<Symbol*>& c
             // Load the actual value from the variable (if it's a pointer) and store it
             llvm::Value* actualValue = varValue;
             if (varValue->getType()->isPointerTy()) {
-                // For now, just store the pointer directly - this is a simplified implementation
-                // In a full implementation, we'd need to handle different types properly
-                actualValue = varValue;
+                // Load the actual value instead of storing the pointer
+                actualValue = builder_->CreateLoad(getAnyType(), varValue, symbol->getName() + "_value");
+                std::cout << "DEBUG: Loaded value of captured variable " << symbol->getName() << " from stack" << std::endl;
             }
             builder_->CreateStore(actualValue, fieldPtr);
+            std::cout << "DEBUG: Stored captured variable " << symbol->getName() << " value in closure environment" << std::endl;
         }
     }
     

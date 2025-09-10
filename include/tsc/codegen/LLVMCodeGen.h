@@ -119,6 +119,7 @@ public:
     llvm::Value* loadCapturedVariable(const String& varName, llvm::Value* closureEnv);
     void storeCapturedVariable(const String& varName, llvm::Value* value, llvm::Value* closureEnv);
     bool isCapturedVariable(const String& varName, const FunctionDeclaration& currentFunction);
+    String generateClosureTypeKey(const std::vector<Symbol*>& capturedVariables) const;
     
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;
@@ -199,6 +200,9 @@ private:
     
     // Built-in function declarations
     std::unordered_map<String, llvm::Function*> builtinFunctions_;
+    
+    // Closure struct type cache to ensure consistent types
+    std::unordered_map<String, llvm::StructType*> closureTypeCache_;
     
     // Type mapping from TypeScript to LLVM
     llvm::Type* mapTypeScriptTypeToLLVM(const Type& type);
