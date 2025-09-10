@@ -1539,6 +1539,10 @@ Constraint -> TsTypeConstraint:
 TypeArguments -> TsTypeArguments:
     '<' (Type separator ',')+ '>' ;
 
+# Lookahead rule to check if < is followed by a valid type name
+StartOfGenericType:
+    '<' TypeName '>' ;
+
 UnionOrIntersectionOrPrimaryType<NoQuest> -> TsType /* interface */:
     inner+=UnionOrIntersectionOrPrimaryType? '|' inner+=IntersectionOrPrimaryType -> TsUnionType
   | IntersectionOrPrimaryType %prec resolveShift
@@ -1602,7 +1606,7 @@ PredefinedType -> TsPredefinedType:
 ;
 
 TypeReference -> TsTypeReference:
-    TypeName .noLineBreak (?= '<' Type) TypeArguments %prec resolveShift
+    TypeName .noLineBreak (?= StartOfGenericType) TypeArguments %prec resolveShift
   | TypeName %prec resolveShift ;
 
 TypeName -> TsTypeName:
