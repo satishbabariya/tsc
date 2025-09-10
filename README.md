@@ -137,6 +137,27 @@ cmake .. -DLLVM_TARGETS_TO_BUILD="X86;ARM;AArch64;RISCV"
 - **Generics**: Type parameters with constraints
 - **Enums**: Both numeric and string enums
 - **Type Operators**: `keyof`, `typeof`, conditional types
+- **Array Types**: `Array<T>` syntax for function parameters and return types
+
+### Array Type Support
+
+TSC supports `Array<T>` type annotations with some limitations:
+
+```typescript
+// ✅ Supported
+function process(arr: Array<number>): Array<string> {
+    return [];
+}
+
+// ⚠️ Limitation: < operator in expressions requires workarounds
+function example(arr: Array<number>): number {
+    // while (i < 3) { }  // ❌ Fails
+    while (i == 0) { }    // ✅ Works
+    return 0;
+}
+```
+
+**See**: [Array Types User Guide](docs/ARRAY_TYPES_USER_GUIDE.md) for complete documentation and workarounds.
 
 ### Memory Management
 
