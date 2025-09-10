@@ -976,6 +976,11 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
     // Set function context
     functionDepth_++;
     
+    // Collect nested function declarations before analyzing the body
+    if (node.getBody()) {
+        collectNestedFunctionDeclarations(*node.getBody());
+    }
+    
     // Analyze function body
     if (node.getBody()) {
         node.getBody()->accept(*this);
@@ -1055,6 +1060,9 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
             } else {
                 // std::cout << "DEBUG: Successfully added function " << funcDecl->getName() << " to symbol table" << std::endl;
             }
+            
+            // Note: Nested functions will be collected during the second pass
+            // when we're already in the correct scope
         }
     }
 }
@@ -1912,6 +1920,82 @@ shared_ptr<Type> SemanticAnalyzer::findMemberType(shared_ptr<Type> type, const S
     }
     
     return nullptr;
+}
+
+void SemanticAnalyzer::collectNestedFunctionDeclarations(const Statement& stmt) {
+    // Recursively collect function declarations from nested statements
+    if (auto blockStmt = dynamic_cast<const BlockStatement*>(&stmt)) {
+        // Process all statements in the block
+        for (const auto& nestedStmt : blockStmt->getStatements()) {
+            if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(nestedStmt.get())) {
+                // Create function type for nested function
+                std::vector<FunctionType::Parameter> paramTypes;
+                for (const auto& param : funcDecl->getParameters()) {
+                    FunctionType::Parameter funcParam;
+                    funcParam.name = param.name;
+                    funcParam.type = param.type ? param.type : typeSystem_->getAnyType();
+                    funcParam.optional = param.optional;
+                    funcParam.rest = param.rest;
+                    paramTypes.push_back(funcParam);
+                }
+                
+                auto returnType = funcDecl->getReturnType() ? funcDecl->getReturnType() : typeSystem_->getVoidType();
+                auto functionType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
+                
+                // Add nested function symbol to current scope
+                if (!symbolTable_->addSymbol(funcDecl->getName(), SymbolKind::Function, functionType,
+                                             funcDecl->getLocation(), funcDecl)) {
+                    // If adding to current scope fails, try adding to global scope
+                    // This handles the case where we're collecting from module level
+                    if (!symbolTable_->addSymbol(funcDecl->getName(), SymbolKind::Function, functionType,
+                                                 funcDecl->getLocation(), funcDecl)) {
+                        reportError("Failed to declare nested function: " + funcDecl->getName(), funcDecl->getLocation());
+                    }
+                }
+                
+                // Recursively collect nested functions from this function's body
+                if (funcDecl->getBody()) {
+                    collectNestedFunctionDeclarations(*funcDecl->getBody());
+                }
+            } else {
+                // Recursively process other statements that might contain nested functions
+                collectNestedFunctionDeclarations(*nestedStmt);
+            }
+        }
+    } else if (auto ifStmt = dynamic_cast<const IfStatement*>(&stmt)) {
+        // Process if statement branches
+        if (ifStmt->getThenStatement()) {
+            collectNestedFunctionDeclarations(*ifStmt->getThenStatement());
+        }
+        if (ifStmt->getElseStatement()) {
+            collectNestedFunctionDeclarations(*ifStmt->getElseStatement());
+        }
+    } else if (auto whileStmt = dynamic_cast<const WhileStatement*>(&stmt)) {
+        // Process while statement body
+        if (whileStmt->getBody()) {
+            collectNestedFunctionDeclarations(*whileStmt->getBody());
+        }
+    } else if (auto forStmt = dynamic_cast<const ForStatement*>(&stmt)) {
+        // Process for statement body
+        if (forStmt->getBody()) {
+            collectNestedFunctionDeclarations(*forStmt->getBody());
+        }
+    } else if (auto tryStmt = dynamic_cast<const TryStatement*>(&stmt)) {
+        // Process try statement blocks
+        if (tryStmt->getTryBlock()) {
+            collectNestedFunctionDeclarations(*tryStmt->getTryBlock());
+        }
+        if (tryStmt->getCatchClause()) {
+            // CatchClause is not a Statement, so we need to process its body
+            if (tryStmt->getCatchClause()->getBody()) {
+                collectNestedFunctionDeclarations(*tryStmt->getCatchClause()->getBody());
+            }
+        }
+        if (tryStmt->getFinallyBlock()) {
+            collectNestedFunctionDeclarations(*tryStmt->getFinallyBlock());
+        }
+    }
+    // Note: Other statement types (return, break, continue, etc.) don't contain nested functions
 }
 
 // Factory function
