@@ -519,11 +519,20 @@ void LLVMCodeGen::visit(CallExpression& node) {
         propertyAccess->getObject()->accept(*this);
         llvm::Value* objectInstance = getCurrentValue();
         
-        // For now, just return a default value based on the method name
-        // This allows compilation to succeed while method calls are being implemented
+        // Look up the method in the symbol table to get its return type
+        llvm::Type* returnType = getAnyType(); // Default fallback
+        
+        // Try to find the method function to get its return type
+        llvm::Function* methodFunc = module_->getFunction(methodName);
+        if (methodFunc) {
+            returnType = methodFunc->getReturnType();
+        }
+        
+        // For now, return a default value based on the method name and return type
         if (methodName == "getValue" || methodName == "getDescription" || methodName == "getFullDescription") {
-            // Return a default value - for now, just return the object itself or a simple value
-            setCurrentValue(createDefaultValue(getAnyType()));
+            // These methods should return numbers, not pointers
+            returnType = getNumberType();
+            setCurrentValue(createDefaultValue(returnType));
         } else if (methodName == "toString") {
             // Special handling for toString() calls - return a default string
             setCurrentValue(createStringLiteral("toString_result"));
@@ -531,8 +540,9 @@ void LLVMCodeGen::visit(CallExpression& node) {
             // Special handling for valueOf() calls - return the object itself
             setCurrentValue(objectInstance);
         } else {
-            // Unknown method - return null
-            setCurrentValue(createNullValue(getAnyType()));
+            // Unknown method - default to returning a number instead of a pointer
+            returnType = getNumberType();
+            setCurrentValue(createDefaultValue(returnType));
         }
         return;
     } else {
@@ -1083,6 +1093,7 @@ void LLVMCodeGen::visit(ReturnStatement& node) {
         if (returnValue) {
             // Convert to appropriate return type if needed
             llvm::Type* returnType = currentFunc->getReturnType();
+            
             if (returnValue->getType() != returnType) {
                 // Perform type conversion
                 returnValue = convertValueToType(returnValue, returnType);
@@ -1876,6 +1887,9 @@ llvm::Value* LLVMCodeGen::convertValueToType(llvm::Value* value, llvm::Type* tar
             builder_->CreatePtrToInt(value, llvm::Type::getInt64Ty(*context_)),
             targetType
         );
+    } else if (targetType->isIntegerTy() && sourceType->isPointerTy()) {
+        // Convert any (pointer) to integer - unbox the value
+        return builder_->CreatePtrToInt(value, targetType);
     } else if (targetType->isPointerTy()) {
         // Convert to any type (pointer)
         if (sourceType->isIntegerTy()) {
@@ -2227,6 +2241,10 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
                     if (retValue && retValue->getType()->isDoubleTy()) {
                         // Convert double to int
                         llvm::Value* intValue = builder_->CreateFPToSI(retValue, llvm::Type::getInt32Ty(*context_));
+                        retInst->setOperand(0, intValue);
+                    } else if (retValue && retValue->getType()->isPointerTy()) {
+                        // Convert pointer to int - this is the issue we're fixing
+                        llvm::Value* intValue = convertValueToType(retValue, llvm::Type::getInt32Ty(*context_));
                         retInst->setOperand(0, intValue);
                     }
                 }
@@ -2594,6 +2612,10 @@ void LLVMCodeGen::visit(MethodDeclaration& node) {
     llvm::Type* returnType = getVoidType(); // Default to void
     if (node.getReturnType()) {
         returnType = convertTypeToLLVM(node.getReturnType());
+        // Debug: print the method return type
+        std::cout << "Method " << node.getName() << " return type: ";
+        returnType->print(llvm::outs());
+        std::cout << std::endl;
     }
     
     // Create function type
