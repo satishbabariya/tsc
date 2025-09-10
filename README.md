@@ -159,6 +159,17 @@ function example(arr: Array<number>): number {
 
 **See**: [Array Types User Guide](docs/ARRAY_TYPES_USER_GUIDE.md) for complete documentation and workarounds.
 
+### Known Limitations
+
+TSC has several known limitations that users should be aware of:
+
+- **Parser Limitations**: `<` operator ambiguity with generic types (see [Known Limitations](docs/KNOWN_LIMITATIONS.md))
+- **Type System**: Generic constraints, union types, and intersection types not yet implemented
+- **Memory Management**: Manual memory management required, no garbage collection
+- **Language Features**: Async/await, modules, and decorators not yet implemented
+
+For complete details, see [Known Limitations](docs/KNOWN_LIMITATIONS.md) and [Issue Tracker](ISSUES.md).
+
 ### Memory Management
 
 ```typescript

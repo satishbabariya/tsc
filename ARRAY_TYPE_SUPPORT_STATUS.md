@@ -102,13 +102,16 @@ StartOfGenericType:
 
 1. **✅ Document the Limitation**: User documentation created with clear explanations and workarounds
 2. **✅ Implement Workaround**: Users can use `==` instead of `<` in while loops
-3. **Future Enhancement**: The parsing ambiguity requires a fundamental grammar redesign, which is a complex undertaking
+3. **✅ Issue Tracking**: Parsing ambiguity tracked as Issue #001 in [Issue Tracker](ISSUES.md)
+4. **Future Enhancement**: The parsing ambiguity requires a fundamental grammar redesign, which is a complex undertaking
 
 ## 📚 **User Documentation**
 
 - **[Array Types User Guide](docs/ARRAY_TYPES_USER_GUIDE.md)** - Comprehensive user guide with examples and workarounds
 - **[Array Types Quick Reference](docs/ARRAY_TYPES_QUICK_REFERENCE.md)** - Quick reference card for developers
 - **[FAQ](docs/FAQ.md)** - Frequently asked questions about Array<T> and general compiler usage
+- **[Known Limitations](docs/KNOWN_LIMITATIONS.md)** - Complete list of compiler limitations
+- **[Issue Tracker](ISSUES.md)** - Tracked issues and planned improvements
 
 ## 📊 **Impact Assessment**
 

@@ -1535,6 +1535,14 @@ VarianceModifier -> TsVarianceModifier:
 Constraint -> TsTypeConstraint:
     'extends' Type ;
 
+# NOTE: < operator ambiguity limitation
+# The TypeArguments rule below causes parsing ambiguity with the < operator
+# in expression contexts. When Array<T> is present in function signatures,
+# the parser interprets < as the start of generic type arguments instead
+# of as a comparison operator. This is a known limitation documented in
+# docs/KNOWN_LIMITATIONS.md. Users must use workarounds (== operator,
+# helper functions, or parentheses) when using < in expressions within
+# functions that have generic type parameters.
 TypeArguments -> TsTypeArguments:
     '<' (Type separator ',')+ '>' %prec resolveShift ;
 
