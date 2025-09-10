@@ -107,6 +107,8 @@ bool LLVMCodeGen::generateCode(Module& module, const SymbolTable& symbolTable,
     symbolTable_ = &symbolTable;
     typeSystem_ = &typeSystem;
     
+    std::cout << "DEBUG: LLVMCodeGen received SymbolTable at address: " << symbolTable_ << std::endl;
+    
     try {
         // Generate code for the module
         module.accept(*this);
@@ -529,8 +531,21 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 // This is a simplified implementation that assumes the function pointer is valid
                 
                 // Get the function type from the symbol table (semantic info)
-                auto symbol = symbolTable_->lookupSymbol(identifier->getName());
+                // Try multiple approaches to find the symbol
+                Symbol* symbol = nullptr;
+                
+                // First, try the current scope (if any)
+                if (symbolTable_->getCurrentScope()) {
+                    symbol = symbolTable_->getCurrentScope()->lookupSymbol(identifier->getName());
+                }
+                
+                // If not found, try the global scope
+                if (!symbol) {
+                    symbol = symbolTable_->getGlobalScope()->lookupSymbol(identifier->getName());
+                }
+                
                 std::cout << "DEBUG: Looking up symbol " << identifier->getName() << " in symbol table" << std::endl;
+                std::cout << "DEBUG: Current scope: " << symbolTable_->getCurrentScope() << ", Global scope: " << symbolTable_->getGlobalScope() << std::endl;
                 if (symbol) {
                     std::cout << "DEBUG: Symbol found with type: " << symbol->getType()->toString() << std::endl;
                 } else {

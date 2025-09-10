@@ -9,6 +9,8 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     typeSystem_ = make_unique<TypeSystem>();
     context_ = make_unique<SemanticContext>(*symbolTable_, *typeSystem_, diagnostics_);
     
+    std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
+    
     setupBuiltinEnvironment();
 }
 
@@ -961,6 +963,7 @@ void SemanticAnalyzer::visit(VariableDeclaration& node) {
     bool mutable_ = (node.getDeclarationKind() != VariableDeclaration::Kind::Const);
     
     std::cout << "DEBUG: Adding variable " << node.getName() << " with type: " << varType->toString() << std::endl;
+    std::cout << "DEBUG: Current scope when adding variable: " << symbolTable_->getCurrentScope() << std::endl;
     
     if (!symbolTable_->addSymbol(node.getName(), SymbolKind::Variable, varType, 
                                  node.getLocation(), &node)) {
