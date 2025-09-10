@@ -113,6 +113,13 @@ public:
     // Nested function generation
     void generateNestedFunction(const FunctionDeclaration& node);
     
+    // Closure support
+    llvm::StructType* createClosureStructType(const std::vector<Symbol*>& capturedVariables);
+    llvm::Value* createClosureEnvironment(const std::vector<Symbol*>& capturedVariables);
+    llvm::Value* loadCapturedVariable(const String& varName, llvm::Value* closureEnv);
+    void storeCapturedVariable(const String& varName, llvm::Value* value, llvm::Value* closureEnv);
+    bool isCapturedVariable(const String& varName, const FunctionDeclaration& currentFunction);
+    
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;
     void visit(StringLiteral& node) override;
