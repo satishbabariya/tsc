@@ -18,7 +18,7 @@ public:
     
     // Access to semantic analysis results
     const SemanticAnalyzer& getSemanticAnalyzer() const { return *analyzer_; }
-    const SymbolTable& getSymbolTable() const { return analyzer_->getSymbolTable(); }
+    SymbolTable& getSymbolTable() { return analyzer_->getSymbolTable(); }
     const TypeSystem& getTypeSystem() const { return analyzer_->getTypeSystem(); }
 
 private:

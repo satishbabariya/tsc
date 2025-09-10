@@ -56,7 +56,7 @@ public:
     Symbol* getSymbolForNode(const ASTNode& node) const;
     
     // Analysis results
-    const SymbolTable& getSymbolTable() const { return *symbolTable_; }
+    SymbolTable& getSymbolTable() { return *symbolTable_; }
     const TypeSystem& getTypeSystem() const { return *typeSystem_; }
     
     // Visitor interface implementation

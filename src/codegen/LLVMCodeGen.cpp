@@ -102,7 +102,7 @@ LLVMCodeGen::LLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& o
 
 LLVMCodeGen::~LLVMCodeGen() = default;
 
-bool LLVMCodeGen::generateCode(Module& module, const SymbolTable& symbolTable, 
+bool LLVMCodeGen::generateCode(Module& module, SymbolTable& symbolTable, 
                               const TypeSystem& typeSystem) {
     symbolTable_ = &symbolTable;
     typeSystem_ = &typeSystem;
@@ -534,15 +534,8 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 // Try multiple approaches to find the symbol
                 Symbol* symbol = nullptr;
                 
-                // First, try the current scope (if any)
-                if (symbolTable_->getCurrentScope()) {
-                    symbol = symbolTable_->getCurrentScope()->lookupSymbol(identifier->getName());
-                }
-                
-                // If not found, try the global scope
-                if (!symbol) {
-                    symbol = symbolTable_->getGlobalScope()->lookupSymbol(identifier->getName());
-                }
+                // Search all scopes starting from current scope
+                symbol = symbolTable_->lookupSymbol(identifier->getName());
                 
                 std::cout << "DEBUG: Looking up symbol " << identifier->getName() << " in symbol table" << std::endl;
                 std::cout << "DEBUG: Current scope: " << symbolTable_->getCurrentScope() << ", Global scope: " << symbolTable_->getGlobalScope() << std::endl;
@@ -1199,10 +1192,16 @@ void LLVMCodeGen::visit(ExpressionStatement& node) {
 void LLVMCodeGen::visit(BlockStatement& node) {
     codeGenContext_->enterScope();
     
+    // Note: We don't create new scopes in LLVMCodeGen - we reuse existing ones from semantic analysis
+    std::cout << "DEBUG: LLVMCodeGen processing block with current scope: " << symbolTable_->getCurrentScope() << std::endl;
+    
     for (const auto& stmt : node.getStatements()) {
         stmt->accept(*this);
         if (hasErrors()) break;
     }
+    
+    // Note: We don't exit scopes in LLVMCodeGen - we leave the SymbolTable as-is
+    std::cout << "DEBUG: LLVMCodeGen finished processing block with current scope: " << symbolTable_->getCurrentScope() << std::endl;
     
     codeGenContext_->exitScope();
 }
@@ -2399,6 +2398,11 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     codeGenContext_->enterFunction(function);
     codeGenContext_->enterScope();
     
+    // Note: We don't create new scopes in LLVMCodeGen - we reuse existing ones from semantic analysis
+    // The SymbolTable should already be in the correct scope from semantic analysis
+    std::cout << "DEBUG: LLVMCodeGen processing function: " << funcDecl.getName() 
+              << " with current scope: " << symbolTable_->getCurrentScope() << std::endl;
+    
     // Handle closure environment parameter if this is a closure
     const auto& capturedVars = funcDecl.getCapturedVariables();
     bool isClosure = !capturedVars.empty();
@@ -2470,6 +2474,10 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     // Exit function context
     codeGenContext_->exitScope();
     codeGenContext_->exitFunction();
+    
+    // Note: We don't exit scopes in LLVMCodeGen - we leave the SymbolTable as-is
+    std::cout << "DEBUG: LLVMCodeGen finished processing function: " << funcDecl.getName() 
+              << " with current scope: " << symbolTable_->getCurrentScope() << std::endl;
 }
 
 bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {

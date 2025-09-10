@@ -98,7 +98,7 @@ public:
     ~LLVMCodeGen();
     
     // Main code generation interface
-    bool generateCode(Module& module, const SymbolTable& symbolTable, 
+    bool generateCode(Module& module, SymbolTable& symbolTable, 
                      const TypeSystem& typeSystem);
     
     // Output generation
@@ -191,7 +191,7 @@ private:
     // std::stack<llvm::DIScope*> debugScopeStack_;
     
     // Type system integration
-    const SymbolTable* symbolTable_;
+    SymbolTable* symbolTable_;
     const TypeSystem* typeSystem_;
     
     // Current expression value (for visitor pattern)

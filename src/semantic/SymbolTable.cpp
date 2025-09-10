@@ -61,17 +61,22 @@ bool Scope::addSymbol(unique_ptr<Symbol> symbol) {
 }
 
 Symbol* Scope::lookupSymbol(const String& name) const {
+    std::cout << "DEBUG: Scope::lookupSymbol searching for '" << name << "' in scope " << this << " (type: " << static_cast<int>(type_) << ")" << std::endl;
+    
     // Look in current scope first
     auto it = symbols_.find(name);
     if (it != symbols_.end()) {
+        std::cout << "DEBUG: Found symbol '" << name << "' in scope " << this << std::endl;
         return it->second.get();
     }
     
     // Look in parent scopes
     if (parent_) {
+        std::cout << "DEBUG: Symbol not found in scope " << this << ", searching parent scope " << parent_ << std::endl;
         return parent_->lookupSymbol(name);
     }
     
+    std::cout << "DEBUG: Symbol '" << name << "' not found in any scope" << std::endl;
     return nullptr;
 }
 
