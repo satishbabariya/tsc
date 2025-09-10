@@ -84,6 +84,7 @@ public:
     bool addSymbol(unique_ptr<Symbol> symbol);
     Symbol* lookupSymbol(const String& name) const;
     Symbol* lookupSymbolLocal(const String& name) const;
+    Symbol* lookupSymbolInChildren(const String& name) const;
     
     // Scope hierarchy
     Scope* getParent() const { return parent_; }
@@ -129,6 +130,12 @@ public:
     void enterScope(Scope::ScopeType type, const String& name = "");
     void exitScope();
     
+    // Scope navigation
+    Scope* findScopeByName(const String& name) const;
+    bool navigateToScope(Scope* scope);
+    void pushScope(Scope* scope);
+    void popScope();
+    
     // Symbol operations
     bool addSymbol(const String& name, SymbolKind kind, shared_ptr<Type> type, 
                    const SourceLocation& location, ASTNode* declaration = nullptr);
@@ -159,6 +166,7 @@ private:
     void collectUnusedSymbols(Scope* scope, std::vector<Symbol*>& unused) const;
     size_t countScopes(Scope* scope) const;
     size_t countSymbols(Scope* scope) const;
+    Scope* findScopeByNameRecursive(Scope* scope, const String& name) const;
 };
 
 // Factory functions for common symbol creation

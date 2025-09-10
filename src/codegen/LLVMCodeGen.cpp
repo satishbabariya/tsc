@@ -606,8 +606,18 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     args.push_back(argValue);
                 }
                 
+                // For function calls through variables, we need to load the function pointer
+                // and then call it. The functionPtr is the value loaded from the variable.
+                
+                // Load the function pointer from the variable
+                llvm::Value* functionPointer = functionPtr;
+                if (functionPointer->getType()->isPointerTy()) {
+                    // Load the actual function pointer
+                    functionPointer = builder_->CreateLoad(llvmFunctionType, functionPointer);
+                }
+                
                 // Call the function pointer
-                llvm::FunctionCallee callee = llvm::FunctionCallee(llvmFunctionType, functionPtr);
+                llvm::FunctionCallee callee = llvm::FunctionCallee(llvmFunctionType, functionPointer);
                 llvm::Value* result = builder_->CreateCall(callee, args, "call_result");
                 setCurrentValue(result);
                 return;
@@ -2398,10 +2408,16 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     codeGenContext_->enterFunction(function);
     codeGenContext_->enterScope();
     
-    // Note: We don't create new scopes in LLVMCodeGen - we reuse existing ones from semantic analysis
-    // The SymbolTable should already be in the correct scope from semantic analysis
-    std::cout << "DEBUG: LLVMCodeGen processing function: " << funcDecl.getName() 
-              << " with current scope: " << symbolTable_->getCurrentScope() << std::endl;
+    // Navigate to the function scope for proper symbol lookup
+    Scope* functionScope = symbolTable_->findScopeByName(funcDecl.getName());
+    if (functionScope) {
+        symbolTable_->navigateToScope(functionScope);
+        std::cout << "DEBUG: LLVMCodeGen navigated to function scope: " << funcDecl.getName() 
+                  << " at address: " << functionScope << std::endl;
+    } else {
+        std::cout << "DEBUG: LLVMCodeGen could not find function scope: " << funcDecl.getName() 
+                  << ", using current scope: " << symbolTable_->getCurrentScope() << std::endl;
+    }
     
     // Handle closure environment parameter if this is a closure
     const auto& capturedVars = funcDecl.getCapturedVariables();
@@ -2475,7 +2491,8 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     codeGenContext_->exitScope();
     codeGenContext_->exitFunction();
     
-    // Note: We don't exit scopes in LLVMCodeGen - we leave the SymbolTable as-is
+    // Restore the previous scope
+    symbolTable_->popScope();
     std::cout << "DEBUG: LLVMCodeGen finished processing function: " << funcDecl.getName() 
               << " with current scope: " << symbolTable_->getCurrentScope() << std::endl;
 }

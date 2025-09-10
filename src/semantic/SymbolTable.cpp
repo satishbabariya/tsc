@@ -85,6 +85,24 @@ Symbol* Scope::lookupSymbolLocal(const String& name) const {
     return (it != symbols_.end()) ? it->second.get() : nullptr;
 }
 
+Symbol* Scope::lookupSymbolInChildren(const String& name) const {
+    // Search in current scope first
+    auto it = symbols_.find(name);
+    if (it != symbols_.end()) {
+        return it->second.get();
+    }
+    
+    // Search in child scopes
+    for (const auto& child : children_) {
+        Symbol* found = child->lookupSymbolInChildren(name);
+        if (found) {
+            return found;
+        }
+    }
+    
+    return nullptr;
+}
+
 unique_ptr<Scope> Scope::createChildScope(ScopeType type, const String& name) {
     auto child = make_unique<Scope>(type, this, name);
     Scope* childPtr = child.get();
@@ -172,7 +190,14 @@ bool SymbolTable::addSymbol(const String& name, SymbolKind kind, shared_ptr<Type
 }
 
 Symbol* SymbolTable::lookupSymbol(const String& name) const {
-    return currentScope_->lookupSymbol(name);
+    // First try the normal lookup (current scope and parents)
+    Symbol* symbol = currentScope_->lookupSymbol(name);
+    if (symbol) {
+        return symbol;
+    }
+    
+    // If not found, also search in child scopes
+    return currentScope_->lookupSymbolInChildren(name);
 }
 
 Symbol* SymbolTable::lookupSymbolInScope(const String& name, Scope* scope) const {
@@ -262,6 +287,61 @@ unique_ptr<Symbol> createFunctionSymbol(const String& name, shared_ptr<Type> typ
 unique_ptr<Symbol> createParameterSymbol(const String& name, shared_ptr<Type> type, 
                                         const SourceLocation& location) {
     return make_unique<Symbol>(name, SymbolKind::Parameter, type, location);
+}
+
+// Scope navigation implementation
+Scope* SymbolTable::findScopeByName(const String& name) const {
+    return findScopeByNameRecursive(globalScope_.get(), name);
+}
+
+Scope* SymbolTable::findScopeByNameRecursive(Scope* scope, const String& name) const {
+    if (!scope) return nullptr;
+    
+    // Check if current scope matches
+    if (scope->getName() == name) {
+        return scope;
+    }
+    
+    // Search in children
+    for (const auto& child : scope->getChildren()) {
+        Scope* found = findScopeByNameRecursive(child.get(), name);
+        if (found) return found;
+    }
+    
+    return nullptr;
+}
+
+bool SymbolTable::navigateToScope(Scope* scope) {
+    if (!scope) return false;
+    
+    // Push current scope onto stack
+    scopeStack_.push_back(currentScope_);
+    
+    // Navigate to the new scope
+    currentScope_ = scope;
+    
+    std::cout << "DEBUG: Navigated to scope " << scope << " (type: " << static_cast<int>(scope->getType()) 
+              << ", name: " << scope->getName() << ")" << std::endl;
+    
+    return true;
+}
+
+void SymbolTable::pushScope(Scope* scope) {
+    if (scope) {
+        scopeStack_.push_back(currentScope_);
+        currentScope_ = scope;
+    }
+}
+
+void SymbolTable::popScope() {
+    if (!scopeStack_.empty()) {
+        currentScope_ = scopeStack_.back();
+        scopeStack_.pop_back();
+        
+        std::cout << "DEBUG: Popped scope, current scope: " << currentScope_ 
+                  << " (type: " << static_cast<int>(currentScope_->getType()) 
+                  << ", name: " << currentScope_->getName() << ")" << std::endl;
+    }
 }
 
 } // namespace tsc
