@@ -1,5 +1,6 @@
 #include "tsc/AST.h"
 #include "tsc/semantic/TypeSystem.h"
+#include "tsc/semantic/SymbolTable.h"
 #include <sstream>
 
 namespace tsc {
@@ -673,6 +674,16 @@ String FunctionDeclaration::toString() const {
         ss << " " << body_->toString();
     } else {
         ss << ";";
+    }
+    
+    // Add captured variables information
+    if (!capturedVariables_.empty()) {
+        ss << " [captures: ";
+        for (size_t i = 0; i < capturedVariables_.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << capturedVariables_[i]->getName();
+        }
+        ss << "]";
     }
     
     return ss.str();

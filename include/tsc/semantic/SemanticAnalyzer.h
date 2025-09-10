@@ -118,6 +118,7 @@ private:
     shared_ptr<Type> findMemberType(shared_ptr<Type> type, const String& memberName);
     void collectNestedFunctionDeclarations(const Statement& stmt);
     void markCurrentFunctionAsCaptured();
+    void markVariableAsCaptured(Symbol* symbol);
     DiagnosticEngine& diagnostics_;
     unique_ptr<SymbolTable> symbolTable_;
     unique_ptr<TypeSystem> typeSystem_;

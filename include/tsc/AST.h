@@ -4,12 +4,14 @@
 #include "tsc/Token.h"
 #include <vector>
 #include <stdexcept>
+#include <algorithm>
 
 namespace tsc {
 
 // Forward declarations
 class ASTVisitor;
 class Type;
+class Symbol;
 
 // Base class for all AST nodes
 class ASTNode {
@@ -1036,6 +1038,15 @@ public:
     bool isGeneric() const { return !typeParameters_.empty(); }
     bool isCaptured() const { return captured_; }
     void setCaptured(bool captured) { captured_ = captured; }
+    
+    // Captured variables management
+    const std::vector<Symbol*>& getCapturedVariables() const { return capturedVariables_; }
+    void addCapturedVariable(Symbol* symbol) { 
+        if (symbol && std::find(capturedVariables_.begin(), capturedVariables_.end(), symbol) == capturedVariables_.end()) {
+            capturedVariables_.push_back(symbol);
+        }
+    }
+    void clearCapturedVariables() { capturedVariables_.clear(); }
 
 private:
     String name_;
@@ -1047,6 +1058,7 @@ private:
     bool async_;
     bool generator_;
     bool captured_;
+    std::vector<Symbol*> capturedVariables_;
 };
 
 // Class-related declarations

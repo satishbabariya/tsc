@@ -102,8 +102,8 @@ void SemanticAnalyzer::visit(Identifier& node) {
             
             if (!localSymbol) {
                 // Symbol is not in current function scope, it comes from outer scope
-                // Mark the current function as captured
-                markCurrentFunctionAsCaptured();
+                // Mark the current function as captured and add the variable to captured list
+                markVariableAsCaptured(symbol);
             }
         }
         
@@ -2020,6 +2020,19 @@ void SemanticAnalyzer::markCurrentFunctionAsCaptured() {
         
         // Add a warning that this function captures variables
         diagnostics_.warning("Function '" + currentFunction->getName() + "' captures variables from outer scope", 
+                            currentFunction->getLocation());
+    }
+}
+
+void SemanticAnalyzer::markVariableAsCaptured(Symbol* symbol) {
+    // Mark the current function as captured and add the variable to the captured list
+    if (!functionStack_.empty()) {
+        FunctionDeclaration* currentFunction = functionStack_.back();
+        currentFunction->setCaptured(true);
+        currentFunction->addCapturedVariable(symbol);
+        
+        // Debug output
+        diagnostics_.warning("Captured variable: " + symbol->getName() + " in function: " + currentFunction->getName(), 
                             currentFunction->getLocation());
     }
 }
