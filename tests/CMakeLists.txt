@@ -9,6 +9,10 @@ if(GTest_FOUND)
         test_ast.cpp
         test_compiler.cpp
         test_semantic_analyzer.cpp
+        test_closure_semantic_analyzer.cpp
+        test_closure_llvm_codegen.cpp
+        test_closure_integration.cpp
+        test_irbuilder_context_management.cpp
     )
     
     target_link_libraries(tsc_tests
@@ -29,13 +33,24 @@ add_executable(tsc_semantic_tests
     test_semantic_analyzer_simple.cpp
 )
 
+# Custom closure tests (no external dependencies)
+add_executable(tsc_closure_tests
+    test_closure_validation.cpp
+)
+
 target_link_libraries(tsc_semantic_tests
+    tsc_lib
+    ${llvm_libs}
+)
+
+target_link_libraries(tsc_closure_tests
     tsc_lib
     ${llvm_libs}
 )
 
 # Add custom tests to CTest
 add_test(NAME SemanticAnalyzerTests COMMAND tsc_semantic_tests)
+add_test(NAME ClosureTests COMMAND tsc_closure_tests)
 
 # Integration tests for generic classes and LLVM bug fix validation
 add_executable(tsc_integration_tests
