@@ -1890,6 +1890,9 @@ llvm::Value* LLVMCodeGen::convertValueToType(llvm::Value* value, llvm::Type* tar
     } else if (targetType->isIntegerTy() && sourceType->isPointerTy()) {
         // Convert any (pointer) to integer - unbox the value
         return builder_->CreatePtrToInt(value, targetType);
+    } else if (targetType->isIntegerTy() && sourceType->isDoubleTy()) {
+        // Convert double to integer
+        return builder_->CreateFPToSI(value, targetType);
     } else if (targetType->isPointerTy()) {
         // Convert to any type (pointer)
         if (sourceType->isIntegerTy()) {
@@ -2230,26 +2233,8 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
             builder_->CreateRet(defaultValue);
         }
     } else {
-        // Check if we need to convert return values for main function
-        if (funcDecl.getName() == "main" && function->getReturnType()->isIntegerTy()) {
-            // Find the return instruction and convert double to int if needed
-            llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
-            if (currentBlock && !currentBlock->empty()) {
-                llvm::Instruction* lastInst = &currentBlock->back();
-                if (auto* retInst = llvm::dyn_cast<llvm::ReturnInst>(lastInst)) {
-                    llvm::Value* retValue = retInst->getReturnValue();
-                    if (retValue && retValue->getType()->isDoubleTy()) {
-                        // Convert double to int
-                        llvm::Value* intValue = builder_->CreateFPToSI(retValue, llvm::Type::getInt32Ty(*context_));
-                        retInst->setOperand(0, intValue);
-                    } else if (retValue && retValue->getType()->isPointerTy()) {
-                        // Convert pointer to int - this is the issue we're fixing
-                        llvm::Value* intValue = convertValueToType(retValue, llvm::Type::getInt32Ty(*context_));
-                        retInst->setOperand(0, intValue);
-                    }
-                }
-            }
-        }
+        // The ReturnStatement visitor should handle type conversion correctly
+        // No need for special main function handling here
     }
     
     // Ensure all basic blocks have terminators (handle unreachable blocks)
