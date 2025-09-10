@@ -219,7 +219,10 @@ void LLVMCodeGen::visit(Identifier& node) {
     // Check if this is a captured variable in a closure
     llvm::Value* capturedValue = codeGenContext_->getSymbolValue("__closure_env_" + node.getName());
     if (capturedValue) {
-        setCurrentValue(capturedValue);
+        // Load the value from the captured variable pointer
+        llvm::Type* valueType = mapTypeScriptTypeToLLVM(*symbolTable_->lookupSymbol(node.getName())->getType());
+        llvm::Value* loadedValue = builder_->CreateLoad(valueType, capturedValue);
+        setCurrentValue(loadedValue);
         return;
     }
     
@@ -563,13 +566,41 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         llvm::Value* funcPtrField = builder_->CreateGEP(closureType, calleeValue, funcPtrIndices);
                         
                         // Load the function pointer from the closure struct
-                        functionPtr = builder_->CreateLoad(llvm::PointerType::getUnqual(llvm::Type::getVoidTy(*context_)), funcPtrField);
-                        
-                        // Cast to the correct function type
                         auto llvmFunctionType = convertFunctionTypeToLLVM(*functionType);
-                        functionPtr = builder_->CreateBitCast(functionPtr, llvmFunctionType->getPointerTo());
+                        functionPtr = builder_->CreateLoad(llvmFunctionType->getPointerTo(), funcPtrField);
                         
                         std::cout << "DEBUG: Extracted function pointer from closure struct" << std::endl;
+                        
+                        // Prepare arguments for closure function call
+                        std::vector<llvm::Value*> args;
+                        
+                    // For closure functions, pass the closure environment as the first argument
+                    llvm::Value* envIndices[] = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // struct pointer
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)  // environment field
+                    };
+                    llvm::Value* envField = builder_->CreateGEP(closureType, calleeValue, envIndices);
+                    llvm::Value* envValue = builder_->CreateLoad(llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(*context_)), envField);
+                    args.push_back(envValue);
+                        
+                        // Add regular function arguments
+                        for (const auto& arg : node.getArguments()) {
+                            arg->accept(*this);
+                            llvm::Value* argValue = getCurrentValue();
+                            if (!argValue) {
+                                reportError("Failed to generate function argument", arg->getLocation());
+                                setCurrentValue(createNullValue(getAnyType()));
+                                return;
+                            }
+                            args.push_back(argValue);
+                        }
+                        
+                        // Call the closure function
+                        std::cout << "DEBUG: Calling closure function with " << args.size() << " arguments" << std::endl;
+                        llvm::FunctionCallee callee = llvm::FunctionCallee(llvm::cast<llvm::FunctionType>(llvmFunctionType), functionPtr);
+                        llvm::Value* result = builder_->CreateCall(callee, args, "call_result");
+                        setCurrentValue(result);
+                        return;
                     } else {
                         // Regular function call through variable
                         // Load the function pointer from the variable
@@ -622,6 +653,10 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         
                         // Prepare arguments
                         std::vector<llvm::Value*> args;
+                        
+                        // For closure functions, pass the closure environment as the first argument
+                        // Note: This is a fallback path, so we don't have closure environment here
+                        
                         for (const auto& arg : node.getArguments()) {
                             arg->accept(*this);
                             llvm::Value* argValue = getCurrentValue();
@@ -658,6 +693,10 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 
                 // Prepare arguments
                 std::vector<llvm::Value*> args;
+                
+                // For closure functions, pass the closure environment as the first argument
+                // Note: This is a fallback path, so we don't have closure environment here
+                
                 for (const auto& arg : node.getArguments()) {
                     arg->accept(*this);
                     llvm::Value* argValue = getCurrentValue();
@@ -1983,7 +2022,7 @@ void LLVMCodeGen::visit(FunctionDeclaration& node) {
                 // Store closure environment in the closure struct
                 llvm::Value* envIndices[] = {
                     llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // struct pointer
-                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)  // environment field
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)  // environment field
                 };
                 llvm::Value* envField = builder_->CreateGEP(closureType, closurePtr, envIndices);
                 builder_->CreateStore(closureEnv, envField);
@@ -3260,13 +3299,14 @@ void LLVMCodeGen::generateNestedFunction(const FunctionDeclaration& node) {
         paramTypes.push_back(paramType);
     }
     
-    llvm::Type* returnType = getAnyType(); // For now, use any type
+    // Get the actual return type from the function declaration
+    llvm::Type* returnType = mapTypeScriptTypeToLLVM(*node.getReturnType());
     llvm::FunctionType* functionType = llvm::FunctionType::get(returnType, paramTypes, false);
     
     // Create the function
     llvm::Function* function = llvm::Function::Create(
         functionType,
-        llvm::Function::InternalLinkage,
+        llvm::Function::ExternalLinkage,
         uniqueName,
         module_.get()
     );
