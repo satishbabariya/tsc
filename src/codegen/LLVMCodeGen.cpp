@@ -223,7 +223,30 @@ void LLVMCodeGen::visit(Identifier& node) {
         return;
     }
     
-    // If not a function or captured variable, try to load as a regular variable
+    // Check if this is a closure (function with captured variables)
+    Symbol* symbol = symbolTable_->lookupSymbol(node.getName());
+    if (symbol && symbol->getType()->getKind() == TypeKind::Function) {
+        auto functionType = std::static_pointer_cast<FunctionType>(symbol->getType());
+        
+        // Check if this function has captured variables (indicating it's a closure)
+        std::vector<Symbol*> capturedVars;
+        if (symbol->getDeclaration()) {
+            if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(symbol->getDeclaration())) {
+                capturedVars = funcDecl->getCapturedVariables();
+            }
+        }
+        
+        if (!capturedVars.empty()) {
+            // This is a closure - return the pointer to the closure struct directly
+            llvm::Value* closurePtr = codeGenContext_->getSymbolValue(node.getName());
+            if (closurePtr) {
+                setCurrentValue(closurePtr);
+                return;
+            }
+        }
+    }
+    
+    // If not a function, captured variable, or closure, try to load as a regular variable
     llvm::Value* value = loadVariable(node.getName(), node.getLocation());
     if (!value) {
         reportError("Undefined variable: " + node.getName(), node.getLocation());
@@ -503,27 +526,67 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 function = llvm::cast<llvm::Function>(calleeValue);
             } else {
                 // Handle function calls through variables (closures)
-                // Load the function pointer from the variable
-                llvm::Value* functionPtr = calleeValue;
-                
-                // If it's a pointer, load the actual function
-                if (functionPtr->getType()->isPointerTy()) {
-                    // For now, assume it's a function pointer and cast it directly
-                    // In a full implementation, we'd need to handle different pointer types
-                    functionPtr = builder_->CreateBitCast(functionPtr, llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0));
+                // Check if this is a closure by looking at the symbol type
+                Symbol* symbol = nullptr;
+                if (auto identifier = dynamic_cast<Identifier*>(node.getCallee())) {
+                    symbol = symbolTable_->lookupSymbol(identifier->getName());
                 }
                 
-                // Cast to function type if needed
-                if (functionPtr->getType()->isPointerTy()) {
-                    // Get the function type from the symbol
-                    if (auto identifier = dynamic_cast<Identifier*>(node.getCallee())) {
-                        Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
-                        if (symbol && symbol->getType()->getKind() == TypeKind::Function) {
-                            auto functionType = std::static_pointer_cast<FunctionType>(symbol->getType());
-                            // Create the LLVM function type
+                llvm::Value* functionPtr = calleeValue;
+                
+                // Check if this is a closure (function type with captured variables)
+                if (symbol && symbol->getType()->getKind() == TypeKind::Function) {
+                    auto functionType = std::static_pointer_cast<FunctionType>(symbol->getType());
+                    
+                    // Check if this function has captured variables (indicating it's a closure)
+                    // We need to get the captured variables from the function declaration
+                    std::vector<Symbol*> capturedVars;
+                    if (symbol->getDeclaration()) {
+                        if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(symbol->getDeclaration())) {
+                            capturedVars = funcDecl->getCapturedVariables();
+                        }
+                    }
+                    
+                    if (!capturedVars.empty()) {
+                        // This is a closure - extract the function pointer from the closure struct
+                        std::cout << "DEBUG: Calling closure function: " << identifier->getName() << std::endl;
+                        
+                        // The calleeValue is a pointer to the closure struct
+                        // We need to get the function pointer from field 0
+                        llvm::StructType* closureType = createClosureStructType(capturedVars);
+                        
+                        // Get pointer to the function pointer field (field 0)
+                        llvm::Value* funcPtrIndices[] = {
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // struct pointer
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)  // function pointer field
+                        };
+                        llvm::Value* funcPtrField = builder_->CreateGEP(closureType, calleeValue, funcPtrIndices);
+                        
+                        // Load the function pointer from the closure struct
+                        functionPtr = builder_->CreateLoad(llvm::PointerType::getUnqual(llvm::Type::getVoidTy(*context_)), funcPtrField);
+                        
+                        // Cast to the correct function type
+                        auto llvmFunctionType = convertFunctionTypeToLLVM(*functionType);
+                        functionPtr = builder_->CreateBitCast(functionPtr, llvmFunctionType->getPointerTo());
+                        
+                        std::cout << "DEBUG: Extracted function pointer from closure struct" << std::endl;
+                    } else {
+                        // Regular function call through variable
+                        // Load the function pointer from the variable
+                        if (functionPtr->getType()->isPointerTy()) {
+                            functionPtr = builder_->CreateBitCast(functionPtr, llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0));
+                        }
+                        
+                        // Cast to function type if needed
+                        if (functionPtr->getType()->isPointerTy()) {
                             auto llvmFunctionType = convertFunctionTypeToLLVM(*functionType);
                             functionPtr = builder_->CreateBitCast(functionPtr, llvmFunctionType->getPointerTo());
                         }
+                    }
+                } else {
+                    // Fallback for non-function types
+                    if (functionPtr->getType()->isPointerTy()) {
+                        functionPtr = builder_->CreateBitCast(functionPtr, llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0));
                     }
                 }
                 
@@ -531,19 +594,19 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 // This is a simplified implementation that assumes the function pointer is valid
                 
                 // Get the function type from the symbol table (semantic info)
-                // Try multiple approaches to find the symbol
-                Symbol* symbol = nullptr;
-                
-                // Search all scopes starting from current scope
-                symbol = symbolTable_->lookupSymbol(identifier->getName());
-                
-                std::cout << "DEBUG: Looking up symbol " << identifier->getName() << " in symbol table" << std::endl;
-                std::cout << "DEBUG: Current scope: " << symbolTable_->getCurrentScope() << ", Global scope: " << symbolTable_->getGlobalScope() << std::endl;
-                if (symbol) {
-                    std::cout << "DEBUG: Symbol found with type: " << symbol->getType()->toString() << std::endl;
-                } else {
-                    std::cout << "DEBUG: Symbol not found in symbol table" << std::endl;
+                if (!symbol) {
+                    // Search all scopes starting from current scope
+                    symbol = symbolTable_->lookupSymbol(identifier->getName());
+                    
+                    std::cout << "DEBUG: Looking up symbol " << identifier->getName() << " in symbol table" << std::endl;
+                    std::cout << "DEBUG: Current scope: " << symbolTable_->getCurrentScope() << ", Global scope: " << symbolTable_->getGlobalScope() << std::endl;
+                    if (symbol) {
+                        std::cout << "DEBUG: Symbol found with type: " << symbol->getType()->toString() << std::endl;
+                    } else {
+                        std::cout << "DEBUG: Symbol not found in symbol table" << std::endl;
+                    }
                 }
+                
                 if (!symbol || !symbol->getType()) {
                     // Debug: Check if the variable exists in the code generation context
                     llvm::Value* varValue = codeGenContext_->getSymbolValue(identifier->getName());
@@ -606,18 +669,11 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     args.push_back(argValue);
                 }
                 
-                // For function calls through variables, we need to load the function pointer
-                // and then call it. The functionPtr is the value loaded from the variable.
-                
-                // Load the function pointer from the variable
-                llvm::Value* functionPointer = functionPtr;
-                if (functionPointer->getType()->isPointerTy()) {
-                    // Load the actual function pointer
-                    functionPointer = builder_->CreateLoad(llvmFunctionType, functionPointer);
-                }
+                // For function calls through variables, we need to call the function pointer
+                // The functionPtr has already been properly extracted (either from closure struct or variable)
                 
                 // Call the function pointer
-                llvm::FunctionCallee callee = llvm::FunctionCallee(llvmFunctionType, functionPointer);
+                llvm::FunctionCallee callee = llvm::FunctionCallee(llvmFunctionType, functionPtr);
                 llvm::Value* result = builder_->CreateCall(callee, args, "call_result");
                 setCurrentValue(result);
                 return;
