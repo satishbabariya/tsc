@@ -1,5 +1,6 @@
 #include "tsc/codegen/LLVMCodeGen.h"
 #include "tsc/Compiler.h"
+#include "tsc/semantic/TypeSystem.h"
 
 // LLVM includes for implementation
 #include "llvm/IR/Constants.h"
@@ -509,41 +510,45 @@ void LLVMCodeGen::visit(CallExpression& node) {
         // Handle method calls like obj.method()
         String methodName = propertyAccess->getProperty();
         
-        // For now, create a simple stub implementation for method calls
-        // In a full implementation, we would:
-        // 1. Get the object instance (this)
-        // 2. Look up the method in the object's class definition
-        // 3. Call the method with 'this' as the first parameter
-        
         // Generate the object being called on
         propertyAccess->getObject()->accept(*this);
         llvm::Value* objectInstance = getCurrentValue();
         
-        // Look up the method in the symbol table to get its return type
-        llvm::Type* returnType = getAnyType(); // Default fallback
-        
-        // Try to find the method function to get its return type
+        // Look up the method function
         llvm::Function* methodFunc = module_->getFunction(methodName);
-        if (methodFunc) {
-            returnType = methodFunc->getReturnType();
+        if (!methodFunc) {
+            reportError("Method not found: " + methodName, node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
         }
         
-        // For now, return a default value based on the method name and return type
-        if (methodName == "getValue" || methodName == "getDescription" || methodName == "getFullDescription") {
-            // These methods should return numbers, not pointers
-            returnType = getNumberType();
-            setCurrentValue(createDefaultValue(returnType));
-        } else if (methodName == "toString") {
-            // Special handling for toString() calls - return a default string
-            setCurrentValue(createStringLiteral("toString_result"));
-        } else if (methodName == "valueOf") {
-            // Special handling for valueOf() calls - return the object itself
-            setCurrentValue(objectInstance);
-        } else {
-            // Unknown method - default to returning a number instead of a pointer
-            returnType = getNumberType();
-            setCurrentValue(createDefaultValue(returnType));
+        // Prepare arguments for the method call
+        std::vector<llvm::Value*> args;
+        
+        // Add 'this' pointer as first argument (object instance)
+        args.push_back(objectInstance);
+        
+        // Add method arguments
+        for (const auto& arg : node.getArguments()) {
+            arg->accept(*this);
+            llvm::Value* argValue = getCurrentValue();
+            if (!argValue) {
+                reportError("Failed to generate argument for method call", node.getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+            args.push_back(argValue);
         }
+        
+        // Generate the method call
+        llvm::Value* callResult;
+        if (methodFunc->getReturnType()->isVoidTy()) {
+            // Don't assign a name to void method calls
+            callResult = builder_->CreateCall(methodFunc, args);
+        } else {
+            callResult = builder_->CreateCall(methodFunc, args, "method_call_result");
+        }
+        setCurrentValue(callResult);
         return;
     } else {
         reportError("Complex function calls not yet supported", node.getLocation());
@@ -1815,7 +1820,12 @@ llvm::Type* LLVMCodeGen::mapTypeScriptTypeToLLVM(const Type& type) {
         case TypeKind::Class:
             // For classes, return a pointer to a struct (simplified)
             // TODO: Implement proper class layout
-            return getAnyType(); // For now, use generic pointer
+            // For now, create a simple struct with one field (the class name)
+            if (auto classType = dynamic_cast<const ClassType*>(&type)) {
+                llvm::StructType* classStruct = llvm::StructType::create(*context_, "Class_" + classType->getName());
+                return llvm::PointerType::get(classStruct, 0);
+            }
+            return getAnyType();
         case TypeKind::Generic:
             // For generic types, return a pointer to the base type
             // TODO: Implement proper monomorphization
