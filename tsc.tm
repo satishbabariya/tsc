@@ -832,8 +832,6 @@ UnaryExpression<Yield, Await> -> Expr /* interface */:
   | [!StartWithLet] (?= !StartOfArrowFunction) '<' Type '>' UnaryExpression -> TsCastExpr
 ;
 
-%left resolveShift;
-
 %left '||';
 %left '&&';
 %left '??';
@@ -842,6 +840,7 @@ UnaryExpression<Yield, Await> -> Expr /* interface */:
 %left '&';
 %left '==' '!=' '===' '!==';
 %left '<' '>' '<=' '>=' 'instanceof' 'in' 'as' 'satisfies';
+%left resolveShift;
 %left '<<' '>>' '>>>';
 %left '-' '+';
 %left '*' '/' '%';
@@ -1537,10 +1536,20 @@ Constraint -> TsTypeConstraint:
     'extends' Type ;
 
 TypeArguments -> TsTypeArguments:
-    '<' (Type separator ',')+ '>' ;
+    '<' (Type separator ',')+ '>' %prec resolveShift ;
 
 # Lookahead rule to check if < is followed by a valid type name
+# This rule is more restrictive to avoid parsing < in expression contexts
 StartOfGenericType:
+    '<' TypeName '>' ;
+
+# More restrictive lookahead that only matches in type contexts
+# This prevents < from being parsed as generic type in expression contexts
+StartOfTypeOnlyGeneric:
+    '<' TypeName '>' ;
+
+# More restrictive lookahead that only matches in type contexts
+StartOfTypeContext:
     '<' TypeName '>' ;
 
 UnionOrIntersectionOrPrimaryType<NoQuest> -> TsType /* interface */:
