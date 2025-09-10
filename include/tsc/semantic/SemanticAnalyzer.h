@@ -185,6 +185,7 @@ private:
     shared_ptr<Type> inferExpressionType(Expression& expr);
     shared_ptr<Type> inferVariableType(const VariableDeclaration& decl);
     shared_ptr<Type> inferFunctionType(const FunctionDeclaration& decl);
+    shared_ptr<Type> inferFunctionReturnType(const FunctionDeclaration& decl);
     
     // Type resolution
     shared_ptr<Type> resolveType(shared_ptr<Type> type);

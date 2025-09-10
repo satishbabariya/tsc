@@ -707,10 +707,16 @@ void SemanticAnalyzer::visit(ReturnStatement& node) {
     shared_ptr<Type> returnType = typeSystem_->getVoidType();
     if (node.hasValue()) {
         node.getValue()->accept(*this);
-        returnType = node.getValue()->getType();
-        if (!returnType) {
+        returnType = getExpressionType(*node.getValue());
+        if (!returnType || returnType->isError()) {
             returnType = typeSystem_->getAnyType();
         }
+        
+        // Debug: Print return type (commented out for now)
+        // if (auto identifier = dynamic_cast<Identifier*>(node.getValue())) {
+        //     std::cout << "DEBUG: Return statement returning identifier '" << identifier->getName() 
+        //               << "' with type: " << returnType->toString() << std::endl;
+        // }
     }
     
     // Set the type of the return statement
@@ -954,6 +960,7 @@ void SemanticAnalyzer::visit(VariableDeclaration& node) {
     // Add symbol to current scope
     bool mutable_ = (node.getDeclarationKind() != VariableDeclaration::Kind::Const);
     
+    std::cout << "DEBUG: Adding variable " << node.getName() << " with type: " << varType->toString() << std::endl;
     
     if (!symbolTable_->addSymbol(node.getName(), SymbolKind::Variable, varType, 
                                  node.getLocation(), &node)) {
@@ -997,6 +1004,23 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
     // Analyze function body
     if (node.getBody()) {
         node.getBody()->accept(*this);
+    }
+    
+    // Infer return type if not explicitly specified
+    if (!node.getReturnType()) {
+        auto inferredReturnType = inferFunctionReturnType(node);
+        if (inferredReturnType && !inferredReturnType->isError()) {
+            // Update the function symbol with the inferred return type
+            auto functionType = std::static_pointer_cast<FunctionType>(existingSymbol->getType());
+            if (functionType) {
+                // Create a new function type with the inferred return type
+                auto newFunctionType = typeSystem_->createFunctionType(
+                    functionType->getParameters(), 
+                    inferredReturnType
+                );
+                existingSymbol->setType(newFunctionType);
+            }
+        }
     }
     
     // Reset function context
@@ -1065,6 +1089,9 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
             }
             
             auto returnType = funcDecl->getReturnType() ? funcDecl->getReturnType() : typeSystem_->getVoidType();
+            
+            // If no explicit return type, we'll infer it later during the second pass
+            // For now, use void as placeholder
             auto functionType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
             
             // Add function symbol (signature only, no body processing)
@@ -1469,6 +1496,28 @@ shared_ptr<Type> SemanticAnalyzer::inferFunctionType(const FunctionDeclaration& 
     
     auto returnType = decl.getReturnType() ? decl.getReturnType() : typeSystem_->getVoidType();
     return typeSystem_->createFunctionType(std::move(params), returnType);
+}
+
+shared_ptr<Type> SemanticAnalyzer::inferFunctionReturnType(const FunctionDeclaration& decl) {
+    if (!decl.getBody()) {
+        return typeSystem_->getVoidType();
+    }
+    
+    // Look for return statements in the function body
+    shared_ptr<Type> inferredType = typeSystem_->getVoidType();
+    
+    // Simple approach: look for the first return statement
+    // In a more sophisticated implementation, we'd analyze all return paths
+    for (const auto& stmt : decl.getBody()->getStatements()) {
+        if (auto returnStmt = dynamic_cast<const ReturnStatement*>(stmt.get())) {
+            if (returnStmt->hasValue()) {
+                inferredType = getExpressionType(*returnStmt->getValue());
+                break;
+            }
+        }
+    }
+    
+    return inferredType;
 }
 
 // Class-related visitor implementations

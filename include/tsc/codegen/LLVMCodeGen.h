@@ -207,6 +207,7 @@ private:
     llvm::Type* getBooleanType() const;
     llvm::Type* getVoidType() const;
     llvm::Type* getAnyType() const;
+    llvm::Type* convertFunctionTypeToLLVM(const FunctionType& functionType);
     llvm::Value* convertValueToType(llvm::Value* value, llvm::Type* targetType);
     
     // Memory management functions

@@ -500,10 +500,108 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 // This handles arrow functions and function expressions stored in variables
                 function = llvm::cast<llvm::Function>(calleeValue);
             } else {
-                // For now, we don't support function pointers/values in call expressions
-                // This would require more complex LLVM IR generation
-                reportError("Function calls through variables not yet fully supported: " + identifier->getName(), node.getLocation());
-                setCurrentValue(createNullValue(getAnyType()));
+                // Handle function calls through variables (closures)
+                // Load the function pointer from the variable
+                llvm::Value* functionPtr = calleeValue;
+                
+                // If it's a pointer, load the actual function
+                if (functionPtr->getType()->isPointerTy()) {
+                    // For now, assume it's a function pointer and cast it directly
+                    // In a full implementation, we'd need to handle different pointer types
+                    functionPtr = builder_->CreateBitCast(functionPtr, llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0));
+                }
+                
+                // Cast to function type if needed
+                if (functionPtr->getType()->isPointerTy()) {
+                    // Get the function type from the symbol
+                    if (auto identifier = dynamic_cast<Identifier*>(node.getCallee())) {
+                        Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
+                        if (symbol && symbol->getType()->getKind() == TypeKind::Function) {
+                            auto functionType = std::static_pointer_cast<FunctionType>(symbol->getType());
+                            // Create the LLVM function type
+                            auto llvmFunctionType = convertFunctionTypeToLLVM(*functionType);
+                            functionPtr = builder_->CreateBitCast(functionPtr, llvmFunctionType->getPointerTo());
+                        }
+                    }
+                }
+                
+                // For function calls through variables, we need to call the function pointer
+                // This is a simplified implementation that assumes the function pointer is valid
+                
+                // Get the function type from the symbol table (semantic info)
+                auto symbol = symbolTable_->lookupSymbol(identifier->getName());
+                std::cout << "DEBUG: Looking up symbol " << identifier->getName() << " in symbol table" << std::endl;
+                if (symbol) {
+                    std::cout << "DEBUG: Symbol found with type: " << symbol->getType()->toString() << std::endl;
+                } else {
+                    std::cout << "DEBUG: Symbol not found in symbol table" << std::endl;
+                }
+                if (!symbol || !symbol->getType()) {
+                    // Debug: Check if the variable exists in the code generation context
+                    llvm::Value* varValue = codeGenContext_->getSymbolValue(identifier->getName());
+                    if (varValue) {
+                        std::cout << "DEBUG: Variable " << identifier->getName() << " exists in code gen context but not in symbol table" << std::endl;
+                        // For now, create a simple function type as fallback
+                        auto fallbackType = std::make_shared<FunctionType>(
+                            std::vector<FunctionType::Parameter>{}, // no parameters
+                            std::make_shared<PrimitiveType>(TypeKind::Number) // return number
+                        );
+                        auto llvmType = convertFunctionTypeToLLVM(*fallbackType);
+                        llvm::FunctionType* llvmFunctionType = llvm::cast<llvm::FunctionType>(llvmType);
+                        
+                        // Prepare arguments
+                        std::vector<llvm::Value*> args;
+                        for (const auto& arg : node.getArguments()) {
+                            arg->accept(*this);
+                            llvm::Value* argValue = getCurrentValue();
+                            if (!argValue) {
+                                reportError("Failed to generate function argument", arg->getLocation());
+                                setCurrentValue(createNullValue(getAnyType()));
+                                return;
+                            }
+                            args.push_back(argValue);
+                        }
+                        
+                        // Call the function pointer
+                        llvm::FunctionCallee callee = llvm::FunctionCallee(llvmFunctionType, functionPtr);
+                        llvm::Value* result = builder_->CreateCall(callee, args, "call_result");
+                        setCurrentValue(result);
+                        return;
+                    } else {
+                        reportError("Function symbol not found: " + identifier->getName(), node.getLocation());
+                        setCurrentValue(createNullValue(getAnyType()));
+                        return;
+                    }
+                }
+                
+                auto functionType = std::dynamic_pointer_cast<FunctionType>(symbol->getType());
+                if (!functionType) {
+                    reportError("Variable is not a function: " + identifier->getName(), node.getLocation());
+                    setCurrentValue(createNullValue(getAnyType()));
+                    return;
+                }
+                
+                // Convert to LLVM function type
+                llvm::Type* llvmType = convertFunctionTypeToLLVM(*functionType);
+                llvm::FunctionType* llvmFunctionType = llvm::cast<llvm::FunctionType>(llvmType);
+                
+                // Prepare arguments
+                std::vector<llvm::Value*> args;
+                for (const auto& arg : node.getArguments()) {
+                    arg->accept(*this);
+                    llvm::Value* argValue = getCurrentValue();
+                    if (!argValue) {
+                        reportError("Failed to generate function argument", arg->getLocation());
+                        setCurrentValue(createNullValue(getAnyType()));
+                        return;
+                    }
+                    args.push_back(argValue);
+                }
+                
+                // Call the function pointer
+                llvm::FunctionCallee callee = llvm::FunctionCallee(llvmFunctionType, functionPtr);
+                llvm::Value* result = builder_->CreateCall(callee, args, "call_result");
+                setCurrentValue(result);
                 return;
             }
         }
@@ -1893,6 +1991,12 @@ llvm::Type* LLVMCodeGen::mapTypeScriptTypeToLLVM(const Type& type) {
             // For now, treat type parameters as 'any' type (void*)
             // TODO: Implement proper monomorphization
             return getAnyType();
+        case TypeKind::Function:
+            // Convert function type to LLVM function type
+            if (auto functionType = dynamic_cast<const FunctionType*>(&type)) {
+                return convertFunctionTypeToLLVM(*functionType);
+            }
+            return getAnyType();
         case TypeKind::Any:
         default:
             return getAnyType();
@@ -1919,6 +2023,20 @@ llvm::Type* LLVMCodeGen::getVoidType() const {
 llvm::Type* LLVMCodeGen::getAnyType() const {
     // Use i8* as a generic pointer type for 'any'
     return llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+}
+
+llvm::Type* LLVMCodeGen::convertFunctionTypeToLLVM(const FunctionType& functionType) {
+    // Convert parameter types
+    std::vector<llvm::Type*> paramTypes;
+    for (const auto& param : functionType.getParameters()) {
+        paramTypes.push_back(mapTypeScriptTypeToLLVM(*param.type));
+    }
+    
+    // Convert return type
+    llvm::Type* returnType = mapTypeScriptTypeToLLVM(*functionType.getReturnType());
+    
+    // Create LLVM function type
+    return llvm::FunctionType::get(returnType, paramTypes, false);
 }
 
 llvm::Type* LLVMCodeGen::convertTypeToLLVM(shared_ptr<Type> type) {
