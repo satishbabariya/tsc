@@ -94,6 +94,18 @@ void SemanticAnalyzer::visit(Identifier& node) {
     if (symbol) {
         symbol->markUsed();
         
+        // Check if we're inside a nested function and accessing a variable from outer scope
+        if (functionDepth_ > 1) {
+            // We're inside a nested function, check if the symbol comes from an outer scope
+            Scope* currentScope = symbolTable_->getCurrentScope();
+            Symbol* localSymbol = currentScope->lookupSymbolLocal(node.getName());
+            
+            if (!localSymbol) {
+                // Symbol is not in current function scope, it comes from outer scope
+                // Mark the current function as captured
+                markCurrentFunctionAsCaptured();
+            }
+        }
         
         setExpressionType(node, symbol->getType());
         setNodeSymbol(node, symbol);
@@ -975,6 +987,7 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
     
     // Set function context
     functionDepth_++;
+    functionStack_.push_back(&node);
     
     // Collect nested function declarations before analyzing the body
     if (node.getBody()) {
@@ -988,6 +1001,7 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
     
     // Reset function context
     functionDepth_--;
+    functionStack_.pop_back();
     
     exitScope();
 }
@@ -1996,6 +2010,18 @@ void SemanticAnalyzer::collectNestedFunctionDeclarations(const Statement& stmt) 
         }
     }
     // Note: Other statement types (return, break, continue, etc.) don't contain nested functions
+}
+
+void SemanticAnalyzer::markCurrentFunctionAsCaptured() {
+    // Mark the current function as captured
+    if (!functionStack_.empty()) {
+        FunctionDeclaration* currentFunction = functionStack_.back();
+        currentFunction->setCaptured(true);
+        
+        // Add a warning that this function captures variables
+        diagnostics_.warning("Function '" + currentFunction->getName() + "' captures variables from outer scope", 
+                            currentFunction->getLocation());
+    }
 }
 
 // Factory function

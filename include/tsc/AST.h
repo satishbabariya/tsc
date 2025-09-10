@@ -1020,7 +1020,7 @@ public:
                        bool generator = false)
         : name_(name), typeParameters_(std::move(typeParameters)), parameters_(std::move(parameters)),
           returnType_(returnType), body_(std::move(body)),
-          location_(loc), async_(async), generator_(generator) {}
+          location_(loc), async_(async), generator_(generator), captured_(false) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
@@ -1034,6 +1034,8 @@ public:
     bool isAsync() const { return async_; }
     bool isGenerator() const { return generator_; }
     bool isGeneric() const { return !typeParameters_.empty(); }
+    bool isCaptured() const { return captured_; }
+    void setCaptured(bool captured) { captured_ = captured; }
 
 private:
     String name_;
@@ -1044,6 +1046,7 @@ private:
     SourceLocation location_;
     bool async_;
     bool generator_;
+    bool captured_;
 };
 
 // Class-related declarations

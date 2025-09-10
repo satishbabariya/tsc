@@ -638,6 +638,7 @@ String FunctionDeclaration::toString() const {
     if (async_) ss << "async ";
     ss << "function";
     if (generator_) ss << "*";
+    if (captured_) ss << " [captured]";
     ss << " " << name_;
     
     // Add type parameters

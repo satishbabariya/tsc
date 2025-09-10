@@ -117,6 +117,7 @@ private:
     shared_ptr<Type> inferReturnType(const Statement& body);
     shared_ptr<Type> findMemberType(shared_ptr<Type> type, const String& memberName);
     void collectNestedFunctionDeclarations(const Statement& stmt);
+    void markCurrentFunctionAsCaptured();
     DiagnosticEngine& diagnostics_;
     unique_ptr<SymbolTable> symbolTable_;
     unique_ptr<TypeSystem> typeSystem_;
@@ -124,6 +125,7 @@ private:
     
     // Function context tracking
     int functionDepth_ = 0;
+    std::vector<FunctionDeclaration*> functionStack_;
     
     // Type information storage
     std::unordered_map<const Expression*, shared_ptr<Type>> expressionTypes_;
