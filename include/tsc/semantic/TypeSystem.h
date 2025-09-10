@@ -256,6 +256,7 @@ public:
     
     String toString() const override { return name_; }
     bool isEquivalentTo(const Type& other) const override;
+    bool isAssignableTo(const Type& other) const override;
 
 private:
     String name_;

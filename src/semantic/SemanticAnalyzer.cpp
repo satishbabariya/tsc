@@ -525,6 +525,17 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
         const auto& typeParamType = static_cast<const TypeParameterType&>(*objectType);
         String memberName = node.getProperty();
         
+        // Check if the type parameter has a constraint
+        auto constraint = typeParamType.getConstraint();
+        if (constraint) {
+            // If there's a constraint, check if the member exists on the constraint type
+            auto memberType = findMemberType(constraint, memberName);
+            if (memberType) {
+                setExpressionType(node, memberType);
+                return;
+            }
+        }
+        
         // All types have certain built-in methods
         if (memberName == "toString") {
             // toString() method returns string
@@ -1863,6 +1874,43 @@ shared_ptr<Type> SemanticAnalyzer::findClassMember(const ClassType& classType, c
     }
     
     // Member not found
+    return nullptr;
+}
+
+// Helper method to find member type on a given type
+shared_ptr<Type> SemanticAnalyzer::findMemberType(shared_ptr<Type> type, const String& memberName) {
+    if (!type) {
+        return nullptr;
+    }
+    
+    // Handle primitive types
+    if (type->getKind() == TypeKind::String) {
+        if (memberName == "length") {
+            return typeSystem_->getNumberType();
+        } else if (memberName == "charAt" || memberName == "substring" || memberName == "indexOf") {
+            return typeSystem_->getStringType();
+        }
+    } else if (type->getKind() == TypeKind::Array) {
+        if (memberName == "length") {
+            return typeSystem_->getNumberType();
+        } else if (memberName == "push" || memberName == "pop" || memberName == "shift" || memberName == "unshift") {
+            // These methods would return the array type or element type
+            return type;
+        }
+    } else if (type->getKind() == TypeKind::Class) {
+        // For class types, we would need to look up the class definition
+        // and find the member. For now, we'll handle basic cases.
+        const auto& classType = static_cast<const ClassType&>(*type);
+        String className = classType.getName();
+        
+        // Basic built-in properties for common types
+        if (className == "String" && memberName == "length") {
+            return typeSystem_->getNumberType();
+        } else if (className == "Array" && memberName == "length") {
+            return typeSystem_->getNumberType();
+        }
+    }
+    
     return nullptr;
 }
 

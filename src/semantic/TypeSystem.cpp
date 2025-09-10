@@ -449,10 +449,12 @@ shared_ptr<Type> TypeSystem::inferTypeFromBinaryExpression(const Type& leftType,
     
     // Arithmetic operations
     if (op >= 0 && op <= 5) { // Add, Subtract, Multiply, Divide, etc.
-        if (leftType.isString() || rightType.isString()) {
+        // Check for string concatenation (including constrained type parameters)
+        if (leftType.isAssignableTo(*stringType_) || rightType.isAssignableTo(*stringType_)) {
             return stringType_; // String concatenation
         }
-        if (leftType.isNumber() && rightType.isNumber()) {
+        // Check if both types are assignable to number (including constrained type parameters)
+        if (leftType.isAssignableTo(*numberType_) && rightType.isAssignableTo(*numberType_)) {
             return numberType_;
         }
         // Allow operations with 'any'
@@ -571,6 +573,16 @@ bool TypeParameterType::isEquivalentTo(const Type& other) const {
     // TODO: In a more sophisticated implementation, we'd check scope context
     // to ensure they're from the same generic declaration
     return name_ == otherParam.name_;
+}
+
+bool TypeParameterType::isAssignableTo(const Type& other) const {
+    // If there's a constraint, the type parameter is assignable to the constraint
+    if (constraint_) {
+        return constraint_->isAssignableTo(other);
+    }
+    
+    // If no constraint, use default behavior (equivalent types)
+    return isEquivalentTo(other) || other.isAny() || isAny();
 }
 
 // GenericType implementation  

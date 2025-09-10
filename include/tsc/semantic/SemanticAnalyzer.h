@@ -115,6 +115,7 @@ private:
     // Helper methods
     bool isInFunctionScope() const { return functionDepth_ > 0; }
     shared_ptr<Type> inferReturnType(const Statement& body);
+    shared_ptr<Type> findMemberType(shared_ptr<Type> type, const String& memberName);
     DiagnosticEngine& diagnostics_;
     unique_ptr<SymbolTable> symbolTable_;
     unique_ptr<TypeSystem> typeSystem_;
