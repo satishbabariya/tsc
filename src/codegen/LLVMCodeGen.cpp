@@ -484,9 +484,13 @@ void LLVMCodeGen::visit(CallExpression& node) {
         function = module_->getFunction(identifier->getName());
         
         if (!function) {
-            // If not found as LLVM function, check if it's a variable with function type
-            // This handles arrow functions and function expressions stored in variables
-            if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
+            // Check if it's a nested function stored in the symbol table
+            llvm::Value* symbolValue = codeGenContext_->getSymbolValue(identifier->getName());
+            if (symbolValue && llvm::isa<llvm::Function>(symbolValue)) {
+                function = llvm::cast<llvm::Function>(symbolValue);
+            } else if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
+                // If not found as LLVM function, check if it's a variable with function type
+                // This handles arrow functions and function expressions stored in variables
                 function = llvm::cast<llvm::Function>(calleeValue);
             } else {
                 // For now, we don't support function pointers/values in call expressions
@@ -1762,6 +1766,13 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
 }
 
 void LLVMCodeGen::visit(FunctionDeclaration& node) {
+    // Check if we're currently inside a function (nested function case)
+    if (codeGenContext_->getCurrentFunction()) {
+        // This is a nested function - generate it as a local function
+        generateNestedFunction(node);
+        return;
+    }
+    
     // Generate function declaration
     llvm::Function* function = generateFunctionDeclaration(node);
     if (!function) {
@@ -2830,6 +2841,50 @@ llvm::Function* LLVMCodeGen::getOrCreateFreeFunction() {
     
     builtinFunctions_["free"] = freeFunc;
     return freeFunc;
+}
+
+void LLVMCodeGen::generateNestedFunction(const FunctionDeclaration& node) {
+    // Save the current insert point
+    llvm::BasicBlock* savedInsertBlock = builder_->GetInsertBlock();
+    llvm::BasicBlock::iterator savedInsertPoint = builder_->GetInsertPoint();
+    
+    // Generate a unique name for the nested function to avoid conflicts
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    String uniqueName = currentFunc->getName().str() + "_" + node.getName();
+    
+    // Generate function type
+    std::vector<llvm::Type*> paramTypes;
+    for (const auto& param : node.getParameters()) {
+        llvm::Type* paramType = getAnyType(); // For now, use any type
+        paramTypes.push_back(paramType);
+    }
+    
+    llvm::Type* returnType = getAnyType(); // For now, use any type
+    llvm::FunctionType* functionType = llvm::FunctionType::get(returnType, paramTypes, false);
+    
+    // Create the function
+    llvm::Function* function = llvm::Function::Create(
+        functionType,
+        llvm::Function::InternalLinkage,
+        uniqueName,
+        module_.get()
+    );
+    
+    if (!function) {
+        reportError("Failed to generate nested function: " + node.getName(), node.getLocation());
+        return;
+    }
+    
+    // Store the function in the symbol table so it can be called
+    codeGenContext_->setSymbolValue(node.getName(), function);
+    
+    // Generate function body
+    generateFunctionBody(function, node);
+    
+    // Restore the insert point
+    if (savedInsertBlock) {
+        builder_->SetInsertPoint(savedInsertBlock, savedInsertPoint);
+    }
 }
 
 // Factory function

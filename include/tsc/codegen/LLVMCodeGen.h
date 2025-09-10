@@ -110,6 +110,9 @@ public:
     llvm::Module* getLLVMModule() const { return module_.get(); }
     String getLLVMIRString() const;
     
+    // Nested function generation
+    void generateNestedFunction(const FunctionDeclaration& node);
+    
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;
     void visit(StringLiteral& node) override;
