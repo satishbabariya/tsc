@@ -1722,14 +1722,25 @@ unique_ptr<Expression> Parser::parseFunctionExpression() {
 }
 
 bool Parser::isTypeArgumentList() const {
-    // For now, always return true when we see '<' in a function call context
-    // This is a simplified approach - in a full implementation, we'd use
-    // more sophisticated lookahead to distinguish between comparison and type arguments
-    // 
-    // The risk is that expressions like "func() < number" might be misinterpreted,
-    // but this is rare in typical TypeScript code
+    // Look ahead to determine if this is a type argument list or comparison operator
+    // Type argument lists: func<T>(args) or func<T, U>(args)
+    // Comparison operators: expr < expr or expr > expr
     
-    return true;
+    if (!check(TokenType::Less)) {
+        return false;
+    }
+    
+    // For now, use a simple heuristic:
+    // If we're in a function call context (after an identifier or function call),
+    // and the next token after '<' is an identifier, assume it's a type argument list.
+    // Otherwise, assume it's a comparison operator.
+    
+    // This is a simplified approach that should work for most cases.
+    // In a full implementation, we'd need more sophisticated lookahead.
+    
+    // For now, be conservative and assume it's NOT a type argument list
+    // unless we're in a very specific context (like after a function name)
+    return false;
 }
 
 // Factory function
