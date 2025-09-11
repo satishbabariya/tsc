@@ -89,7 +89,7 @@ public:
     // Scope hierarchy
     Scope* getParent() const { return parent_; }
     const std::vector<unique_ptr<Scope>>& getChildren() const { return children_; }
-    unique_ptr<Scope> createChildScope(ScopeType type, const String& name = "");
+    Scope* createChildScope(ScopeType type, const String& name = "");
     
     // Scope properties
     ScopeType getType() const { return type_; }

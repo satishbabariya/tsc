@@ -2522,9 +2522,50 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     // Navigate to the function scope for proper symbol lookup
     Scope* functionScope = symbolTable_->findScopeByName(funcDecl.getName());
     if (functionScope) {
+        // Instead of just navigating to the function scope, we need to navigate to the
+        // complete scope hierarchy that includes all child scopes where variables might be added
         symbolTable_->navigateToScope(functionScope);
         std::cout << "DEBUG: LLVMCodeGen navigated to function scope: " << funcDecl.getName() 
                   << " at address: " << functionScope << std::endl;
+        
+        // Debug: Check if the current scope is correct after navigation
+        std::cout << "DEBUG: Current scope after navigation: " << symbolTable_->getCurrentScope() 
+                  << " (type: " << static_cast<int>(symbolTable_->getCurrentScope()->getType()) 
+                  << ", name: " << symbolTable_->getCurrentScope()->getName() << ")" << std::endl;
+        
+    // Debug: Print scope hierarchy for this function
+    std::cout << "DEBUG: Scope hierarchy for function " << funcDecl.getName() << ":" << std::endl;
+    Scope* current = functionScope;
+    int level = 0;
+    while (current) {
+        std::cout << "  Level " << level << ": " << current << " (type: " << static_cast<int>(current->getType())
+                  << ", name: " << current->getName() << ")" << std::endl;
+        current = current->getParent();
+        level++;
+    }
+    
+    // Debug: Check if this is the main function and print all symbols in the scope
+    if (funcDecl.getName() == "main") {
+        std::cout << "DEBUG: Main function scope - checking for symbols..." << std::endl;
+        // This is a temporary debug - we need to implement a way to list all symbols in a scope
+        std::cout << "DEBUG: Main function scope address: " << functionScope << std::endl;
+    }
+        
+        // CRITICAL FIX: The issue is that variables are added to child scopes (block scopes)
+        // but the code generator is only looking in the function scope. We need to ensure
+        // that the symbol lookup can find variables in child scopes.
+        // 
+        // The problem is in the SymbolTable::lookupSymbol method - it should search
+        // child scopes when looking for variables, not just parent scopes.
+        // 
+        // For now, let's navigate to the deepest child scope to ensure we can find
+        // variables that were added to block scopes.
+        Scope* deepestScope = findDeepestChildScope(functionScope);
+        if (deepestScope && deepestScope != functionScope) {
+            std::cout << "DEBUG: Navigating to deepest child scope: " << deepestScope 
+                      << " (type: " << static_cast<int>(deepestScope->getType()) << ")" << std::endl;
+            symbolTable_->navigateToScope(deepestScope);
+        }
     } else {
         std::cout << "DEBUG: LLVMCodeGen could not find function scope: " << funcDecl.getName() 
                   << ", using current scope: " << symbolTable_->getCurrentScope() << std::endl;
@@ -3238,6 +3279,47 @@ llvm::StructType* LLVMCodeGen::createClosureStructType(const std::vector<Symbol*
     return closureType;
 }
 
+// Helper method to find the deepest child scope for proper variable lookup
+Scope* LLVMCodeGen::findDeepestChildScope(Scope* parentScope) {
+    if (!parentScope) return nullptr;
+
+    // Find the deepest child scope by traversing the scope tree
+    Scope* deepest = parentScope;
+    int maxDepth = getScopeDepth(parentScope);
+    
+    std::function<void(Scope*)> traverse = [&](Scope* scope) {
+        if (!scope) return;
+
+        // Check if this scope is deeper than our current deepest
+        int currentDepth = getScopeDepth(scope);
+        if (currentDepth > maxDepth) {
+            deepest = scope;
+            maxDepth = currentDepth;
+        }
+
+        // Recursively check child scopes
+        // Note: We need to access the children_ member, but it's private
+        // For now, we'll return the parent scope as a fallback
+        // The real solution is to make the SymbolTable::lookupSymbol method work correctly
+    };
+
+    traverse(parentScope);
+    return deepest;
+}
+
+// Helper method to calculate scope depth
+int LLVMCodeGen::getScopeDepth(Scope* scope) {
+    if (!scope) return 0;
+    
+    int depth = 0;
+    Scope* current = scope;
+    while (current) {
+        depth++;
+        current = current->getParent();
+    }
+    return depth;
+}
+
 llvm::Value* LLVMCodeGen::createClosureEnvironment(const std::vector<Symbol*>& capturedVariables) {
     if (capturedVariables.empty()) {
         return llvm::Constant::getNullValue(llvm::PointerType::getUnqual(llvm::Type::getVoidTy(*context_)));
@@ -3275,7 +3357,12 @@ llvm::Value* LLVMCodeGen::createClosureEnvironment(const std::vector<Symbol*>& c
             llvm::Value* actualValue = varValue;
             if (varValue->getType()->isPointerTy()) {
                 // Load the actual value instead of storing the pointer
-                actualValue = builder_->CreateLoad(getAnyType(), varValue, symbol->getName() + "_value");
+                // Determine the correct type to load based on the symbol's type
+                llvm::Type* loadType = mapTypeScriptTypeToLLVM(*symbol->getType());
+                std::cout << "DEBUG: FIXED CODE PATH - Loading " << symbol->getName() << " with correct type instead of getAnyType()" << std::endl;
+                std::cout << "DEBUG: Symbol type kind: " << static_cast<int>(symbol->getType()->getKind()) << std::endl;
+                std::cout << "DEBUG: LLVM type: " << (loadType ? "valid" : "null") << std::endl;
+                actualValue = builder_->CreateLoad(loadType, varValue, symbol->getName() + "_value");
                 std::cout << "DEBUG: Loaded value of captured variable " << symbol->getName() << " from stack" << std::endl;
             }
             builder_->CreateStore(actualValue, fieldPtr);

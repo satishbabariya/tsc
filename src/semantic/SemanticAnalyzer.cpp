@@ -965,6 +965,17 @@ void SemanticAnalyzer::visit(VariableDeclaration& node) {
     std::cout << "DEBUG: Adding variable " << node.getName() << " with type: " << varType->toString() << std::endl;
     std::cout << "DEBUG: Current scope when adding variable: " << symbolTable_->getCurrentScope() << std::endl;
     
+    // Debug: Print scope hierarchy when adding variable
+    std::cout << "DEBUG: Scope hierarchy when adding variable " << node.getName() << ":" << std::endl;
+    Scope* current = symbolTable_->getCurrentScope();
+    int level = 0;
+    while (current) {
+        std::cout << "  Level " << level << ": " << current << " (type: " << static_cast<int>(current->getType()) 
+                  << ", name: " << current->getName() << ")" << std::endl;
+        current = current->getParent();
+        level++;
+    }
+    
     if (!symbolTable_->addSymbol(node.getName(), SymbolKind::Variable, varType, 
                                  node.getLocation(), &node)) {
         reportError("Failed to declare variable: " + node.getName(), node.getLocation());

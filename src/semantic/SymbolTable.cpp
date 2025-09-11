@@ -103,11 +103,11 @@ Symbol* Scope::lookupSymbolInChildren(const String& name) const {
     return nullptr;
 }
 
-unique_ptr<Scope> Scope::createChildScope(ScopeType type, const String& name) {
+Scope* Scope::createChildScope(ScopeType type, const String& name) {
     auto child = make_unique<Scope>(type, this, name);
     Scope* childPtr = child.get();
     children_.push_back(std::move(child));
-    return make_unique<Scope>(type, this, name); // Return a new scope for the caller
+    return childPtr; // Return the actual child scope that was added
 }
 
 String Scope::toString() const {
@@ -190,14 +190,26 @@ bool SymbolTable::addSymbol(const String& name, SymbolKind kind, shared_ptr<Type
 }
 
 Symbol* SymbolTable::lookupSymbol(const String& name) const {
+    std::cout << "DEBUG: SymbolTable::lookupSymbol searching for '" << name << "' starting from scope " << currentScope_ << std::endl;
+    
     // First try the normal lookup (current scope and parents)
     Symbol* symbol = currentScope_->lookupSymbol(name);
     if (symbol) {
+        std::cout << "DEBUG: Found '" << name << "' in parent hierarchy" << std::endl;
         return symbol;
     }
     
+    std::cout << "DEBUG: Not found in parent hierarchy, searching child scopes..." << std::endl;
+    
     // If not found, also search in child scopes
-    return currentScope_->lookupSymbolInChildren(name);
+    Symbol* childSymbol = currentScope_->lookupSymbolInChildren(name);
+    if (childSymbol) {
+        std::cout << "DEBUG: Found '" << name << "' in child scopes" << std::endl;
+        return childSymbol;
+    }
+    
+    std::cout << "DEBUG: '" << name << "' not found in any scope (parent or child)" << std::endl;
+    return nullptr;
 }
 
 Symbol* SymbolTable::lookupSymbolInScope(const String& name, Scope* scope) const {

@@ -121,6 +121,10 @@ public:
     bool isCapturedVariable(const String& varName, const FunctionDeclaration& currentFunction);
     String generateClosureTypeKey(const std::vector<Symbol*>& capturedVariables) const;
     
+    // Scope navigation helpers
+    Scope* findDeepestChildScope(Scope* parentScope);
+    int getScopeDepth(Scope* scope);
+    
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;
     void visit(StringLiteral& node) override;
