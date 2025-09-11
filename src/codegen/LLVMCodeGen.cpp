@@ -248,6 +248,14 @@ void LLVMCodeGen::visit(Identifier& node) {
         }
     }
     
+    // Check if this is a built-in object like console
+    if (node.getName() == "console") {
+        // Return a placeholder value for console object
+        // The actual methods will be handled in PropertyAccess
+        setCurrentValue(createNullValue(getAnyType()));
+        return;
+    }
+    
     // If not a function, captured variable, or closure, try to load as a regular variable
     llvm::Value* value = loadVariable(node.getName(), node.getLocation());
     if (!value) {
@@ -1035,7 +1043,21 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
 }
 
 void LLVMCodeGen::visit(PropertyAccess& node) {
-    // Check if this is an enum member access first
+    std::cout << "DEBUG: PropertyAccess visitor called for property: " << node.getProperty() << std::endl;
+    
+    // Check if this is console.log access first
+    if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {
+        std::cout << "DEBUG: PropertyAccess - identifier name: " << identifier->getName() << ", property: " << node.getProperty() << std::endl;
+        if (identifier->getName() == "console" && node.getProperty() == "log") {
+            std::cout << "DEBUG: PropertyAccess - Found console.log, creating function" << std::endl;
+            // This is console.log - return a function pointer to our console.log implementation
+            llvm::Function* consoleLogFunc = getOrCreateConsoleLogFunction();
+            setCurrentValue(consoleLogFunc);
+            return;
+        }
+    }
+    
+    // Check if this is an enum member access
     // For enum member access, we don't need the object value, we need the global constant
     if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {
         // Look up the identifier to see if it's an enum type
@@ -1069,6 +1091,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         setCurrentValue(createNullValue(getAnyType()));
         return;
     }
+    
     
     // Check if this is property access on a generic type (i8*)
     if (objectValue->getType() == getAnyType()) {
@@ -2274,6 +2297,70 @@ llvm::Value* LLVMCodeGen::createDefaultValue(llvm::Type* type) {
     } else {
         return llvm::Constant::getNullValue(type);
     }
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateConsoleLogFunction() {
+    // Check if console.log function already exists
+    llvm::Function* existingFunc = module_->getFunction("console_log");
+    if (existingFunc) {
+        return existingFunc;
+    }
+    
+    // Create console.log function that takes a variable number of arguments
+    // For simplicity, we'll create a function that takes a single "any" type argument
+    std::vector<llvm::Type*> paramTypes;
+    paramTypes.push_back(getAnyType()); // Single parameter of any type
+    
+    llvm::FunctionType* funcType = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(*context_), // Return type: void
+        paramTypes,                       // Parameter types
+        false                            // Not variadic for now
+    );
+    
+    // Create the function
+    llvm::Function* consoleLogFunc = llvm::Function::Create(
+        funcType,
+        llvm::Function::ExternalLinkage,
+        "console_log",
+        *module_
+    );
+    
+    // Create a basic block for the function body
+    llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", consoleLogFunc);
+    llvm::IRBuilder<> funcBuilder(entryBlock);
+    
+    // Get the parameter
+    llvm::Value* arg = consoleLogFunc->arg_begin();
+    
+    // For now, we'll create a simple implementation that calls printf
+    // First, declare printf function
+    llvm::FunctionType* printfType = llvm::FunctionType::get(
+        llvm::Type::getInt32Ty(*context_), // Return type: int
+        {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)}, // Format string parameter
+        true // Variadic
+    );
+    
+    llvm::Function* printfFunc = llvm::Function::Create(
+        printfType,
+        llvm::Function::ExternalLinkage,
+        "printf",
+        *module_
+    );
+    
+    // Create format string for different types
+    // For simplicity, we'll assume the argument is a number and print it
+    llvm::Value* formatStr = funcBuilder.CreateGlobalString("%g\n", "format_str");
+    
+    // Cast the argument to double for printing
+    llvm::Value* doubleValue = funcBuilder.CreateBitCast(arg, getNumberType());
+    
+    // Call printf
+    funcBuilder.CreateCall(printfFunc, {formatStr, doubleValue});
+    
+    // Return void
+    funcBuilder.CreateRetVoid();
+    
+    return consoleLogFunc;
 }
 
 // Binary operations implementation
