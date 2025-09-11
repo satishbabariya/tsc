@@ -26,35 +26,7 @@ char* string_concat(char* str1, char* str2) {
     return result;
 }
 
-// ARC-based string concatenation
-// Returns a TSCObject with reference counting
-TSCObject* tsc_string_concat(TSCObject* str1, TSCObject* str2) {
-    if (!str1 || !str2) {
-        tsc_panic("Cannot concatenate NULL strings");
-        return NULL;
-    }
-    
-    // Get string data
-    char* s1 = (char*)str1->block->data;
-    char* s2 = (char*)str2->block->data;
-    
-    size_t len1 = strlen(s1);
-    size_t len2 = strlen(s2);
-    size_t total_len = len1 + len2 + 1;
-    
-    // Create new string object with ARC
-    TSCObject* result = tsc_object_new(total_len, tsc_type_string());
-    if (!result) {
-        tsc_panic("Failed to create string object");
-        return NULL;
-    }
-    
-    char* result_data = (char*)result->block->data;
-    strcpy(result_data, s1);
-    strcat(result_data, s2);
-    
-    return result;
-}
+// ARC-based string concatenation is now implemented in runtime_arc.c
 
 // Simple runtime exception handling
 void __throw_exception(void* exception_value) {

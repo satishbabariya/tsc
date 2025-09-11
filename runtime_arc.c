@@ -71,13 +71,11 @@ static TypeInfo array_type = {
 // ARC implementation
 TSCARCBlock* tsc_arc_block_new(size_t size, TypeInfo* type_info) {
     if (!type_info) {
-        tsc_panic("TypeInfo cannot be NULL");
         return NULL;
     }
     
     TSCARCBlock* block = malloc(sizeof(TSCARCBlock));
     if (!block) {
-        tsc_panic("Failed to allocate TSCARCBlock");
         return NULL;
     }
     
@@ -86,7 +84,6 @@ TSCARCBlock* tsc_arc_block_new(size_t size, TypeInfo* type_info) {
     void* data = malloc(data_size);
     if (!data) {
         free(block);
-        tsc_panic("Failed to allocate data for TSCARCBlock");
         return NULL;
     }
     
@@ -105,7 +102,6 @@ TSCARCBlock* tsc_arc_block_new(size_t size, TypeInfo* type_info) {
         if (!live_blocks) {
             free(data);
             free(block);
-            tsc_panic("Failed to allocate live_blocks array");
             return NULL;
         }
     }
@@ -159,7 +155,6 @@ TSCObject* tsc_object_new(size_t size, TypeInfo* type_info) {
     TSCObject* obj = malloc(sizeof(TSCObject));
     if (!obj) {
         tsc_arc_destroy(block);
-        tsc_panic("Failed to allocate TSCObject");
         return NULL;
     }
     
@@ -173,7 +168,6 @@ TSCObject* tsc_object_ref(TSCObject* obj) {
     // Create a new TSCObject that points to the same block
     TSCObject* new_obj = malloc(sizeof(TSCObject));
     if (!new_obj) {
-        tsc_panic("Failed to allocate TSCObject in tsc_object_ref");
         return NULL;
     }
     
@@ -245,16 +239,49 @@ void tsc_arc_cleanup_all(void) {
     // Clean up all remaining blocks
     for (size_t i = 0; i < live_count; i++) {
         TSCARCBlock* block = live_blocks[i];
-        if (block->destructor && block->data) {
+        if (block && block->destructor && block->data) {
             block->destructor(block->data);
         }
-        free(block);
+        if (block) {
+            free(block);
+        }
     }
     
     live_count = 0;
-    free(live_blocks);
-    live_blocks = NULL;
+    if (live_blocks) {
+        free(live_blocks);
+        live_blocks = NULL;
+    }
     live_capacity = 0;
+}
+
+// String operations with ARC
+TSCObject* tsc_string_concat(TSCObject* str1, TSCObject* str2) {
+    if (!str1 || !str2 || !str1->block || !str2->block) {
+        return NULL;
+    }
+    
+    char* data1 = (char*)str1->block->data;
+    char* data2 = (char*)str2->block->data;
+    
+    if (!data1 || !data2) {
+        return NULL;
+    }
+    
+    size_t len1 = strlen(data1);
+    size_t len2 = strlen(data2);
+    size_t total_len = len1 + len2 + 1;
+    
+    TSCObject* result = tsc_object_new(total_len, tsc_type_string());
+    if (!result) {
+        return NULL;
+    }
+    
+    char* result_data = (char*)result->block->data;
+    strcpy(result_data, data1);
+    strcat(result_data, data2);
+    
+    return result;
 }
 
 // Error handling
