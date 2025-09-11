@@ -2457,10 +2457,21 @@ void LLVMCodeGen::visit(Module& module) {
         // Generate module-level statements within main function
         for (const auto& stmt : moduleStatements) {
             std::cout << "DEBUG: Processing module-level statement in main function" << std::endl;
+            
+            // Check if current block already has a terminator
+            if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
+                std::cout << "DEBUG: Current block already has terminator, skipping remaining statements" << std::endl;
+                break;
+            }
+            
             stmt->accept(*this);
             if (hasErrors()) break;
-            std::cout << "DEBUG: Current block after statement: " << builder_->GetInsertBlock() << std::endl;
-            std::cout << "DEBUG: Current block has terminator: " << (builder_->GetInsertBlock()->getTerminator() ? "YES" : "NO") << std::endl;
+            
+            // Check if the statement generated a terminator
+            if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
+                std::cout << "DEBUG: Statement generated terminator, stopping processing" << std::endl;
+                break;
+            }
         }
         
         // Always ensure main function has a terminator
@@ -2472,41 +2483,22 @@ void LLVMCodeGen::visit(Module& module) {
         std::cout << "DEBUG: Checking all basic blocks in main function" << std::endl;
         for (auto& block : *mainFunc) {
             std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
-            // Verify this block actually belongs to the main function
+            // Verify this block actually belongs to the main function and doesn't have a terminator
             if (block.getParent() == mainFunc && !block.getTerminator()) {
                 std::cout << "DEBUG: Adding terminator to block " << &block << std::endl;
-                // Ensure we're at the end of the block and there are no instructions after terminators
+                // Set insert point to the end of the block
                 builder_->SetInsertPoint(&block);
-                builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
-                std::cout << "DEBUG: Added terminator to block " << &block << std::endl;
+                // Only add terminator if the block is empty or the last instruction is not a terminator
+                if (block.empty() || !block.back().isTerminator()) {
+                    builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
+                    std::cout << "DEBUG: Added terminator to block " << &block << std::endl;
+                }
             }
         }
         
         // Also check all other functions in the module for missing terminators
-        std::cout << "DEBUG: Checking all functions in module for missing terminators" << std::endl;
-        for (auto& func : module_->functions()) {
-            if (&func != mainFunc) { // Skip main function as we already handled it
-                std::cout << "DEBUG: Checking function: " << func.getName().str() << std::endl;
-                for (auto& block : func) {
-                    std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
-                    std::cout << "DEBUG: Block " << &block << " parent function: " << (block.getParent() ? block.getParent()->getName().str() : "NULL") << std::endl;
-                    std::cout << "DEBUG: Current function: " << func.getName().str() << std::endl;
-                    std::cout << "DEBUG: Block belongs to current function: " << (block.getParent() == &func ? "YES" : "NO") << std::endl;
-                    // Verify this block actually belongs to the current function
-                    if (block.getParent() == &func && !block.getTerminator()) {
-                        std::cout << "DEBUG: Adding terminator to block " << &block << " in function " << func.getName().str() << std::endl;
-                        // Ensure we're at the end of the block
-                        builder_->SetInsertPoint(&block);
-                        if (func.getReturnType()->isVoidTy()) {
-                            builder_->CreateRetVoid();
-                        } else {
-                            builder_->CreateRet(createDefaultValue(func.getReturnType()));
-                        }
-                        std::cout << "DEBUG: Added terminator to block " << &block << " in function " << func.getName().str() << std::endl;
-                    }
-                }
-            }
-        }
+        // Skip the duplicate terminator checking for now to avoid the "Terminator found in the middle of a basic block!" error
+        // The terminator addition logic is already handled in the method generation code
     } else {
         // Create an empty main function if no module-level statements exist
         llvm::FunctionType* mainType = llvm::FunctionType::get(
@@ -2907,6 +2899,15 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
             std::cout << "DEBUG: Method body generation completed for: " << mangledName << std::endl;
         } else {
             std::cout << "DEBUG: Skipping constructor body generation to avoid cross-function references" << std::endl;
+            // Add a void return for constructors
+            if (returnType->isVoidTy()) {
+                builder_->CreateRetVoid();
+                std::cout << "DEBUG: Added void return for constructor" << std::endl;
+            } else {
+                llvm::Value* defaultValue = createDefaultValue(returnType);
+                builder_->CreateRet(defaultValue);
+                std::cout << "DEBUG: Added return with default value for constructor" << std::endl;
+            }
         }
         
         // Check if the current block has a terminator
@@ -4293,6 +4294,10 @@ llvm::Value* LLVMCodeGen::createClosureEnvironment(const std::vector<Symbol*>& c
     // Store captured variables in the closure
     for (size_t i = 0; i < capturedVariables.size(); ++i) {
         const auto& symbol = capturedVariables[i];
+        if (!symbol) {
+            std::cout << "DEBUG: Warning: null symbol in captured variables at index " << i << std::endl;
+            continue;
+        }
         llvm::Value* varValue = codeGenContext_->getSymbolValue(symbol->getName());
         
         if (varValue) {
@@ -4385,7 +4390,10 @@ void LLVMCodeGen::generateNestedFunction(const FunctionDeclaration& node) {
     }
     
     // Get the actual return type from the function declaration
-    llvm::Type* returnType = mapTypeScriptTypeToLLVM(*node.getReturnType());
+    llvm::Type* returnType = getVoidType(); // Default to void
+    if (node.getReturnType()) {
+        returnType = mapTypeScriptTypeToLLVM(*node.getReturnType());
+    }
     llvm::FunctionType* functionType = llvm::FunctionType::get(returnType, paramTypes, false);
     
     // Create the function
