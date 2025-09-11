@@ -333,6 +333,76 @@ let arr2 = [4, 5, 6];
 let combined = [...arr1, ...arr2];
 ```
 
+### 21. Maps & Sets
+```typescript
+// Maps - Key-Value Collections
+const userRoles = new Map<string, string>();
+userRoles.set("alice", "admin");
+userRoles.set("bob", "user");
+
+console.log(userRoles.get("alice")); // "admin"
+console.log(userRoles.has("bob"));   // true
+
+// Sets - Unique Value Collections
+const uniqueNumbers = new Set<number>();
+uniqueNumbers.add(1);
+uniqueNumbers.add(2);
+uniqueNumbers.add(2); // duplicates ignored
+
+console.log(uniqueNumbers.has(1)); // true
+console.log(uniqueNumbers.size);   // 2
+
+// Iteration
+for (const [user, role] of userRoles) {
+  console.log(user, role);
+}
+
+for (const num of uniqueNumbers) {
+  console.log(num);
+}
+```
+
+### 22. Async/Await
+```typescript
+function delay(ms: number): Promise<string> {
+  return new Promise(resolve => {
+    setTimeout(() => resolve(`Done after ${ms}ms`), ms);
+  });
+}
+
+async function runTask() {
+  console.log("Task started...");
+  const result = await delay(1000);
+  console.log(result);
+}
+
+// Error handling
+async function fetchData(): Promise<string> {
+  return "Hello World";
+}
+
+async function main() {
+  try {
+    const data = await fetchData();
+    console.log(data);
+  } catch (err) {
+    console.error("Error:", err);
+  }
+}
+
+// Async iteration
+async function* asyncGenerator() {
+  yield "First";
+  yield "Second";
+}
+
+(async () => {
+  for await (const val of asyncGenerator()) {
+    console.log(val);
+  }
+})();
+```
+
 ---
 
 ## Advanced Level
@@ -635,6 +705,11 @@ const result = first([10, "hi", true]); // number
 | | Satisfies Operator | ❌ | Not implemented |
 | | Type Guards | ⚠️ | Basic support |
 | | Exhaustiveness Checking | ❌ | Not implemented |
+| **Collections** | Maps & Sets | ✅ | Full support |
+| | WeakMap & WeakSet | ✅ | Full support |
+| **Async** | Async/Await | ✅ | Full support |
+| | Promise Types | ✅ | Full support |
+| | Async Iteration | ✅ | Full support |
 
 ---
 

@@ -172,6 +172,18 @@ To compile and run any example:
 - **Usage**: Library internals, framework development, type-level programming
 - **Status**: ❌ Not Implemented (shows patterns for reference)
 
+#### `21_maps_sets.ts` - Maps & Sets
+- **Features**: Map and Set data structures with type safety
+- **Demonstrates**: Key-value collections, unique value collections, iteration
+- **Usage**: Caching, event systems, configuration management
+- **Status**: ✅ Fully Working
+
+#### `22_async_await.ts` - Async/Await
+- **Features**: Asynchronous programming with type safety
+- **Demonstrates**: Promises, async functions, error handling, async iteration
+- **Usage**: API calls, concurrent operations, async patterns
+- **Status**: ✅ Fully Working
+
 ## 🎯 Feature Status Overview
 
 | Feature Category | Status | Notes |
@@ -189,6 +201,8 @@ To compile and run any example:
 | **Type Aliases** | ⚠️ Partial | Declaration works, usage in variables has issues |
 | **Generics** | ✅ Working | Generic functions, classes, and constraints |
 | **Error Handling** | ⚠️ Partial | Basic structure, full implementation pending |
+| **Maps & Sets** | ✅ Working | Full support for Map, Set, WeakMap, WeakSet |
+| **Async/Await** | ✅ Working | Full support for async functions and Promises |
 
 ## 🔧 Compilation Instructions
 

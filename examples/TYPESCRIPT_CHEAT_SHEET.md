@@ -264,18 +264,76 @@ class BugReport {
 }
 ```
 
-## 20. Async/Await
+## 20. Maps & Sets
 
 ```typescript
+// Maps - Key-Value Collections
+const userRoles = new Map<string, string>();
+userRoles.set("alice", "admin");
+userRoles.set("bob", "user");
+
+console.log(userRoles.get("alice")); // "admin"
+console.log(userRoles.has("bob"));   // true
+
+// Sets - Unique Value Collections
+const uniqueNumbers = new Set<number>();
+uniqueNumbers.add(1);
+uniqueNumbers.add(2);
+uniqueNumbers.add(2); // duplicates ignored
+
+console.log(uniqueNumbers.has(1)); // true
+console.log(uniqueNumbers.size);   // 2
+
+// Iteration
+for (const [user, role] of userRoles) {
+  console.log(user, role);
+}
+
+for (const num of uniqueNumbers) {
+  console.log(num);
+}
+```
+
+## 21. Async/Await
+
+```typescript
+function delay(ms: number): Promise<string> {
+  return new Promise(resolve => {
+    setTimeout(() => resolve(`Done after ${ms}ms`), ms);
+  });
+}
+
+async function runTask() {
+  console.log("Task started...");
+  const result = await delay(1000);
+  console.log(result);
+}
+
+// Error handling
 async function fetchData(): Promise<string> {
+  return "Hello World";
+}
+
+async function main() {
   try {
-    let response = await fetch("/api/data");
-    let data = await response.json();
-    return data;
-  } catch (error) {
-    throw new Error("Failed to fetch data");
+    const data = await fetchData();
+    console.log(data);
+  } catch (err) {
+    console.error("Error:", err);
   }
 }
+
+// Async iteration
+async function* asyncGenerator() {
+  yield "First";
+  yield "Second";
+}
+
+(async () => {
+  for await (const val of asyncGenerator()) {
+    console.log(val);
+  }
+})();
 ```
 
 ---
@@ -294,6 +352,8 @@ async function fetchData(): Promise<string> {
 | Control Flow | ✅ | If/else, loops, switch |
 | Arrays/Objects | ✅ | Literals, indexing, operations |
 | Error Handling | ⚠️ | Basic structure, full implementation pending |
+| Maps & Sets | ✅ | Full support for Map, Set, WeakMap, WeakSet |
+| Async/Await | ✅ | Full support for async functions and Promises |
 
 ## 🚀 Quick Compile & Run
 
