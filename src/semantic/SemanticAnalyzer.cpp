@@ -1053,19 +1053,21 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
 }
 
 void SemanticAnalyzer::visit(TypeParameter& node) {
-    // Create type parameter type with variance information
-    auto typeParam = typeSystem_->createTypeParameter(node.getName(), node.getConstraint());
+    // Resolve constraint first if present
+    shared_ptr<Type> resolvedConstraint = nullptr;
+    if (node.hasConstraint()) {
+        resolvedConstraint = resolveType(node.getConstraint());
+        if (resolvedConstraint->getKind() == TypeKind::Error) {
+            reportError("Invalid type parameter constraint: " + node.getConstraint()->toString(), node.getLocation());
+            resolvedConstraint = nullptr;
+        }
+    }
+    
+    // Create type parameter type with resolved constraint
+    auto typeParam = typeSystem_->createTypeParameter(node.getName(), resolvedConstraint);
     
     // Add type parameter to symbol table as a type
     declareSymbol(node.getName(), SymbolKind::Type, typeParam, node.getLocation());
-    
-    // Validate type parameter constraints if present
-    if (node.hasConstraint()) {
-        auto constraint = resolveType(node.getConstraint());
-        if (constraint->getKind() == TypeKind::Error) {
-            reportError("Invalid type parameter constraint: " + node.getConstraint()->toString(), node.getLocation());
-        }
-    }
     
     // Set the node's type (though TypeParameter isn't an Expression, this maintains consistency)
     if (auto expr = dynamic_cast<Expression*>(&node)) {

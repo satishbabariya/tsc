@@ -297,11 +297,11 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
             else if (match(TokenType::Abstract)) isAbstract = true;
         }
         
-        if (check(TokenType::Identifier)) {
+        if (check(TokenType::Identifier) || check(TokenType::Constructor)) {
             Token memberToken = advance();
             String memberName = memberToken.getStringValue();
             
-            if (memberName == "constructor") {
+            if (memberName == "constructor" || memberToken.getType() == TokenType::Constructor) {
                 // Parse constructor
                 consume(TokenType::LeftParen, "Expected '(' after constructor");
                 auto parameters = parseMethodParameterList();
