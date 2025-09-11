@@ -404,7 +404,16 @@ void LLVMCodeGen::visit(NewExpression& node) {
         
         llvm::Function* constructorFunc = module_->getFunction(constructorName);
         if (constructorFunc) {
-            builder_->CreateCall(constructorFunc, constructorArgs);
+            // Ensure we're in the correct function context before calling the constructor
+            if (codeGenContext_->getCurrentFunction()) {
+                // We're in a function context, call the constructor normally
+                builder_->CreateCall(constructorFunc, constructorArgs);
+            } else {
+                // We're in global context, this shouldn't happen for NewExpression
+                reportError("NewExpression called in global context", node.getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
         } else {
             // If no constructor found, just initialize with default values
             // This is a simplified approach for now
@@ -2604,9 +2613,12 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
     // Add method parameters with type substitution
     for (const auto& param : method.getParameters()) {
         llvm::Type* paramType = getAnyType(); // Default fallback
+        std::cout << "DEBUG: Processing parameter: " << param.name << ", type: " << (param.type ? param.type->toString() : "null") << std::endl;
         if (param.type) {
+            std::cout << "DEBUG: Parameter type kind: " << static_cast<int>(param.type->getKind()) << std::endl;
             // Implement proper type parameter substitution
             if (param.type->getKind() == TypeKind::TypeParameter) {
+                std::cout << "DEBUG: Found type parameter: " << param.name << std::endl;
                 // This is a type parameter, substitute with the actual type argument
                 auto typeParam = dynamic_cast<const TypeParameter*>(param.type.get());
                 if (typeParam) {
@@ -2622,6 +2634,7 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
                         for (size_t i = 0; i < typeParams.size() && i < typeArgs.size(); ++i) {
                             if (typeParams[i]->getName() == paramName) {
                                 paramType = convertTypeToLLVM(typeArgs[i]);
+                                std::cout << "DEBUG: Type parameter substitution: " << paramName << " -> " << typeArgs[i]->toString() << " -> " << (paramType ? "success" : "failed") << std::endl;
                                 break;
                             }
                         }
