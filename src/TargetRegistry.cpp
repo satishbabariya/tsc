@@ -29,56 +29,82 @@ void TargetRegistry::initializeAllTargets() {
         std::cout << "Detected host target triple: " << detectedTriple << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Warning: Failed to detect host target triple: " << e.what() << std::endl;
-        detectedTriple = "x86_64-unknown-linux-gnu"; // Default fallback
+        detectedTriple = "unknown-unknown-unknown"; // Generic fallback
     }
     
     // Step 2: Initialize LLVM targets
     std::cout << "Initializing LLVM targets..." << std::endl;
     
     try {
-        // Initialize native target
-        llvm::InitializeNativeTarget();
-        llvm::InitializeNativeTargetAsmParser();
-        llvm::InitializeNativeTargetAsmPrinter();
-        llvm::InitializeNativeTargetDisassembler();
-        std::cout << "Successfully initialized native target" << std::endl;
+        // Initialize all available targets, not just native
+        llvm::InitializeAllTargetInfos();
+        llvm::InitializeAllTargets();
+        llvm::InitializeAllTargetMCs();
+        llvm::InitializeAllAsmParsers();
+        llvm::InitializeAllAsmPrinters();
+        llvm::InitializeAllDisassemblers();
+        std::cout << "Successfully initialized all LLVM targets" << std::endl;
     } catch (const std::exception& e) {
-        std::cerr << "Warning: Native target initialization failed: " << e.what() << std::endl;
+        std::cerr << "Warning: Target initialization failed: " << e.what() << std::endl;
     }
     
-    // Step 3: Create our own target registry for additional targets
+    // Step 3: Create cross-platform target registry
+    // Use generic triples that work across all platforms
     TargetDetails x86Target;
-    x86Target.triple = "x86_64-unknown-linux-gnu";
+    x86Target.triple = "x86_64-unknown-unknown";
     x86Target.arch = parseArchitecture("x86_64");
-    x86Target.os = parseOS("linux");
+    x86Target.os = parseOS("unknown");
     x86Target.vendor = parseVendor("unknown");
-    x86Target.environment = "gnu";
+    x86Target.environment = "unknown";
     x86Target.isSupported = true;
     x86Target.dataLayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128";
     x86Target.supportedFeatures = {"generic"};
     targets_.push_back(x86Target);
     
     TargetDetails aarch64Target;
-    aarch64Target.triple = "aarch64-unknown-linux-gnu";
+    aarch64Target.triple = "aarch64-unknown-unknown";
     aarch64Target.arch = parseArchitecture("aarch64");
-    aarch64Target.os = parseOS("linux");
+    aarch64Target.os = parseOS("unknown");
     aarch64Target.vendor = parseVendor("unknown");
-    aarch64Target.environment = "gnu";
+    aarch64Target.environment = "unknown";
     aarch64Target.isSupported = true;
     aarch64Target.dataLayout = "e-m:e-i8:8-i16:16-i32:32-i64:64-i128:128-f32:32-f64:64-v128:128-n32:64-S128";
     aarch64Target.supportedFeatures = {"generic"};
     targets_.push_back(aarch64Target);
     
     TargetDetails armTarget;
-    armTarget.triple = "arm-unknown-linux-gnueabihf";
+    armTarget.triple = "arm-unknown-unknown";
     armTarget.arch = parseArchitecture("arm");
-    armTarget.os = parseOS("linux");
+    armTarget.os = parseOS("unknown");
     armTarget.vendor = parseVendor("unknown");
-    armTarget.environment = "gnueabihf";
+    armTarget.environment = "unknown";
     armTarget.isSupported = true;
     armTarget.dataLayout = "e-m:e-p:32:32-Fi8-i64:64-v128:64:128-a:0:32-n32-S64";
     armTarget.supportedFeatures = {"generic"};
     targets_.push_back(armTarget);
+    
+    // Add more cross-platform targets
+    TargetDetails riscvTarget;
+    riscvTarget.triple = "riscv64-unknown-unknown";
+    riscvTarget.arch = parseArchitecture("riscv64");
+    riscvTarget.os = parseOS("unknown");
+    riscvTarget.vendor = parseVendor("unknown");
+    riscvTarget.environment = "unknown";
+    riscvTarget.isSupported = true;
+    riscvTarget.dataLayout = "e-m:e-p:64:64-i64:64-i128:128-n32:64-S128";
+    riscvTarget.supportedFeatures = {"generic"};
+    targets_.push_back(riscvTarget);
+    
+    TargetDetails wasmTarget;
+    wasmTarget.triple = "wasm32-unknown-unknown";
+    wasmTarget.arch = parseArchitecture("wasm32");
+    wasmTarget.os = parseOS("unknown");
+    wasmTarget.vendor = parseVendor("unknown");
+    wasmTarget.environment = "unknown";
+    wasmTarget.isSupported = true;
+    wasmTarget.dataLayout = "e-m:e-p:32:32-i64:64-n32:64-S128";
+    wasmTarget.supportedFeatures = {"generic"};
+    targets_.push_back(wasmTarget);
     
     initialized_ = true;
     
