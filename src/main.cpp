@@ -19,6 +19,7 @@ void printUsage(const char* programName) {
     std::cout << "  -g, --debug             Generate debug information\n";
     std::cout << "  --target <triple>       Target triple (e.g., x86_64-pc-linux-gnu)\n";
     std::cout << "  --list-targets          List all supported target triples\n";
+    std::cout << "  --target-status         Show detailed target initialization status\n";
     std::cout << "  --emit-llvm             Emit LLVM IR instead of object file\n";
     std::cout << "  --emit-obj              Emit object file (default)\n";
     std::cout << "  --print-ast             Print the Abstract Syntax Tree\n";
@@ -87,6 +88,43 @@ int main(int argc, char* argv[]) {
                         std::cout << " - " << target.os.description << ")\n";
                     }
                 }
+                return 0;
+            } else if (arg == "--target-status") {
+                auto& registry = TargetRegistry::getInstance();
+                registry.initializeAllTargets();
+                
+                auto status = registry.getInitializationStatus();
+                
+                std::cout << "=== TSC Compiler Target Status ===" << std::endl;
+                std::cout << "Initialization: " << (status.success ? "SUCCESS" : "FAILED") << std::endl;
+                std::cout << "Host Triple: " << status.hostTriple << std::endl;
+                std::cout << "Total Targets: " << status.totalTargets << std::endl;
+                std::cout << "Supported Targets: " << status.supportedTargets << std::endl;
+                std::cout << "Cross-Compilation: " << (registry.supportsCrossCompilation() ? "SUPPORTED" : "NOT SUPPORTED") << std::endl;
+                
+                if (!status.availableArchitectures.empty()) {
+                    std::cout << "Available Architectures: ";
+                    for (size_t i = 0; i < status.availableArchitectures.size(); ++i) {
+                        if (i > 0) std::cout << ", ";
+                        std::cout << status.availableArchitectures[i];
+                    }
+                    std::cout << std::endl;
+                }
+                
+                if (!status.availableOSes.empty()) {
+                    std::cout << "Available Operating Systems: ";
+                    for (size_t i = 0; i < status.availableOSes.size(); ++i) {
+                        if (i > 0) std::cout << ", ";
+                        std::cout << status.availableOSes[i];
+                    }
+                    std::cout << std::endl;
+                }
+                
+                if (!status.errorMessage.empty()) {
+                    std::cout << "Error: " << status.errorMessage << std::endl;
+                }
+                
+                std::cout << "=================================" << std::endl;
                 return 0;
             } else if (arg == "--emit-llvm") {
                 emitLLVM = true;
