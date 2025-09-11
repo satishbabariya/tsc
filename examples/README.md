@@ -16,6 +16,26 @@ To compile and run any example:
 
 ## 📚 Example Categories
 
+### 0. Quick Reference
+
+#### `00_quick_start.ts` - Quick Start Example
+- **Features**: Essential TypeScript syntax patterns
+- **Demonstrates**: All basic features in one comprehensive example
+- **Usage**: Perfect for testing the compiler quickly
+- **Status**: ✅ Fully Working
+
+#### `TYPESCRIPT_CHEAT_SHEET.md` - Single-Page Cheat Sheet
+- **Features**: Essential TypeScript syntax reference
+- **Demonstrates**: 20 core syntax patterns with TSC status
+- **Usage**: Quick reference while coding
+- **Status**: ✅ Complete
+
+#### `TYPESCRIPT_SYNTAX_BIBLE.md` - Complete Syntax Reference
+- **Features**: Beginner to Pro TypeScript syntax
+- **Demonstrates**: 30+ features across all levels
+- **Usage**: Comprehensive learning and reference guide
+- **Status**: ✅ Complete
+
 ### 1. Basic Language Features
 
 #### `01_basic_types.ts` - Basic Types and Variables
@@ -103,6 +123,36 @@ To compile and run any example:
 - **Demonstrates**: Complex type definitions, generic services, event systems
 - **Usage**: Business logic, data processing, configuration management
 - **Status**: ✅ Fully Working (depends on individual feature status)
+
+#### `14_template_literals.ts` - Template Literals
+- **Features**: Template literal strings and interpolation
+- **Demonstrates**: String interpolation, multi-line strings, expressions
+- **Usage**: Dynamic string generation, HTML templates, SQL queries
+- **Status**: ✅ Fully Working
+
+#### `15_destructuring.ts` - Destructuring
+- **Features**: Object and array destructuring patterns
+- **Demonstrates**: Array destructuring, object destructuring, rest/spread
+- **Usage**: Function parameters, variable assignment, data extraction
+- **Status**: ✅ Fully Working
+
+#### `16_modules.ts` - Modules
+- **Features**: Module patterns and namespace concepts
+- **Demonstrates**: Namespace patterns, module exports, dependency injection
+- **Usage**: Code organization, encapsulation, reusable components
+- **Status**: ⚠️ Partial (basic patterns work, full module system pending)
+
+#### `17_intermediate_features.ts` - Intermediate Features
+- **Features**: Optional parameters, readonly, utility types, keyof
+- **Demonstrates**: Advanced parameter patterns, type utilities, mapped types
+- **Usage**: API design, type safety, advanced generic patterns
+- **Status**: ⚠️ Partial (some features may not be fully supported)
+
+#### `18_advanced_features.ts` - Advanced Features
+- **Features**: Conditional types, infer, recursive types, branded types
+- **Demonstrates**: Advanced type manipulation, complex generic patterns
+- **Usage**: Type-level programming, advanced type safety
+- **Status**: ❌ Not Implemented (shows patterns for reference)
 
 ## 🎯 Feature Status Overview
 
