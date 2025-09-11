@@ -2477,7 +2477,16 @@ void LLVMCodeGen::visit(Module& module) {
         // Always ensure main function has a terminator
         std::cout << "DEBUG: Checking terminator in main function" << std::endl;
         std::cout << "DEBUG: Current block: " << builder_->GetInsertBlock() << std::endl;
-        std::cout << "DEBUG: Current block has terminator: " << (builder_->GetInsertBlock()->getTerminator() ? "YES" : "NO") << std::endl;
+        if (builder_->GetInsertBlock()) {
+            std::cout << "DEBUG: Current block name: " << builder_->GetInsertBlock()->getName().str() << std::endl;
+            std::cout << "DEBUG: Current block parent function: " << (builder_->GetInsertBlock()->getParent() ? builder_->GetInsertBlock()->getParent()->getName().str() : "null") << std::endl;
+            std::cout << "DEBUG: Current block has terminator: " << (builder_->GetInsertBlock()->getTerminator() ? "YES" : "NO") << std::endl;
+            if (builder_->GetInsertBlock()->getTerminator()) {
+                std::cout << "DEBUG: Current block terminator type: " << builder_->GetInsertBlock()->getTerminator()->getOpcodeName() << std::endl;
+            }
+        } else {
+            std::cout << "DEBUG: Current block is null" << std::endl;
+        }
         
         // Check all basic blocks in the main function
         std::cout << "DEBUG: Checking all basic blocks in main function" << std::endl;
@@ -2856,6 +2865,7 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
     // Generate function body if present
     if (method.getBody()) {
         llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", function);
+        std::cout << "DEBUG: Created entry block " << entryBlock << " for function " << mangledName << std::endl;
         builder_->SetInsertPoint(entryBlock);
         
         // Save current function context
@@ -2900,13 +2910,36 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
         } else {
             std::cout << "DEBUG: Skipping constructor body generation to avoid cross-function references" << std::endl;
             // Add a void return for constructors
-            if (returnType->isVoidTy()) {
-                builder_->CreateRetVoid();
-                std::cout << "DEBUG: Added void return for constructor" << std::endl;
+            std::cout << "DEBUG: Current insert point before constructor return: " << builder_->GetInsertBlock() << std::endl;
+            
+            // Make sure we're inserting into the correct block
+            llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
+            if (!currentBlock) {
+                std::cout << "ERROR: No current block for constructor terminator!" << std::endl;
+                return;
+            }
+            
+            // Check if block already has a terminator
+            if (currentBlock->getTerminator()) {
+                std::cout << "DEBUG: Constructor block already has terminator, skipping" << std::endl;
             } else {
-                llvm::Value* defaultValue = createDefaultValue(returnType);
-                builder_->CreateRet(defaultValue);
-                std::cout << "DEBUG: Added return with default value for constructor" << std::endl;
+                std::cout << "DEBUG: Adding terminator to constructor block" << std::endl;
+                if (returnType->isVoidTy()) {
+                    builder_->CreateRetVoid();
+                    std::cout << "DEBUG: Added void return for constructor" << std::endl;
+                } else {
+                    llvm::Value* defaultValue = createDefaultValue(returnType);
+                    builder_->CreateRet(defaultValue);
+                    std::cout << "DEBUG: Added return with default value for constructor" << std::endl;
+                }
+            }
+            
+            std::cout << "DEBUG: Current insert point after constructor return: " << builder_->GetInsertBlock() << std::endl;
+            if (builder_->GetInsertBlock()) {
+                std::cout << "DEBUG: Current block has terminator after return: " << (builder_->GetInsertBlock()->getTerminator() ? "YES" : "NO") << std::endl;
+                if (builder_->GetInsertBlock()->getTerminator()) {
+                    std::cout << "DEBUG: Terminator type: " << builder_->GetInsertBlock()->getTerminator()->getOpcodeName() << std::endl;
+                }
             }
         }
         
@@ -2921,9 +2954,12 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
         // Ensure all basic blocks in the function have terminators
         std::cout << "DEBUG: Checking all basic blocks in function " << mangledName << std::endl;
         for (auto& block : *function) {
-            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+            std::cout << "DEBUG: Block " << &block << " name: " << block.getName().str() << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+            if (block.getTerminator()) {
+                std::cout << "DEBUG: Block " << &block << " terminator type: " << block.getTerminator()->getOpcodeName() << std::endl;
+            }
             if (!block.getTerminator()) {
-                std::cout << "DEBUG: Adding terminator to block " << &block << std::endl;
+                std::cout << "DEBUG: Adding terminator to block " << &block << " (name: " << block.getName().str() << ")" << std::endl;
                 builder_->SetInsertPoint(&block);
                 if (returnType->isVoidTy()) {
                     builder_->CreateRetVoid();
