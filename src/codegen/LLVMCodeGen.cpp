@@ -2616,13 +2616,19 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
         std::cout << "DEBUG: Processing parameter: " << param.name << ", type: " << (param.type ? param.type->toString() : "null") << std::endl;
         if (param.type) {
             std::cout << "DEBUG: Parameter type kind: " << static_cast<int>(param.type->getKind()) << std::endl;
+            std::cout << "DEBUG: Parameter type pointer: " << param.type.get() << std::endl;
+            std::cout << "DEBUG: Parameter type use_count: " << param.type.use_count() << std::endl;
+            
             // Implement proper type parameter substitution
-            if (param.type->getKind() == TypeKind::TypeParameter) {
+            // Handle both TypeParameter and Unresolved types that represent type parameters
+            bool isTypeParameter = (param.type->getKind() == TypeKind::TypeParameter) || 
+                                  (param.type->getKind() == TypeKind::Unresolved && param.type->toString() == "T");
+            
+            if (isTypeParameter) {
                 std::cout << "DEBUG: Found type parameter: " << param.name << std::endl;
                 // This is a type parameter, substitute with the actual type argument
-                auto typeParam = dynamic_cast<const TypeParameter*>(param.type.get());
-                if (typeParam) {
-                    String paramName = typeParam->getName();
+                String paramName = param.type->toString(); // Use the string representation
+                
                 // Find the corresponding type argument
                 auto typeArgs = genericType.getTypeArguments();
                 auto baseType = genericType.getBaseType();
@@ -2640,7 +2646,6 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
                         }
                     }
                 }
-                }
             } else {
                 // Regular type, convert to LLVM
                 paramType = convertTypeToLLVM(param.type);
@@ -2653,24 +2658,26 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
     llvm::Type* returnType = getVoidType(); // Default to void
     if (method.getReturnType()) {
         // Implement proper type parameter substitution
-        if (method.getReturnType()->getKind() == TypeKind::TypeParameter) {
+        // Handle both TypeParameter and Unresolved types that represent type parameters
+        bool isTypeParameter = (method.getReturnType()->getKind() == TypeKind::TypeParameter) || 
+                              (method.getReturnType()->getKind() == TypeKind::Unresolved && method.getReturnType()->toString() == "T");
+        
+        if (isTypeParameter) {
             // This is a type parameter, substitute with the actual type argument
-            auto typeParam = dynamic_cast<const TypeParameter*>(method.getReturnType().get());
-            if (typeParam) {
-                String paramName = typeParam->getName();
-                // Find the corresponding type argument
-                auto typeArgs = genericType.getTypeArguments();
-                auto baseType = genericType.getBaseType();
-                if (auto classType = dynamic_cast<const ClassType*>(baseType.get())) {
-                    auto classDecl = classType->getDeclaration();
-                    if (classDecl) {
-                        const auto& typeParams = classDecl->getTypeParameters();
-                    
-                        for (size_t i = 0; i < typeParams.size() && i < typeArgs.size(); ++i) {
-                            if (typeParams[i]->getName() == paramName) {
-                                returnType = convertTypeToLLVM(typeArgs[i]);
-                                break;
-                            }
+            String paramName = method.getReturnType()->toString(); // Use the string representation
+            
+            // Find the corresponding type argument
+            auto typeArgs = genericType.getTypeArguments();
+            auto baseType = genericType.getBaseType();
+            if (auto classType = dynamic_cast<const ClassType*>(baseType.get())) {
+                auto classDecl = classType->getDeclaration();
+                if (classDecl) {
+                    const auto& typeParams = classDecl->getTypeParameters();
+                
+                    for (size_t i = 0; i < typeParams.size() && i < typeArgs.size(); ++i) {
+                        if (typeParams[i]->getName() == paramName) {
+                            returnType = convertTypeToLLVM(typeArgs[i]);
+                            break;
                         }
                     }
                 }

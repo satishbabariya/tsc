@@ -1609,6 +1609,10 @@ void SemanticAnalyzer::visit(MethodDeclaration& node) {
         funcParam.name = param.name;
         // Resolve parameter types to handle generic type parameters
         funcParam.type = param.type ? resolveType(param.type) : typeSystem_->getAnyType();
+        std::cout << "DEBUG: MethodDeclaration resolved parameter '" << param.name << "' type: " << (funcParam.type ? funcParam.type->toString() : "null") << std::endl;
+        if (funcParam.type) {
+            std::cout << "DEBUG: MethodDeclaration parameter type kind: " << static_cast<int>(funcParam.type->getKind()) << std::endl;
+        }
         funcParam.optional = param.optional;
         paramTypes.push_back(funcParam);
         
@@ -1914,6 +1918,14 @@ shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
     
     // Look up the type name in the symbol table
     Symbol* symbol = resolveSymbol(typeName, SourceLocation());
+    std::cout << "DEBUG: resolveType looking up '" << typeName << "': " << (symbol ? "found" : "not found") << std::endl;
+    if (symbol) {
+        std::cout << "DEBUG: Symbol kind: " << static_cast<int>(symbol->getKind()) << std::endl;
+        std::cout << "DEBUG: Symbol type: " << (symbol->getType() ? symbol->getType()->toString() : "null") << std::endl;
+        if (symbol->getType()) {
+            std::cout << "DEBUG: Symbol type kind: " << static_cast<int>(symbol->getType()->getKind()) << std::endl;
+        }
+    }
     if (symbol && (symbol->getKind() == SymbolKind::Type || symbol->getKind() == SymbolKind::Class)) {
         auto resolvedType = symbol->getType();
         
