@@ -2431,12 +2431,18 @@ void LLVMCodeGen::visit(Module& module) {
         
         // Generate module-level statements within main function
         for (const auto& stmt : moduleStatements) {
+            std::cout << "DEBUG: Processing module-level statement in main function" << std::endl;
             stmt->accept(*this);
             if (hasErrors()) break;
+            std::cout << "DEBUG: Current block after statement: " << builder_->GetInsertBlock() << std::endl;
+            std::cout << "DEBUG: Current block has terminator: " << (builder_->GetInsertBlock()->getTerminator() ? "YES" : "NO") << std::endl;
         }
         
-        // Return 0 from main
-        builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
+        // Ensure the current block has a terminator before adding the return
+        if (!builder_->GetInsertBlock()->getTerminator()) {
+            // Return 0 from main
+            builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
+        }
     } else {
         // Create an empty main function if no module-level statements exist
         llvm::FunctionType* mainType = llvm::FunctionType::get(
