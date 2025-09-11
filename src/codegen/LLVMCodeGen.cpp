@@ -2670,12 +2670,51 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
             std::cout << "DEBUG: No current block after method body generation" << std::endl;
         }
         
+        // Ensure all basic blocks in the function have terminators
+        std::cout << "DEBUG: Checking all basic blocks in function " << mangledName << std::endl;
+        for (auto& block : *function) {
+            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+            if (!block.getTerminator()) {
+                std::cout << "DEBUG: Adding terminator to block " << &block << std::endl;
+                builder_->SetInsertPoint(&block);
+                if (returnType->isVoidTy()) {
+                    builder_->CreateRetVoid();
+                } else {
+                    llvm::Value* defaultValue = createDefaultValue(returnType);
+                    builder_->CreateRet(defaultValue);
+                }
+                std::cout << "DEBUG: Added terminator to block " << &block << std::endl;
+            }
+        }
+        
+        // Double-check all blocks have terminators
+        std::cout << "DEBUG: Double-checking all basic blocks in function " << mangledName << std::endl;
+        for (auto& block : *function) {
+            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+            if (!block.getTerminator()) {
+                std::cout << "ERROR: Block " << &block << " still has no terminator after fix!" << std::endl;
+            }
+        }
+        
         // Ensure function has a return
-        if (!builder_->GetInsertBlock()->getTerminator()) {
+        llvm::BasicBlock* insertBlock = builder_->GetInsertBlock();
+        std::cout << "DEBUG: Insert block before return check: " << (insertBlock ? "present" : "null") << std::endl;
+        if (insertBlock) {
+            std::cout << "DEBUG: Insert block has terminator: " << (insertBlock->getTerminator() ? "YES" : "NO") << std::endl;
+        }
+        
+        if (!insertBlock || !insertBlock->getTerminator()) {
             std::cout << "DEBUG: Adding return statement to method: " << mangledName << std::endl;
             if (returnType->isVoidTy()) {
                 builder_->CreateRetVoid();
                 std::cout << "DEBUG: Added void return" << std::endl;
+                
+                // Check the block after adding the return
+                llvm::BasicBlock* blockAfterReturn = builder_->GetInsertBlock();
+                std::cout << "DEBUG: Block after return: " << (blockAfterReturn ? "present" : "null") << std::endl;
+                if (blockAfterReturn) {
+                    std::cout << "DEBUG: Block after return has terminator: " << (blockAfterReturn->getTerminator() ? "YES" : "NO") << std::endl;
+                }
             } else {
                 llvm::Value* defaultValue = createDefaultValue(returnType);
                 builder_->CreateRet(defaultValue);
