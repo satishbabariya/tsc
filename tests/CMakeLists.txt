@@ -20,6 +20,10 @@ if(GTest_FOUND)
         test_ast_validation.cpp
         test_integration_control_flow.cpp
         test_system_end_to_end.cpp
+        # Advanced generics semantic analysis tests
+        test_advanced_generics_semantic.cpp
+        test_integration_advanced_generics.cpp
+        test_regression_advanced_generics.cpp
     )
     
     target_link_libraries(tsc_tests

@@ -1,4 +1,5 @@
 #include "tsc/semantic/SemanticAnalyzer.h"
+#include "tsc/semantic/GenericConstraintChecker.h"
 #include <iostream>
 
 namespace tsc {
@@ -8,6 +9,7 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     symbolTable_ = make_unique<SymbolTable>();
     typeSystem_ = make_unique<TypeSystem>();
     context_ = make_unique<SemanticContext>(*symbolTable_, *typeSystem_, diagnostics_);
+    constraintChecker_ = make_unique<GenericConstraintChecker>(diagnostics_, *typeSystem_);
     
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
     
@@ -246,6 +248,12 @@ void SemanticAnalyzer::visit(NewExpression& node) {
                             return;
                         }
                         resolvedTypeArgs.push_back(resolvedType);
+                    }
+                    
+                    // Validate generic instantiation with constraint checking
+                    if (!constraintChecker_->validateGenericInstantiation(classType, resolvedTypeArgs, node.getLocation())) {
+                        setExpressionType(node, typeSystem_->getErrorType());
+                        return;
                     }
                     
                     // Create a generic type instance (e.g., Container<number>)
@@ -1045,11 +1053,19 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
 }
 
 void SemanticAnalyzer::visit(TypeParameter& node) {
-    // Create type parameter type
+    // Create type parameter type with variance information
     auto typeParam = typeSystem_->createTypeParameter(node.getName(), node.getConstraint());
     
     // Add type parameter to symbol table as a type
     declareSymbol(node.getName(), SymbolKind::Type, typeParam, node.getLocation());
+    
+    // Validate type parameter constraints if present
+    if (node.hasConstraint()) {
+        auto constraint = resolveType(node.getConstraint());
+        if (constraint->getKind() == TypeKind::Error) {
+            reportError("Invalid type parameter constraint: " + node.getConstraint()->toString(), node.getLocation());
+        }
+    }
     
     // Set the node's type (though TypeParameter isn't an Expression, this maintains consistency)
     if (auto expr = dynamic_cast<Expression*>(&node)) {
