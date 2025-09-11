@@ -1,6 +1,8 @@
 #include "tsc/parser/Parser.h"
 #include "tsc/parser/VectorTokenStream.h"
 #include "tsc/utils/DiagnosticEngine.h"
+#include "tsc/utils/EnhancedDiagnosticEngine.h"
+#include "tsc/utils/ASTAllocator.h"
 #include "tsc/lexer/Lexer.h"
 #include "tsc/semantic/TypeSystem.h"
 #include <unordered_map>
@@ -26,7 +28,11 @@ static const std::unordered_map<TokenType, int> operatorPrecedence = {
     {TokenType::Slash, 12},
 };
 
-Parser::Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) : diagnostics_(diagnostics), typeSystem_(typeSystem) {}
+Parser::Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) 
+    : diagnostics_(diagnostics), enhancedDiagnostics_(nullptr), typeSystem_(typeSystem) {}
+
+Parser::Parser(utils::EnhancedDiagnosticEngine& enhancedDiagnostics, const TypeSystem& typeSystem) 
+    : diagnostics_(enhancedDiagnostics), enhancedDiagnostics_(&enhancedDiagnostics), typeSystem_(typeSystem) {}
 
 Parser::~Parser() = default;
 
@@ -1337,15 +1343,20 @@ void Parser::reportError(const String& message, const SourceLocation& location,
                         const String& context, const String& suggestion) {
     SourceLocation loc = location.isValid() ? location : getCurrentLocation();
     
-    // Enhanced error reporting with context and suggestions
-    if (!context.empty()) {
-        diagnostics_.error(message + " (Context: " + context + ")", loc);
+    // Use enhanced diagnostic engine if available
+    if (enhancedDiagnostics_) {
+        enhancedDiagnostics_->error(message, loc, context, suggestion);
     } else {
-        diagnostics_.error(message, loc);
-    }
-    
-    if (!suggestion.empty()) {
-        diagnostics_.warning("Suggestion: " + suggestion, loc);
+        // Fallback to basic diagnostic engine
+        if (!context.empty()) {
+            diagnostics_.error(message + " (Context: " + context + ")", loc);
+        } else {
+            diagnostics_.error(message, loc);
+        }
+        
+        if (!suggestion.empty()) {
+            diagnostics_.warning("Suggestion: " + suggestion, loc);
+        }
     }
 }
 
@@ -1353,14 +1364,20 @@ void Parser::reportWarning(const String& message, const SourceLocation& location
                           const String& context, const String& suggestion) {
     SourceLocation loc = location.isValid() ? location : getCurrentLocation();
     
-    if (!context.empty()) {
-        diagnostics_.warning(message + " (Context: " + context + ")", loc);
+    // Use enhanced diagnostic engine if available
+    if (enhancedDiagnostics_) {
+        enhancedDiagnostics_->warning(message, loc, context, suggestion);
     } else {
-        diagnostics_.warning(message, loc);
-    }
-    
-    if (!suggestion.empty()) {
-        diagnostics_.warning("Suggestion: " + suggestion, loc);
+        // Fallback to basic diagnostic engine
+        if (!context.empty()) {
+            diagnostics_.warning(message + " (Context: " + context + ")", loc);
+        } else {
+            diagnostics_.warning(message, loc);
+        }
+        
+        if (!suggestion.empty()) {
+            diagnostics_.warning("Suggestion: " + suggestion, loc);
+        }
     }
 }
 
@@ -1368,10 +1385,16 @@ void Parser::reportInfo(const String& message, const SourceLocation& location,
                        const String& context) {
     SourceLocation loc = location.isValid() ? location : getCurrentLocation();
     
-    if (!context.empty()) {
-        diagnostics_.warning("Info: " + message + " (Context: " + context + ")", loc);
+    // Use enhanced diagnostic engine if available
+    if (enhancedDiagnostics_) {
+        enhancedDiagnostics_->info(message, loc, context);
     } else {
-        diagnostics_.warning("Info: " + message, loc);
+        // Fallback to basic diagnostic engine
+        if (!context.empty()) {
+            diagnostics_.warning("Info: " + message + " (Context: " + context + ")", loc);
+        } else {
+            diagnostics_.warning("Info: " + message, loc);
+        }
     }
 }
 
@@ -1946,6 +1969,10 @@ bool Parser::isDeclarationStart(TokenType type) const {
 
 // Factory function
 unique_ptr<Parser> createParser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) {
+    return make_unique<Parser>(diagnostics, typeSystem);
+}
+
+unique_ptr<Parser> createEnhancedParser(utils::EnhancedDiagnosticEngine& diagnostics, const TypeSystem& typeSystem) {
     return make_unique<Parser>(diagnostics, typeSystem);
 }
 

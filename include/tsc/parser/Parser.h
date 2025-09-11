@@ -3,6 +3,8 @@
 #include "tsc/Common.h"
 #include "tsc/AST.h"
 #include "tsc/Token.h"
+#include "tsc/utils/EnhancedDiagnosticEngine.h"
+#include "tsc/utils/ASTAllocator.h"
 #include <vector>
 
 namespace tsc {
@@ -22,6 +24,7 @@ enum class ParsingContext {
 class Parser {
 public:
     explicit Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem);
+    explicit Parser(utils::EnhancedDiagnosticEngine& enhancedDiagnostics, const TypeSystem& typeSystem);
     ~Parser();
     
     // Main parsing interface
@@ -36,9 +39,13 @@ public:
 
 private:
     DiagnosticEngine& diagnostics_;
+    utils::EnhancedDiagnosticEngine* enhancedDiagnostics_;
     const TypeSystem& typeSystem_;
     unique_ptr<TokenStream> tokens_;
     String filename_;
+    
+    // Memory management
+    utils::ASTAllocator astAllocator_;
     
     // Context management
     ParsingContext currentContext_ = ParsingContext::Expression;
@@ -175,7 +182,8 @@ private:
     SourceLocation getCurrentLocation() const;
 };
 
-// Factory function for creating parser with token stream
+// Factory functions for creating parser with token stream
 unique_ptr<Parser> createParser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem);
+unique_ptr<Parser> createEnhancedParser(utils::EnhancedDiagnosticEngine& diagnostics, const TypeSystem& typeSystem);
 
 } // namespace tsc
