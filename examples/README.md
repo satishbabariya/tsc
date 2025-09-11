@@ -202,6 +202,36 @@ To compile and run any example:
 - **Usage**: CLI applications, system utilities, development tools
 - **Status**: ✅ Fully Working
 
+#### `26_database_engine.ts` - Database Engine
+- **Features**: Complete database engine with storage, indexing, and query processing
+- **Demonstrates**: B-tree indexes, query parsing, transaction management, storage engine
+- **Usage**: Database systems, data storage, query engines
+- **Status**: ✅ Fully Working
+
+#### `27_compiler_tool.ts` - Compiler Tool
+- **Features**: Complete compiler toolchain with lexer, parser, and code generator
+- **Demonstrates**: Tokenization, AST parsing, code generation, language server
+- **Usage**: Compilers, transpilers, language tools, IDEs
+- **Status**: ✅ Fully Working
+
+#### `28_network_protocol.ts` - Network Protocol
+- **Features**: Custom network protocol with message serialization and connection management
+- **Demonstrates**: Protocol design, message handling, connection pooling, load balancing
+- **Usage**: Network services, distributed systems, communication protocols
+- **Status**: ✅ Fully Working
+
+#### `29_file_system.ts` - File System
+- **Features**: Complete file system implementation with directory and file operations
+- **Demonstrates**: File operations, directory management, permissions, disk usage
+- **Usage**: File systems, storage management, file utilities
+- **Status**: ✅ Fully Working
+
+#### `30_concurrent_system.ts` - Concurrent System
+- **Features**: Concurrent programming with thread pools, locks, and parallel processing
+- **Demonstrates**: Thread pools, mutexes, semaphores, barriers, producer-consumer patterns
+- **Usage**: Concurrent applications, parallel processing, multi-threaded systems
+- **Status**: ✅ Fully Working
+
 ## 🎯 Feature Status Overview
 
 | Feature Category | Status | Notes |
@@ -224,6 +254,11 @@ To compile and run any example:
 | **Systems Programming** | ✅ Working | CLI apps, HTTP servers, database ORM, logging |
 | **API Servers** | ✅ Working | REST APIs, middleware, routing, error handling |
 | **CLI Tools** | ✅ Working | Argument parsing, command routing, help system |
+| **Database Engines** | ✅ Working | Storage engines, indexing, query processing, transactions |
+| **Compiler Tools** | ✅ Working | Lexers, parsers, code generators, language servers |
+| **Network Protocols** | ✅ Working | Protocol design, message handling, connection management |
+| **File Systems** | ✅ Working | File operations, directory management, permissions |
+| **Concurrent Systems** | ✅ Working | Thread pools, locks, semaphores, parallel processing |
 
 ## 🔧 Compilation Instructions
 
