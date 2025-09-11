@@ -166,6 +166,12 @@ To compile and run any example:
 - **Usage**: Library development, advanced type safety
 - **Status**: ⚠️ Partial (some features not fully supported)
 
+#### `20_meta_programming.ts` - Meta-Programming
+- **Features**: Recursive types, variadic tuples, type-level computation
+- **Demonstrates**: Compile-time programming, cutting-edge TypeScript
+- **Usage**: Library internals, framework development, type-level programming
+- **Status**: ❌ Not Implemented (shows patterns for reference)
+
 ## 🎯 Feature Status Overview
 
 | Feature Category | Status | Notes |
