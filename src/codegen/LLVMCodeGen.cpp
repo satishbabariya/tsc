@@ -2003,8 +2003,11 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
 }
 
 void LLVMCodeGen::visit(FunctionDeclaration& node) {
+    std::cout << "DEBUG: Processing function declaration: " << node.getName() << std::endl;
+    
     // Check if we're currently inside a function (nested function case)
     if (codeGenContext_->getCurrentFunction()) {
+        std::cout << "DEBUG: This is a nested function: " << node.getName() << std::endl;
         // This is a nested function - generate it as a local function
         generateNestedFunction(node);
         

@@ -38,7 +38,7 @@ bool Type::isNullable() const {
 }
 
 bool Type::isCallable() const {
-    return kind_ == TypeKind::Function;
+    return kind_ == TypeKind::Function || kind_ == TypeKind::Any;
 }
 
 bool Type::isIndexable() const {
