@@ -731,6 +731,16 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 return;
             }
         }
+    } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(node.getCallee())) {
+        // Handle function expressions (IIFEs)
+        // The function expression should have been processed and stored as a function
+        if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
+            function = llvm::cast<llvm::Function>(calleeValue);
+        } else {
+            reportError("Function expression did not generate a valid function", node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
     } else if (auto superExpr = dynamic_cast<SuperExpression*>(node.getCallee())) {
         // Handle super() constructor calls
         // For now, this is a simplified implementation
