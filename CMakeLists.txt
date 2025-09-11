@@ -357,6 +357,13 @@ add_subdirectory(src)
 enable_testing()
 add_subdirectory(tests)
 
+# Create ARC runtime library
+add_library(tsc_runtime
+    runtime.c
+    runtime_arc.c
+    runtime_exceptions.c
+)
+
 # Create main executable
 add_executable(tsc
     src/main.cpp
@@ -364,7 +371,17 @@ add_executable(tsc
 
 target_link_libraries(tsc
     tsc_lib
+    tsc_runtime
     ${llvm_libs}
+)
+
+# Create ARC test executable
+add_executable(test_arc
+    test_arc.c
+)
+
+target_link_libraries(test_arc
+    tsc_runtime
 )
 
 # Install targets
