@@ -225,6 +225,11 @@ private:
     // Type conversion
     llvm::Type* convertTypeToLLVM(shared_ptr<Type> type);
     
+    // Generic type monomorphization
+    llvm::Type* createMonomorphizedType(const GenericType& genericType);
+    String generateMangledName(const GenericType& genericType);
+    llvm::StructType* createMonomorphizedStruct(const GenericType& genericType);
+    
     // Value operations
     llvm::Value* createNumberLiteral(double value);
     llvm::Value* createStringLiteral(const String& value);

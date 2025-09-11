@@ -317,14 +317,42 @@ void LLVMCodeGen::visit(NewExpression& node) {
         shared_ptr<Type> classType = classSymbol->getType();
         llvm::Type* objectType = mapTypeScriptTypeToLLVM(*classType);
         
+        // Handle generic class instantiation
+        if (classType->getKind() == TypeKind::Generic) {
+            auto genericType = std::static_pointer_cast<GenericType>(classType);
+            objectType = createMonomorphizedType(*genericType);
+            
+            // For generic classes, we need to create a monomorphized constructor
+            // For now, we'll use a simplified approach
+        }
+        
+        // Calculate actual object size based on the type
+        llvm::Type* pointeeType = nullptr;
+        if (objectType->isPointerTy()) {
+            // For now, use a simplified approach - assume 8 bytes for pointer types
+            pointeeType = llvm::Type::getInt8Ty(*context_);
+        } else {
+            pointeeType = objectType;
+        }
+        
         // Allocate memory on the heap using malloc
         llvm::Function* mallocFunc = getOrCreateMallocFunction();
         llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
-        llvm::Value* objectSize = llvm::ConstantInt::get(sizeType, 8); // Simplified: assume 8 bytes for now
+        
+        // Calculate size of the struct
+        llvm::Value* objectSize = nullptr;
+        if (pointeeType->isStructTy()) {
+            llvm::StructType* structType = llvm::cast<llvm::StructType>(pointeeType);
+            objectSize = llvm::ConstantInt::get(sizeType, 
+                module_->getDataLayout().getTypeAllocSize(structType));
+        } else {
+            objectSize = llvm::ConstantInt::get(sizeType, 8); // Fallback
+        }
+        
         llvm::Value* objectPtr = builder_->CreateCall(mallocFunc, {objectSize}, "malloced_object");
         
         // Cast the void* to the object type
-        objectPtr = builder_->CreateBitCast(objectPtr, llvm::PointerType::get(objectType, 0), "object_ptr");
+        objectPtr = builder_->CreateBitCast(objectPtr, llvm::PointerType::get(pointeeType, 0), "object_ptr");
         
         // Process constructor arguments
         std::vector<llvm::Value*> constructorArgs;
@@ -2218,8 +2246,10 @@ llvm::Type* LLVMCodeGen::mapTypeScriptTypeToLLVM(const Type& type) {
             }
             return getAnyType();
         case TypeKind::Generic:
-            // For generic types, return a pointer to the base type
-            // TODO: Implement proper monomorphization
+            // For generic types, implement basic monomorphization
+            if (auto genericType = dynamic_cast<const GenericType*>(&type)) {
+                return createMonomorphizedType(*genericType);
+            }
             return getAnyType();
         case TypeKind::Union:
             // For now, treat union types as 'any' type (void*)
@@ -2282,6 +2312,109 @@ llvm::Type* LLVMCodeGen::convertTypeToLLVM(shared_ptr<Type> type) {
         return getAnyType();
     }
     return mapTypeScriptTypeToLLVM(*type);
+}
+
+// Generic type monomorphization implementation
+llvm::Type* LLVMCodeGen::createMonomorphizedType(const GenericType& genericType) {
+    // For now, implement basic monomorphization for generic classes
+    auto baseType = genericType.getBaseType();
+    if (baseType->getKind() == TypeKind::Class) {
+        return createMonomorphizedStruct(genericType);
+    }
+    
+    // For other generic types, fall back to any type for now
+    return getAnyType();
+}
+
+String LLVMCodeGen::generateMangledName(const GenericType& genericType) {
+    auto baseType = genericType.getBaseType();
+    String mangledName = baseType->toString();
+    
+    // Add type arguments to the mangled name
+    auto typeArgs = genericType.getTypeArguments();
+    if (!typeArgs.empty()) {
+        mangledName += "_";
+        for (size_t i = 0; i < typeArgs.size(); ++i) {
+            if (i > 0) mangledName += "_";
+            
+            // Generate a simple mangled name for the type argument
+            switch (typeArgs[i]->getKind()) {
+                case TypeKind::Number:
+                    mangledName += "number";
+                    break;
+                case TypeKind::String:
+                    mangledName += "string";
+                    break;
+                case TypeKind::Boolean:
+                    mangledName += "boolean";
+                    break;
+                case TypeKind::Class:
+                    if (auto classType = dynamic_cast<const ClassType*>(typeArgs[i].get())) {
+                        mangledName += classType->getName();
+                    } else {
+                        mangledName += "class";
+                    }
+                    break;
+                default:
+                    mangledName += "unknown";
+                    break;
+            }
+        }
+    }
+    
+    return mangledName;
+}
+
+llvm::StructType* LLVMCodeGen::createMonomorphizedStruct(const GenericType& genericType) {
+    auto baseType = genericType.getBaseType();
+    if (baseType->getKind() != TypeKind::Class) {
+        return nullptr;
+    }
+    
+    auto classType = std::static_pointer_cast<ClassType>(baseType);
+    String mangledName = generateMangledName(genericType);
+    
+    // Check if we've already created this monomorphized type
+    // For now, we'll create a new type each time (TODO: implement proper caching)
+    // llvm::StructType* existingType = module_->getTypeByName(mangledName);
+    // if (existingType) {
+    //     return existingType;
+    // }
+    
+    // Create the monomorphized struct type
+    std::vector<llvm::Type*> memberTypes;
+    
+    // Get the class declaration to access properties
+    ClassDeclaration* classDecl = classType->getDeclaration();
+    if (!classDecl) {
+        // Fallback: create a simple struct
+        return llvm::StructType::create(*context_, {getAnyType()}, mangledName);
+    }
+    
+    // Create type parameter substitution map
+    std::unordered_map<String, shared_ptr<Type>> substitutions;
+    auto typeArgs = genericType.getTypeArguments();
+    const auto& typeParams = classDecl->getTypeParameters();
+    
+    for (size_t i = 0; i < typeArgs.size() && i < typeParams.size(); ++i) {
+        substitutions[typeParams[i]->getName()] = typeArgs[i];
+    }
+    
+    // Process properties with type parameter substitution
+    for (const auto& property : classDecl->getProperties()) {
+        llvm::Type* propertyType = getAnyType(); // Default fallback
+        
+        if (property->getType()) {
+            // TODO: Implement proper type parameter substitution
+            // For now, use the original type or convert to LLVM
+            propertyType = convertTypeToLLVM(property->getType());
+        }
+        
+        memberTypes.push_back(propertyType);
+    }
+    
+    // Create the monomorphized struct
+    return llvm::StructType::create(*context_, memberTypes, mangledName);
 }
 
 llvm::Value* LLVMCodeGen::convertValueToType(llvm::Value* value, llvm::Type* targetType) {
@@ -3299,9 +3432,28 @@ void LLVMCodeGen::visit(MethodDeclaration& node) {
 }
 
 void LLVMCodeGen::visit(ClassDeclaration& node) {
-    // For now, implement classes as simple structs
-    // In a full implementation, we'd need vtables for virtual methods
+    // Handle generic classes differently from regular classes
+    if (!node.getTypeParameters().empty()) {
+        // For generic classes, we don't create a concrete struct type here
+        // Instead, we'll create monomorphized types when the class is instantiated
+        // with specific type arguments
+        
+        // Generate constructor if present
+        if (node.getConstructor()) {
+            node.getConstructor()->accept(*this);
+        }
+        
+        // Generate methods
+        for (const auto& method : node.getMethods()) {
+            method->accept(*this);
+        }
+        
+        // For generic classes, we don't set a current value
+        // The actual type will be created during instantiation
+        return;
+    }
     
+    // For non-generic classes, implement as simple structs
     std::vector<llvm::Type*> memberTypes;
     
     // Add properties to struct layout
