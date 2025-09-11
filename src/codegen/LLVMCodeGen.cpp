@@ -395,6 +395,13 @@ void LLVMCodeGen::visit(NewExpression& node) {
         
         // Call the constructor
         String constructorName = "constructor";
+        if (node.hasExplicitTypeArguments()) {
+            // For generic classes, use the mangled constructor name
+            auto genericType = typeSystem_->createGenericType(classType, node.getTypeArguments());
+            auto genericTypePtr = std::static_pointer_cast<GenericType>(genericType);
+            constructorName = generateMangledMethodName(*genericTypePtr, "constructor");
+        }
+        
         llvm::Function* constructorFunc = module_->getFunction(constructorName);
         if (constructorFunc) {
             builder_->CreateCall(constructorFunc, constructorArgs);
@@ -2598,9 +2605,33 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
     for (const auto& param : method.getParameters()) {
         llvm::Type* paramType = getAnyType(); // Default fallback
         if (param.type) {
-            // TODO: Implement proper type parameter substitution
-            // For now, use the original type or convert to LLVM
-            paramType = convertTypeToLLVM(param.type);
+            // Implement proper type parameter substitution
+            if (param.type->getKind() == TypeKind::TypeParameter) {
+                // This is a type parameter, substitute with the actual type argument
+                auto typeParam = dynamic_cast<const TypeParameter*>(param.type.get());
+                if (typeParam) {
+                    String paramName = typeParam->getName();
+                // Find the corresponding type argument
+                auto typeArgs = genericType.getTypeArguments();
+                auto baseType = genericType.getBaseType();
+                if (auto classType = dynamic_cast<const ClassType*>(baseType.get())) {
+                    auto classDecl = classType->getDeclaration();
+                    if (classDecl) {
+                        const auto& typeParams = classDecl->getTypeParameters();
+                    
+                        for (size_t i = 0; i < typeParams.size() && i < typeArgs.size(); ++i) {
+                            if (typeParams[i]->getName() == paramName) {
+                                paramType = convertTypeToLLVM(typeArgs[i]);
+                                break;
+                            }
+                        }
+                    }
+                }
+                }
+            } else {
+                // Regular type, convert to LLVM
+                paramType = convertTypeToLLVM(param.type);
+            }
         }
         paramTypes.push_back(paramType);
     }
@@ -2608,9 +2639,33 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
     // Determine return type with type substitution
     llvm::Type* returnType = getVoidType(); // Default to void
     if (method.getReturnType()) {
-        // TODO: Implement proper type parameter substitution
-        // For now, use the original type or convert to LLVM
-        returnType = convertTypeToLLVM(method.getReturnType());
+        // Implement proper type parameter substitution
+        if (method.getReturnType()->getKind() == TypeKind::TypeParameter) {
+            // This is a type parameter, substitute with the actual type argument
+            auto typeParam = dynamic_cast<const TypeParameter*>(method.getReturnType().get());
+            if (typeParam) {
+                String paramName = typeParam->getName();
+                // Find the corresponding type argument
+                auto typeArgs = genericType.getTypeArguments();
+                auto baseType = genericType.getBaseType();
+                if (auto classType = dynamic_cast<const ClassType*>(baseType.get())) {
+                    auto classDecl = classType->getDeclaration();
+                    if (classDecl) {
+                        const auto& typeParams = classDecl->getTypeParameters();
+                    
+                        for (size_t i = 0; i < typeParams.size() && i < typeArgs.size(); ++i) {
+                            if (typeParams[i]->getName() == paramName) {
+                                returnType = convertTypeToLLVM(typeArgs[i]);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Regular type, convert to LLVM
+            returnType = convertTypeToLLVM(method.getReturnType());
+        }
     }
     
     // Create function type
