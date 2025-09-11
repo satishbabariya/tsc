@@ -1,41 +1,90 @@
-# Prerequisites
-*.d
+# Build directories
+build/
+Build/
+cmake-build-*/
+out/
 
-# Compiled Object files
-*.slo
-*.lo
+# Generated files
 *.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Linker files
+*.a
+*.so
+*.dll
+*.exe
+*.lib
+*.exp
+*.pdb
 *.ilk
 
-# Debugger Files
-*.pdb
+# LLVM IR files
+*.ll
+*.bc
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
 
-# Fortran module files
-*.mod
-*.smod
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+# OS files
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
 
-# Executables
+# Compiler output
+a.out
 *.exe
-*.out
-*.app
 
-# debug information files
-*.dwo
+# Test outputs
+test_*
+*_test
+
+# Log files
+*.log
+
+# Backup files
+*.bak
+*.backup
+
+# Package manager files
+node_modules/
+.npm/
+.yarn/
+
+# Editor temporary files
+.#*
+\#*#
+*.orig
+
+# Coverage reports
+coverage/
+*.gcov
+*.gcda
+*.gcno
+
+# Documentation generated files
+docs/html/
+docs/latex/
+
+# Profiling data
+*.prof
+gmon.out
+
+# Core dumps
+core
+core.*
+
+# Temporary test files
+test.ts
+demo.ts
+simple.ts
+hello.ts
