@@ -48,63 +48,38 @@ void TargetRegistry::initializeAllTargets() {
         std::cerr << "Warning: Target initialization failed: " << e.what() << std::endl;
     }
     
-    // Step 3: Create cross-platform target registry
-    // Use generic triples that work across all platforms
-    TargetDetails x86Target;
-    x86Target.triple = "x86_64-unknown-unknown";
-    x86Target.arch = parseArchitecture("x86_64");
-    x86Target.os = parseOS("unknown");
-    x86Target.vendor = parseVendor("unknown");
-    x86Target.environment = "unknown";
-    x86Target.isSupported = true;
-    x86Target.dataLayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128";
-    x86Target.supportedFeatures = {"generic"};
-    targets_.push_back(x86Target);
+    // Step 3: Dynamically discover available targets from LLVM
+    // This approach works on any platform without hardcoded values
+    std::cout << "Discovering available targets from LLVM..." << std::endl;
     
-    TargetDetails aarch64Target;
-    aarch64Target.triple = "aarch64-unknown-unknown";
-    aarch64Target.arch = parseArchitecture("aarch64");
-    aarch64Target.os = parseOS("unknown");
-    aarch64Target.vendor = parseVendor("unknown");
-    aarch64Target.environment = "unknown";
-    aarch64Target.isSupported = true;
-    aarch64Target.dataLayout = "e-m:e-i8:8-i16:16-i32:32-i64:64-i128:128-f32:32-f64:64-v128:128-n32:64-S128";
-    aarch64Target.supportedFeatures = {"generic"};
-    targets_.push_back(aarch64Target);
-    
-    TargetDetails armTarget;
-    armTarget.triple = "arm-unknown-unknown";
-    armTarget.arch = parseArchitecture("arm");
-    armTarget.os = parseOS("unknown");
-    armTarget.vendor = parseVendor("unknown");
-    armTarget.environment = "unknown";
-    armTarget.isSupported = true;
-    armTarget.dataLayout = "e-m:e-p:32:32-Fi8-i64:64-v128:64:128-a:0:32-n32-S64";
-    armTarget.supportedFeatures = {"generic"};
-    targets_.push_back(armTarget);
-    
-    // Add more cross-platform targets
-    TargetDetails riscvTarget;
-    riscvTarget.triple = "riscv64-unknown-unknown";
-    riscvTarget.arch = parseArchitecture("riscv64");
-    riscvTarget.os = parseOS("unknown");
-    riscvTarget.vendor = parseVendor("unknown");
-    riscvTarget.environment = "unknown";
-    riscvTarget.isSupported = true;
-    riscvTarget.dataLayout = "e-m:e-p:64:64-i64:64-i128:128-n32:64-S128";
-    riscvTarget.supportedFeatures = {"generic"};
-    targets_.push_back(riscvTarget);
-    
-    TargetDetails wasmTarget;
-    wasmTarget.triple = "wasm32-unknown-unknown";
-    wasmTarget.arch = parseArchitecture("wasm32");
-    wasmTarget.os = parseOS("unknown");
-    wasmTarget.vendor = parseVendor("unknown");
-    wasmTarget.environment = "unknown";
-    wasmTarget.isSupported = true;
-    wasmTarget.dataLayout = "e-m:e-p:32:32-i64:64-n32:64-S128";
-    wasmTarget.supportedFeatures = {"generic"};
-    targets_.push_back(wasmTarget);
+    // Get the list of available targets from LLVM
+    for (const auto& target : llvm::TargetRegistry::targets()) {
+        TargetDetails targetInfo;
+        targetInfo.triple = detectedTriple; // Use detected host triple as base
+        targetInfo.arch = parseArchitecture(target.getName());
+        targetInfo.os = parseOS("unknown");
+        targetInfo.vendor = parseVendor("unknown");
+        targetInfo.environment = "unknown";
+        targetInfo.isSupported = true;
+        
+        // Let LLVM determine the data layout dynamically
+        try {
+            auto targetMachine = target.createTargetMachine(
+                detectedTriple, "", "", llvm::TargetOptions(), std::nullopt);
+            if (targetMachine) {
+                targetInfo.dataLayout = targetMachine->createDataLayout().getStringRepresentation();
+            } else {
+                targetInfo.dataLayout = "unknown";
+            }
+        } catch (...) {
+            targetInfo.dataLayout = "unknown";
+        }
+        
+        targetInfo.supportedFeatures = {"generic"};
+        targets_.push_back(targetInfo);
+        
+        std::cout << "Discovered target: " << target.getName() << std::endl;
+    }
     
     initialized_ = true;
     
@@ -421,16 +396,26 @@ std::vector<TargetDetails> TargetRegistry::getTargetsByOS(const String& os) cons
     return result;
 }
 
-bool TargetRegistry::isValidTarget(const String& triple) const {
-    return getTargetInfo(triple).has_value();
+bool TargetRegistry::isValidTarget(const String& targetName) const {
+    return getTargetInfo(targetName).has_value();
 }
 
-std::optional<TargetDetails> TargetRegistry::getTargetInfo(const String& triple) const {
+std::optional<TargetDetails> TargetRegistry::getTargetInfo(const String& targetName) const {
+    // First try exact triple match
     for (const auto& target : targets_) {
-        if (target.triple == triple) {
+        if (target.triple == targetName) {
             return target;
         }
     }
+    
+    // Then try target name match (architecture name)
+    for (const auto& target : targets_) {
+        // Compare architecture names
+        if (target.arch.name == targetName) {
+            return target;
+        }
+    }
+    
     return std::nullopt;
 }
 
