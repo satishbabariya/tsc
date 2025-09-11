@@ -219,10 +219,30 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     std::vector<unique_ptr<TypeParameter>> typeParameters;
     if (match(TokenType::Less)) {
         do {
+            // Parse variance annotation (optional)
+            Variance variance = Variance::Invariant;
+            if (match(TokenType::Out)) {
+                variance = Variance::Covariant;
+            } else if (match(TokenType::In)) {
+                variance = Variance::Contravariant;
+            }
+            
             Token typeParamToken = consume(TokenType::Identifier, "Expected type parameter name");
+            
+            // Parse constraint (optional)
+            shared_ptr<Type> constraint = nullptr;
+            if (match(TokenType::Extends)) {
+                constraint = parseTypeAnnotation();
+                if (!constraint) {
+                    reportError("Expected constraint type after 'extends'", getCurrentLocation());
+                    constraint = typeSystem_.getErrorType();
+                }
+            }
+            
             auto typeParam = make_unique<TypeParameter>(
                 typeParamToken.getStringValue(),
-                nullptr, // constraint - not implemented yet
+                constraint,
+                variance,
                 getCurrentLocation()
             );
             typeParameters.push_back(std::move(typeParam));
@@ -277,24 +297,23 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
             else if (match(TokenType::Abstract)) isAbstract = true;
         }
         
-        if (check(TokenType::Constructor)) {
-            // Parse constructor
-            consume(TokenType::Constructor, "Expected 'constructor'");
-            consume(TokenType::LeftParen, "Expected '(' after constructor");
-            auto parameters = parseMethodParameterList();
-            consume(TokenType::RightParen, "Expected ')' after constructor parameters");
-            
-            auto body = parseFunctionBody();
-            
-            constructor = make_unique<MethodDeclaration>(
-                "constructor", std::move(parameters), typeSystem_.getVoidType(),
-                std::move(body), getCurrentLocation(), isStatic, isPrivate, isProtected, isAbstract
-            );
-        } else if (check(TokenType::Identifier)) {
+        if (check(TokenType::Identifier)) {
             Token memberToken = advance();
             String memberName = memberToken.getStringValue();
             
-            if (check(TokenType::LeftParen)) {
+            if (memberName == "constructor") {
+                // Parse constructor
+                consume(TokenType::LeftParen, "Expected '(' after constructor");
+                auto parameters = parseMethodParameterList();
+                consume(TokenType::RightParen, "Expected ')' after constructor parameters");
+                
+                auto body = parseFunctionBody();
+                
+                constructor = make_unique<MethodDeclaration>(
+                    "constructor", std::move(parameters), typeSystem_.getVoidType(),
+                    std::move(body), getCurrentLocation(), isStatic, isPrivate, isProtected, isAbstract
+                );
+            } else if (check(TokenType::LeftParen)) {
                 // Method declaration
                 consume(TokenType::LeftParen, "Expected '(' after method name");
                 auto parameters = parseMethodParameterList();
@@ -324,7 +343,10 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                     initializer = parseExpression();
                 }
                 
-                consume(TokenType::Semicolon, "Expected ';' after property declaration");
+                // Optional semicolon for property declarations
+                if (match(TokenType::Semicolon)) {
+                    // Semicolon consumed
+                }
                 
                 properties.push_back(make_unique<PropertyDeclaration>(
                     memberName, propertyType, std::move(initializer), memberToken.getLocation(),
@@ -1360,33 +1382,44 @@ shared_ptr<Type> Parser::parseUnionType() {
 
 shared_ptr<Type> Parser::parsePrimaryType() {
     // Handle TypeScript type keywords
+    shared_ptr<Type> baseType = nullptr;
     if (check(TokenType::Number)) {
         advance();
-        return typeSystem_.getNumberType();
+        baseType = typeSystem_.getNumberType();
     } else if (check(TokenType::String)) {
         advance();
-        return typeSystem_.getStringType();
+        baseType = typeSystem_.getStringType();
     } else if (check(TokenType::Boolean)) {
         advance();
-        return typeSystem_.getBooleanType();
+        baseType = typeSystem_.getBooleanType();
     } else if (check(TokenType::Null)) {
         advance();
-        return typeSystem_.getNullType();
+        baseType = typeSystem_.getNullType();
     } else if (check(TokenType::Undefined)) {
         advance();
-        return typeSystem_.getUndefinedType();
+        baseType = typeSystem_.getUndefinedType();
     } else if (check(TokenType::Void)) {
         advance();
-        return typeSystem_.getVoidType();
+        baseType = typeSystem_.getVoidType();
     } else if (check(TokenType::Any)) {
         advance();
-        return typeSystem_.getAnyType();
+        baseType = typeSystem_.getAnyType();
     } else if (check(TokenType::Unknown)) {
         advance();
-        return typeSystem_.getUnknownType();
+        baseType = typeSystem_.getUnknownType();
     } else if (check(TokenType::Never)) {
         advance();
-        return typeSystem_.getNeverType();
+        baseType = typeSystem_.getNeverType();
+    }
+    
+    // If we parsed a primitive type, check for array syntax
+    if (baseType) {
+        if (check(TokenType::LeftBracket)) {
+            advance(); // consume '['
+            consume(TokenType::RightBracket, "Expected ']' after array type");
+            return typeSystem_.createArrayType(baseType);
+        }
+        return baseType;
     }
     
     // Handle regular identifiers (for custom types, interfaces, etc.)
@@ -1434,13 +1467,22 @@ shared_ptr<Type> Parser::parsePrimaryType() {
         }
         
         // Create unresolved type for unknown identifiers (will be resolved in semantic analysis)
-        return typeSystem_.createUnresolvedType(typeName);
+        auto baseType = typeSystem_.createUnresolvedType(typeName);
+        
+        // Check for array syntax: TypeName[]
+        if (check(TokenType::LeftBracket)) {
+            advance(); // consume '['
+            consume(TokenType::RightBracket, "Expected ']' after array type");
+            return typeSystem_.createArrayType(baseType);
+        }
+        
+        return baseType;
     }
     
     // Handle array types like "number[]"
     if (check(TokenType::LeftBracket)) {
-        // For now, just report error - array type syntax needs more complex parsing
-        reportError("Array type syntax not yet implemented", getCurrentLocation());
+        // This should not happen here - array syntax should be handled after parsing the base type
+        reportError("Unexpected '[' in type annotation", getCurrentLocation());
         return typeSystem_.getErrorType();
     }
     
@@ -1531,7 +1573,7 @@ unique_ptr<TypeParameter> Parser::parseTypeParameter() {
         constraint = parseTypeAnnotation();
     }
     
-    return make_unique<TypeParameter>(name, constraint, nameToken.getLocation());
+    return make_unique<TypeParameter>(name, constraint, Variance::Invariant, nameToken.getLocation());
 }
 
 std::vector<shared_ptr<Type>> Parser::parseTypeArgumentList() {
