@@ -345,9 +345,12 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 // Optional return type
                 shared_ptr<Type> returnType = typeSystem_.getVoidType();
                 if (match(TokenType::Colon)) {
-                    returnType = parseTypeAnnotation();
+                    // Parse type directly without colon (colon already consumed)
+                    ParsingContext oldContext = currentContext_;
+                    setContext(ParsingContext::Type);
+                    returnType = parseUnionType();
+                    setContext(oldContext);
                 }
-                
                 auto body = parseFunctionBody();
                 
                 methods.push_back(make_unique<MethodDeclaration>(
@@ -360,12 +363,9 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 advance(); // consume ':'
                 auto returnType = parseUnionType();
                 
-                std::cout << "DEBUG: Parser parsed return type: " << (returnType ? returnType->toString() : "null") << std::endl;
-                std::cout << "DEBUG: Parser next token type: " << static_cast<int>(peek().getType()) << std::endl;
                 
                 if (check(TokenType::LeftBrace)) {
                     // This is a method declaration with return type but no parameters
-                    std::cout << "DEBUG: Parser found method declaration with return type: " << memberName << std::endl;
                     std::vector<MethodDeclaration::Parameter> parameters;
                     
                     auto body = parseFunctionBody();
@@ -376,13 +376,9 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                     ));
                 } else {
                     // This is a property declaration
-                    std::cout << "DEBUG: Parser processing property: " << memberName << std::endl;
-                    
                     // Optional semicolon for property declarations
                     if (match(TokenType::Semicolon)) {
-                        std::cout << "DEBUG: Parser consumed semicolon for property" << std::endl;
-                    } else {
-                        std::cout << "DEBUG: Parser no semicolon found for property" << std::endl;
+                        // Semicolon consumed
                     }
                     
                     properties.push_back(make_unique<PropertyDeclaration>(
