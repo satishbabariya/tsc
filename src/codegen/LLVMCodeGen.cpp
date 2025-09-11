@@ -1244,14 +1244,20 @@ void LLVMCodeGen::visit(ArrowFunction& node) {
     std::cout << "DEBUG: Finished processing function body" << std::endl;
     
     // Ensure function has a return
+    std::cout << "DEBUG: Checking for terminator in function" << std::endl;
     if (!builder_->GetInsertBlock()->getTerminator()) {
+        std::cout << "DEBUG: No terminator found, adding return statement" << std::endl;
         if (returnType->isVoidTy()) {
             builder_->CreateRetVoid();
+            std::cout << "DEBUG: Added void return" << std::endl;
         } else {
             // Return default value for the type
             llvm::Value* defaultValue = createDefaultValue(returnType);
             builder_->CreateRet(defaultValue);
+            std::cout << "DEBUG: Added default return" << std::endl;
         }
+    } else {
+        std::cout << "DEBUG: Function already has terminator" << std::endl;
     }
     
     // Restore insertion point
@@ -1329,14 +1335,20 @@ void LLVMCodeGen::visit(FunctionExpression& node) {
     std::cout << "DEBUG: Finished processing function body" << std::endl;
     
     // Ensure function has a return
+    std::cout << "DEBUG: Checking for terminator in function" << std::endl;
     if (!builder_->GetInsertBlock()->getTerminator()) {
+        std::cout << "DEBUG: No terminator found, adding return statement" << std::endl;
         if (returnType->isVoidTy()) {
             builder_->CreateRetVoid();
+            std::cout << "DEBUG: Added void return" << std::endl;
         } else {
             // Return default value for the type
             llvm::Value* defaultValue = createDefaultValue(returnType);
             builder_->CreateRet(defaultValue);
+            std::cout << "DEBUG: Added default return" << std::endl;
         }
+    } else {
+        std::cout << "DEBUG: Function already has terminator" << std::endl;
     }
     
     // Restore insertion point
@@ -2057,6 +2069,7 @@ void LLVMCodeGen::visit(FunctionDeclaration& node) {
     std::cout << "DEBUG: Processing function declaration: " << node.getName() << std::endl;
     
     // Check if we're currently inside a function (nested function case)
+    std::cout << "DEBUG: Current function context: " << (codeGenContext_->getCurrentFunction() ? "exists" : "null") << std::endl;
     if (codeGenContext_->getCurrentFunction()) {
         std::cout << "DEBUG: This is a nested function: " << node.getName() << std::endl;
         // This is a nested function - generate it as a local function
@@ -2732,7 +2745,24 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     
     // Generate function body
     if (funcDecl.getBody()) {
+        std::cout << "DEBUG: Processing function body in generateFunctionBody" << std::endl;
         funcDecl.getBody()->accept(*this);
+        std::cout << "DEBUG: Finished processing function body in generateFunctionBody" << std::endl;
+        
+        // Debug: Check if we have a terminator after function body processing
+        std::cout << "DEBUG: Checking terminator after function body processing" << std::endl;
+        llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
+        std::cout << "DEBUG: Current block: " << currentBlock << std::endl;
+        if (currentBlock) {
+            std::cout << "DEBUG: Current block has terminator: " << (currentBlock->getTerminator() ? "YES" : "NO") << std::endl;
+            if (currentBlock->getTerminator()) {
+                std::cout << "DEBUG: Function already has terminator after body processing" << std::endl;
+            } else {
+                std::cout << "DEBUG: Function does NOT have terminator after body processing" << std::endl;
+            }
+        } else {
+            std::cout << "DEBUG: Current block is null!" << std::endl;
+        }
     }
     
     // Add cleanup for malloc'd objects before return
@@ -2740,17 +2770,32 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     // For now, this is a simplified approach that doesn't track individual allocations
     
     // Add return if not present
+    std::cout << "DEBUG: About to check for terminator in generateFunctionBody" << std::endl;
     if (!builder_->GetInsertBlock()->getTerminator()) {
+        std::cout << "DEBUG: No terminator found, adding return statement" << std::endl;
         llvm::Type* returnType = function->getReturnType();
         if (returnType->isVoidTy()) {
+            std::cout << "DEBUG: About to call CreateRetVoid" << std::endl;
             builder_->CreateRetVoid();
+            std::cout << "DEBUG: CreateRetVoid called successfully" << std::endl;
+            
+            // Check if the terminator was actually added
+            llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
+            std::cout << "DEBUG: Current block after CreateRetVoid: " << currentBlock << std::endl;
+            if (currentBlock && currentBlock->getTerminator()) {
+                std::cout << "DEBUG: Terminator successfully added to block " << currentBlock << std::endl;
+            } else {
+                std::cout << "DEBUG: ERROR - Terminator was NOT added to block " << currentBlock << "!" << std::endl;
+            }
         } else {
             // Return a default value of the appropriate type
             // For functions without explicit return statements, return null/undefined
             llvm::Value* defaultValue = createDefaultValue(returnType);
             builder_->CreateRet(defaultValue);
+            std::cout << "DEBUG: Added default return" << std::endl;
         }
     } else {
+        std::cout << "DEBUG: Function already has terminator" << std::endl;
         // The ReturnStatement visitor should handle type conversion correctly
         // No need for special main function handling here
     }
