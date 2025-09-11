@@ -2137,17 +2137,48 @@ void LLVMCodeGen::visit(Module& module) {
     // Set module name
     module_->setModuleIdentifier(module.getFilename());
     
-    // Generate all statements in the module
+    // Separate function declarations from other statements
+    std::vector<Statement*> functionDecls;
+    std::vector<Statement*> moduleStatements;
+    
     for (const auto& stmt : module.getStatements()) {
+        if (dynamic_cast<const FunctionDeclaration*>(stmt.get())) {
+            functionDecls.push_back(stmt.get());
+        } else {
+            moduleStatements.push_back(stmt.get());
+        }
+    }
+    
+    // Generate function declarations first
+    for (const auto& stmt : functionDecls) {
         stmt->accept(*this);
         if (hasErrors()) break;
     }
     
-    // Create a main function if none exists
-    if (!module_->getFunction("main")) {
+    // Create main function for module-level statements
+    llvm::Function* mainFunc = nullptr;
+    if (!moduleStatements.empty()) {
         llvm::FunctionType* mainType = llvm::FunctionType::get(
             llvm::Type::getInt32Ty(*context_), false);
-        llvm::Function* mainFunc = llvm::Function::Create(
+        mainFunc = llvm::Function::Create(
+            mainType, llvm::Function::ExternalLinkage, "main", module_.get());
+        
+        llvm::BasicBlock* entry = llvm::BasicBlock::Create(*context_, "entry", mainFunc);
+        builder_->SetInsertPoint(entry);
+        
+        // Generate module-level statements within main function
+        for (const auto& stmt : moduleStatements) {
+            stmt->accept(*this);
+            if (hasErrors()) break;
+        }
+        
+        // Return 0 from main
+        builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
+    } else {
+        // Create an empty main function if no module-level statements exist
+        llvm::FunctionType* mainType = llvm::FunctionType::get(
+            llvm::Type::getInt32Ty(*context_), false);
+        mainFunc = llvm::Function::Create(
             mainType, llvm::Function::ExternalLinkage, "main", module_.get());
         
         llvm::BasicBlock* entry = llvm::BasicBlock::Create(*context_, "entry", mainFunc);
@@ -2627,6 +2658,12 @@ llvm::Function* LLVMCodeGen::generateFunctionDeclaration(const FunctionDeclarati
     llvm::Function* function = llvm::Function::Create(
         functionType, llvm::Function::ExternalLinkage, funcDecl.getName(), module_.get());
     
+    // Debug: Check basic blocks immediately after function creation
+    std::cout << "DEBUG: Basic blocks after function creation:" << std::endl;
+    for (auto& block : *function) {
+        std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+    }
+    
     // Set parameter names
     auto paramIt = funcDecl.getParameters().begin();
     for (auto& arg : function->args()) {
@@ -2746,8 +2783,21 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     // Generate function body
     if (funcDecl.getBody()) {
         std::cout << "DEBUG: Processing function body in generateFunctionBody" << std::endl;
+        
+        // Debug: Check basic blocks before function body processing
+        std::cout << "DEBUG: Basic blocks before function body processing:" << std::endl;
+        for (auto& block : *function) {
+            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+        }
+        
         funcDecl.getBody()->accept(*this);
         std::cout << "DEBUG: Finished processing function body in generateFunctionBody" << std::endl;
+        
+        // Debug: Check basic blocks after function body processing
+        std::cout << "DEBUG: Basic blocks after function body processing:" << std::endl;
+        for (auto& block : *function) {
+            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+        }
         
         // Debug: Check if we have a terminator after function body processing
         std::cout << "DEBUG: Checking terminator after function body processing" << std::endl;
@@ -2800,8 +2850,20 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
         // No need for special main function handling here
     }
     
+    // Debug: Check all basic blocks before ensuring terminators
+    std::cout << "DEBUG: Checking all basic blocks in function " << function->getName().str() << std::endl;
+    for (auto& block : *function) {
+        std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+    }
+    
     // Ensure all basic blocks have terminators (handle unreachable blocks)
     ensureBlockTerminators(function);
+    
+    // Debug: Check all basic blocks after ensuring terminators
+    std::cout << "DEBUG: Checking all basic blocks after ensuring terminators" << std::endl;
+    for (auto& block : *function) {
+        std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+    }
     
     // Exit function context
     codeGenContext_->exitScope();
