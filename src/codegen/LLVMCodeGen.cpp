@@ -308,6 +308,11 @@ void LLVMCodeGen::visit(NewExpression& node) {
         
         // Get the class type from the symbol table
         Symbol* classSymbol = symbolTable_->lookupSymbol(className);
+        std::cout << "DEBUG: Class symbol lookup for '" << className << "': " << (classSymbol ? "found" : "not found") << std::endl;
+        if (classSymbol) {
+            std::cout << "DEBUG: Class symbol kind: " << static_cast<int>(classSymbol->getKind()) << std::endl;
+            std::cout << "DEBUG: Class symbol has declaration: " << (classSymbol->getDeclaration() ? "yes" : "no") << std::endl;
+        }
         if (!classSymbol || classSymbol->getKind() != SymbolKind::Class) {
             reportError("Class not found: " + className, node.getLocation());
             setCurrentValue(createNullValue(getAnyType()));
@@ -320,14 +325,25 @@ void LLVMCodeGen::visit(NewExpression& node) {
         llvm::Type* objectType = mapTypeScriptTypeToLLVM(*classType);
         
         // Handle generic class instantiation
-        if (classType->getKind() == TypeKind::Generic) {
-            auto genericType = std::static_pointer_cast<GenericType>(classType);
+        if (node.hasExplicitTypeArguments()) {
+            std::cout << "DEBUG: Processing explicit type arguments for generic class" << std::endl;
+            const auto& typeArguments = node.getTypeArguments();
+            std::cout << "DEBUG: Number of type arguments: " << typeArguments.size() << std::endl;
+            
+            // Create a GenericType for this instantiation
+            auto genericType = typeSystem_->createGenericType(classType, typeArguments);
+            std::cout << "DEBUG: Created GenericType: " << genericType->toString() << ", kind: " << static_cast<int>(genericType->getKind()) << std::endl;
+            
+            // Cast to GenericType* for monomorphization
+            auto genericTypePtr = std::static_pointer_cast<GenericType>(genericType);
+            
+            // Create monomorphized type and methods
             std::cout << "DEBUG: Creating monomorphized type for: " << genericType->toString() << std::endl;
-            objectType = createMonomorphizedType(*genericType);
+            objectType = createMonomorphizedType(*genericTypePtr);
             
             // Generate monomorphized methods for this instantiation
             std::cout << "DEBUG: Generating monomorphized methods for: " << genericType->toString() << std::endl;
-            generateMonomorphizedMethods(*genericType, classSymbol);
+            generateMonomorphizedMethods(*genericTypePtr, classSymbol);
         }
         
         // Calculate actual object size based on the type
@@ -2469,22 +2485,29 @@ String LLVMCodeGen::generateMangledMethodName(const GenericType& genericType, co
 }
 
 void LLVMCodeGen::generateMonomorphizedMethods(const GenericType& genericType, Symbol* classSymbol) {
+    std::cout << "DEBUG: generateMonomorphizedMethods called for: " << genericType.toString() << std::endl;
     // Get the class declaration to access methods
     if (!classSymbol->getDeclaration()) {
+        std::cout << "DEBUG: No class declaration found" << std::endl;
         return;
     }
     
     auto classDecl = dynamic_cast<ClassDeclaration*>(classSymbol->getDeclaration());
     if (!classDecl) {
+        std::cout << "DEBUG: Class declaration is not a ClassDeclaration" << std::endl;
         return;
     }
+    
+    std::cout << "DEBUG: Found class declaration with " << classDecl->getMethods().size() << " methods" << std::endl;
     
     // Generate monomorphized methods for each method in the class
     for (const auto& method : classDecl->getMethods()) {
         String mangledMethodName = generateMangledMethodName(genericType, method->getName());
+        std::cout << "DEBUG: Generating method: " << mangledMethodName << std::endl;
         
         // Check if we've already generated this method
         if (module_->getFunction(mangledMethodName)) {
+            std::cout << "DEBUG: Method already exists, skipping" << std::endl;
             continue; // Already generated
         }
         
@@ -2495,9 +2518,14 @@ void LLVMCodeGen::generateMonomorphizedMethods(const GenericType& genericType, S
     // Also generate constructor if present
     if (classDecl->getConstructor()) {
         String mangledConstructorName = generateMangledMethodName(genericType, "constructor");
+        std::cout << "DEBUG: Generating constructor: " << mangledConstructorName << std::endl;
         if (!module_->getFunction(mangledConstructorName)) {
             generateMonomorphizedMethod(*classDecl->getConstructor(), genericType, mangledConstructorName);
+        } else {
+            std::cout << "DEBUG: Constructor already exists, skipping" << std::endl;
         }
+    } else {
+        std::cout << "DEBUG: No constructor found" << std::endl;
     }
 }
 

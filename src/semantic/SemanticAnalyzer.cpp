@@ -219,6 +219,9 @@ void SemanticAnalyzer::visit(SuperExpression& node) {
 }
 
 void SemanticAnalyzer::visit(NewExpression& node) {
+    std::cout << "DEBUG: SemanticAnalyzer::visit(NewExpression) called for: " << node.toString() << std::endl;
+    std::cout << "DEBUG: hasExplicitTypeArguments: " << (node.hasExplicitTypeArguments() ? "true" : "false") << std::endl;
+    
     // Analyze arguments first
     for (const auto& arg : node.getArguments()) {
         arg->accept(*this);
@@ -226,22 +229,28 @@ void SemanticAnalyzer::visit(NewExpression& node) {
     
     // Handle constructor expression
     if (auto identifier = dynamic_cast<Identifier*>(node.getConstructor())) {
+        std::cout << "DEBUG: Constructor identifier: " << identifier->getName() << std::endl;
         // Try to find the class type in the symbol table
         Symbol* classSymbol = resolveSymbol(identifier->getName(), node.getLocation());
         if (classSymbol && classSymbol->getKind() == SymbolKind::Class) {
             auto classType = classSymbol->getType();
+            std::cout << "DEBUG: Class type: " << classType->toString() << ", kind: " << static_cast<int>(classType->getKind()) << std::endl;
             
             // Check if this is a class type that can be instantiated
             if (classType->getKind() == TypeKind::Class) {
                 // Handle explicit type arguments for generic classes
                 if (node.hasExplicitTypeArguments()) {
+                    std::cout << "DEBUG: Processing explicit type arguments" << std::endl;
                     // Process explicit type arguments (e.g., Container<number>)
                     const auto& typeArguments = node.getTypeArguments();
+                    std::cout << "DEBUG: Number of type arguments: " << typeArguments.size() << std::endl;
                     
                     // Resolve each type argument
                     std::vector<shared_ptr<Type>> resolvedTypeArgs;
                     for (const auto& typeArg : typeArguments) {
+                        std::cout << "DEBUG: Resolving type argument: " << typeArg->toString() << std::endl;
                         auto resolvedType = resolveType(typeArg);
+                        std::cout << "DEBUG: Resolved to: " << resolvedType->toString() << ", kind: " << static_cast<int>(resolvedType->getKind()) << std::endl;
                         if (resolvedType->getKind() == TypeKind::Error) {
                             reportError("Invalid type argument: " + typeArg->toString(), node.getLocation());
                             setExpressionType(node, typeSystem_->getErrorType());
@@ -258,6 +267,7 @@ void SemanticAnalyzer::visit(NewExpression& node) {
                     
                     // Create a generic type instance (e.g., Container<number>)
                     auto genericType = typeSystem_->createGenericType(classType, resolvedTypeArgs);
+                    std::cout << "DEBUG: Created GenericType: " << genericType->toString() << ", kind: " << static_cast<int>(genericType->getKind()) << std::endl;
                     setExpressionType(node, genericType);
                 } else {
                     // No explicit type arguments - use the raw class type
@@ -1630,8 +1640,9 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     if (existingSymbol) {
         // Update the existing symbol with the more complete class type
         existingSymbol->setType(classType);
+        existingSymbol->setDeclaration(&node);
     } else {
-        declareSymbol(node.getName(), SymbolKind::Class, classType, node.getLocation());
+        declareSymbol(node.getName(), SymbolKind::Class, classType, node.getLocation(), &node);
     }
     
     // Enter class scope FIRST

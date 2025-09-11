@@ -4,6 +4,7 @@
 #include "tsc/lexer/Lexer.h"
 #include "tsc/semantic/TypeSystem.h"
 #include <unordered_map>
+#include <iostream>
 
 namespace tsc {
 
@@ -1200,8 +1201,12 @@ unique_ptr<Expression> Parser::parseNewExpression() {
     // Parse optional type arguments (e.g., "<number>", "<string, boolean>")
     std::vector<shared_ptr<Type>> typeArguments;
     if (check(TokenType::Less)) {
+        std::cout << "DEBUG: Parser found type arguments in NewExpression" << std::endl;
         // Use the existing type argument parsing infrastructure
         typeArguments = parseTypeArgumentList();
+        std::cout << "DEBUG: Parsed " << typeArguments.size() << " type arguments" << std::endl;
+    } else {
+        std::cout << "DEBUG: Parser did not find type arguments in NewExpression" << std::endl;
     }
     
     // Parse arguments if present
