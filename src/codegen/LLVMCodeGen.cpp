@@ -205,6 +205,8 @@ void LLVMCodeGen::visit(NullLiteral& node) {
 }
 
 void LLVMCodeGen::visit(Identifier& node) {
+    std::cout << "DEBUG: Identifier visitor called for: " << node.getName() << std::endl;
+    
     // First, check if this identifier refers to a function
     llvm::Function* function = module_->getFunction(node.getName());
     if (function) {
@@ -223,7 +225,22 @@ void LLVMCodeGen::visit(Identifier& node) {
         return;
     }
     
-    // Check if this is a closure (function with captured variables)
+    // Check if this is a built-in object like console
+    if (node.getName() == "console") {
+        // Return a placeholder value for console object
+        // The actual methods will be handled in PropertyAccess
+        setCurrentValue(createNullValue(getAnyType()));
+        return;
+    }
+    
+    // First, try to load as a regular variable from code generation context
+    llvm::Value* value = loadVariable(node.getName(), node.getLocation());
+    if (value) {
+        setCurrentValue(value);
+        return;
+    }
+    
+    // If not found in code generation context, check if this is a closure (function with captured variables)
     Symbol* symbol = symbolTable_->lookupSymbol(node.getName());
     if (symbol && symbol->getType()->getKind() == TypeKind::Function) {
         auto functionType = std::static_pointer_cast<FunctionType>(symbol->getType());
@@ -246,22 +263,9 @@ void LLVMCodeGen::visit(Identifier& node) {
         }
     }
     
-    // Check if this is a built-in object like console
-    if (node.getName() == "console") {
-        // Return a placeholder value for console object
-        // The actual methods will be handled in PropertyAccess
-        setCurrentValue(createNullValue(getAnyType()));
-        return;
-    }
-    
-    // If not a function, captured variable, or closure, try to load as a regular variable
-    llvm::Value* value = loadVariable(node.getName(), node.getLocation());
-    if (!value) {
-        reportError("Undefined variable: " + node.getName(), node.getLocation());
-        setCurrentValue(createNullValue(getAnyType()));
-    } else {
-        setCurrentValue(value);
-    }
+    // If not found anywhere, report error
+    reportError("Undefined variable: " + node.getName(), node.getLocation());
+    setCurrentValue(createNullValue(getAnyType()));
 }
 
 void LLVMCodeGen::visit(ThisExpression& node) {
@@ -446,9 +450,11 @@ void LLVMCodeGen::visit(UnaryExpression& node) {
 }
 
 void LLVMCodeGen::visit(AssignmentExpression& node) {
+    std::cout << "DEBUG: AssignmentExpression visitor called" << std::endl;
     // Generate right-hand side value
     node.getRight()->accept(*this);
     llvm::Value* value = getCurrentValue();
+    std::cout << "DEBUG: AssignmentExpression right-hand side value: " << (value ? "found" : "null") << std::endl;
     
     // Handle left-hand side
     if (auto identifier = dynamic_cast<Identifier*>(node.getLeft())) {
@@ -1104,6 +1110,10 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
 
 void LLVMCodeGen::visit(PropertyAccess& node) {
     std::cout << "DEBUG: PropertyAccess visitor called for property: " << node.getProperty() << std::endl;
+    std::cout << "DEBUG: PropertyAccess - object type: " << (node.getObject() ? "present" : "null") << std::endl;
+    if (node.getObject()) {
+        std::cout << "DEBUG: PropertyAccess - object class: " << typeid(*node.getObject()).name() << std::endl;
+    }
     
     // Check if this is console.log access first
     if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {
@@ -1164,9 +1174,14 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         llvm::Function* currentFunction = builder_->GetInsertBlock()->getParent();
         String functionName = currentFunction->getName().str();
         
+        std::cout << "DEBUG: PropertyAccess - objectValue type: " << (objectValue->getType()->isPointerTy() ? "pointer" : "not pointer") << std::endl;
+        std::cout << "DEBUG: PropertyAccess - current function: " << functionName << std::endl;
+        std::cout << "DEBUG: PropertyAccess - property name: " << propertyName << std::endl;
+        
         // If we're in a monomorphized method (e.g., Container_number_getValue)
         // and accessing 'value', handle it as struct field access
         if (functionName.find("_") != String::npos && propertyName == "value") {
+            std::cout << "DEBUG: PropertyAccess - Entering struct field access for monomorphized method" << std::endl;
             // This is likely a monomorphized method accessing 'this.value'
             // For now, assume the first field is the 'value' field
             // In a full implementation, we'd look up the actual struct type
@@ -1185,7 +1200,10 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
             llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "field_ptr");
             llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
             setCurrentValue(fieldValue);
+            std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field" << std::endl;
             return;
+        } else {
+            std::cout << "DEBUG: PropertyAccess - Not entering struct field access. functionName: " << functionName << ", propertyName: " << propertyName << std::endl;
         }
     }
     
@@ -2610,34 +2628,65 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
         
         // Save current function context
         codeGenContext_->enterFunction(function);
+        codeGenContext_->enterScope();
+        std::cout << "DEBUG: Entered scope for monomorphized method: " << mangledName << std::endl;
         
         // Set up parameters
+        std::cout << "DEBUG: Setting up parameters for method: " << mangledName << std::endl;
+        std::cout << "DEBUG: Method is static: " << (method.isStatic() ? "YES" : "NO") << std::endl;
+        std::cout << "DEBUG: Number of parameters: " << method.getParameters().size() << std::endl;
+        std::cout << "DEBUG: Function has " << function->arg_size() << " arguments" << std::endl;
+        
         auto paramIt = function->arg_begin();
         if (!method.isStatic()) {
             // Skip 'this' parameter for now
+            std::cout << "DEBUG: Skipping 'this' parameter" << std::endl;
             ++paramIt;
         }
         
         for (size_t i = 0; i < method.getParameters().size(); ++i, ++paramIt) {
             const auto& param = method.getParameters()[i];
+            std::cout << "DEBUG: Setting up parameter: " << param.name << std::endl;
             llvm::Type* paramType = paramTypes[method.isStatic() ? i : i + 1];
             llvm::Value* paramStorage = allocateVariable(param.name, paramType, method.getLocation());
             builder_->CreateStore(&*paramIt, paramStorage);
+            std::cout << "DEBUG: Parameter " << param.name << " set up successfully" << std::endl;
+            
+            // Verify the parameter is stored in the symbol table
+            llvm::Value* storedValue = codeGenContext_->getSymbolValue(param.name);
+            std::cout << "DEBUG: Parameter " << param.name << " stored in symbol table: " << (storedValue ? "YES" : "NO") << std::endl;
         }
         
         // Generate method body
+        std::cout << "DEBUG: Generating method body for: " << mangledName << std::endl;
         method.getBody()->accept(*this);
+        std::cout << "DEBUG: Method body generation completed for: " << mangledName << std::endl;
+        
+        // Check if the current block has a terminator
+        llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
+        if (currentBlock) {
+            std::cout << "DEBUG: Current block has terminator: " << (currentBlock->getTerminator() ? "YES" : "NO") << std::endl;
+        } else {
+            std::cout << "DEBUG: No current block after method body generation" << std::endl;
+        }
         
         // Ensure function has a return
         if (!builder_->GetInsertBlock()->getTerminator()) {
+            std::cout << "DEBUG: Adding return statement to method: " << mangledName << std::endl;
             if (returnType->isVoidTy()) {
                 builder_->CreateRetVoid();
+                std::cout << "DEBUG: Added void return" << std::endl;
             } else {
-                builder_->CreateRet(createDefaultValue(returnType));
+                llvm::Value* defaultValue = createDefaultValue(returnType);
+                builder_->CreateRet(defaultValue);
+                std::cout << "DEBUG: Added default return" << std::endl;
             }
+        } else {
+            std::cout << "DEBUG: Method already has terminator: " << mangledName << std::endl;
         }
         
         // Restore previous function context
+        codeGenContext_->exitScope();
         codeGenContext_->exitFunction();
     }
 }
@@ -3424,7 +3473,9 @@ llvm::Value* LLVMCodeGen::allocateVariable(const String& name, llvm::Type* type,
 }
 
 llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation& location) {
+    std::cout << "DEBUG: loadVariable called for: " << name << std::endl;
     llvm::Value* storage = codeGenContext_->getSymbolValue(name);
+    std::cout << "DEBUG: loadVariable found storage for " << name << ": " << (storage ? "YES" : "NO") << std::endl;
     if (!storage) {
         return nullptr;
     }
@@ -3667,15 +3718,11 @@ void LLVMCodeGen::visit(ClassDeclaration& node) {
         // Instead, we'll create monomorphized types when the class is instantiated
         // with specific type arguments
         
-        // Generate constructor if present
-        if (node.getConstructor()) {
-            node.getConstructor()->accept(*this);
-        }
+        // For generic classes, we don't generate constructor and methods here
+        // They will be generated during monomorphization when the class is instantiated
+        // with specific type arguments
         
-        // Generate methods
-        for (const auto& method : node.getMethods()) {
-            method->accept(*this);
-        }
+        std::cout << "DEBUG: Skipping method generation for generic class: " << node.getName() << std::endl;
         
         // For generic classes, we don't set a current value
         // The actual type will be created during instantiation
