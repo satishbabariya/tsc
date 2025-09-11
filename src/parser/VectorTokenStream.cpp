@@ -29,6 +29,18 @@ bool VectorTokenStream::isAtEnd() const {
            tokens_[current_].getType() == TokenType::EndOfInput;
 }
 
+Token VectorTokenStream::peekAhead(size_t offset) const {
+    size_t target = current_ + offset;
+    if (target >= tokens_.size()) {
+        return Token(TokenType::EndOfInput, SourceLocation(), "");
+    }
+    return tokens_[target];
+}
+
+bool VectorTokenStream::hasAhead(size_t offset) const {
+    return (current_ + offset) < tokens_.size();
+}
+
 void VectorTokenStream::synchronize() {
     // Skip tokens until we find a statement boundary
     while (!isAtEnd()) {

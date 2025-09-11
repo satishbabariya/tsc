@@ -1730,16 +1730,67 @@ bool Parser::isTypeArgumentList() const {
         return false;
     }
     
-    // For now, use a simple heuristic:
-    // If we're in a function call context (after an identifier or function call),
-    // and the next token after '<' is an identifier, assume it's a type argument list.
-    // Otherwise, assume it's a comparison operator.
+    // Look ahead to see what follows the '<'
+    // Type argument lists are almost always followed by '(' in function calls
+    // while comparison operators are followed by expressions
     
-    // This is a simplified approach that should work for most cases.
-    // In a full implementation, we'd need more sophisticated lookahead.
+    // Check if we have a pattern like: <identifier> or <identifier, identifier>
+    // followed by '>' and then '('
     
-    // For now, be conservative and assume it's NOT a type argument list
-    // unless we're in a very specific context (like after a function name)
+    size_t offset = 1; // Start looking after the '<'
+    
+    // Look for type argument pattern: <identifier> or <identifier, identifier, ...>
+    while (tokens_->hasAhead(offset)) {
+        Token token = tokens_->peekAhead(offset);
+        
+        if (token.getType() == TokenType::Identifier) {
+            // Found an identifier, check what follows
+            offset++;
+            if (tokens_->hasAhead(offset)) {
+                Token nextToken = tokens_->peekAhead(offset);
+                if (nextToken.getType() == TokenType::Comma) {
+                    // Continue looking for more type arguments
+                    offset++;
+                    continue;
+                } else if (nextToken.getType() == TokenType::Greater) {
+                    // Found the closing '>', check if it's followed by '('
+                    offset++;
+                    if (tokens_->hasAhead(offset)) {
+                        Token afterGreater = tokens_->peekAhead(offset);
+                        if (afterGreater.getType() == TokenType::LeftParen) {
+                            // This is a type argument list: <T>( or <T, U>(
+                            return true;
+                        }
+                    }
+                    // Not followed by '(', so it's a comparison operator
+                    return false;
+                } else {
+                    // Not a comma or '>', so it's a comparison operator
+                    return false;
+                }
+            } else {
+                // End of input, not a valid type argument list
+                return false;
+            }
+        } else if (token.getType() == TokenType::Greater) {
+            // Empty type argument list: <>(
+            offset++;
+            if (tokens_->hasAhead(offset)) {
+                Token afterGreater = tokens_->peekAhead(offset);
+                if (afterGreater.getType() == TokenType::LeftParen) {
+                    // This is an empty type argument list: <>(
+                    return true;
+                }
+            }
+            // Not followed by '(', so it's a comparison operator
+            return false;
+        } else {
+            // Not an identifier or '>', so it's a comparison operator
+            return false;
+        }
+    }
+    
+    // End of input reached, not a valid type argument list
     return false;
 }
 
