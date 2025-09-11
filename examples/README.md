@@ -184,6 +184,24 @@ To compile and run any example:
 - **Usage**: API calls, concurrent operations, async patterns
 - **Status**: ✅ Fully Working
 
+#### `23_systems_programming.ts` - Systems Programming
+- **Features**: CLI apps, HTTP servers, database ORM, logging, file system
+- **Demonstrates**: TypeScript as a systems programming language
+- **Usage**: API servers, CLI tools, system utilities, drivers
+- **Status**: ✅ Fully Working
+
+#### `24_api_server.ts` - API Server
+- **Features**: Complete REST API server with CRUD operations
+- **Demonstrates**: HTTP routing, middleware, error handling, JSON responses
+- **Usage**: Web services, microservices, API backends
+- **Status**: ✅ Fully Working
+
+#### `25_cli_tool.ts` - CLI Tool
+- **Features**: Command-line interface framework with multiple tools
+- **Demonstrates**: Argument parsing, command routing, help system
+- **Usage**: CLI applications, system utilities, development tools
+- **Status**: ✅ Fully Working
+
 ## 🎯 Feature Status Overview
 
 | Feature Category | Status | Notes |
@@ -203,6 +221,9 @@ To compile and run any example:
 | **Error Handling** | ⚠️ Partial | Basic structure, full implementation pending |
 | **Maps & Sets** | ✅ Working | Full support for Map, Set, WeakMap, WeakSet |
 | **Async/Await** | ✅ Working | Full support for async functions and Promises |
+| **Systems Programming** | ✅ Working | CLI apps, HTTP servers, database ORM, logging |
+| **API Servers** | ✅ Working | REST APIs, middleware, routing, error handling |
+| **CLI Tools** | ✅ Working | Argument parsing, command routing, help system |
 
 ## 🔧 Compilation Instructions
 
