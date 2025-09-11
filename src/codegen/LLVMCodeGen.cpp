@@ -2400,20 +2400,41 @@ void LLVMCodeGen::visit(Module& module) {
     // Set module name
     module_->setModuleIdentifier(module.getFilename());
     
-    // Separate function declarations from other statements
+    // Separate function declarations, class declarations, and other statements
     std::vector<Statement*> functionDecls;
+    std::vector<Statement*> classDecls;
     std::vector<Statement*> moduleStatements;
     
     for (const auto& stmt : module.getStatements()) {
+        std::cout << "DEBUG: Module statement type: " << typeid(*stmt.get()).name() << std::endl;
         if (dynamic_cast<const FunctionDeclaration*>(stmt.get())) {
+            std::cout << "DEBUG: Adding FunctionDeclaration to functionDecls" << std::endl;
             functionDecls.push_back(stmt.get());
+        } else if (dynamic_cast<const ClassDeclaration*>(stmt.get())) {
+            // ClassDeclarations should not be processed as module-level statements
+            // They are processed separately to avoid constructor processing issues
+            std::cout << "DEBUG: Adding ClassDeclaration to classDecls" << std::endl;
+            classDecls.push_back(stmt.get());
+        } else if (dynamic_cast<const MethodDeclaration*>(stmt.get())) {
+            // MethodDeclarations (including constructors) should not be processed as module-level statements
+            // They are processed separately as part of class processing
+            std::cout << "DEBUG: Skipping MethodDeclaration from module-level statements" << std::endl;
         } else {
+            std::cout << "DEBUG: Adding statement to moduleStatements" << std::endl;
             moduleStatements.push_back(stmt.get());
         }
     }
     
     // Generate function declarations first
     for (const auto& stmt : functionDecls) {
+        stmt->accept(*this);
+        if (hasErrors()) break;
+    }
+    
+    // Generate class declarations second
+    std::cout << "DEBUG: Processing " << classDecls.size() << " class declarations" << std::endl;
+    for (const auto& stmt : classDecls) {
+        std::cout << "DEBUG: Processing ClassDeclaration separately" << std::endl;
         stmt->accept(*this);
         if (hasErrors()) break;
     }
@@ -2438,10 +2459,49 @@ void LLVMCodeGen::visit(Module& module) {
             std::cout << "DEBUG: Current block has terminator: " << (builder_->GetInsertBlock()->getTerminator() ? "YES" : "NO") << std::endl;
         }
         
-        // Ensure the current block has a terminator before adding the return
-        if (!builder_->GetInsertBlock()->getTerminator()) {
-            // Return 0 from main
-            builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
+        // Always ensure main function has a terminator
+        std::cout << "DEBUG: Checking terminator in main function" << std::endl;
+        std::cout << "DEBUG: Current block: " << builder_->GetInsertBlock() << std::endl;
+        std::cout << "DEBUG: Current block has terminator: " << (builder_->GetInsertBlock()->getTerminator() ? "YES" : "NO") << std::endl;
+        
+        // Check all basic blocks in the main function
+        std::cout << "DEBUG: Checking all basic blocks in main function" << std::endl;
+        for (auto& block : *mainFunc) {
+            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+            // Verify this block actually belongs to the main function
+            if (block.getParent() == mainFunc && !block.getTerminator()) {
+                std::cout << "DEBUG: Adding terminator to block " << &block << std::endl;
+                // Ensure we're at the end of the block and there are no instructions after terminators
+                builder_->SetInsertPoint(&block);
+                builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
+                std::cout << "DEBUG: Added terminator to block " << &block << std::endl;
+            }
+        }
+        
+        // Also check all other functions in the module for missing terminators
+        std::cout << "DEBUG: Checking all functions in module for missing terminators" << std::endl;
+        for (auto& func : module_->functions()) {
+            if (&func != mainFunc) { // Skip main function as we already handled it
+                std::cout << "DEBUG: Checking function: " << func.getName().str() << std::endl;
+                for (auto& block : func) {
+                    std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+                    std::cout << "DEBUG: Block " << &block << " parent function: " << (block.getParent() ? block.getParent()->getName().str() : "NULL") << std::endl;
+                    std::cout << "DEBUG: Current function: " << func.getName().str() << std::endl;
+                    std::cout << "DEBUG: Block belongs to current function: " << (block.getParent() == &func ? "YES" : "NO") << std::endl;
+                    // Verify this block actually belongs to the current function
+                    if (block.getParent() == &func && !block.getTerminator()) {
+                        std::cout << "DEBUG: Adding terminator to block " << &block << " in function " << func.getName().str() << std::endl;
+                        // Ensure we're at the end of the block
+                        builder_->SetInsertPoint(&block);
+                        if (func.getReturnType()->isVoidTy()) {
+                            builder_->CreateRetVoid();
+                        } else {
+                            builder_->CreateRet(createDefaultValue(func.getReturnType()));
+                        }
+                        std::cout << "DEBUG: Added terminator to block " << &block << " in function " << func.getName().str() << std::endl;
+                    }
+                }
+            }
         }
     } else {
         // Create an empty main function if no module-level statements exist
