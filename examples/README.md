@@ -36,6 +36,12 @@ To compile and run any example:
 - **Usage**: Comprehensive learning and reference guide
 - **Status**: ✅ Complete
 
+#### `TYPESCRIPT_COMPLETE_GUIDE.md` - Ultimate TypeScript Reference
+- **Features**: Complete guide from Beginner to Expert
+- **Demonstrates**: 40+ features with real-world patterns
+- **Usage**: The definitive TypeScript reference
+- **Status**: ✅ Complete
+
 ### 1. Basic Language Features
 
 #### `01_basic_types.ts` - Basic Types and Variables
@@ -153,6 +159,12 @@ To compile and run any example:
 - **Demonstrates**: Advanced type manipulation, complex generic patterns
 - **Usage**: Type-level programming, advanced type safety
 - **Status**: ❌ Not Implemented (shows patterns for reference)
+
+#### `19_expert_patterns.ts` - Expert Patterns
+- **Features**: Discriminated unions, template literals, satisfies operator
+- **Demonstrates**: Framework-level patterns, real-world TypeScript
+- **Usage**: Library development, advanced type safety
+- **Status**: ⚠️ Partial (some features not fully supported)
 
 ## 🎯 Feature Status Overview
 
