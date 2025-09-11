@@ -1392,6 +1392,8 @@ void LLVMCodeGen::visit(ReturnStatement& node) {
         return;
     }
     
+    std::cerr << "DEBUG: Return statement - current insert block: " << builder_->GetInsertBlock() << std::endl;
+    
     if (node.hasValue()) {
         // Generate code for return value
         node.getValue()->accept(*this);
@@ -1405,13 +1407,16 @@ void LLVMCodeGen::visit(ReturnStatement& node) {
                 // Perform type conversion
                 returnValue = convertValueToType(returnValue, returnType);
             }
+            std::cerr << "DEBUG: Creating ret instruction in block " << builder_->GetInsertBlock() << std::endl;
             builder_->CreateRet(returnValue);
         } else {
             reportError("Failed to generate return value", node.getLocation());
+            std::cerr << "DEBUG: Creating ret void instruction in block " << builder_->GetInsertBlock() << std::endl;
             builder_->CreateRetVoid();
         }
     } else {
         // Return void
+        std::cerr << "DEBUG: Creating ret void instruction in block " << builder_->GetInsertBlock() << std::endl;
         builder_->CreateRetVoid();
     }
 }
@@ -1458,13 +1463,28 @@ void LLVMCodeGen::visit(IfStatement& node) {
     }
     
     // Generate then block
+    std::cerr << "DEBUG: Setting insert point to then block " << thenBlock << std::endl;
     builder_->SetInsertPoint(thenBlock);
+    std::cerr << "DEBUG: Current insert block after setting: " << builder_->GetInsertBlock() << std::endl;
+    
     node.getThenStatement()->accept(*this);
     
     // Check if then block has terminator after generating its content
     llvm::BasicBlock* currentThenBlock = builder_->GetInsertBlock();
     bool thenHasTerminator = currentThenBlock && currentThenBlock->getTerminator() != nullptr;
+    
+    // Debug output
+    if (currentThenBlock) {
+        std::cerr << "DEBUG: Then block " << currentThenBlock << " has terminator: " << (thenHasTerminator ? "YES" : "NO") << std::endl;
+        if (currentThenBlock->getTerminator()) {
+            std::cerr << "DEBUG: Terminator type: " << currentThenBlock->getTerminator()->getOpcodeName() << std::endl;
+        }
+        std::cerr << "DEBUG: Then block instruction count: " << currentThenBlock->size() << std::endl;
+    }
+    
+    // Only add branch if the block doesn't already have a terminator
     if (!thenHasTerminator && currentThenBlock) {
+        std::cerr << "DEBUG: Adding branch to end block from then block" << std::endl;
         builder_->CreateBr(endBlock);
     }
     
