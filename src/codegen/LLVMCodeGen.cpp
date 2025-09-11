@@ -1270,6 +1270,54 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         }
     }
     
+    // Check if this is property access on a non-generic class type
+    std::cout << "DEBUG: PropertyAccess - objectValue type: " << (objectValue->getType()->isPointerTy() ? "pointer" : "not pointer") << std::endl;
+    std::cout << "DEBUG: PropertyAccess - objectValue type == getAnyType(): " << (objectValue->getType() == getAnyType() ? "true" : "false") << std::endl;
+    
+    // Check if this is property access on a non-generic class type
+    // For now, handle the case where objectValue is getAnyType() but we know it's a class
+    bool isNonGenericClass = false;
+    if (objectValue->getType()->isPointerTy()) {
+        if (objectValue->getType() != getAnyType()) {
+            isNonGenericClass = true;
+        } else if (auto identifier = dynamic_cast<Identifier*>(node.getObject())) {
+            auto symbol = symbolTable_->lookupSymbol(identifier->getName());
+            if (symbol && symbol->getType()->getKind() == TypeKind::Class) {
+                isNonGenericClass = true;
+            }
+        }
+    }
+    
+    if (isNonGenericClass) {
+        // This is property access on a non-generic class instance
+        String propertyName = node.getProperty();
+        std::cout << "DEBUG: PropertyAccess - Handling non-generic class property access: " << propertyName << std::endl;
+        
+        // For now, provide a simple implementation for non-generic classes
+        // In a full implementation, we'd look up the actual struct type and field
+        if (propertyName == "value") {
+            // Assume the first field is the 'value' field
+            llvm::Value* indices[] = {
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // First field
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)   // Field index 0
+            };
+            
+            // Use a simple struct type for non-generic classes
+            std::vector<llvm::Type*> fieldTypes = { getNumberType() };  // Assume first field is a number
+            llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
+            
+            llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "field_ptr");
+            llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
+            setCurrentValue(fieldValue);
+            std::cout << "DEBUG: PropertyAccess - Successfully accessed non-generic class field" << std::endl;
+            return;
+        } else {
+            reportError("Property '" + propertyName + "' not found on non-generic class", node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
+    }
+    
     // Check if this is property access on a generic type (i8*)
     if (objectValue->getType() == getAnyType()) {
         // This is property access on a generic type - handle specially

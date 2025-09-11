@@ -1738,16 +1738,31 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     
     // Analyze constructor if present
     if (node.getConstructor()) {
+        std::cout << "DEBUG: Processing constructor method" << std::endl;
         node.getConstructor()->accept(*this);
+        
+        // Add constructor to class scope as a method
+        auto constructorType = getDeclarationType(*node.getConstructor());
+        declareSymbol("constructor", SymbolKind::Method, constructorType, node.getConstructor()->getLocation());
+        std::cout << "DEBUG: Added constructor to class scope" << std::endl;
     }
     
     // Analyze methods
+    std::cout << "DEBUG: ClassDeclaration processing " << node.getMethods().size() << " methods" << std::endl;
     for (const auto& method : node.getMethods()) {
+        std::cout << "DEBUG: Processing method: " << method->getName() << std::endl;
         method->accept(*this);
         
         // Add method to class scope
         auto methodType = getDeclarationType(*method);
         declareSymbol(method->getName(), SymbolKind::Method, methodType, method->getLocation());
+    }
+    
+    // Check constructor
+    if (node.getConstructor()) {
+        std::cout << "DEBUG: ClassDeclaration found constructor method" << std::endl;
+    } else {
+        std::cout << "DEBUG: ClassDeclaration no constructor method found" << std::endl;
     }
     
     // Exit class scope

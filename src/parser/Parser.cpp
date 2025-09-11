@@ -310,11 +310,14 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
             
             if (memberName == "constructor" || memberToken.getType() == TokenType::Constructor) {
                 // Parse constructor
+                std::cout << "DEBUG: Parser found constructor method" << std::endl;
                 consume(TokenType::LeftParen, "Expected '(' after constructor");
                 auto parameters = parseMethodParameterList();
                 consume(TokenType::RightParen, "Expected ')' after constructor parameters");
+                std::cout << "DEBUG: Parser parsed constructor with " << parameters.size() << " parameters" << std::endl;
                 
                 auto body = parseFunctionBody();
+                std::cout << "DEBUG: Parser parsed constructor body" << std::endl;
                 
                 constructor = make_unique<MethodDeclaration>(
                     "constructor", std::move(parameters), typeSystem_.getVoidType(),
@@ -1631,7 +1634,11 @@ std::vector<FunctionDeclaration::Parameter> Parser::parseParameterList() {
             param.name = nameToken.getStringValue();
             
             if (match(TokenType::Colon)) {
-                param.type = parseTypeAnnotation();
+                // Parse type directly without colon (colon already consumed)
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                param.type = parseUnionType();
+                setContext(oldContext);
             }
             
             parameters.push_back(std::move(param));
@@ -1651,7 +1658,11 @@ std::vector<MethodDeclaration::Parameter> Parser::parseMethodParameterList() {
             param.name = nameToken.getStringValue();
             
             if (match(TokenType::Colon)) {
-                param.type = parseTypeAnnotation();
+                // Parse type directly without colon (colon already consumed)
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                param.type = parseUnionType();
+                setContext(oldContext);
             }
             
             parameters.push_back(std::move(param));
