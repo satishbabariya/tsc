@@ -1,4 +1,5 @@
 #include "tsc/semantic/SemanticAnalyzer.h"
+#include "tsc/semantic/GenericConstraintChecker.h"
 #include <iostream>
 
 namespace tsc {
@@ -8,6 +9,7 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     symbolTable_ = make_unique<SymbolTable>();
     typeSystem_ = make_unique<TypeSystem>();
     context_ = make_unique<SemanticContext>(*symbolTable_, *typeSystem_, diagnostics_);
+    constraintChecker_ = make_unique<GenericConstraintChecker>(diagnostics_, *typeSystem_);
     
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
     
@@ -217,6 +219,9 @@ void SemanticAnalyzer::visit(SuperExpression& node) {
 }
 
 void SemanticAnalyzer::visit(NewExpression& node) {
+    std::cout << "DEBUG: SemanticAnalyzer::visit(NewExpression) called for: " << node.toString() << std::endl;
+    std::cout << "DEBUG: hasExplicitTypeArguments: " << (node.hasExplicitTypeArguments() ? "true" : "false") << std::endl;
+    
     // Analyze arguments first
     for (const auto& arg : node.getArguments()) {
         arg->accept(*this);
@@ -224,22 +229,28 @@ void SemanticAnalyzer::visit(NewExpression& node) {
     
     // Handle constructor expression
     if (auto identifier = dynamic_cast<Identifier*>(node.getConstructor())) {
+        std::cout << "DEBUG: Constructor identifier: " << identifier->getName() << std::endl;
         // Try to find the class type in the symbol table
         Symbol* classSymbol = resolveSymbol(identifier->getName(), node.getLocation());
         if (classSymbol && classSymbol->getKind() == SymbolKind::Class) {
             auto classType = classSymbol->getType();
+            std::cout << "DEBUG: Class type: " << classType->toString() << ", kind: " << static_cast<int>(classType->getKind()) << std::endl;
             
             // Check if this is a class type that can be instantiated
             if (classType->getKind() == TypeKind::Class) {
                 // Handle explicit type arguments for generic classes
                 if (node.hasExplicitTypeArguments()) {
+                    std::cout << "DEBUG: Processing explicit type arguments" << std::endl;
                     // Process explicit type arguments (e.g., Container<number>)
                     const auto& typeArguments = node.getTypeArguments();
+                    std::cout << "DEBUG: Number of type arguments: " << typeArguments.size() << std::endl;
                     
                     // Resolve each type argument
                     std::vector<shared_ptr<Type>> resolvedTypeArgs;
                     for (const auto& typeArg : typeArguments) {
+                        std::cout << "DEBUG: Resolving type argument: " << typeArg->toString() << std::endl;
                         auto resolvedType = resolveType(typeArg);
+                        std::cout << "DEBUG: Resolved to: " << resolvedType->toString() << ", kind: " << static_cast<int>(resolvedType->getKind()) << std::endl;
                         if (resolvedType->getKind() == TypeKind::Error) {
                             reportError("Invalid type argument: " + typeArg->toString(), node.getLocation());
                             setExpressionType(node, typeSystem_->getErrorType());
@@ -248,8 +259,15 @@ void SemanticAnalyzer::visit(NewExpression& node) {
                         resolvedTypeArgs.push_back(resolvedType);
                     }
                     
+                    // Validate generic instantiation with constraint checking
+                    if (!constraintChecker_->validateGenericInstantiation(classType, resolvedTypeArgs, node.getLocation())) {
+                        setExpressionType(node, typeSystem_->getErrorType());
+                        return;
+                    }
+                    
                     // Create a generic type instance (e.g., Container<number>)
                     auto genericType = typeSystem_->createGenericType(classType, resolvedTypeArgs);
+                    std::cout << "DEBUG: Created GenericType: " << genericType->toString() << ", kind: " << static_cast<int>(genericType->getKind()) << std::endl;
                     setExpressionType(node, genericType);
                 } else {
                     // No explicit type arguments - use the raw class type
@@ -1045,8 +1063,18 @@ void SemanticAnalyzer::visit(FunctionDeclaration& node) {
 }
 
 void SemanticAnalyzer::visit(TypeParameter& node) {
-    // Create type parameter type
-    auto typeParam = typeSystem_->createTypeParameter(node.getName(), node.getConstraint());
+    // Resolve constraint first if present
+    shared_ptr<Type> resolvedConstraint = nullptr;
+    if (node.hasConstraint()) {
+        resolvedConstraint = resolveType(node.getConstraint());
+        if (resolvedConstraint->getKind() == TypeKind::Error) {
+            reportError("Invalid type parameter constraint: " + node.getConstraint()->toString(), node.getLocation());
+            resolvedConstraint = nullptr;
+        }
+    }
+    
+    // Create type parameter type with resolved constraint
+    auto typeParam = typeSystem_->createTypeParameter(node.getName(), resolvedConstraint);
     
     // Add type parameter to symbol table as a type
     declareSymbol(node.getName(), SymbolKind::Type, typeParam, node.getLocation());
@@ -1321,8 +1349,12 @@ void SemanticAnalyzer::performFlowAnalysis(Module& module) {
 // Helper method implementations
 void SemanticAnalyzer::declareSymbol(const String& name, SymbolKind kind, shared_ptr<Type> type, 
                                     const SourceLocation& location, ASTNode* declaration) {
+    std::cout << "DEBUG: declareSymbol called for: " << name << " (kind: " << static_cast<int>(kind) << ")" << std::endl;
     if (!symbolTable_->addSymbol(name, kind, type, location, declaration)) {
+        std::cout << "DEBUG: Symbol redeclaration detected for: " << name << std::endl;
         reportError("Symbol redeclaration: " + name, location);
+    } else {
+        std::cout << "DEBUG: Symbol successfully declared: " << name << std::endl;
     }
 }
 
@@ -1549,7 +1581,15 @@ void SemanticAnalyzer::visit(PropertyDeclaration& node) {
         }
     } else {
         // Resolve the property type (important for generic type parameters)
+        std::cout << "DEBUG: PropertyDeclaration resolving type: " << (propertyType ? propertyType->toString() : "null") << std::endl;
+        if (propertyType) {
+            std::cout << "DEBUG: PropertyDeclaration type kind: " << static_cast<int>(propertyType->getKind()) << std::endl;
+        }
         propertyType = resolveType(propertyType);
+        std::cout << "DEBUG: PropertyDeclaration resolved type: " << (propertyType ? propertyType->toString() : "null") << std::endl;
+        if (propertyType) {
+            std::cout << "DEBUG: PropertyDeclaration resolved type kind: " << static_cast<int>(propertyType->getKind()) << std::endl;
+        }
     }
     
     // Analyze initializer if present
@@ -1581,6 +1621,10 @@ void SemanticAnalyzer::visit(MethodDeclaration& node) {
         funcParam.name = param.name;
         // Resolve parameter types to handle generic type parameters
         funcParam.type = param.type ? resolveType(param.type) : typeSystem_->getAnyType();
+        std::cout << "DEBUG: MethodDeclaration resolved parameter '" << param.name << "' type: " << (funcParam.type ? funcParam.type->toString() : "null") << std::endl;
+        if (funcParam.type) {
+            std::cout << "DEBUG: MethodDeclaration parameter type kind: " << static_cast<int>(funcParam.type->getKind()) << std::endl;
+        }
         funcParam.optional = param.optional;
         paramTypes.push_back(funcParam);
         
@@ -1612,8 +1656,9 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     if (existingSymbol) {
         // Update the existing symbol with the more complete class type
         existingSymbol->setType(classType);
+        existingSymbol->setDeclaration(&node);
     } else {
-        declareSymbol(node.getName(), SymbolKind::Class, classType, node.getLocation());
+        declareSymbol(node.getName(), SymbolKind::Class, classType, node.getLocation(), &node);
     }
     
     // Enter class scope FIRST
@@ -1622,10 +1667,13 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     // Process type parameters AFTER entering class scope
     std::vector<shared_ptr<Type>> typeParameters;
     for (const auto& typeParam : node.getTypeParameters()) {
+        std::cout << "DEBUG: Processing type parameter: " << typeParam->getName() << std::endl;
+        std::cout << "DEBUG: Current scope when adding type parameter: " << symbolTable_->getCurrentScope() << std::endl;
         auto paramType = typeSystem_->createTypeParameter(typeParam->getName(), typeParam->getConstraint());
         typeParameters.push_back(paramType);
         
         // Add type parameter to class scope so it can be referenced within the class
+        std::cout << "DEBUG: Declaring type parameter symbol: " << typeParam->getName() << std::endl;
         declareSymbol(typeParam->getName(), SymbolKind::Type, paramType, typeParam->getLocation());
     }
     
@@ -1679,6 +1727,8 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     
     // Analyze properties
     for (const auto& property : node.getProperties()) {
+        std::cout << "DEBUG: Processing property: " << property->getName() << std::endl;
+        std::cout << "DEBUG: Current scope when processing property: " << symbolTable_->getCurrentScope() << std::endl;
         property->accept(*this);
         
         // Add property to class scope
@@ -1688,16 +1738,31 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     
     // Analyze constructor if present
     if (node.getConstructor()) {
+        std::cout << "DEBUG: Processing constructor method" << std::endl;
         node.getConstructor()->accept(*this);
+        
+        // Add constructor to class scope as a method
+        auto constructorType = getDeclarationType(*node.getConstructor());
+        declareSymbol("constructor", SymbolKind::Method, constructorType, node.getConstructor()->getLocation());
+        std::cout << "DEBUG: Added constructor to class scope" << std::endl;
     }
     
     // Analyze methods
+    std::cout << "DEBUG: ClassDeclaration processing " << node.getMethods().size() << " methods" << std::endl;
     for (const auto& method : node.getMethods()) {
+        std::cout << "DEBUG: Processing method: " << method->getName() << std::endl;
         method->accept(*this);
         
         // Add method to class scope
         auto methodType = getDeclarationType(*method);
         declareSymbol(method->getName(), SymbolKind::Method, methodType, method->getLocation());
+    }
+    
+    // Check constructor
+    if (node.getConstructor()) {
+        std::cout << "DEBUG: ClassDeclaration found constructor method" << std::endl;
+    } else {
+        std::cout << "DEBUG: ClassDeclaration no constructor method found" << std::endl;
     }
     
     // Exit class scope
@@ -1885,6 +1950,16 @@ shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
     
     // Look up the type name in the symbol table
     Symbol* symbol = resolveSymbol(typeName, SourceLocation());
+    std::cout << "DEBUG: resolveType looking up '" << typeName << "': " << (symbol ? "found" : "not found") << std::endl;
+    if (symbol) {
+        std::cout << "DEBUG: Symbol kind: " << static_cast<int>(symbol->getKind()) << std::endl;
+        std::cout << "DEBUG: Symbol type: " << (symbol->getType() ? symbol->getType()->toString() : "null") << std::endl;
+        if (symbol->getType()) {
+            std::cout << "DEBUG: Symbol type kind: " << static_cast<int>(symbol->getType()->getKind()) << std::endl;
+        }
+    } else {
+        std::cout << "DEBUG: resolveType failed to find symbol '" << typeName << "' - this will cause type parameter to be treated as variable" << std::endl;
+    }
     if (symbol && (symbol->getKind() == SymbolKind::Type || symbol->getKind() == SymbolKind::Class)) {
         auto resolvedType = symbol->getType();
         

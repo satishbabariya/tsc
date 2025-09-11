@@ -33,6 +33,7 @@
 
 #include <unordered_map>
 #include <stack>
+#include <iostream>
 
 namespace tsc {
 
@@ -97,9 +98,255 @@ public:
     explicit LLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& options);
     ~LLVMCodeGen();
     
+    // Forward declaration for ExceptionContext
+    class ExceptionContext;
+    
+    // Nested helper classes for enhanced IR generation
+    class FunctionContext {
+    private:
+        llvm::Function* function_;
+        std::unordered_map<String, std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> labels_;
+        std::stack<ExceptionContext> exceptionStack_;
+        
+    public:
+        FunctionContext(llvm::Function* func) : function_(func) {}
+        
+        llvm::Function* getFunction() const { return function_; }
+        
+        // Label management for complex control flow
+        void addLabel(const String& name, llvm::BasicBlock* start, llvm::BasicBlock* end);
+        std::pair<llvm::BasicBlock*, llvm::BasicBlock*> getLabel(const String& name) const;
+        bool hasLabel(const String& name) const;
+        void removeLabel(const String& name);
+        
+        // Exception handling context
+        void pushExceptionContext(const ExceptionContext& ctx);
+        void popExceptionContext();
+        ExceptionContext& getCurrentExceptionContext();
+        bool hasExceptionContext() const;
+        
+        // Cleanup and resource management
+        void cleanup();
+    };
+    
+    class ScopeContext {
+    private:
+        std::vector<std::unordered_map<String, llvm::Value*>> symbolStack_;
+        std::vector<std::unordered_map<String, llvm::Type*>> typeStack_;
+        
+    public:
+        ScopeContext() {
+            // Start with global scope
+            enterScope();
+        }
+        
+        void enterScope() {
+            symbolStack_.push_back({});
+            typeStack_.push_back({});
+        }
+        
+        void exitScope() {
+            if (symbolStack_.size() > 1) {
+                symbolStack_.pop_back();
+                typeStack_.pop_back();
+            }
+        }
+        
+        void declareSymbol(const String& name, llvm::Value* value) {
+            symbolStack_.back()[name] = value;
+        }
+        
+        void declareType(const String& name, llvm::Type* type) {
+            typeStack_.back()[name] = type;
+        }
+        
+        llvm::Value* getSymbol(const String& name) const {
+            // Search from innermost to outermost scope
+            for (auto it = symbolStack_.rbegin(); it != symbolStack_.rend(); ++it) {
+                auto found = it->find(name);
+                if (found != it->end()) {
+                    return found->second;
+                }
+            }
+            return nullptr;
+        }
+        
+        llvm::Type* getType(const String& name) const {
+            // Search from innermost to outermost scope
+            for (auto it = typeStack_.rbegin(); it != typeStack_.rend(); ++it) {
+                auto found = it->find(name);
+                if (found != it->end()) {
+                    return found->second;
+                }
+            }
+            return nullptr;
+        }
+        
+        bool isSymbolDeclared(const String& name) const {
+            return getSymbol(name) != nullptr;
+        }
+        
+        bool isTypeDeclared(const String& name) const {
+            return getType(name) != nullptr;
+        }
+        
+        // Get current scope depth
+        size_t getScopeDepth() const {
+            return symbolStack_.size();
+        }
+    };
+    
+    class ExceptionContext {
+    private:
+        llvm::BasicBlock* tryBlock_;
+        llvm::BasicBlock* catchBlock_;
+        llvm::BasicBlock* finallyBlock_;
+        llvm::Value* exceptionVar_;
+        
+    public:
+        ExceptionContext(llvm::BasicBlock* tryBlock, llvm::BasicBlock* catchBlock, 
+                        llvm::BasicBlock* finallyBlock = nullptr, llvm::Value* exceptionVar = nullptr)
+            : tryBlock_(tryBlock), catchBlock_(catchBlock), 
+              finallyBlock_(finallyBlock), exceptionVar_(exceptionVar) {}
+        
+        llvm::BasicBlock* getTryBlock() const { return tryBlock_; }
+        llvm::BasicBlock* getCatchBlock() const { return catchBlock_; }
+        llvm::BasicBlock* getFinallyBlock() const { return finallyBlock_; }
+        llvm::Value* getExceptionVar() const { return exceptionVar_; }
+        
+        bool hasFinally() const { return finallyBlock_ != nullptr; }
+        bool hasExceptionVar() const { return exceptionVar_ != nullptr; }
+        
+        // Exception handling utilities
+        void setExceptionVar(llvm::Value* var) { exceptionVar_ = var; }
+        void setFinallyBlock(llvm::BasicBlock* block) { finallyBlock_ = block; }
+    };
+    
+    class BuiltinFunctionRegistry {
+    private:
+        std::unordered_map<String, llvm::Function*> builtinFunctions_;
+        llvm::Module* module_;
+        llvm::LLVMContext* context_;
+        
+    public:
+        BuiltinFunctionRegistry(llvm::Module* module, llvm::LLVMContext* context)
+            : module_(module), context_(context) {
+            registerBuiltinFunctions();
+        }
+        
+        llvm::Function* getBuiltinFunction(const String& name) {
+            auto it = builtinFunctions_.find(name);
+            return it != builtinFunctions_.end() ? it->second : nullptr;
+        }
+        
+        bool isBuiltinFunction(const String& name) const {
+            return builtinFunctions_.find(name) != builtinFunctions_.end();
+        }
+        
+    private:
+        void registerBuiltinFunctions();
+        void registerConsoleFunctions();
+        void registerMathFunctions();
+        void registerStringFunctions();
+        void registerArrayFunctions();
+    };
+    
+    class IRAllocator {
+    private:
+        llvm::BumpPtrAllocator arena_;
+        size_t totalAllocated_ = 0;
+        size_t allocationCount_ = 0;
+        
+    public:
+        template<typename T, typename... Args>
+        T* allocate(Args&&... args) {
+            void* ptr = arena_.Allocate(sizeof(T), alignof(T));
+            if (!ptr) {
+                throw std::bad_alloc();
+            }
+            
+            totalAllocated_ += sizeof(T);
+            allocationCount_++;
+            
+            return new(ptr) T(std::forward<Args>(args)...);
+        }
+        
+        template<typename T>
+        void deallocate(T* ptr) {
+            if (ptr) {
+                ptr->~T();
+                // Note: BumpPtrAllocator doesn't support individual deallocation
+                // Memory is freed when the allocator is destroyed
+            }
+        }
+        
+        void reset() {
+            arena_.Reset();
+            totalAllocated_ = 0;
+            allocationCount_ = 0;
+        }
+        
+        size_t getTotalAllocated() const { return totalAllocated_; }
+        size_t getAllocationCount() const { return allocationCount_; }
+        
+        // Get memory statistics
+        struct MemoryStats {
+            size_t totalAllocated;
+            size_t allocationCount;
+            double averageAllocationSize;
+            size_t peakMemoryUsage;
+        };
+        
+        MemoryStats getStats() const {
+            MemoryStats stats;
+            stats.totalAllocated = totalAllocated_;
+            stats.allocationCount = allocationCount_;
+            stats.averageAllocationSize = allocationCount_ > 0 ? 
+                static_cast<double>(totalAllocated_) / allocationCount_ : 0.0;
+            stats.peakMemoryUsage = arena_.getBytesAllocated();
+            return stats;
+        }
+        
+        // Memory usage reporting
+        void reportMemoryUsage() const;
+    };
+    
     // Main code generation interface
     bool generateCode(Module& module, SymbolTable& symbolTable, 
                      const TypeSystem& typeSystem);
+    
+    // Enhanced type generation with caching
+    llvm::Type* generateType(const shared_ptr<Type>& type);
+    llvm::Type* generatePrimitiveType(const shared_ptr<Type>& type);
+    llvm::Type* generateArrayType(const shared_ptr<Type>& type);
+    llvm::Type* generateObjectType(const shared_ptr<Type>& type);
+    llvm::Type* generateFunctionType(const shared_ptr<Type>& type);
+    llvm::Type* generateUnionType(const shared_ptr<Type>& type);
+    llvm::Type* generateGenericType(const shared_ptr<Type>& type);
+    
+    // Enhanced control flow generation
+    void generateIfStatement(const unique_ptr<IfStatement>& stmt);
+    void generateWhileStatement(const unique_ptr<WhileStatement>& stmt);
+    void generateForStatement(const unique_ptr<ForStatement>& stmt);
+    void generateTryStatement(const unique_ptr<TryStatement>& stmt);
+    
+    // Generic type specialization
+    llvm::Type* generateGenericType(const shared_ptr<GenericType>& genericType, 
+                                   const std::vector<llvm::Type*>& typeArguments);
+    llvm::Type* generateSpecializedClass(const shared_ptr<GenericType>& genericType,
+                                        const std::vector<llvm::Type*>& typeArguments);
+    llvm::Type* specializeType(const shared_ptr<Type>& type,
+                              const std::unordered_map<String, llvm::Type*>& typeMap);
+    
+    // Optimization passes
+    void runOptimizationPasses();
+    void runFunctionOptimizations();
+    void runModuleOptimizations();
+    void runMemoryOptimizations();
+    
+    // Memory management
+    void reportMemoryUsage() const;
+    IRAllocator::MemoryStats getMemoryStats() const;
     
     // Output generation
     bool emitLLVMIR(const String& filename) const;
@@ -190,6 +437,20 @@ private:
     // Target machine for code generation
     std::unique_ptr<llvm::TargetMachine> targetMachine_;
     
+    // Enhanced IR generation infrastructure
+    std::stack<FunctionContext> functionContexts_;
+    std::unique_ptr<BuiltinFunctionRegistry> builtinRegistry_;
+    std::unique_ptr<IRAllocator> irAllocator_;
+    
+    // Type caching system
+    std::unordered_map<String, llvm::Type*> typeCache_;
+    std::unordered_map<String, llvm::FunctionType*> functionTypeCache_;
+    std::unordered_map<String, llvm::StructType*> structTypeCache_;
+    
+    // Generic type handling
+    std::unordered_map<String, llvm::Type*> specializedTypes_;
+    std::unordered_map<String, std::vector<llvm::Type*>> genericTypeMap_;
+    
     // Debug information builder - disabled for now
     // std::unique_ptr<llvm::DIBuilder> debugBuilder_;
     // llvm::DICompileUnit* debugCompileUnit_;
@@ -224,6 +485,14 @@ private:
     
     // Type conversion
     llvm::Type* convertTypeToLLVM(shared_ptr<Type> type);
+    
+    // Generic type monomorphization
+    llvm::Type* createMonomorphizedType(const GenericType& genericType);
+    String generateMangledName(const GenericType& genericType);
+    llvm::StructType* createMonomorphizedStruct(const GenericType& genericType);
+    String generateMangledMethodName(const GenericType& genericType, const String& methodName);
+    void generateMonomorphizedMethods(const GenericType& genericType, Symbol* classSymbol);
+    void generateMonomorphizedMethod(const MethodDeclaration& method, const GenericType& genericType, const String& mangledName);
     
     // Value operations
     llvm::Value* createNumberLiteral(double value);
@@ -287,7 +556,6 @@ private:
     
     // Optimization
     void optimizeModule();
-    void runOptimizationPasses();
     
     // Target setup
     bool setupTargetMachine();

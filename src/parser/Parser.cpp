@@ -1,9 +1,12 @@
 #include "tsc/parser/Parser.h"
 #include "tsc/parser/VectorTokenStream.h"
 #include "tsc/utils/DiagnosticEngine.h"
+#include "tsc/utils/EnhancedDiagnosticEngine.h"
+#include "tsc/utils/ASTAllocator.h"
 #include "tsc/lexer/Lexer.h"
 #include "tsc/semantic/TypeSystem.h"
 #include <unordered_map>
+#include <iostream>
 
 namespace tsc {
 
@@ -25,7 +28,11 @@ static const std::unordered_map<TokenType, int> operatorPrecedence = {
     {TokenType::Slash, 12},
 };
 
-Parser::Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) : diagnostics_(diagnostics), typeSystem_(typeSystem) {}
+Parser::Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) 
+    : diagnostics_(diagnostics), enhancedDiagnostics_(nullptr), typeSystem_(typeSystem) {}
+
+Parser::Parser(utils::EnhancedDiagnosticEngine& enhancedDiagnostics, const TypeSystem& typeSystem) 
+    : diagnostics_(enhancedDiagnostics), enhancedDiagnostics_(&enhancedDiagnostics), typeSystem_(typeSystem) {}
 
 Parser::~Parser() = default;
 
@@ -66,6 +73,7 @@ unique_ptr<Module> Parser::parseModule() {
 unique_ptr<Statement> Parser::parseStatement() {
     // Handle variable declarations
     if (match({TokenType::Var, TokenType::Let, TokenType::Const})) {
+        std::cout << "DEBUG: Parser found variable declaration" << std::endl;
         return parseVariableStatement();
     }
     
@@ -160,8 +168,13 @@ unique_ptr<Statement> Parser::parseVariableStatement() {
     
     // Optional type annotation
     shared_ptr<Type> typeAnnotation = nullptr;
+    
     if (match(TokenType::Colon)) {
-        typeAnnotation = parseTypeAnnotation();
+        // Parse type directly without colon (colon already consumed)
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
+        typeAnnotation = parseUnionType();
+        setContext(oldContext);
     }
     
     // Optional initializer
@@ -197,7 +210,11 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     // Optional return type
     shared_ptr<Type> returnType = nullptr;
     if (match(TokenType::Colon)) {
-        returnType = parseTypeAnnotation();
+        // Parse type directly without colon (colon already consumed)
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
+        returnType = parseUnionType();
+        setContext(oldContext);
     }
     
     auto body = parseFunctionBody();
@@ -219,10 +236,30 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     std::vector<unique_ptr<TypeParameter>> typeParameters;
     if (match(TokenType::Less)) {
         do {
+            // Parse variance annotation (optional)
+            Variance variance = Variance::Invariant;
+            if (match(TokenType::Out)) {
+                variance = Variance::Covariant;
+            } else if (match(TokenType::In)) {
+                variance = Variance::Contravariant;
+            }
+            
             Token typeParamToken = consume(TokenType::Identifier, "Expected type parameter name");
+            
+            // Parse constraint (optional)
+            shared_ptr<Type> constraint = nullptr;
+            if (match(TokenType::Extends)) {
+                constraint = parseTypeAnnotation();
+                if (!constraint) {
+                    reportError("Expected constraint type after 'extends'", getCurrentLocation());
+                    constraint = typeSystem_.getErrorType();
+                }
+            }
+            
             auto typeParam = make_unique<TypeParameter>(
                 typeParamToken.getStringValue(),
-                nullptr, // constraint - not implemented yet
+                constraint,
+                variance,
                 getCurrentLocation()
             );
             typeParameters.push_back(std::move(typeParam));
@@ -277,57 +314,94 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
             else if (match(TokenType::Abstract)) isAbstract = true;
         }
         
-        if (check(TokenType::Constructor)) {
-            // Parse constructor
-            consume(TokenType::Constructor, "Expected 'constructor'");
-            consume(TokenType::LeftParen, "Expected '(' after constructor");
-            auto parameters = parseMethodParameterList();
-            consume(TokenType::RightParen, "Expected ')' after constructor parameters");
-            
-            auto body = parseFunctionBody();
-            
-            constructor = make_unique<MethodDeclaration>(
-                "constructor", std::move(parameters), typeSystem_.getVoidType(),
-                std::move(body), getCurrentLocation(), isStatic, isPrivate, isProtected, isAbstract
-            );
-        } else if (check(TokenType::Identifier)) {
+        if (check(TokenType::Identifier) || check(TokenType::Constructor)) {
             Token memberToken = advance();
             String memberName = memberToken.getStringValue();
             
-            if (check(TokenType::LeftParen)) {
-                // Method declaration
-                consume(TokenType::LeftParen, "Expected '(' after method name");
+            if (memberName == "constructor" || memberToken.getType() == TokenType::Constructor) {
+                // Parse constructor
+                std::cout << "DEBUG: Parser found constructor method" << std::endl;
+                consume(TokenType::LeftParen, "Expected '(' after constructor");
                 auto parameters = parseMethodParameterList();
+                consume(TokenType::RightParen, "Expected ')' after constructor parameters");
+                std::cout << "DEBUG: Parser parsed constructor with " << parameters.size() << " parameters" << std::endl;
+                
+                auto body = parseFunctionBody();
+                std::cout << "DEBUG: Parser parsed constructor body" << std::endl;
+                
+                constructor = make_unique<MethodDeclaration>(
+                    "constructor", std::move(parameters), typeSystem_.getVoidType(),
+                    std::move(body), getCurrentLocation(), isStatic, isPrivate, isProtected, isAbstract
+                );
+            } else if (check(TokenType::LeftParen)) {
+                // Method declaration with parameters
+                std::cout << "DEBUG: Parser found method declaration: " << memberName << std::endl;
+                std::vector<MethodDeclaration::Parameter> parameters;
+                
+                consume(TokenType::LeftParen, "Expected '(' after method name");
+                parameters = parseMethodParameterList();
                 consume(TokenType::RightParen, "Expected ')' after method parameters");
                 
                 // Optional return type
                 shared_ptr<Type> returnType = typeSystem_.getVoidType();
                 if (match(TokenType::Colon)) {
-                    returnType = parseTypeAnnotation();
+                    // Parse type directly without colon (colon already consumed)
+                    ParsingContext oldContext = currentContext_;
+                    setContext(ParsingContext::Type);
+                    returnType = parseUnionType();
+                    setContext(oldContext);
                 }
-                
                 auto body = parseFunctionBody();
                 
                 methods.push_back(make_unique<MethodDeclaration>(
                     memberName, std::move(parameters), returnType, std::move(body),
                     memberToken.getLocation(), isStatic, isPrivate, isProtected, isAbstract
                 ));
-            } else {
-                // Property declaration
-                shared_ptr<Type> propertyType = nullptr;
-                if (match(TokenType::Colon)) {
-                    propertyType = parseTypeAnnotation();
+            } else if (check(TokenType::Colon)) {
+                // Could be either method declaration with return type or property declaration
+                // Look ahead to see if next token is '{' (method body) or something else (property type)
+                advance(); // consume ':'
+                auto returnType = parseUnionType();
+                
+                
+                if (check(TokenType::LeftBrace)) {
+                    // This is a method declaration with return type but no parameters
+                    std::vector<MethodDeclaration::Parameter> parameters;
+                    
+                    auto body = parseFunctionBody();
+                    
+                    methods.push_back(make_unique<MethodDeclaration>(
+                        memberName, std::move(parameters), returnType, std::move(body),
+                        memberToken.getLocation(), isStatic, isPrivate, isProtected, isAbstract
+                    ));
+                } else {
+                    // This is a property declaration
+                    // Optional semicolon for property declarations
+                    if (match(TokenType::Semicolon)) {
+                        // Semicolon consumed
+                    }
+                    
+                    properties.push_back(make_unique<PropertyDeclaration>(
+                        memberName, returnType, nullptr, memberToken.getLocation(),
+                        isStatic, isPrivate, isProtected, isReadonly
+                    ));
                 }
+            } else {
+                // Property declaration without type annotation
+                std::cout << "DEBUG: Parser processing property without type: " << memberName << std::endl;
                 
                 unique_ptr<Expression> initializer = nullptr;
                 if (match(TokenType::Equal)) {
                     initializer = parseExpression();
                 }
                 
-                consume(TokenType::Semicolon, "Expected ';' after property declaration");
+                // Optional semicolon for property declarations
+                if (match(TokenType::Semicolon)) {
+                    // Semicolon consumed
+                }
                 
                 properties.push_back(make_unique<PropertyDeclaration>(
-                    memberName, propertyType, std::move(initializer), memberToken.getLocation(),
+                    memberName, nullptr, std::move(initializer), memberToken.getLocation(),
                     isStatic, isReadonly, isPrivate, isProtected
                 ));
             }
@@ -1178,8 +1252,12 @@ unique_ptr<Expression> Parser::parseNewExpression() {
     // Parse optional type arguments (e.g., "<number>", "<string, boolean>")
     std::vector<shared_ptr<Type>> typeArguments;
     if (check(TokenType::Less)) {
+        std::cout << "DEBUG: Parser found type arguments in NewExpression" << std::endl;
         // Use the existing type argument parsing infrastructure
         typeArguments = parseTypeArgumentList();
+        std::cout << "DEBUG: Parsed " << typeArguments.size() << " type arguments" << std::endl;
+    } else {
+        std::cout << "DEBUG: Parser did not find type arguments in NewExpression" << std::endl;
     }
     
     // Parse arguments if present
@@ -1306,18 +1384,118 @@ UnaryExpression::Operator Parser::tokenToUnaryOperator(TokenType type) const {
     }
 }
 
-void Parser::reportError(const String& message, const SourceLocation& location) {
+void Parser::reportError(const String& message, const SourceLocation& location, 
+                        const String& context, const String& suggestion) {
     SourceLocation loc = location.isValid() ? location : getCurrentLocation();
-    diagnostics_.error(message, loc);
+    
+    // Use enhanced diagnostic engine if available
+    if (enhancedDiagnostics_) {
+        enhancedDiagnostics_->error(message, loc, context, suggestion);
+    } else {
+        // Fallback to basic diagnostic engine
+        if (!context.empty()) {
+            diagnostics_.error(message + " (Context: " + context + ")", loc);
+        } else {
+            diagnostics_.error(message, loc);
+        }
+        
+        if (!suggestion.empty()) {
+            diagnostics_.warning("Suggestion: " + suggestion, loc);
+        }
+    }
 }
 
-void Parser::reportWarning(const String& message, const SourceLocation& location) {
+void Parser::reportWarning(const String& message, const SourceLocation& location, 
+                          const String& context, const String& suggestion) {
     SourceLocation loc = location.isValid() ? location : getCurrentLocation();
-    diagnostics_.warning(message, loc);
+    
+    // Use enhanced diagnostic engine if available
+    if (enhancedDiagnostics_) {
+        enhancedDiagnostics_->warning(message, loc, context, suggestion);
+    } else {
+        // Fallback to basic diagnostic engine
+        if (!context.empty()) {
+            diagnostics_.warning(message + " (Context: " + context + ")", loc);
+        } else {
+            diagnostics_.warning(message, loc);
+        }
+        
+        if (!suggestion.empty()) {
+            diagnostics_.warning("Suggestion: " + suggestion, loc);
+        }
+    }
+}
+
+void Parser::reportInfo(const String& message, const SourceLocation& location, 
+                       const String& context) {
+    SourceLocation loc = location.isValid() ? location : getCurrentLocation();
+    
+    // Use enhanced diagnostic engine if available
+    if (enhancedDiagnostics_) {
+        enhancedDiagnostics_->info(message, loc, context);
+    } else {
+        // Fallback to basic diagnostic engine
+        if (!context.empty()) {
+            diagnostics_.warning("Info: " + message + " (Context: " + context + ")", loc);
+        } else {
+            diagnostics_.warning("Info: " + message, loc);
+        }
+    }
 }
 
 void Parser::synchronize() {
-    tokens_->synchronize();
+    skipToStatementBoundary();
+}
+
+void Parser::skipToStatementBoundary() {
+    while (!isAtEnd()) {
+        if (peek().getType() == TokenType::Semicolon) {
+            advance();
+            break;
+        }
+        if (isStatementStart(peek().getType())) {
+            break;
+        }
+        advance();
+    }
+}
+
+void Parser::skipToDeclarationBoundary() {
+    while (!isAtEnd()) {
+        if (peek().getType() == TokenType::Semicolon) {
+            advance();
+            break;
+        }
+        if (isDeclarationStart(peek().getType())) {
+            break;
+        }
+        advance();
+    }
+}
+
+void Parser::setContext(ParsingContext context) {
+    currentContext_ = context;
+}
+
+ParsingContext Parser::getCurrentContext() const {
+    return currentContext_;
+}
+
+Token Parser::peekAhead(size_t offset) const {
+    while (lookaheadCache_.tokens_.size() <= offset) {
+        if (tokens_->isAtEnd()) break;
+        lookaheadCache_.tokens_.push_back(
+            tokens_->peekAhead(lookaheadCache_.tokens_.size())
+        );
+    }
+    if (offset < lookaheadCache_.tokens_.size()) {
+        return lookaheadCache_.tokens_[offset];
+    }
+    return Token(TokenType::EndOfInput, SourceLocation());
+}
+
+bool Parser::hasAhead(size_t offset) const {
+    return !tokens_->isAtEnd() || offset < lookaheadCache_.tokens_.size();
 }
 
 SourceLocation Parser::getCurrentLocation() const {
@@ -1326,8 +1504,19 @@ SourceLocation Parser::getCurrentLocation() const {
 
 // Parse type annotations like ": number", ": string", etc.
 shared_ptr<Type> Parser::parseTypeAnnotation() {
-    // Parse union types: type1 | type2 | type3
-    return parseUnionType();
+    if (!check(TokenType::Colon)) return nullptr;
+    advance();
+    
+    // Set type context for better disambiguation
+    ParsingContext oldContext = currentContext_;
+    setContext(ParsingContext::Type);
+    
+    auto type = parseUnionType();
+    
+    // Restore previous context
+    setContext(oldContext);
+    
+    return type;
 }
 
 shared_ptr<Type> Parser::parseUnionType() {
@@ -1360,33 +1549,44 @@ shared_ptr<Type> Parser::parseUnionType() {
 
 shared_ptr<Type> Parser::parsePrimaryType() {
     // Handle TypeScript type keywords
+    shared_ptr<Type> baseType = nullptr;
     if (check(TokenType::Number)) {
         advance();
-        return typeSystem_.getNumberType();
+        baseType = typeSystem_.getNumberType();
     } else if (check(TokenType::String)) {
         advance();
-        return typeSystem_.getStringType();
+        baseType = typeSystem_.getStringType();
     } else if (check(TokenType::Boolean)) {
         advance();
-        return typeSystem_.getBooleanType();
+        baseType = typeSystem_.getBooleanType();
     } else if (check(TokenType::Null)) {
         advance();
-        return typeSystem_.getNullType();
+        baseType = typeSystem_.getNullType();
     } else if (check(TokenType::Undefined)) {
         advance();
-        return typeSystem_.getUndefinedType();
+        baseType = typeSystem_.getUndefinedType();
     } else if (check(TokenType::Void)) {
         advance();
-        return typeSystem_.getVoidType();
+        baseType = typeSystem_.getVoidType();
     } else if (check(TokenType::Any)) {
         advance();
-        return typeSystem_.getAnyType();
+        baseType = typeSystem_.getAnyType();
     } else if (check(TokenType::Unknown)) {
         advance();
-        return typeSystem_.getUnknownType();
+        baseType = typeSystem_.getUnknownType();
     } else if (check(TokenType::Never)) {
         advance();
-        return typeSystem_.getNeverType();
+        baseType = typeSystem_.getNeverType();
+    }
+    
+    // If we parsed a primitive type, check for array syntax
+    if (baseType) {
+        if (check(TokenType::LeftBracket)) {
+            advance(); // consume '['
+            consume(TokenType::RightBracket, "Expected ']' after array type");
+            return typeSystem_.createArrayType(baseType);
+        }
+        return baseType;
     }
     
     // Handle regular identifiers (for custom types, interfaces, etc.)
@@ -1402,7 +1602,7 @@ shared_ptr<Type> Parser::parsePrimaryType() {
             
             // Parse type arguments
             do {
-                auto typeArg = parseTypeAnnotation();
+                auto typeArg = parseUnionType();
                 if (!typeArg) {
                     reportError("Expected type in generic type argument", getCurrentLocation());
                     return typeSystem_.getErrorType();
@@ -1434,13 +1634,22 @@ shared_ptr<Type> Parser::parsePrimaryType() {
         }
         
         // Create unresolved type for unknown identifiers (will be resolved in semantic analysis)
-        return typeSystem_.createUnresolvedType(typeName);
+        auto baseType = typeSystem_.createUnresolvedType(typeName);
+        
+        // Check for array syntax: TypeName[]
+        if (check(TokenType::LeftBracket)) {
+            advance(); // consume '['
+            consume(TokenType::RightBracket, "Expected ']' after array type");
+            return typeSystem_.createArrayType(baseType);
+        }
+        
+        return baseType;
     }
     
     // Handle array types like "number[]"
     if (check(TokenType::LeftBracket)) {
-        // For now, just report error - array type syntax needs more complex parsing
-        reportError("Array type syntax not yet implemented", getCurrentLocation());
+        // This should not happen here - array syntax should be handled after parsing the base type
+        reportError("Unexpected '[' in type annotation", getCurrentLocation());
         return typeSystem_.getErrorType();
     }
     
@@ -1458,7 +1667,11 @@ std::vector<FunctionDeclaration::Parameter> Parser::parseParameterList() {
             param.name = nameToken.getStringValue();
             
             if (match(TokenType::Colon)) {
-                param.type = parseTypeAnnotation();
+                // Parse type directly without colon (colon already consumed)
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                param.type = parseUnionType();
+                setContext(oldContext);
             }
             
             parameters.push_back(std::move(param));
@@ -1478,7 +1691,11 @@ std::vector<MethodDeclaration::Parameter> Parser::parseMethodParameterList() {
             param.name = nameToken.getStringValue();
             
             if (match(TokenType::Colon)) {
-                param.type = parseTypeAnnotation();
+                // Parse type directly without colon (colon already consumed)
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                param.type = parseUnionType();
+                setContext(oldContext);
             }
             
             parameters.push_back(std::move(param));
@@ -1531,7 +1748,7 @@ unique_ptr<TypeParameter> Parser::parseTypeParameter() {
         constraint = parseTypeAnnotation();
     }
     
-    return make_unique<TypeParameter>(name, constraint, nameToken.getLocation());
+    return make_unique<TypeParameter>(name, constraint, Variance::Invariant, nameToken.getLocation());
 }
 
 std::vector<shared_ptr<Type>> Parser::parseTypeArgumentList() {
@@ -1541,7 +1758,11 @@ std::vector<shared_ptr<Type>> Parser::parseTypeArgumentList() {
     
     if (!check(TokenType::Greater)) {
         do {
-            typeArguments.push_back(parseTypeAnnotation());
+            // Parse type directly without colon (type arguments don't have colons)
+            ParsingContext oldContext = currentContext_;
+            setContext(ParsingContext::Type);
+            typeArguments.push_back(parseUnionType());
+            setContext(oldContext);
         } while (match(TokenType::Comma));
     }
     
@@ -1722,18 +1943,93 @@ unique_ptr<Expression> Parser::parseFunctionExpression() {
 }
 
 bool Parser::isTypeArgumentList() const {
-    // For now, always return true when we see '<' in a function call context
-    // This is a simplified approach - in a full implementation, we'd use
-    // more sophisticated lookahead to distinguish between comparison and type arguments
-    // 
-    // The risk is that expressions like "func() < number" might be misinterpreted,
-    // but this is rare in typical TypeScript code
+    if (!check(TokenType::Less)) return false;
     
-    return true;
+    // In type context, < is more likely to be type arguments
+    if (currentContext_ == ParsingContext::Type) {
+        return true;
+    }
+    
+    // In expression context, use sophisticated lookahead
+    return analyzeTypeArgumentPattern();
+}
+
+bool Parser::analyzeTypeArgumentPattern() const {
+    // Look ahead to see if this looks like a type argument list
+    size_t offset = 1;
+    
+    // Skip whitespace
+    while (hasAhead(offset) && peekAhead(offset).getType() == TokenType::WhiteSpace) {
+        offset++;
+    }
+    
+    // Check for identifier (type parameter)
+    if (!hasAhead(offset) || peekAhead(offset).getType() != TokenType::Identifier) {
+        return false;
+    }
+    
+    offset++;
+    
+    // Skip whitespace
+    while (hasAhead(offset) && peekAhead(offset).getType() == TokenType::WhiteSpace) {
+        offset++;
+    }
+    
+    // Check for comma (multiple type parameters) or closing >
+    if (hasAhead(offset)) {
+        TokenType nextType = peekAhead(offset).getType();
+        return nextType == TokenType::Comma || nextType == TokenType::Greater;
+    }
+    
+    return false;
+}
+
+bool Parser::isStatementStart(TokenType type) const {
+    switch (type) {
+        case TokenType::If:
+        case TokenType::While:
+        case TokenType::For:
+        case TokenType::Return:
+        case TokenType::Break:
+        case TokenType::Continue:
+        case TokenType::Try:
+        case TokenType::Throw:
+        case TokenType::Let:
+        case TokenType::Const:
+        case TokenType::Var:
+        case TokenType::Function:
+        case TokenType::Class:
+        case TokenType::Interface:
+        case TokenType::Enum:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool Parser::isDeclarationStart(TokenType type) const {
+    switch (type) {
+        case TokenType::Let:
+        case TokenType::Const:
+        case TokenType::Var:
+        case TokenType::Function:
+        case TokenType::Class:
+        case TokenType::Interface:
+        case TokenType::Enum:
+        case TokenType::Type:
+        case TokenType::Namespace:
+            return true;
+        default:
+            return false;
+    }
 }
 
 // Factory function
 unique_ptr<Parser> createParser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) {
+    return make_unique<Parser>(diagnostics, typeSystem);
+}
+
+unique_ptr<Parser> createEnhancedParser(utils::EnhancedDiagnosticEngine& diagnostics, const TypeSystem& typeSystem) {
     return make_unique<Parser>(diagnostics, typeSystem);
 }
 

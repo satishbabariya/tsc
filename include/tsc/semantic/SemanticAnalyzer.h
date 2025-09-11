@@ -8,6 +8,9 @@
 
 namespace tsc {
 
+// Forward declarations
+class GenericConstraintChecker;
+
 // Semantic analysis context for tracking state during analysis
 class SemanticContext {
 public:
@@ -123,6 +126,7 @@ private:
     unique_ptr<SymbolTable> symbolTable_;
     unique_ptr<TypeSystem> typeSystem_;
     unique_ptr<SemanticContext> context_;
+    unique_ptr<GenericConstraintChecker> constraintChecker_;
     
     // Function context tracking
     int functionDepth_ = 0;

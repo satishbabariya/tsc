@@ -2,6 +2,7 @@
 add_library(tsc_lib STATIC
     # Core utilities
     utils/DiagnosticEngine.cpp
+    utils/EnhancedDiagnosticEngine.cpp
     utils/ASTPrinter.cpp
     
     # Lexer
@@ -16,6 +17,7 @@ add_library(tsc_lib STATIC
     semantic/SemanticAnalyzer.cpp
     semantic/SymbolTable.cpp
     semantic/TypeSystem.cpp
+    semantic/GenericConstraintChecker.cpp
     
     # Code Generation
     codegen/LLVMCodeGen.cpp

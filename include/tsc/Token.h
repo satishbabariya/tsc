@@ -178,6 +178,10 @@ public:
     virtual Token advance() = 0;
     virtual bool isAtEnd() const = 0;
     
+    // Lookahead interface for disambiguation
+    virtual Token peekAhead(size_t offset) const = 0;
+    virtual bool hasAhead(size_t offset) const = 0;
+    
     // Convenience methods
     bool check(TokenType type) const { return peek().is(type); }
     bool match(TokenType type);

@@ -3,6 +3,8 @@
 #include "tsc/Common.h"
 #include "tsc/AST.h"
 #include "tsc/Token.h"
+#include "tsc/utils/EnhancedDiagnosticEngine.h"
+#include "tsc/utils/ASTAllocator.h"
 #include <vector>
 
 namespace tsc {
@@ -11,10 +13,18 @@ class DiagnosticEngine;
 class TokenStream;
 class TypeSystem;
 
+// Parsing context for better disambiguation
+enum class ParsingContext {
+    Expression,    // Normal expression context
+    Type,         // Type annotation context  
+    Template,     // Template literal context
+};
+
 // Parser for TypeScript syntax using recursive descent parsing
 class Parser {
 public:
     explicit Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem);
+    explicit Parser(utils::EnhancedDiagnosticEngine& enhancedDiagnostics, const TypeSystem& typeSystem);
     ~Parser();
     
     // Main parsing interface
@@ -29,9 +39,23 @@ public:
 
 private:
     DiagnosticEngine& diagnostics_;
+    utils::EnhancedDiagnosticEngine* enhancedDiagnostics_;
     const TypeSystem& typeSystem_;
     unique_ptr<TokenStream> tokens_;
     String filename_;
+    
+    // Memory management
+    utils::ASTAllocator astAllocator_;
+    
+    // Context management
+    ParsingContext currentContext_ = ParsingContext::Expression;
+    
+    // Lookahead cache system
+    struct LookaheadCache {
+        std::vector<Token> tokens_;
+        size_t currentIndex_ = 0;
+    };
+    mutable LookaheadCache lookaheadCache_;
     
     // Core parsing methods
     unique_ptr<Module> parseModule();
@@ -117,9 +141,15 @@ private:
     bool isAtEnd() const;
     
     // Error handling and recovery
-    void reportError(const String& message, const SourceLocation& location = {});
-    void reportWarning(const String& message, const SourceLocation& location = {});
+    void reportError(const String& message, const SourceLocation& location = {}, 
+                    const String& context = "", const String& suggestion = "");
+    void reportWarning(const String& message, const SourceLocation& location = {}, 
+                      const String& context = "", const String& suggestion = "");
+    void reportInfo(const String& message, const SourceLocation& location = {}, 
+                   const String& context = "");
     void synchronize();
+    void skipToStatementBoundary();
+    void skipToDeclarationBoundary();
     void skipUntil(TokenType type);
     void skipUntil(std::initializer_list<TokenType> types);
     
@@ -131,22 +161,29 @@ private:
     
     // Lookahead helpers
     bool isTypeArgumentList() const;
+    Token peekAhead(size_t offset) const;
+    bool hasAhead(size_t offset) const;
+    bool analyzeTypeArgumentPattern() const;
     
     // Type checking helpers
     bool isTypeToken(TokenType type) const;
     bool isStatementStart(TokenType type) const;
+    bool isDeclarationStart(TokenType type) const;
     bool isExpressionStart(TokenType type) const;
     bool isAssignmentOperator(TokenType type) const;
     
     // Context management
     void enterScope();
     void exitScope();
+    void setContext(ParsingContext context);
+    ParsingContext getCurrentContext() const;
     
     // Current parsing context
     SourceLocation getCurrentLocation() const;
 };
 
-// Factory function for creating parser with token stream
+// Factory functions for creating parser with token stream
 unique_ptr<Parser> createParser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem);
+unique_ptr<Parser> createEnhancedParser(utils::EnhancedDiagnosticEngine& diagnostics, const TypeSystem& typeSystem);
 
 } // namespace tsc

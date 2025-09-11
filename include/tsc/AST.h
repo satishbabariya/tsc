@@ -983,10 +983,20 @@ private:
 };
 
 // Type parameter for generic functions/classes
+// Variance annotation for generic type parameters
+enum class Variance {
+    Invariant,  // Default - no variance annotation
+    Covariant,  // 'out' - can be substituted with derived types
+    Contravariant // 'in' - can be substituted with base types
+};
+
 class TypeParameter : public ASTNode {
 public:
-    TypeParameter(const String& name, shared_ptr<Type> constraint = nullptr, const SourceLocation& loc = {})
-        : name_(name), constraint_(constraint), location_(loc) {}
+    TypeParameter(const String& name, 
+                  shared_ptr<Type> constraint = nullptr, 
+                  Variance variance = Variance::Invariant,
+                  const SourceLocation& loc = {})
+        : name_(name), constraint_(constraint), variance_(variance), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
@@ -994,10 +1004,17 @@ public:
     
     const String& getName() const { return name_; }
     shared_ptr<Type> getConstraint() const { return constraint_; }
+    Variance getVariance() const { return variance_; }
+    
+    bool hasConstraint() const { return constraint_ != nullptr; }
+    bool isCovariant() const { return variance_ == Variance::Covariant; }
+    bool isContravariant() const { return variance_ == Variance::Contravariant; }
+    bool isInvariant() const { return variance_ == Variance::Invariant; }
 
 private:
     String name_;
     shared_ptr<Type> constraint_;
+    Variance variance_;
     SourceLocation location_;
 };
 

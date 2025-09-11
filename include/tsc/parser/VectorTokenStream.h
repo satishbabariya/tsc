@@ -15,6 +15,10 @@ public:
     Token advance() override;
     bool isAtEnd() const override;
     
+    // Lookahead interface
+    Token peekAhead(size_t offset) const override;
+    bool hasAhead(size_t offset) const override;
+    
     // Error recovery
     void synchronize() override;
     void skipUntil(TokenType type) override;

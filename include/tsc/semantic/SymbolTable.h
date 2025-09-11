@@ -51,6 +51,9 @@ public:
     // Type information
     void setType(shared_ptr<Type> type) { type_ = type; }
     
+    // Declaration information
+    void setDeclaration(ASTNode* declaration) { declaration_ = declaration; }
+    
     String toString() const;
 
 private:
