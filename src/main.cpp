@@ -1,4 +1,5 @@
 #include "tsc/Compiler.h"
+#include "tsc/TargetRegistry.h"
 #include "tsc/utils/DiagnosticEngine.h"
 #include "tsc/utils/ASTPrinter.h"
 #include <iostream>
@@ -17,6 +18,7 @@ void printUsage(const char* programName) {
     std::cout << "  -O<level>               Optimization level (0, 1, 2, 3, s, z)\n";
     std::cout << "  -g, --debug             Generate debug information\n";
     std::cout << "  --target <triple>       Target triple (e.g., x86_64-pc-linux-gnu)\n";
+    std::cout << "  --list-targets          List all supported target triples\n";
     std::cout << "  --emit-llvm             Emit LLVM IR instead of object file\n";
     std::cout << "  --emit-obj              Emit object file (default)\n";
     std::cout << "  --print-ast             Print the Abstract Syntax Tree\n";
@@ -72,6 +74,20 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 options.target.triple = argv[++i];
+            } else if (arg == "--list-targets") {
+                auto& registry = TargetRegistry::getInstance();
+                registry.initializeAllTargets();
+                auto targets = registry.getAllTargets();
+                
+                std::cout << "Supported targets:\n";
+                for (const auto& target : targets) {
+                    if (target.isSupported) {
+                        std::cout << "  " << target.triple;
+                        std::cout << " (" << target.arch.description;
+                        std::cout << " - " << target.os.description << ")\n";
+                    }
+                }
+                return 0;
             } else if (arg == "--emit-llvm") {
                 emitLLVM = true;
             } else if (arg == "--emit-obj") {
