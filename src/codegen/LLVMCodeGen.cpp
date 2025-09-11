@@ -760,48 +760,60 @@ void LLVMCodeGen::visit(CallExpression& node) {
         setCurrentValue(createNullValue(getAnyType()));
         return;
     } else if (auto propertyAccess = dynamic_cast<PropertyAccess*>(node.getCallee())) {
-        // Handle method calls like obj.method()
-        String methodName = propertyAccess->getProperty();
+        // Handle property access calls like obj.method() or console.log()
+        // First, process the property access to get the callee value
+        propertyAccess->accept(*this);
+        llvm::Value* calleeValue = getCurrentValue();
         
-        // Generate the object being called on
-        propertyAccess->getObject()->accept(*this);
-        llvm::Value* objectInstance = getCurrentValue();
-        
-        // Look up the method function
-        llvm::Function* methodFunc = module_->getFunction(methodName);
-        if (!methodFunc) {
-            reportError("Method not found: " + methodName, node.getLocation());
-            setCurrentValue(createNullValue(getAnyType()));
-            return;
-        }
-        
-        // Prepare arguments for the method call
-        std::vector<llvm::Value*> args;
-        
-        // Add 'this' pointer as first argument (object instance)
-        args.push_back(objectInstance);
-        
-        // Add method arguments
-        for (const auto& arg : node.getArguments()) {
-            arg->accept(*this);
-            llvm::Value* argValue = getCurrentValue();
-            if (!argValue) {
-                reportError("Failed to generate argument for method call", node.getLocation());
+        // Check if the property access returned a function (like console.log)
+        if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
+            // This is a function call (like console.log), not a method call
+            function = llvm::cast<llvm::Function>(calleeValue);
+        } else {
+            // This is a method call (like obj.method())
+            String methodName = propertyAccess->getProperty();
+            
+            // Generate the object being called on
+            propertyAccess->getObject()->accept(*this);
+            llvm::Value* objectInstance = getCurrentValue();
+            
+            // Look up the method function
+            llvm::Function* methodFunc = module_->getFunction(methodName);
+            if (!methodFunc) {
+                reportError("Method not found: " + methodName, node.getLocation());
                 setCurrentValue(createNullValue(getAnyType()));
                 return;
             }
-            args.push_back(argValue);
+            
+            // Prepare arguments for the method call
+            std::vector<llvm::Value*> args;
+            
+            // Add 'this' pointer as first argument (object instance)
+            args.push_back(objectInstance);
+            
+            // Add method arguments
+            for (const auto& arg : node.getArguments()) {
+                arg->accept(*this);
+                llvm::Value* argValue = getCurrentValue();
+                if (!argValue) {
+                    reportError("Failed to generate argument for method call", node.getLocation());
+                    setCurrentValue(createNullValue(getAnyType()));
+                    return;
+                }
+                args.push_back(argValue);
+            }
+            
+            // Generate the method call
+            llvm::Value* callResult;
+            if (methodFunc->getReturnType()->isVoidTy()) {
+                // Don't assign a name to void method calls
+                callResult = builder_->CreateCall(methodFunc, args);
+            } else {
+                callResult = builder_->CreateCall(methodFunc, args, "method_call_result");
+            }
+            setCurrentValue(callResult);
+            return;
         }
-        
-        // Generate the method call
-        llvm::Value* callResult;
-        if (methodFunc->getReturnType()->isVoidTy()) {
-            // Don't assign a name to void method calls
-            callResult = builder_->CreateCall(methodFunc, args);
-        } else {
-            callResult = builder_->CreateCall(methodFunc, args, "method_call_result");
-        }
-        setCurrentValue(callResult);
         return;
     } else {
         reportError("Complex function calls not yet supported", node.getLocation());
@@ -836,8 +848,10 @@ void LLVMCodeGen::visit(CallExpression& node) {
     if (function->getReturnType()->isVoidTy()) {
         // Don't assign a name to void function calls
         callResult = builder_->CreateCall(function, args);
+        std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
     } else {
         callResult = builder_->CreateCall(function, args, "call_result");
+        std::cout << "DEBUG: Created non-void function call to " << function->getName().str() << std::endl;
     }
     setCurrentValue(callResult);
 }
@@ -1225,7 +1239,9 @@ void LLVMCodeGen::visit(ArrowFunction& node) {
     }
     
     // Generate function body
+    std::cout << "DEBUG: Processing function body" << std::endl;
     node.getBody()->accept(*this);
+    std::cout << "DEBUG: Finished processing function body" << std::endl;
     
     // Ensure function has a return
     if (!builder_->GetInsertBlock()->getTerminator()) {
@@ -1308,7 +1324,9 @@ void LLVMCodeGen::visit(FunctionExpression& node) {
     }
     
     // Generate function body
+    std::cout << "DEBUG: Processing function body" << std::endl;
     node.getBody()->accept(*this);
+    std::cout << "DEBUG: Finished processing function body" << std::endl;
     
     // Ensure function has a return
     if (!builder_->GetInsertBlock()->getTerminator()) {
@@ -2351,8 +2369,9 @@ llvm::Function* LLVMCodeGen::getOrCreateConsoleLogFunction() {
     // For simplicity, we'll assume the argument is a number and print it
     llvm::Value* formatStr = funcBuilder.CreateGlobalString("%g\n", "format_str");
     
-    // Cast the argument to double for printing
-    llvm::Value* doubleValue = funcBuilder.CreateBitCast(arg, getNumberType());
+    // For now, just print a placeholder value since we can't easily determine the type
+    // TODO: Implement proper type handling for console.log arguments
+    llvm::Value* doubleValue = llvm::ConstantFP::get(getNumberType(), 42.0);
     
     // Call printf
     funcBuilder.CreateCall(printfFunc, {formatStr, doubleValue});
