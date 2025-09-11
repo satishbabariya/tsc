@@ -89,6 +89,10 @@ LLVMCodeGen::LLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& o
     // Create code generation context
     codeGenContext_ = std::make_unique<CodeGenContext>(*context_, *module_, *builder_, diagnostics_);
     
+    // Initialize enhanced IR generation infrastructure
+    builtinRegistry_ = std::make_unique<BuiltinFunctionRegistry>(module_.get(), context_.get());
+    irAllocator_ = std::make_unique<IRAllocator>();
+    
     // Setup target machine
     if (!setupTargetMachine()) {
         reportError("Failed to setup target machine", SourceLocation());
@@ -4437,6 +4441,375 @@ void LLVMCodeGen::generateNestedFunction(const FunctionDeclaration& node) {
     if (savedInsertBlock) {
         builder_->SetInsertPoint(savedInsertBlock, savedInsertPoint);
     }
+}
+
+// Enhanced type generation with caching
+llvm::Type* LLVMCodeGen::generateType(const shared_ptr<Type>& type) {
+    if (!type) return nullptr;
+    
+    // Check cache first
+    auto typeName = type->toString();
+    auto cached = typeCache_.find(typeName);
+    if (cached != typeCache_.end()) {
+        return cached->second;
+    }
+    
+    // Generate type based on kind
+    llvm::Type* llvmType = nullptr;
+    switch (type->getKind()) {
+        case TypeKind::Number:
+        case TypeKind::String:
+        case TypeKind::Boolean:
+        case TypeKind::Void:
+        case TypeKind::Any:
+            llvmType = generatePrimitiveType(type);
+            break;
+        case TypeKind::Array:
+            llvmType = generateArrayType(type);
+            break;
+        case TypeKind::Object:
+            llvmType = generateObjectType(type);
+            break;
+        case TypeKind::Function:
+            llvmType = generateFunctionType(type);
+            break;
+        case TypeKind::Union:
+            llvmType = generateUnionType(type);
+            break;
+        case TypeKind::Generic:
+            llvmType = generateGenericType(type);
+            break;
+        default:
+            reportError("Unsupported type kind: " + std::to_string(static_cast<int>(type->getKind())),
+                       SourceLocation{});
+            return nullptr;
+    }
+    
+    // Cache the type
+    if (llvmType) {
+        typeCache_[typeName] = llvmType;
+    }
+    
+    return llvmType;
+}
+
+llvm::Type* LLVMCodeGen::generatePrimitiveType(const shared_ptr<Type>& type) {
+    auto primitiveType = std::dynamic_pointer_cast<PrimitiveType>(type);
+    if (!primitiveType) return nullptr;
+    
+    switch (primitiveType->getKind()) {
+        case TypeKind::Number:
+            return llvm::Type::getDoubleTy(*context_);
+        case TypeKind::String:
+            return llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+        case TypeKind::Boolean:
+            return llvm::Type::getInt1Ty(*context_);
+        case TypeKind::Void:
+            return llvm::Type::getVoidTy(*context_);
+        default:
+            return nullptr;
+    }
+}
+
+llvm::Type* LLVMCodeGen::generateArrayType(const shared_ptr<Type>& type) {
+    auto arrayType = std::dynamic_pointer_cast<ArrayType>(type);
+    if (!arrayType) return nullptr;
+    
+    auto elementType = generateType(arrayType->getElementType());
+    if (!elementType) return nullptr;
+    
+    // Create array type: [size x elementType]
+    return llvm::ArrayType::get(elementType, 0); // Dynamic array for now
+}
+
+llvm::Type* LLVMCodeGen::generateObjectType(const shared_ptr<Type>& type) {
+    auto objectType = std::dynamic_pointer_cast<ObjectType>(type);
+    if (!objectType) return nullptr;
+    
+    // Check struct cache
+    auto typeName = objectType->toString();
+    auto cached = structTypeCache_.find(typeName);
+    if (cached != structTypeCache_.end()) {
+        return cached->second;
+    }
+    
+    // Create struct type - simplified for now
+    std::vector<llvm::Type*> fieldTypes;
+    // TODO: Implement proper field iteration when ObjectType API is available
+    fieldTypes.push_back(llvm::Type::getInt32Ty(*context_)); // Placeholder
+    
+    auto structType = llvm::StructType::create(*context_, fieldTypes, typeName);
+    structTypeCache_[typeName] = structType;
+    
+    return structType;
+}
+
+llvm::Type* LLVMCodeGen::generateFunctionType(const shared_ptr<Type>& type) {
+    auto functionType = std::dynamic_pointer_cast<FunctionType>(type);
+    if (!functionType) return nullptr;
+    
+    // Check function type cache
+    auto typeName = functionType->toString();
+    auto cached = functionTypeCache_.find(typeName);
+    if (cached != functionTypeCache_.end()) {
+        return cached->second;
+    }
+    
+    // Generate parameter types
+    std::vector<llvm::Type*> paramTypes;
+    for (const auto& param : functionType->getParameters()) {
+        auto paramType = generateType(param.type);
+        if (!paramType) return nullptr;
+        paramTypes.push_back(paramType);
+    }
+    
+    // Generate return type
+    auto returnType = generateType(functionType->getReturnType());
+    if (!returnType) return nullptr;
+    
+    // Create function type
+    auto llvmFunctionType = llvm::FunctionType::get(returnType, paramTypes, false); // Non-variadic for now
+    functionTypeCache_[typeName] = llvmFunctionType;
+    
+    return llvmFunctionType;
+}
+
+llvm::Type* LLVMCodeGen::generateUnionType(const shared_ptr<Type>& type) {
+    auto unionType = std::dynamic_pointer_cast<UnionType>(type);
+    if (!unionType) return nullptr;
+    
+    // For now, use the first type in the union
+    // TODO: Implement proper union type handling
+    if (!unionType->getTypes().empty()) {
+        return generateType(unionType->getTypes()[0]);
+    }
+    
+    return nullptr;
+}
+
+llvm::Type* LLVMCodeGen::generateGenericType(const shared_ptr<Type>& type) {
+    auto genericType = std::dynamic_pointer_cast<GenericType>(type);
+    if (!genericType) return nullptr;
+    
+    // For now, return a generic pointer type
+    // TODO: Implement proper generic type specialization
+    return llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+}
+
+// Enhanced control flow generation
+void LLVMCodeGen::generateIfStatement(const unique_ptr<IfStatement>& stmt) {
+    // Simplified implementation for now
+    // TODO: Implement proper control flow generation
+}
+
+void LLVMCodeGen::generateWhileStatement(const unique_ptr<WhileStatement>& stmt) {
+    // Simplified implementation for now
+    // TODO: Implement proper control flow generation
+}
+
+void LLVMCodeGen::generateForStatement(const unique_ptr<ForStatement>& stmt) {
+    // Simplified implementation for now
+    // TODO: Implement proper control flow generation
+}
+
+void LLVMCodeGen::generateTryStatement(const unique_ptr<TryStatement>& stmt) {
+    // Simplified implementation for now
+    // TODO: Implement proper exception handling
+}
+
+// Generic type specialization
+llvm::Type* LLVMCodeGen::generateGenericType(const shared_ptr<GenericType>& genericType, 
+                                           const std::vector<llvm::Type*>& typeArguments) {
+    // Simplified implementation for now
+    // TODO: Implement proper generic type specialization
+    return llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+}
+
+llvm::Type* LLVMCodeGen::generateSpecializedClass(const shared_ptr<GenericType>& genericType,
+                                                const std::vector<llvm::Type*>& typeArguments) {
+    // Simplified implementation for now
+    // TODO: Implement proper class specialization
+    return llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+}
+
+llvm::Type* LLVMCodeGen::specializeType(const shared_ptr<Type>& type,
+                                      const std::unordered_map<String, llvm::Type*>& typeMap) {
+    // Simplified implementation for now
+    // TODO: Implement proper type specialization
+    return generateType(type);
+}
+
+// Optimization passes
+void LLVMCodeGen::runOptimizationPasses() {
+    runFunctionOptimizations();
+    runModuleOptimizations();
+    runMemoryOptimizations();
+}
+
+void LLVMCodeGen::runFunctionOptimizations() {
+    // Simplified implementation for now
+    // TODO: Implement proper LLVM optimization passes
+}
+
+void LLVMCodeGen::runModuleOptimizations() {
+    // Simplified implementation for now
+    // TODO: Implement proper LLVM optimization passes
+}
+
+void LLVMCodeGen::runMemoryOptimizations() {
+    // Simplified implementation for now
+    // TODO: Implement proper memory optimizations
+}
+
+// Memory management
+void LLVMCodeGen::reportMemoryUsage() const {
+    if (irAllocator_) {
+        irAllocator_->reportMemoryUsage();
+    }
+}
+
+LLVMCodeGen::IRAllocator::MemoryStats LLVMCodeGen::getMemoryStats() const {
+    if (irAllocator_) {
+        return irAllocator_->getStats();
+    }
+    return IRAllocator::MemoryStats{};
+}
+
+// Nested class implementations
+
+// IRAllocator implementation
+void LLVMCodeGen::IRAllocator::reportMemoryUsage() const {
+    auto stats = getStats();
+    std::cout << "IR Allocator Statistics:" << std::endl;
+    std::cout << "  Total Allocated: " << stats.totalAllocated << " bytes" << std::endl;
+    std::cout << "  Allocation Count: " << stats.allocationCount << std::endl;
+    std::cout << "  Average Size: " << stats.averageAllocationSize << " bytes" << std::endl;
+    std::cout << "  Peak Usage: " << stats.peakMemoryUsage << " bytes" << std::endl;
+}
+
+// FunctionContext implementation
+void LLVMCodeGen::FunctionContext::addLabel(const String& name, llvm::BasicBlock* start, llvm::BasicBlock* end) {
+    labels_[name] = std::make_pair(start, end);
+}
+
+std::pair<llvm::BasicBlock*, llvm::BasicBlock*> LLVMCodeGen::FunctionContext::getLabel(const String& name) const {
+    auto it = labels_.find(name);
+    return it != labels_.end() ? it->second : std::make_pair(nullptr, nullptr);
+}
+
+bool LLVMCodeGen::FunctionContext::hasLabel(const String& name) const {
+    return labels_.find(name) != labels_.end();
+}
+
+void LLVMCodeGen::FunctionContext::removeLabel(const String& name) {
+    labels_.erase(name);
+}
+
+void LLVMCodeGen::FunctionContext::pushExceptionContext(const ExceptionContext& ctx) {
+    exceptionStack_.push(ctx);
+}
+
+void LLVMCodeGen::FunctionContext::popExceptionContext() {
+    if (!exceptionStack_.empty()) {
+        exceptionStack_.pop();
+    }
+}
+
+LLVMCodeGen::ExceptionContext& LLVMCodeGen::FunctionContext::getCurrentExceptionContext() {
+    return exceptionStack_.top();
+}
+
+bool LLVMCodeGen::FunctionContext::hasExceptionContext() const {
+    return !exceptionStack_.empty();
+}
+
+void LLVMCodeGen::FunctionContext::cleanup() {
+    labels_.clear();
+    while (!exceptionStack_.empty()) {
+        exceptionStack_.pop();
+    }
+}
+
+// BuiltinFunctionRegistry implementation
+void LLVMCodeGen::BuiltinFunctionRegistry::registerBuiltinFunctions() {
+    registerConsoleFunctions();
+    registerMathFunctions();
+    registerStringFunctions();
+    registerArrayFunctions();
+}
+
+void LLVMCodeGen::BuiltinFunctionRegistry::registerConsoleFunctions() {
+    // console.log
+    auto logType = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(*context_),
+        {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)}, // const char*
+        true // variadic
+    );
+    auto logFunc = llvm::Function::Create(
+        logType, llvm::Function::ExternalLinkage, "console_log", module_
+    );
+    builtinFunctions_["console.log"] = logFunc;
+    
+    // console.error
+    auto errorType = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(*context_),
+        {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)},
+        true
+    );
+    auto errorFunc = llvm::Function::Create(
+        errorType, llvm::Function::ExternalLinkage, "console_error", module_
+    );
+    builtinFunctions_["console.error"] = errorFunc;
+}
+
+void LLVMCodeGen::BuiltinFunctionRegistry::registerMathFunctions() {
+    // Math.abs
+    auto absType = llvm::FunctionType::get(
+        llvm::Type::getDoubleTy(*context_),
+        {llvm::Type::getDoubleTy(*context_)},
+        false
+    );
+    auto absFunc = llvm::Function::Create(
+        absType, llvm::Function::ExternalLinkage, "math_abs", module_
+    );
+    builtinFunctions_["Math.abs"] = absFunc;
+    
+    // Math.sqrt
+    auto sqrtType = llvm::FunctionType::get(
+        llvm::Type::getDoubleTy(*context_),
+        {llvm::Type::getDoubleTy(*context_)},
+        false
+    );
+    auto sqrtFunc = llvm::Function::Create(
+        sqrtType, llvm::Function::ExternalLinkage, "math_sqrt", module_
+    );
+    builtinFunctions_["Math.sqrt"] = sqrtFunc;
+}
+
+void LLVMCodeGen::BuiltinFunctionRegistry::registerStringFunctions() {
+    // String.length
+    auto lengthType = llvm::FunctionType::get(
+        llvm::Type::getInt32Ty(*context_),
+        {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)},
+        false
+    );
+    auto lengthFunc = llvm::Function::Create(
+        lengthType, llvm::Function::ExternalLinkage, "string_length", module_
+    );
+    builtinFunctions_["String.length"] = lengthFunc;
+}
+
+void LLVMCodeGen::BuiltinFunctionRegistry::registerArrayFunctions() {
+    // Array.length
+    auto arrayLengthType = llvm::FunctionType::get(
+        llvm::Type::getInt32Ty(*context_),
+        {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)}, // Array pointer
+        false
+    );
+    auto arrayLengthFunc = llvm::Function::Create(
+        arrayLengthType, llvm::Function::ExternalLinkage, "array_length", module_
+    );
+    builtinFunctions_["Array.length"] = arrayLengthFunc;
 }
 
 // Factory function
