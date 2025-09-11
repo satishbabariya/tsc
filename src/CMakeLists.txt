@@ -26,6 +26,7 @@ add_library(tsc_lib STATIC
     
     # Main compiler driver
     Compiler.cpp
+    TargetRegistry.cpp
 )
 
 # Link against LLVM

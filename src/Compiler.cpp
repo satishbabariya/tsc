@@ -1,4 +1,5 @@
 #include "tsc/Compiler.h"
+#include "tsc/TargetRegistry.h"
 #include "tsc/lexer/Lexer.h"
 #include "tsc/parser/Parser.h"
 #include "tsc/semantic/TypeChecker.h"
@@ -263,8 +264,9 @@ void Compiler::setTarget(const TargetInfo& target) {
 }
 
 void Compiler::initializeLLVM() {
-    // TODO: Initialize LLVM targets when LLVM integration is complete
-    // This will be implemented in Phase 4
+    // Initialize LLVM targets
+    auto& registry = TargetRegistry::getInstance();
+    registry.initializeAllTargets();
 }
 
 void Compiler::shutdownLLVM() {
@@ -299,32 +301,30 @@ void Compiler::reportPhaseError(CompilationPhase phase, const String& error) {
 
 // Utility functions
 String getDefaultTargetTriple() {
-    // TODO: Use LLVM to get default target triple
-    // For now, return a reasonable default
-#ifdef __x86_64__
-    return "x86_64-pc-linux-gnu";
-#elif __aarch64__
-    return "aarch64-unknown-linux-gnu";
-#else
-    return "unknown-unknown-unknown";
-#endif
+    auto& registry = TargetRegistry::getInstance();
+    registry.initializeAllTargets();
+    auto defaultTarget = registry.getDefaultTarget();
+    return defaultTarget.triple;
 }
 
 std::vector<String> getSupportedTargets() {
-    // TODO: Implement by querying LLVM target registry
-    return {
-        "x86_64-pc-linux-gnu",
-        "x86_64-apple-darwin",
-        "x86_64-pc-windows-msvc",
-        "aarch64-unknown-linux-gnu",
-        "aarch64-apple-darwin",
-        "riscv64-unknown-linux-gnu"
-    };
+    auto& registry = TargetRegistry::getInstance();
+    registry.initializeAllTargets();
+    auto targets = registry.getAllTargets();
+    
+    std::vector<String> triples;
+    for (const auto& target : targets) {
+        if (target.isSupported) {
+            triples.push_back(target.triple);
+        }
+    }
+    return triples;
 }
 
 bool isTargetSupported(const String& triple) {
-    auto supported = getSupportedTargets();
-    return std::find(supported.begin(), supported.end(), triple) != supported.end();
+    auto& registry = TargetRegistry::getInstance();
+    registry.initializeAllTargets();
+    return registry.isValidTarget(triple);
 }
 
 VersionInfo getVersionInfo() {

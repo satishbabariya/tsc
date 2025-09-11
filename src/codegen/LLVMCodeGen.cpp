@@ -1,5 +1,6 @@
 #include "tsc/codegen/LLVMCodeGen.h"
 #include "tsc/Compiler.h"
+#include "tsc/TargetRegistry.h"
 #include "tsc/semantic/TypeSystem.h"
 
 // LLVM includes for implementation
@@ -76,12 +77,9 @@ void CodeGenContext::reportError(const String& message, const SourceLocation& lo
 LLVMCodeGen::LLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& options)
     : diagnostics_(diagnostics), options_(options), currentValue_(nullptr) {
     
-    // Initialize LLVM
-    llvm::InitializeAllTargetInfos();
-    llvm::InitializeAllTargets();
-    llvm::InitializeAllTargetMCs();
-    llvm::InitializeAllAsmParsers();
-    llvm::InitializeAllAsmPrinters();
+    // Initialize LLVM - use dynamic target registry
+    auto& registry = TargetRegistry::getInstance();
+    registry.initializeAllTargets();
     
     // Create LLVM context and module
     context_ = std::make_unique<llvm::LLVMContext>();
@@ -3178,8 +3176,11 @@ String LLVMCodeGen::getTargetTriple() const {
     if (!options_.target.triple.empty()) {
         return options_.target.triple;
     }
-    // Default target triple for x86_64 Linux
-    return "x86_64-pc-linux-gnu";
+    
+    // Get default target from registry
+    auto& registry = TargetRegistry::getInstance();
+    auto defaultTarget = registry.getDefaultTarget();
+    return defaultTarget.triple;
 }
 
 // Error handling implementation

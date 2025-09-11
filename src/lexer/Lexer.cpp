@@ -123,6 +123,11 @@ std::vector<Token> Lexer::tokenize(const String& source, const String& filename)
         }
     }
     
+    // Ensure we always have an EndOfInput token at the end
+    if (tokens.empty() || tokens.back().getType() != TokenType::EndOfInput) {
+        tokens.push_back(makeToken(TokenType::EndOfInput));
+    }
+    
     return tokens;
 }
 
