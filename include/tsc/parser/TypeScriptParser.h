@@ -43,6 +43,9 @@ public:
     unique_ptr<Expression> parseTypeAssertion();
     unique_ptr<Expression> parseAsExpression();
     
+    // Template literal types
+    shared_ptr<Type> parseTemplateLiteralType();
+    
 private:
     Parser& parentParser_;
     DiagnosticEngine& diagnostics_;

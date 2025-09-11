@@ -59,8 +59,7 @@ void skipToStatementBoundary() {
 enum class ParsingContext {
     Expression,    // Normal expression context
     Type,         // Type annotation context  
-    Template,     // Template literal context
-    JSX          // JSX context (if we add it)
+    Template      // Template literal context
 };
 
 // Context-aware type argument detection
@@ -269,9 +268,9 @@ class DeclarationParser {
 
 ### **Future Enhancements**
 1. **Template Literal Support**: Implement full template literal parsing
-2. **JSX Support**: Add JSX parsing capabilities
-3. **Advanced TypeScript Types**: Support for conditional types, mapped types, etc.
-4. **Incremental Parsing**: Support for incremental parsing in IDEs
+2. **Advanced TypeScript Types**: Support for conditional types, mapped types, etc.
+3. **Incremental Parsing**: Support for incremental parsing in IDEs
+4. **Advanced Generics**: Support for conditional types, mapped types, template literal types
 
 ## 🏆 Summary
 

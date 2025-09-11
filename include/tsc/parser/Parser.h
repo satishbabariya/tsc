@@ -164,8 +164,7 @@ private:
     enum class ParsingContext {
         Expression,    // Normal expression context
         Type,         // Type annotation context  
-        Template,     // Template literal context
-        JSX          // JSX context (if we add it)
+        Template      // Template literal context
     };
     
     void setContext(ParsingContext context);
