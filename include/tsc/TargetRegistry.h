@@ -105,6 +105,22 @@ public:
     };
     
     ToolchainInfo getToolchainInfo(const String& triple) const;
+    
+    // Check if cross-compilation is supported
+    bool supportsCrossCompilation() const;
+    
+    // Get initialization status and diagnostics
+    struct InitializationStatus {
+        bool success;
+        String hostTriple;
+        size_t totalTargets;
+        size_t supportedTargets;
+        std::vector<String> availableArchitectures;
+        std::vector<String> availableOSes;
+        String errorMessage;
+    };
+    
+    InitializationStatus getInitializationStatus() const;
 
 private:
     TargetRegistry() = default;
