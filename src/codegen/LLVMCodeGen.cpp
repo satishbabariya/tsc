@@ -2592,8 +2592,10 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i + 1) // field index
         };
         llvm::Value* fieldPtr = builder_->CreateGEP(closureType, closureEnv, indices);
-        llvm::Value* capturedValue = builder_->CreateLoad(getAnyType(), fieldPtr);
-        std::cout << "DEBUG: Accessed captured variable " << symbol->getName() << " from closure environment" << std::endl;
+        // Determine the correct type to load based on the symbol's type
+        llvm::Type* loadType = mapTypeScriptTypeToLLVM(*symbol->getType());
+        llvm::Value* capturedValue = builder_->CreateLoad(loadType, fieldPtr);
+        std::cout << "DEBUG: FIXED ACCESS - Loading " << symbol->getName() << " from closure environment with correct type" << std::endl;
                 
                 // Store in symbol table for access during function body generation
                 codeGenContext_->setSymbolValue("__closure_env_" + symbol->getName(), capturedValue);
@@ -3470,7 +3472,10 @@ void LLVMCodeGen::generateNestedFunction(const FunctionDeclaration& node) {
                 };
                 llvm::StructType* closureType = createClosureStructType(capturedVars);
                 llvm::Value* fieldPtr = builder_->CreateGEP(closureType, closureEnv, indices);
-                llvm::Value* capturedValue = builder_->CreateLoad(getAnyType(), fieldPtr);
+                // Determine the correct type to load based on the symbol's type
+                llvm::Type* loadType = mapTypeScriptTypeToLLVM(*symbol->getType());
+                llvm::Value* capturedValue = builder_->CreateLoad(loadType, fieldPtr);
+                std::cout << "DEBUG: FIXED ACCESS - Loading " << symbol->getName() << " from closure environment with correct type" << std::endl;
                 
                 // Store in symbol table for the function body
                 codeGenContext_->setSymbolValue("__closure_env_" + symbol->getName(), capturedValue);
