@@ -302,6 +302,7 @@ void LLVMCodeGen::visit(SuperExpression& node) {
 }
 
 void LLVMCodeGen::visit(NewExpression& node) {
+    std::cout << "DEBUG: NewExpression visitor called for: " << node.toString() << std::endl;
     if (auto identifier = dynamic_cast<Identifier*>(node.getConstructor())) {
         String className = identifier->getName();
         
@@ -315,15 +316,18 @@ void LLVMCodeGen::visit(NewExpression& node) {
         
         // Get the class type and map it to LLVM type
         shared_ptr<Type> classType = classSymbol->getType();
+        std::cout << "DEBUG: Class type: " << classType->toString() << ", kind: " << static_cast<int>(classType->getKind()) << std::endl;
         llvm::Type* objectType = mapTypeScriptTypeToLLVM(*classType);
         
         // Handle generic class instantiation
         if (classType->getKind() == TypeKind::Generic) {
             auto genericType = std::static_pointer_cast<GenericType>(classType);
+            std::cout << "DEBUG: Creating monomorphized type for: " << genericType->toString() << std::endl;
             objectType = createMonomorphizedType(*genericType);
             
-            // For generic classes, we need to create a monomorphized constructor
-            // For now, we'll use a simplified approach
+            // Generate monomorphized methods for this instantiation
+            std::cout << "DEBUG: Generating monomorphized methods for: " << genericType->toString() << std::endl;
+            generateMonomorphizedMethods(*genericType, classSymbol);
         }
         
         // Calculate actual object size based on the type
@@ -1137,6 +1141,48 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
     if (objectValue->getType() == getAnyType()) {
         // This is property access on a generic type - handle specially
         String propertyName = node.getProperty();
+        
+        // Check if this is a method call on a generic object
+        if (auto identifier = dynamic_cast<Identifier*>(node.getObject())) {
+            Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
+            if (symbol) {
+                std::cout << "DEBUG: Found symbol " << identifier->getName() << " with type: " << symbol->getType()->toString() << std::endl;
+                if (symbol->getType()->getKind() == TypeKind::Generic) {
+                    // This is a method call on a generic object
+                    auto genericType = std::static_pointer_cast<GenericType>(symbol->getType());
+                    String mangledMethodName = generateMangledMethodName(*genericType, propertyName);
+                    std::cout << "DEBUG: Generated mangled method name: " << mangledMethodName << std::endl;
+                    
+                    // Look up the monomorphized method
+                    llvm::Function* method = module_->getFunction(mangledMethodName);
+                    if (method) {
+                        std::cout << "DEBUG: Found method: " << mangledMethodName << std::endl;
+                        setCurrentValue(method);
+                        return;
+                    } else {
+                        std::cout << "DEBUG: Method not found: " << mangledMethodName << std::endl;
+                        reportError("Method not found: " + propertyName, node.getLocation());
+                        setCurrentValue(createNullValue(getAnyType()));
+                        return;
+                    }
+                } else {
+                    std::cout << "DEBUG: Symbol type is not Generic, it's: " << static_cast<int>(symbol->getType()->getKind()) << std::endl;
+                }
+            } else {
+                std::cout << "DEBUG: Symbol not found for: " << identifier->getName() << std::endl;
+            }
+        }
+        
+        // Also check if the object value itself represents a generic type
+        // This handles cases where the symbol lookup found the variable but
+        // the type information needs to be extracted differently
+        if (objectValue && objectValue->getType() == getAnyType()) {
+            // Try to get the type from the current value context
+            // This is a fallback for when symbol lookup doesn't work as expected
+            reportError("Generic method lookup not implemented for this case: " + propertyName, node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
         
         // For now, provide stub implementations for common methods
         if (propertyName == "toString") {
@@ -2417,6 +2463,121 @@ llvm::StructType* LLVMCodeGen::createMonomorphizedStruct(const GenericType& gene
     return llvm::StructType::create(*context_, memberTypes, mangledName);
 }
 
+String LLVMCodeGen::generateMangledMethodName(const GenericType& genericType, const String& methodName) {
+    String baseName = generateMangledName(genericType);
+    return baseName + "_" + methodName;
+}
+
+void LLVMCodeGen::generateMonomorphizedMethods(const GenericType& genericType, Symbol* classSymbol) {
+    // Get the class declaration to access methods
+    if (!classSymbol->getDeclaration()) {
+        return;
+    }
+    
+    auto classDecl = dynamic_cast<ClassDeclaration*>(classSymbol->getDeclaration());
+    if (!classDecl) {
+        return;
+    }
+    
+    // Generate monomorphized methods for each method in the class
+    for (const auto& method : classDecl->getMethods()) {
+        String mangledMethodName = generateMangledMethodName(genericType, method->getName());
+        
+        // Check if we've already generated this method
+        if (module_->getFunction(mangledMethodName)) {
+            continue; // Already generated
+        }
+        
+        // Generate the monomorphized method
+        generateMonomorphizedMethod(*method, genericType, mangledMethodName);
+    }
+    
+    // Also generate constructor if present
+    if (classDecl->getConstructor()) {
+        String mangledConstructorName = generateMangledMethodName(genericType, "constructor");
+        if (!module_->getFunction(mangledConstructorName)) {
+            generateMonomorphizedMethod(*classDecl->getConstructor(), genericType, mangledConstructorName);
+        }
+    }
+}
+
+void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, const GenericType& genericType, const String& mangledName) {
+    // Generate LLVM function for the monomorphized method
+    std::vector<llvm::Type*> paramTypes;
+    
+    // Add 'this' pointer as first parameter for non-static methods
+    if (!method.isStatic()) {
+        // Use the monomorphized type for 'this'
+        llvm::Type* thisType = createMonomorphizedType(genericType);
+        paramTypes.push_back(llvm::PointerType::get(thisType, 0));
+    }
+    
+    // Add method parameters with type substitution
+    for (const auto& param : method.getParameters()) {
+        llvm::Type* paramType = getAnyType(); // Default fallback
+        if (param.type) {
+            // TODO: Implement proper type parameter substitution
+            // For now, use the original type or convert to LLVM
+            paramType = convertTypeToLLVM(param.type);
+        }
+        paramTypes.push_back(paramType);
+    }
+    
+    // Determine return type with type substitution
+    llvm::Type* returnType = getVoidType(); // Default to void
+    if (method.getReturnType()) {
+        // TODO: Implement proper type parameter substitution
+        // For now, use the original type or convert to LLVM
+        returnType = convertTypeToLLVM(method.getReturnType());
+    }
+    
+    // Create function type
+    llvm::FunctionType* functionType = llvm::FunctionType::get(returnType, paramTypes, false);
+    
+    // Create function with mangled name
+    llvm::Function* function = llvm::Function::Create(
+        functionType, llvm::Function::ExternalLinkage, mangledName, module_.get()
+    );
+    
+    // Generate function body if present
+    if (method.getBody()) {
+        llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", function);
+        builder_->SetInsertPoint(entryBlock);
+        
+        // Save current function context
+        codeGenContext_->enterFunction(function);
+        
+        // Set up parameters
+        auto paramIt = function->arg_begin();
+        if (!method.isStatic()) {
+            // Skip 'this' parameter for now
+            ++paramIt;
+        }
+        
+        for (size_t i = 0; i < method.getParameters().size(); ++i, ++paramIt) {
+            const auto& param = method.getParameters()[i];
+            llvm::Type* paramType = paramTypes[method.isStatic() ? i : i + 1];
+            llvm::Value* paramStorage = allocateVariable(param.name, paramType, method.getLocation());
+            builder_->CreateStore(&*paramIt, paramStorage);
+        }
+        
+        // Generate method body
+        method.getBody()->accept(*this);
+        
+        // Ensure function has a return
+        if (!builder_->GetInsertBlock()->getTerminator()) {
+            if (returnType->isVoidTy()) {
+                builder_->CreateRetVoid();
+            } else {
+                builder_->CreateRet(createDefaultValue(returnType));
+            }
+        }
+        
+        // Restore previous function context
+        codeGenContext_->exitFunction();
+    }
+}
+
 llvm::Value* LLVMCodeGen::convertValueToType(llvm::Value* value, llvm::Type* targetType) {
     if (!value || !targetType) {
         return value;
@@ -3350,6 +3511,10 @@ void LLVMCodeGen::visit(PropertyDeclaration& node) {
 }
 
 void LLVMCodeGen::visit(MethodDeclaration& node) {
+    // Check if this method belongs to a generic class
+    // For now, we'll generate a generic method that can be called
+    // In a full implementation, we'd generate monomorphized versions for each instantiation
+    
     // Generate LLVM function for the method
     std::vector<llvm::Type*> paramTypes;
     

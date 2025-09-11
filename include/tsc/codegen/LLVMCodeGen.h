@@ -229,6 +229,9 @@ private:
     llvm::Type* createMonomorphizedType(const GenericType& genericType);
     String generateMangledName(const GenericType& genericType);
     llvm::StructType* createMonomorphizedStruct(const GenericType& genericType);
+    String generateMangledMethodName(const GenericType& genericType, const String& methodName);
+    void generateMonomorphizedMethods(const GenericType& genericType, Symbol* classSymbol);
+    void generateMonomorphizedMethod(const MethodDeclaration& method, const GenericType& genericType, const String& mangledName);
     
     // Value operations
     llvm::Value* createNumberLiteral(double value);
