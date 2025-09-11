@@ -168,17 +168,25 @@ TSCObject* tsc_object_new(size_t size, TypeInfo* type_info) {
 }
 
 TSCObject* tsc_object_ref(TSCObject* obj) {
-    if (obj && obj->block) {
-        tsc_arc_increment(obj->block);
+    if (!obj || !obj->block) return NULL;
+    
+    // Create a new TSCObject that points to the same block
+    TSCObject* new_obj = malloc(sizeof(TSCObject));
+    if (!new_obj) {
+        tsc_panic("Failed to allocate TSCObject in tsc_object_ref");
+        return NULL;
     }
-    return obj;
+    
+    new_obj->block = obj->block;
+    tsc_arc_increment(obj->block);
+    
+    return new_obj;
 }
 
 void tsc_object_unref(TSCObject* obj) {
     if (obj) {
         if (obj->block) {
             tsc_arc_decrement(obj->block);
-            obj->block = NULL; // Prevent double-free
         }
         free(obj);
     }

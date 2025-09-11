@@ -375,12 +375,28 @@ target_link_libraries(tsc
     ${llvm_libs}
 )
 
-# Create ARC test executable
+# Create ARC test executables
 add_executable(test_arc
     test_arc.c
 )
 
+add_executable(arc_regression_test
+    arc_regression_test.c
+)
+
+add_executable(extended_arc_tests
+    extended_arc_tests.c
+)
+
 target_link_libraries(test_arc
+    tsc_runtime
+)
+
+target_link_libraries(arc_regression_test
+    tsc_runtime
+)
+
+target_link_libraries(extended_arc_tests
     tsc_runtime
 )
 
