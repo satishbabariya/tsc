@@ -51,10 +51,32 @@ message(STATUS "===============================")
 # Find LLVM package
 find_package(LLVM REQUIRED CONFIG)
 
+# Try to find missing dependencies and set them as optional
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(ZSTD QUIET libzstd)
+    pkg_check_modules(LIBEDIT QUIET libedit)
+    pkg_check_modules(CURL QUIET libcurl)
+endif()
+
+# Set variables to indicate missing dependencies are optional
+if(NOT ZSTD_FOUND)
+    set(ZSTD_FOUND FALSE)
+endif()
+if(NOT LIBEDIT_FOUND)
+    set(LIBEDIT_FOUND FALSE)
+endif()
+if(NOT CURL_FOUND)
+    set(CURL_FOUND FALSE)
+endif()
+
 # Detect build target architecture and configure LLVM libraries accordingly
 if(LLVM_MONOLITHIC_LIB)
     set(llvm_libs ${LLVM_MONOLITHIC_LIB})
     message(STATUS "Using monolithic LLVM library: ${LLVM_MONOLITHIC_LIB}")
+elseif(EXISTS "${LLVM_ROOT}/lib/libLLVM.so")
+    set(llvm_libs "${LLVM_ROOT}/lib/libLLVM.so")
+    message(STATUS "Using shared LLVM library: ${llvm_libs}")
 else()
     # Allow override of target architecture for cross-compilation
     if(NOT DEFINED TSC_TARGET_ARCH)
