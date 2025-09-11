@@ -73,6 +73,7 @@ unique_ptr<Module> Parser::parseModule() {
 unique_ptr<Statement> Parser::parseStatement() {
     // Handle variable declarations
     if (match({TokenType::Var, TokenType::Let, TokenType::Const})) {
+        std::cout << "DEBUG: Parser found variable declaration" << std::endl;
         return parseVariableStatement();
     }
     
@@ -168,7 +169,13 @@ unique_ptr<Statement> Parser::parseVariableStatement() {
     // Optional type annotation
     shared_ptr<Type> typeAnnotation = nullptr;
     if (match(TokenType::Colon)) {
-        typeAnnotation = parseTypeAnnotation();
+        std::cout << "DEBUG: Parser found colon in variable declaration, parsing type annotation" << std::endl;
+        // Parse type directly without colon (colon already consumed)
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
+        typeAnnotation = parseUnionType();
+        setContext(oldContext);
+        std::cout << "DEBUG: Parser parsed type annotation: " << (typeAnnotation ? typeAnnotation->toString() : "null") << std::endl;
     }
     
     // Optional initializer
@@ -323,11 +330,16 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                     "constructor", std::move(parameters), typeSystem_.getVoidType(),
                     std::move(body), getCurrentLocation(), isStatic, isPrivate, isProtected, isAbstract
                 );
-            } else if (check(TokenType::LeftParen)) {
-                // Method declaration
-                consume(TokenType::LeftParen, "Expected '(' after method name");
-                auto parameters = parseMethodParameterList();
-                consume(TokenType::RightParen, "Expected ')' after method parameters");
+            } else if (check(TokenType::LeftParen) || check(TokenType::Colon)) {
+                // Method declaration (with or without parameters)
+                std::cout << "DEBUG: Parser found method declaration: " << memberName << std::endl;
+                std::vector<MethodDeclaration::Parameter> parameters;
+                
+                if (check(TokenType::LeftParen)) {
+                    consume(TokenType::LeftParen, "Expected '(' after method name");
+                    parameters = parseMethodParameterList();
+                    consume(TokenType::RightParen, "Expected ')' after method parameters");
+                }
                 
                 // Optional return type
                 shared_ptr<Type> returnType = typeSystem_.getVoidType();
