@@ -246,6 +246,14 @@ void LLVMCodeGen::visit(Identifier& node) {
         }
     }
     
+    // Check if this is a built-in object like console
+    if (node.getName() == "console") {
+        // Return a placeholder value for console object
+        // The actual methods will be handled in PropertyAccess
+        setCurrentValue(createNullValue(getAnyType()));
+        return;
+    }
+    
     // If not a function, captured variable, or closure, try to load as a regular variable
     llvm::Value* value = loadVariable(node.getName(), node.getLocation());
     if (!value) {
@@ -750,48 +758,60 @@ void LLVMCodeGen::visit(CallExpression& node) {
         setCurrentValue(createNullValue(getAnyType()));
         return;
     } else if (auto propertyAccess = dynamic_cast<PropertyAccess*>(node.getCallee())) {
-        // Handle method calls like obj.method()
-        String methodName = propertyAccess->getProperty();
+        // Handle property access calls like obj.method() or console.log()
+        // First, process the property access to get the callee value
+        propertyAccess->accept(*this);
+        llvm::Value* calleeValue = getCurrentValue();
         
-        // Generate the object being called on
-        propertyAccess->getObject()->accept(*this);
-        llvm::Value* objectInstance = getCurrentValue();
-        
-        // Look up the method function
-        llvm::Function* methodFunc = module_->getFunction(methodName);
-        if (!methodFunc) {
-            reportError("Method not found: " + methodName, node.getLocation());
-            setCurrentValue(createNullValue(getAnyType()));
-            return;
-        }
-        
-        // Prepare arguments for the method call
-        std::vector<llvm::Value*> args;
-        
-        // Add 'this' pointer as first argument (object instance)
-        args.push_back(objectInstance);
-        
-        // Add method arguments
-        for (const auto& arg : node.getArguments()) {
-            arg->accept(*this);
-            llvm::Value* argValue = getCurrentValue();
-            if (!argValue) {
-                reportError("Failed to generate argument for method call", node.getLocation());
+        // Check if the property access returned a function (like console.log)
+        if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
+            // This is a function call (like console.log), not a method call
+            function = llvm::cast<llvm::Function>(calleeValue);
+        } else {
+            // This is a method call (like obj.method())
+            String methodName = propertyAccess->getProperty();
+            
+            // Generate the object being called on
+            propertyAccess->getObject()->accept(*this);
+            llvm::Value* objectInstance = getCurrentValue();
+            
+            // Look up the method function
+            llvm::Function* methodFunc = module_->getFunction(methodName);
+            if (!methodFunc) {
+                reportError("Method not found: " + methodName, node.getLocation());
                 setCurrentValue(createNullValue(getAnyType()));
                 return;
             }
-            args.push_back(argValue);
+            
+            // Prepare arguments for the method call
+            std::vector<llvm::Value*> args;
+            
+            // Add 'this' pointer as first argument (object instance)
+            args.push_back(objectInstance);
+            
+            // Add method arguments
+            for (const auto& arg : node.getArguments()) {
+                arg->accept(*this);
+                llvm::Value* argValue = getCurrentValue();
+                if (!argValue) {
+                    reportError("Failed to generate argument for method call", node.getLocation());
+                    setCurrentValue(createNullValue(getAnyType()));
+                    return;
+                }
+                args.push_back(argValue);
+            }
+            
+            // Generate the method call
+            llvm::Value* callResult;
+            if (methodFunc->getReturnType()->isVoidTy()) {
+                // Don't assign a name to void method calls
+                callResult = builder_->CreateCall(methodFunc, args);
+            } else {
+                callResult = builder_->CreateCall(methodFunc, args, "method_call_result");
+            }
+            setCurrentValue(callResult);
+            return;
         }
-        
-        // Generate the method call
-        llvm::Value* callResult;
-        if (methodFunc->getReturnType()->isVoidTy()) {
-            // Don't assign a name to void method calls
-            callResult = builder_->CreateCall(methodFunc, args);
-        } else {
-            callResult = builder_->CreateCall(methodFunc, args, "method_call_result");
-        }
-        setCurrentValue(callResult);
         return;
     } else {
         reportError("Complex function calls not yet supported", node.getLocation());
@@ -826,8 +846,10 @@ void LLVMCodeGen::visit(CallExpression& node) {
     if (function->getReturnType()->isVoidTy()) {
         // Don't assign a name to void function calls
         callResult = builder_->CreateCall(function, args);
+        std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
     } else {
         callResult = builder_->CreateCall(function, args, "call_result");
+        std::cout << "DEBUG: Created non-void function call to " << function->getName().str() << std::endl;
     }
     setCurrentValue(callResult);
 }
@@ -1033,7 +1055,21 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
 }
 
 void LLVMCodeGen::visit(PropertyAccess& node) {
-    // Check if this is an enum member access first
+    std::cout << "DEBUG: PropertyAccess visitor called for property: " << node.getProperty() << std::endl;
+    
+    // Check if this is console.log access first
+    if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {
+        std::cout << "DEBUG: PropertyAccess - identifier name: " << identifier->getName() << ", property: " << node.getProperty() << std::endl;
+        if (identifier->getName() == "console" && node.getProperty() == "log") {
+            std::cout << "DEBUG: PropertyAccess - Found console.log, creating function" << std::endl;
+            // This is console.log - return a function pointer to our console.log implementation
+            llvm::Function* consoleLogFunc = getOrCreateConsoleLogFunction();
+            setCurrentValue(consoleLogFunc);
+            return;
+        }
+    }
+    
+    // Check if this is an enum member access
     // For enum member access, we don't need the object value, we need the global constant
     if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {
         // Look up the identifier to see if it's an enum type
@@ -1067,6 +1103,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         setCurrentValue(createNullValue(getAnyType()));
         return;
     }
+    
     
     // Check if this is property access on a generic type (i8*)
     if (objectValue->getType() == getAnyType()) {
@@ -1200,17 +1237,25 @@ void LLVMCodeGen::visit(ArrowFunction& node) {
     }
     
     // Generate function body
+    std::cout << "DEBUG: Processing function body" << std::endl;
     node.getBody()->accept(*this);
+    std::cout << "DEBUG: Finished processing function body" << std::endl;
     
     // Ensure function has a return
+    std::cout << "DEBUG: Checking for terminator in function" << std::endl;
     if (!builder_->GetInsertBlock()->getTerminator()) {
+        std::cout << "DEBUG: No terminator found, adding return statement" << std::endl;
         if (returnType->isVoidTy()) {
             builder_->CreateRetVoid();
+            std::cout << "DEBUG: Added void return" << std::endl;
         } else {
             // Return default value for the type
             llvm::Value* defaultValue = createDefaultValue(returnType);
             builder_->CreateRet(defaultValue);
+            std::cout << "DEBUG: Added default return" << std::endl;
         }
+    } else {
+        std::cout << "DEBUG: Function already has terminator" << std::endl;
     }
     
     // Restore insertion point
@@ -1283,17 +1328,25 @@ void LLVMCodeGen::visit(FunctionExpression& node) {
     }
     
     // Generate function body
+    std::cout << "DEBUG: Processing function body" << std::endl;
     node.getBody()->accept(*this);
+    std::cout << "DEBUG: Finished processing function body" << std::endl;
     
     // Ensure function has a return
+    std::cout << "DEBUG: Checking for terminator in function" << std::endl;
     if (!builder_->GetInsertBlock()->getTerminator()) {
+        std::cout << "DEBUG: No terminator found, adding return statement" << std::endl;
         if (returnType->isVoidTy()) {
             builder_->CreateRetVoid();
+            std::cout << "DEBUG: Added void return" << std::endl;
         } else {
             // Return default value for the type
             llvm::Value* defaultValue = createDefaultValue(returnType);
             builder_->CreateRet(defaultValue);
+            std::cout << "DEBUG: Added default return" << std::endl;
         }
+    } else {
+        std::cout << "DEBUG: Function already has terminator" << std::endl;
     }
     
     // Restore insertion point
@@ -2014,6 +2067,7 @@ void LLVMCodeGen::visit(FunctionDeclaration& node) {
     std::cout << "DEBUG: Processing function declaration: " << node.getName() << std::endl;
     
     // Check if we're currently inside a function (nested function case)
+    std::cout << "DEBUG: Current function context: " << (codeGenContext_->getCurrentFunction() ? "exists" : "null") << std::endl;
     if (codeGenContext_->getCurrentFunction()) {
         std::cout << "DEBUG: This is a nested function: " << node.getName() << std::endl;
         // This is a nested function - generate it as a local function
@@ -2081,17 +2135,48 @@ void LLVMCodeGen::visit(Module& module) {
     // Set module name
     module_->setModuleIdentifier(module.getFilename());
     
-    // Generate all statements in the module
+    // Separate function declarations from other statements
+    std::vector<Statement*> functionDecls;
+    std::vector<Statement*> moduleStatements;
+    
     for (const auto& stmt : module.getStatements()) {
+        if (dynamic_cast<const FunctionDeclaration*>(stmt.get())) {
+            functionDecls.push_back(stmt.get());
+        } else {
+            moduleStatements.push_back(stmt.get());
+        }
+    }
+    
+    // Generate function declarations first
+    for (const auto& stmt : functionDecls) {
         stmt->accept(*this);
         if (hasErrors()) break;
     }
     
-    // Create a main function if none exists
-    if (!module_->getFunction("main")) {
+    // Create main function for module-level statements
+    llvm::Function* mainFunc = nullptr;
+    if (!moduleStatements.empty()) {
         llvm::FunctionType* mainType = llvm::FunctionType::get(
             llvm::Type::getInt32Ty(*context_), false);
-        llvm::Function* mainFunc = llvm::Function::Create(
+        mainFunc = llvm::Function::Create(
+            mainType, llvm::Function::ExternalLinkage, "main", module_.get());
+        
+        llvm::BasicBlock* entry = llvm::BasicBlock::Create(*context_, "entry", mainFunc);
+        builder_->SetInsertPoint(entry);
+        
+        // Generate module-level statements within main function
+        for (const auto& stmt : moduleStatements) {
+            stmt->accept(*this);
+            if (hasErrors()) break;
+        }
+        
+        // Return 0 from main
+        builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
+    } else {
+        // Create an empty main function if no module-level statements exist
+        llvm::FunctionType* mainType = llvm::FunctionType::get(
+            llvm::Type::getInt32Ty(*context_), false);
+        mainFunc = llvm::Function::Create(
             mainType, llvm::Function::ExternalLinkage, "main", module_.get());
         
         llvm::BasicBlock* entry = llvm::BasicBlock::Create(*context_, "entry", mainFunc);
@@ -2272,6 +2357,71 @@ llvm::Value* LLVMCodeGen::createDefaultValue(llvm::Type* type) {
     } else {
         return llvm::Constant::getNullValue(type);
     }
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateConsoleLogFunction() {
+    // Check if console.log function already exists
+    llvm::Function* existingFunc = module_->getFunction("console_log");
+    if (existingFunc) {
+        return existingFunc;
+    }
+    
+    // Create console.log function that takes a variable number of arguments
+    // For simplicity, we'll create a function that takes a single "any" type argument
+    std::vector<llvm::Type*> paramTypes;
+    paramTypes.push_back(getAnyType()); // Single parameter of any type
+    
+    llvm::FunctionType* funcType = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(*context_), // Return type: void
+        paramTypes,                       // Parameter types
+        false                            // Not variadic for now
+    );
+    
+    // Create the function
+    llvm::Function* consoleLogFunc = llvm::Function::Create(
+        funcType,
+        llvm::Function::ExternalLinkage,
+        "console_log",
+        *module_
+    );
+    
+    // Create a basic block for the function body
+    llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", consoleLogFunc);
+    llvm::IRBuilder<> funcBuilder(entryBlock);
+    
+    // Get the parameter
+    llvm::Value* arg = consoleLogFunc->arg_begin();
+    
+    // For now, we'll create a simple implementation that calls printf
+    // First, declare printf function
+    llvm::FunctionType* printfType = llvm::FunctionType::get(
+        llvm::Type::getInt32Ty(*context_), // Return type: int
+        {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)}, // Format string parameter
+        true // Variadic
+    );
+    
+    llvm::Function* printfFunc = llvm::Function::Create(
+        printfType,
+        llvm::Function::ExternalLinkage,
+        "printf",
+        *module_
+    );
+    
+    // Create format string for different types
+    // For simplicity, we'll assume the argument is a number and print it
+    llvm::Value* formatStr = funcBuilder.CreateGlobalString("%g\n", "format_str");
+    
+    // For now, just print a placeholder value since we can't easily determine the type
+    // TODO: Implement proper type handling for console.log arguments
+    llvm::Value* doubleValue = llvm::ConstantFP::get(getNumberType(), 42.0);
+    
+    // Call printf
+    funcBuilder.CreateCall(printfFunc, {formatStr, doubleValue});
+    
+    // Return void
+    funcBuilder.CreateRetVoid();
+    
+    return consoleLogFunc;
 }
 
 // Binary operations implementation
@@ -2506,6 +2656,12 @@ llvm::Function* LLVMCodeGen::generateFunctionDeclaration(const FunctionDeclarati
     llvm::Function* function = llvm::Function::Create(
         functionType, llvm::Function::ExternalLinkage, funcDecl.getName(), module_.get());
     
+    // Debug: Check basic blocks immediately after function creation
+    std::cout << "DEBUG: Basic blocks after function creation:" << std::endl;
+    for (auto& block : *function) {
+        std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+    }
+    
     // Set parameter names
     auto paramIt = funcDecl.getParameters().begin();
     for (auto& arg : function->args()) {
@@ -2624,7 +2780,37 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     
     // Generate function body
     if (funcDecl.getBody()) {
+        std::cout << "DEBUG: Processing function body in generateFunctionBody" << std::endl;
+        
+        // Debug: Check basic blocks before function body processing
+        std::cout << "DEBUG: Basic blocks before function body processing:" << std::endl;
+        for (auto& block : *function) {
+            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+        }
+        
         funcDecl.getBody()->accept(*this);
+        std::cout << "DEBUG: Finished processing function body in generateFunctionBody" << std::endl;
+        
+        // Debug: Check basic blocks after function body processing
+        std::cout << "DEBUG: Basic blocks after function body processing:" << std::endl;
+        for (auto& block : *function) {
+            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+        }
+        
+        // Debug: Check if we have a terminator after function body processing
+        std::cout << "DEBUG: Checking terminator after function body processing" << std::endl;
+        llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
+        std::cout << "DEBUG: Current block: " << currentBlock << std::endl;
+        if (currentBlock) {
+            std::cout << "DEBUG: Current block has terminator: " << (currentBlock->getTerminator() ? "YES" : "NO") << std::endl;
+            if (currentBlock->getTerminator()) {
+                std::cout << "DEBUG: Function already has terminator after body processing" << std::endl;
+            } else {
+                std::cout << "DEBUG: Function does NOT have terminator after body processing" << std::endl;
+            }
+        } else {
+            std::cout << "DEBUG: Current block is null!" << std::endl;
+        }
     }
     
     // Add cleanup for malloc'd objects before return
@@ -2632,23 +2818,50 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     // For now, this is a simplified approach that doesn't track individual allocations
     
     // Add return if not present
+    std::cout << "DEBUG: About to check for terminator in generateFunctionBody" << std::endl;
     if (!builder_->GetInsertBlock()->getTerminator()) {
+        std::cout << "DEBUG: No terminator found, adding return statement" << std::endl;
         llvm::Type* returnType = function->getReturnType();
         if (returnType->isVoidTy()) {
+            std::cout << "DEBUG: About to call CreateRetVoid" << std::endl;
             builder_->CreateRetVoid();
+            std::cout << "DEBUG: CreateRetVoid called successfully" << std::endl;
+            
+            // Check if the terminator was actually added
+            llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
+            std::cout << "DEBUG: Current block after CreateRetVoid: " << currentBlock << std::endl;
+            if (currentBlock && currentBlock->getTerminator()) {
+                std::cout << "DEBUG: Terminator successfully added to block " << currentBlock << std::endl;
+            } else {
+                std::cout << "DEBUG: ERROR - Terminator was NOT added to block " << currentBlock << "!" << std::endl;
+            }
         } else {
             // Return a default value of the appropriate type
             // For functions without explicit return statements, return null/undefined
             llvm::Value* defaultValue = createDefaultValue(returnType);
             builder_->CreateRet(defaultValue);
+            std::cout << "DEBUG: Added default return" << std::endl;
         }
     } else {
+        std::cout << "DEBUG: Function already has terminator" << std::endl;
         // The ReturnStatement visitor should handle type conversion correctly
         // No need for special main function handling here
     }
     
+    // Debug: Check all basic blocks before ensuring terminators
+    std::cout << "DEBUG: Checking all basic blocks in function " << function->getName().str() << std::endl;
+    for (auto& block : *function) {
+        std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+    }
+    
     // Ensure all basic blocks have terminators (handle unreachable blocks)
     ensureBlockTerminators(function);
+    
+    // Debug: Check all basic blocks after ensuring terminators
+    std::cout << "DEBUG: Checking all basic blocks after ensuring terminators" << std::endl;
+    for (auto& block : *function) {
+        std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+    }
     
     // Exit function context
     codeGenContext_->exitScope();

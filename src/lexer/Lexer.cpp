@@ -110,15 +110,16 @@ std::vector<Token> Lexer::tokenize(const String& source, const String& filename)
     while (!isAtEnd()) {
         Token token = nextToken();
         
-        // Skip whitespace and comments in the token stream
+        // Always add EndOfInput token, but skip whitespace and comments
+        if (token.getType() == TokenType::EndOfInput) {
+            tokens.push_back(token);
+            break;
+        }
+        
         if (token.getType() != TokenType::WhiteSpace &&
             token.getType() != TokenType::SingleLineComment &&
             token.getType() != TokenType::MultiLineComment) {
             tokens.push_back(token);
-        }
-        
-        if (token.getType() == TokenType::EndOfInput) {
-            break;
         }
     }
     

@@ -231,6 +231,7 @@ private:
     llvm::Value* createBooleanLiteral(bool value);
     llvm::Value* createNullValue(llvm::Type* type);
     llvm::Value* createDefaultValue(llvm::Type* type);
+    llvm::Function* getOrCreateConsoleLogFunction();
     
     // Type conversions
     llvm::Value* convertToNumber(llvm::Value* value, llvm::Type* fromType);
