@@ -333,16 +333,14 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                     "constructor", std::move(parameters), typeSystem_.getVoidType(),
                     std::move(body), getCurrentLocation(), isStatic, isPrivate, isProtected, isAbstract
                 );
-            } else if (check(TokenType::LeftParen) || check(TokenType::Colon)) {
-                // Method declaration (with or without parameters)
+            } else if (check(TokenType::LeftParen)) {
+                // Method declaration with parameters
                 std::cout << "DEBUG: Parser found method declaration: " << memberName << std::endl;
                 std::vector<MethodDeclaration::Parameter> parameters;
                 
-                if (check(TokenType::LeftParen)) {
-                    consume(TokenType::LeftParen, "Expected '(' after method name");
-                    parameters = parseMethodParameterList();
-                    consume(TokenType::RightParen, "Expected ')' after method parameters");
-                }
+                consume(TokenType::LeftParen, "Expected '(' after method name");
+                parameters = parseMethodParameterList();
+                consume(TokenType::RightParen, "Expected ')' after method parameters");
                 
                 // Optional return type
                 shared_ptr<Type> returnType = typeSystem_.getVoidType();
@@ -356,21 +354,45 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                     memberName, std::move(parameters), returnType, std::move(body),
                     memberToken.getLocation(), isStatic, isPrivate, isProtected, isAbstract
                 ));
-            } else {
-                // Property declaration
-                std::cout << "DEBUG: Parser processing property: " << memberName << std::endl;
-                shared_ptr<Type> propertyType = nullptr;
-                if (match(TokenType::Colon)) {
-                    std::cout << "DEBUG: Parser found colon, parsing type annotation" << std::endl;
-                    // Parse type directly without colon (colon already consumed)
-                    ParsingContext oldContext = currentContext_;
-                    setContext(ParsingContext::Type);
-                    propertyType = parseUnionType();
-                    setContext(oldContext);
-                    std::cout << "DEBUG: Parser parsed type annotation: " << (propertyType ? propertyType->toString() : "null") << std::endl;
+            } else if (check(TokenType::Colon)) {
+                // Could be either method declaration with return type or property declaration
+                // Look ahead to see if next token is '{' (method body) or something else (property type)
+                advance(); // consume ':'
+                auto returnType = parseUnionType();
+                
+                std::cout << "DEBUG: Parser parsed return type: " << (returnType ? returnType->toString() : "null") << std::endl;
+                std::cout << "DEBUG: Parser next token type: " << static_cast<int>(peek().getType()) << std::endl;
+                
+                if (check(TokenType::LeftBrace)) {
+                    // This is a method declaration with return type but no parameters
+                    std::cout << "DEBUG: Parser found method declaration with return type: " << memberName << std::endl;
+                    std::vector<MethodDeclaration::Parameter> parameters;
+                    
+                    auto body = parseFunctionBody();
+                    
+                    methods.push_back(make_unique<MethodDeclaration>(
+                        memberName, std::move(parameters), returnType, std::move(body),
+                        memberToken.getLocation(), isStatic, isPrivate, isProtected, isAbstract
+                    ));
                 } else {
-                    std::cout << "DEBUG: Parser did not find colon, no type annotation" << std::endl;
+                    // This is a property declaration
+                    std::cout << "DEBUG: Parser processing property: " << memberName << std::endl;
+                    
+                    // Optional semicolon for property declarations
+                    if (match(TokenType::Semicolon)) {
+                        std::cout << "DEBUG: Parser consumed semicolon for property" << std::endl;
+                    } else {
+                        std::cout << "DEBUG: Parser no semicolon found for property" << std::endl;
+                    }
+                    
+                    properties.push_back(make_unique<PropertyDeclaration>(
+                        memberName, returnType, nullptr, memberToken.getLocation(),
+                        isStatic, isPrivate, isProtected, isReadonly
+                    ));
                 }
+            } else {
+                // Property declaration without type annotation
+                std::cout << "DEBUG: Parser processing property without type: " << memberName << std::endl;
                 
                 unique_ptr<Expression> initializer = nullptr;
                 if (match(TokenType::Equal)) {
@@ -383,7 +405,7 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 }
                 
                 properties.push_back(make_unique<PropertyDeclaration>(
-                    memberName, propertyType, std::move(initializer), memberToken.getLocation(),
+                    memberName, nullptr, std::move(initializer), memberToken.getLocation(),
                     isStatic, isReadonly, isPrivate, isProtected
                 ));
             }
@@ -1584,7 +1606,7 @@ shared_ptr<Type> Parser::parsePrimaryType() {
             
             // Parse type arguments
             do {
-                auto typeArg = parseTypeAnnotation();
+                auto typeArg = parseUnionType();
                 if (!typeArg) {
                     reportError("Expected type in generic type argument", getCurrentLocation());
                     return typeSystem_.getErrorType();
