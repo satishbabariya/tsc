@@ -23,8 +23,7 @@ String StringLiteral::toString() const {
     return "\"" + value_ + "\"";
 }
 
-// TODO: TemplateLiteral implementation
-/*
+// TemplateLiteral implementation
 void TemplateLiteral::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
@@ -42,7 +41,6 @@ String TemplateLiteral::toString() const {
     ss << "`";
     return ss.str();
 }
-*/
 
 // BooleanLiteral implementation
 void BooleanLiteral::accept(ASTVisitor& visitor) {

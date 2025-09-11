@@ -38,6 +38,9 @@ protected:
 // Expression base class
 class Expression : public ASTNode {
 public:
+    // Default constructor
+    Expression() = default;
+    
     // Expression categories
     enum class Category {
         LValue,     // Can be assigned to
@@ -146,9 +149,8 @@ private:
     SourceLocation location_;
 };
 
-// TODO: Template literals support
+// Template literals support
 // Template literal element (text or expression)
-/*
 class TemplateElement {
 public:
     TemplateElement(const String& text, bool isExpression = false)
@@ -190,7 +192,7 @@ private:
 // Template literals: `Hello ${name}!`
 class TemplateLiteral : public Expression {
 public:
-    TemplateLiteral(vector<TemplateElement> elements, const SourceLocation& loc)
+    TemplateLiteral(std::vector<TemplateElement> elements, const SourceLocation& loc)
         : elements_(std::move(elements)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
@@ -198,13 +200,12 @@ public:
     Category getCategory() const override { return Category::RValue; }
     String toString() const override;
     
-    const vector<TemplateElement>& getElements() const { return elements_; }
+    const std::vector<TemplateElement>& getElements() const { return elements_; }
 
 private:
-    vector<TemplateElement> elements_;
+    std::vector<TemplateElement> elements_;
     SourceLocation location_;
 };
-*/
 
 class BooleanLiteral : public Expression {
 public:
@@ -1329,7 +1330,7 @@ public:
     // Expressions
     virtual void visit(NumericLiteral& node) = 0;
     virtual void visit(StringLiteral& node) = 0;
-    // virtual void visit(TemplateLiteral& node) = 0;  // TODO: Template literals
+    virtual void visit(TemplateLiteral& node) = 0;
     virtual void visit(BooleanLiteral& node) = 0;
     virtual void visit(NullLiteral& node) = 0;
     virtual void visit(Identifier& node) = 0;

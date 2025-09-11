@@ -357,6 +357,11 @@ add_subdirectory(src)
 enable_testing()
 # add_subdirectory(test)  # Temporarily disabled for debugging
 
+# Create runtime library
+add_library(tsc_runtime STATIC
+    runtime.c
+)
+
 # Create main executable
 add_executable(tsc
     src/main.cpp
@@ -364,6 +369,7 @@ add_executable(tsc
 
 target_link_libraries(tsc
     tsc_lib
+    tsc_runtime
     ${llvm_libs}
 )
 

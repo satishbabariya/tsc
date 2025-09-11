@@ -68,8 +68,7 @@ void SemanticAnalyzer::visit(StringLiteral& node) {
     setExpressionType(node, type);
 }
 
-// TODO: Template literals semantic analysis
-/*
+// Template literals semantic analysis
 void SemanticAnalyzer::visit(TemplateLiteral& node) {
     // Analyze all expressions within the template literal
     for (const auto& element : node.getElements()) {
@@ -81,7 +80,6 @@ void SemanticAnalyzer::visit(TemplateLiteral& node) {
     // Template literals result in strings
     setExpressionType(node, typeSystem_->getStringType());
 }
-*/
 
 void SemanticAnalyzer::visit(BooleanLiteral& node) {
     auto type = typeSystem_->getBooleanType();

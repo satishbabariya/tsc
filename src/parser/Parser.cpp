@@ -1108,7 +1108,7 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
         return make_unique<StringLiteral>(token.getStringValue(), token.getLocation());
     }
     
-    // TODO: Template literals support
+    // Template literals support - temporarily disabled
     // if (check(TokenType::NoSubstitutionTemplate) || check(TokenType::TemplateHead)) {
     //     return parseTemplateLiteral();
     // }
@@ -1279,11 +1279,10 @@ unique_ptr<Expression> Parser::parseNewExpression() {
                                      std::move(arguments), location);
 }
 
-// TODO: Template literals parser
-/*
+// Template literals parser
 unique_ptr<Expression> Parser::parseTemplateLiteral() {
     SourceLocation location = getCurrentLocation();
-    vector<TemplateElement> elements;
+    std::vector<TemplateElement> elements;
     
     if (check(TokenType::NoSubstitutionTemplate)) {
         // Simple template literal without expressions: `hello world`
@@ -1292,11 +1291,25 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
         return make_unique<TemplateLiteral>(std::move(elements), location);
     }
     
-    // For now, just treat TemplateHead as a simple string literal
-    // TODO: Implement full template literal parsing with expressions
+    // Parse template literal with expressions
     if (check(TokenType::TemplateHead)) {
-        Token token = advance();
-        elements.emplace_back(TemplateElement(token.getStringValue()));
+        Token headToken = advance();
+        elements.emplace_back(TemplateElement(headToken.getStringValue()));
+        
+        // Parse the expression inside ${}
+        consume(TokenType::LeftBrace, "Expected '{' after template head");
+        unique_ptr<Expression> expr = parseExpression();
+        consume(TokenType::RightBrace, "Expected '}' after template expression");
+        
+        // Parse template tail
+        if (check(TokenType::TemplateTail)) {
+            Token tailToken = advance();
+            elements.emplace_back(TemplateElement(tailToken.getStringValue()));
+        } else if (check(TokenType::TemplateMiddle)) {
+            Token middleToken = advance();
+            elements.emplace_back(TemplateElement(middleToken.getStringValue()));
+        }
+        
         return make_unique<TemplateLiteral>(std::move(elements), location);
     }
     
@@ -1304,7 +1317,6 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
     elements.emplace_back(TemplateElement(""));
     return make_unique<TemplateLiteral>(std::move(elements), location);
 }
-*/
 
 // Utility methods
 Token Parser::peek() const {

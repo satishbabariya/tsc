@@ -404,6 +404,9 @@ Token Lexer::scanTemplate() {
     advance(); // consume opening `
     size_t start = current_;
     
+    // Enter template state
+    enterTemplateState();
+    
     while (!isAtEnd() && peek() != '`') {
         if (peek() == '\\') {
             advance(); // consume backslash
@@ -411,10 +414,11 @@ Token Lexer::scanTemplate() {
                 advance(); // consume escaped character
             }
         } else if (peek() == '$' && peek(1) == '{') {
-            // Template expression - for now, simplified handling
+            // Template expression found - return TemplateHead
             String value = substring(start, current_);
             advance(); // consume $
             advance(); // consume {
+            state_ = LexerState::TemplateExpression;
             return makeToken(TokenType::TemplateHead, value);
         } else {
             advance();
@@ -422,13 +426,52 @@ Token Lexer::scanTemplate() {
     }
     
     if (isAtEnd()) {
+        exitTemplateState();
         return makeErrorToken("Unterminated template literal");
     }
     
     String value = substring(start, current_);
     advance(); // consume closing `
     
+    // Exit template state
+    exitTemplateState();
+    
     return makeToken(TokenType::NoSubstitutionTemplate, value);
+}
+
+Token Lexer::scanTemplateTail() {
+    size_t start = current_;
+    
+    while (!isAtEnd() && peek() != '`') {
+        if (peek() == '\\') {
+            advance(); // consume backslash
+            if (!isAtEnd()) {
+                advance(); // consume escaped character
+            }
+        } else if (peek() == '$' && peek(1) == '{') {
+            // Another template expression found - return TemplateMiddle
+            String value = substring(start, current_);
+            advance(); // consume $
+            advance(); // consume {
+            state_ = LexerState::TemplateExpression;
+            return makeToken(TokenType::TemplateMiddle, value);
+        } else {
+            advance();
+        }
+    }
+    
+    if (isAtEnd()) {
+        exitTemplateState();
+        return makeErrorToken("Unterminated template literal");
+    }
+    
+    String value = substring(start, current_);
+    advance(); // consume closing `
+    
+    // Exit template state
+    exitTemplateState();
+    
+    return makeToken(TokenType::TemplateTail, value);
 }
 
 Token Lexer::scanRegularExpression() {
@@ -525,7 +568,13 @@ Token Lexer::scanPunctuation() {
     
     switch (c) {
         case '{': return makeToken(TokenType::LeftBrace);
-        case '}': return makeToken(TokenType::RightBrace);
+        case '}': 
+            if (state_ == LexerState::TemplateExpression) {
+                // We're in a template expression, need to scan for TemplateMiddle or TemplateTail
+                state_ = LexerState::Template;
+                return scanTemplateTail();
+            }
+            return makeToken(TokenType::RightBrace);
         case '(': return makeToken(TokenType::LeftParen);
         case ')': return makeToken(TokenType::RightParen);
         case '[': return makeToken(TokenType::LeftBracket);
@@ -733,6 +782,19 @@ void LexerTokenStream::ensureCurrentToken() const {
     if (!currentToken_) {
         currentToken_ = lexer_->nextToken();
     }
+}
+
+// Template literal state management
+void Lexer::enterTemplateState() {
+    state_ = LexerState::Template;
+}
+
+void Lexer::exitTemplateState() {
+    state_ = LexerState::Initial;
+}
+
+bool Lexer::inTemplateState() const {
+    return state_ == LexerState::Template || state_ == LexerState::TemplateExpression;
 }
 
 } // namespace tsc

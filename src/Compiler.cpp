@@ -239,7 +239,7 @@ bool Compiler::linkExecutable(const std::vector<String>& objectFiles, const Stri
         }
         
         // Add our runtime library (if it exists)
-        String runtimePath = "runtime.o";
+        String runtimePath = "build/libtsc_runtime.a";
         std::ifstream runtimeFile(runtimePath);
         if (runtimeFile.good()) {
             command += " " + runtimePath;
@@ -249,7 +249,7 @@ bool Compiler::linkExecutable(const std::vector<String>& objectFiles, const Stri
         command += " -o " + outputFile;
         
         // Add standard libraries and runtime
-        // For now, use default C runtime
+        command += " -lm"; // Link math library for sqrt, etc.
         
         int result = system(command.c_str());
         return result == 0;

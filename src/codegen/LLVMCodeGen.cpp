@@ -151,8 +151,7 @@ void LLVMCodeGen::visit(StringLiteral& node) {
     setCurrentValue(createStringLiteral(node.getValue()));
 }
 
-// TODO: Template literals code generation
-/*
+// Template literals code generation
 void LLVMCodeGen::visit(TemplateLiteral& node) {
     // Build the template literal by concatenating all parts
     llvm::Value* result = nullptr;
@@ -199,7 +198,6 @@ void LLVMCodeGen::visit(TemplateLiteral& node) {
     
     setCurrentValue(result);
 }
-*/
 
 void LLVMCodeGen::visit(BooleanLiteral& node) {
     setCurrentValue(createBooleanLiteral(node.getValue()));
@@ -3349,7 +3347,7 @@ llvm::Value* LLVMCodeGen::generateLogicalOp(BinaryExpression::Operator op,
 }
 
 llvm::Value* LLVMCodeGen::generateStringConcat(llvm::Value* left, llvm::Value* right) {
-    // For now, use a simple string concatenation function
+    // Use external string concatenation function
     llvm::Function* concatFunc = getOrCreateStringConcatFunction();
     return builder_->CreateCall(concatFunc, {left, right}, "strcat");
 }
@@ -3820,6 +3818,7 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(ArrowFunction& node) override {}
         void visit(FunctionExpression& node) override {}
         void visit(Module& node) override {}
+        void visit(TemplateLiteral& node) override {}
     };
     
     ReturnStatementChecker checker;
@@ -3908,6 +3907,7 @@ llvm::Function* LLVMCodeGen::getOrCreateStringConcatFunction() {
         getStringType(), {getStringType(), getStringType()}, false);
     return llvm::Function::Create(concatType, llvm::Function::ExternalLinkage, "string_concat", module_.get());
 }
+
 
 llvm::Function* LLVMCodeGen::getOrCreateThrowFunction() {
     if (auto existing = module_->getFunction("__throw_exception")) {
@@ -4222,29 +4222,6 @@ void LLVMCodeGen::visit(TypeAliasDeclaration& node) {
 }
 
 // Memory management functions
-llvm::Function* LLVMCodeGen::getOrCreateMallocFunction() {
-    if (builtinFunctions_.find("malloc") != builtinFunctions_.end()) {
-        return builtinFunctions_["malloc"];
-    }
-    
-    // Create malloc function declaration
-    llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
-    llvm::FunctionType* mallocType = llvm::FunctionType::get(
-        llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0), // Return type: void*
-        {sizeType}, // Parameter: size_t
-        false // Not variadic
-    );
-    
-    llvm::Function* mallocFunc = llvm::Function::Create(
-        mallocType,
-        llvm::Function::ExternalLinkage,
-        "malloc",
-        module_.get()
-    );
-    
-    builtinFunctions_["malloc"] = mallocFunc;
-    return mallocFunc;
-}
 
 llvm::Function* LLVMCodeGen::getOrCreateFreeFunction() {
     if (builtinFunctions_.find("free") != builtinFunctions_.end()) {
@@ -4268,6 +4245,81 @@ llvm::Function* LLVMCodeGen::getOrCreateFreeFunction() {
     
     builtinFunctions_["free"] = freeFunc;
     return freeFunc;
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateMallocFunction() {
+    if (builtinFunctions_.find("malloc") != builtinFunctions_.end()) {
+        return builtinFunctions_["malloc"];
+    }
+    
+    // Create malloc function declaration
+    llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_); // size_t
+    llvm::Type* ptrType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    llvm::FunctionType* mallocType = llvm::FunctionType::get(
+        ptrType, // Return type: void*
+        {sizeType}, // Parameter: size_t
+        false // Not variadic
+    );
+    
+    llvm::Function* mallocFunc = llvm::Function::Create(
+        mallocType,
+        llvm::Function::ExternalLinkage,
+        "malloc",
+        module_.get()
+    );
+    
+    builtinFunctions_["malloc"] = mallocFunc;
+    return mallocFunc;
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateNumberToStringFunction() {
+    if (builtinFunctions_.find("number_to_string") != builtinFunctions_.end()) {
+        return builtinFunctions_["number_to_string"];
+    }
+    
+    // Create number to string function declaration
+    llvm::Type* doubleType = llvm::Type::getDoubleTy(*context_);
+    llvm::Type* stringType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    llvm::FunctionType* funcType = llvm::FunctionType::get(
+        stringType, // Return type: char*
+        {doubleType}, // Parameter: double
+        false // Not variadic
+    );
+    
+    llvm::Function* func = llvm::Function::Create(
+        funcType,
+        llvm::Function::ExternalLinkage,
+        "number_to_string",
+        module_.get()
+    );
+    
+    builtinFunctions_["number_to_string"] = func;
+    return func;
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateBooleanToStringFunction() {
+    if (builtinFunctions_.find("boolean_to_string") != builtinFunctions_.end()) {
+        return builtinFunctions_["boolean_to_string"];
+    }
+    
+    // Create boolean to string function declaration
+    llvm::Type* boolType = llvm::Type::getInt1Ty(*context_);
+    llvm::Type* stringType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    llvm::FunctionType* funcType = llvm::FunctionType::get(
+        stringType, // Return type: char*
+        {boolType}, // Parameter: bool (i1)
+        false // Not variadic
+    );
+    
+    llvm::Function* func = llvm::Function::Create(
+        funcType,
+        llvm::Function::ExternalLinkage,
+        "boolean_to_string",
+        module_.get()
+    );
+    
+    builtinFunctions_["boolean_to_string"] = func;
+    return func;
 }
 
 // Closure support methods
