@@ -264,8 +264,9 @@ void Compiler::setTarget(const TargetInfo& target) {
 }
 
 void Compiler::initializeLLVM() {
-    // TODO: Initialize LLVM targets when LLVM integration is complete
-    // This will be implemented in Phase 4
+    // Initialize LLVM targets
+    auto& registry = TargetRegistry::getInstance();
+    registry.initializeAllTargets();
 }
 
 void Compiler::shutdownLLVM() {

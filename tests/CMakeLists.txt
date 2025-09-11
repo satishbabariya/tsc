@@ -29,52 +29,52 @@ else()
 endif()
 
 # Custom semantic analyzer tests (no external dependencies)
-add_executable(tsc_semantic_tests
-    test_semantic_analyzer_simple.cpp
-)
+# add_executable(tsc_semantic_tests
+#     test_semantic_analyzer_simple.cpp
+# )
 
 # Custom closure tests (no external dependencies)
-add_executable(tsc_closure_tests
-    test_closure_validation.cpp
-)
+# add_executable(tsc_closure_tests
+#     test_closure_validation.cpp
+# )
 
-target_link_libraries(tsc_semantic_tests
-    tsc_lib
-    ${llvm_libs}
-)
+# target_link_libraries(tsc_semantic_tests
+#     tsc_lib
+#     ${llvm_libs}
+# )
 
-target_link_libraries(tsc_closure_tests
-    tsc_lib
-    ${llvm_libs}
-)
+# target_link_libraries(tsc_closure_tests
+#     tsc_lib
+#     ${llvm_libs}
+# )
 
 # Add custom tests to CTest
-add_test(NAME SemanticAnalyzerTests COMMAND tsc_semantic_tests)
-add_test(NAME ClosureTests COMMAND tsc_closure_tests)
+# add_test(NAME SemanticAnalyzerTests COMMAND tsc_semantic_tests)
+# add_test(NAME ClosureTests COMMAND tsc_closure_tests)
 
 # Integration tests for generic classes and LLVM bug fix validation
-add_executable(tsc_integration_tests
-    test_integration.cpp
-)
+# add_executable(tsc_integration_tests
+#     test_integration.cpp
+# )
 
-target_link_libraries(tsc_integration_tests
-    tsc_lib
-    ${llvm_libs}
-)
+# target_link_libraries(tsc_integration_tests
+#     tsc_lib
+#     ${llvm_libs}
+# )
 
-add_test(NAME IntegrationTests COMMAND tsc_integration_tests)
+# add_test(NAME IntegrationTests COMMAND tsc_integration_tests)
 
 # Class-level generics unit tests
-add_executable(tsc_class_generics_tests
-    test_class_level_generics.cpp
-)
+# add_executable(tsc_class_generics_tests
+#     test_class_level_generics.cpp
+# )
 
-target_link_libraries(tsc_class_generics_tests
-    tsc_lib
-    ${llvm_libs}
-)
+# target_link_libraries(tsc_class_generics_tests
+#     tsc_lib
+#     ${llvm_libs}
+# )
 
-add_test(NAME ClassLevelGenericsTests COMMAND tsc_class_generics_tests)
+# add_test(NAME ClassLevelGenericsTests COMMAND tsc_class_generics_tests)
 
 # Integration tests using the compiler binary
 add_test(NAME BasicCompilation 

@@ -21,8 +21,6 @@ TargetRegistry& TargetRegistry::getInstance() {
 void TargetRegistry::initializeAllTargets() {
     if (initialized_) return;
     
-    // Robust target initialization with fallback logic
-    bool nativeInitialized = false;
     std::string detectedTriple;
     
     // Step 1: Try to detect the host target triple
@@ -31,100 +29,58 @@ void TargetRegistry::initializeAllTargets() {
         std::cout << "Detected host target triple: " << detectedTriple << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Warning: Failed to detect host target triple: " << e.what() << std::endl;
-        detectedTriple = "unknown-unknown-unknown";
+        detectedTriple = "unknown-unknown-unknown"; // Generic fallback
     }
     
-    // Step 2: Try to initialize only the targets we have libraries for
-    // This is safer than InitializeAllTargets which might fail if not all libraries are available
+    // Step 2: Initialize LLVM targets
+    std::cout << "Initializing LLVM targets..." << std::endl;
+    
     try {
-        // Try to initialize the native target first (this should work since we have AArch64 libraries)
-        llvm::InitializeNativeTarget();
-        llvm::InitializeNativeTargetAsmParser();
-        llvm::InitializeNativeTargetAsmPrinter();
-        llvm::InitializeNativeTargetDisassembler();
-        nativeInitialized = true;
-        std::cout << "Successfully initialized native target" << std::endl;
+        // Initialize all available targets, not just native
+        llvm::InitializeAllTargetInfos();
+        llvm::InitializeAllTargets();
+        llvm::InitializeAllTargetMCs();
+        llvm::InitializeAllAsmParsers();
+        llvm::InitializeAllAsmPrinters();
+        llvm::InitializeAllDisassemblers();
+        std::cout << "Successfully initialized all LLVM targets" << std::endl;
     } catch (const std::exception& e) {
-        std::cerr << "Warning: Native target initialization failed: " << e.what() << std::endl;
-        nativeInitialized = false;
+        std::cerr << "Warning: Target initialization failed: " << e.what() << std::endl;
     }
     
-    // Step 3: If native failed, try to initialize based on detected triple
-    if (!nativeInitialized && detectedTriple != "unknown-unknown-unknown") {
+    // Step 3: Dynamically discover available targets from LLVM
+    // This approach works on any platform without hardcoded values
+    std::cout << "Discovering available targets from LLVM..." << std::endl;
+    
+    // Get the list of available targets from LLVM
+    for (const auto& target : llvm::TargetRegistry::targets()) {
+        TargetDetails targetInfo;
+        targetInfo.triple = detectedTriple; // Use detected host triple as base
+        targetInfo.arch = parseArchitecture(target.getName());
+        targetInfo.os = parseOS("unknown");
+        targetInfo.vendor = parseVendor("unknown");
+        targetInfo.environment = "unknown";
+        targetInfo.isSupported = true;
+        
+        // Let LLVM determine the data layout dynamically
         try {
-            llvm::Triple triple(detectedTriple);
-            std::string archName = triple.getArchName().str();
-            
-            // Try to initialize specific target based on detected architecture
-            if (archName == "aarch64" || archName == "arm64") {
-                // Try AArch64 initialization
-                std::cout << "Attempting AArch64 target initialization..." << std::endl;
-                // Note: Individual target init functions don't exist in LLVM API
-                // We'll fall back to InitializeAllTargets below
-            } else if (archName == "x86_64" || archName == "amd64") {
-                // Try X86 initialization
-                std::cout << "Attempting X86 target initialization..." << std::endl;
-            } else if (archName == "arm" || archName == "armv7") {
-                // Try ARM initialization
-                std::cout << "Attempting ARM target initialization..." << std::endl;
+            auto targetMachine = target.createTargetMachine(
+                detectedTriple, "", "", llvm::TargetOptions(), std::nullopt);
+            if (targetMachine) {
+                targetInfo.dataLayout = targetMachine->createDataLayout().getStringRepresentation();
+            } else {
+                targetInfo.dataLayout = "unknown";
             }
-        } catch (const std::exception& e) {
-            std::cerr << "Warning: Triple-based initialization failed: " << e.what() << std::endl;
-        }
-    }
-    
-    // Step 4: Conservative approach - only initialize targets we have libraries for
-    // This prevents linker errors when not all target libraries are available
-    try {
-        std::cout << "Initializing available targets conservatively..." << std::endl;
-        
-        // Try to initialize additional targets if native failed
-        if (!nativeInitialized) {
-            try {
-                llvm::InitializeNativeTarget();
-                llvm::InitializeNativeTargetAsmParser();
-                llvm::InitializeNativeTargetAsmPrinter();
-                llvm::InitializeNativeTargetDisassembler();
-                std::cout << "Successfully initialized native target (fallback)" << std::endl;
-            } catch (const std::exception& e) {
-                std::cerr << "Warning: Fallback native target initialization failed: " << e.what() << std::endl;
-            }
+        } catch (...) {
+            targetInfo.dataLayout = "unknown";
         }
         
-        // For now, we only have AArch64 libraries, so we'll be conservative
-        // In a full cross-platform build, you would add more target libraries to CMakeLists.txt
-        // and then initialize them here
+        targetInfo.supportedFeatures = {"generic"};
+        targets_.push_back(targetInfo);
         
-        std::cout << "Target initialization completed (conservative mode)" << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << "Error: Failed to initialize targets: " << e.what() << std::endl;
-        std::cerr << "This usually means LLVM was built without the required target backends." << std::endl;
-        std::cerr << "Please rebuild LLVM with -DLLVM_TARGETS_TO_BUILD=\"AArch64\"" << std::endl;
-        throw std::runtime_error("No LLVM targets available - cannot initialize compiler");
+        std::cout << "Discovered target: " << target.getName() << std::endl;
     }
     
-    // Step 5: Verify we have at least one working target
-    bool hasTargets = false;
-    try {
-        for (const llvm::Target& target : llvm::TargetRegistry::targets()) {
-            std::string error;
-            const llvm::Target* llvmTarget = llvm::TargetRegistry::lookupTarget(target.getName(), error);
-            if (llvmTarget != nullptr) {
-                hasTargets = true;
-                break;
-            }
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "Warning: Failed to verify target availability: " << e.what() << std::endl;
-    }
-    
-    if (!hasTargets) {
-        std::cerr << "Error: No working LLVM targets found after initialization" << std::endl;
-        std::cerr << "This indicates a serious LLVM configuration problem." << std::endl;
-        throw std::runtime_error("No working LLVM targets available");
-    }
-    
-    populateTargets();
     initialized_ = true;
     
     // Report initialization status
@@ -135,21 +91,10 @@ void TargetRegistry::initializeAllTargets() {
     }
     std::cout << "Supported targets: " << supportedCount << "/" << targets_.size() << std::endl;
     
-    // Provide diagnostic information
     if (supportedCount == 0) {
         std::cerr << "\n=== DIAGNOSTIC INFORMATION ===" << std::endl;
-        std::cerr << "No supported targets found. This could be due to:" << std::endl;
-        std::cerr << "1. LLVM was built without any target backends" << std::endl;
-        std::cerr << "2. Target libraries are missing or incompatible" << std::endl;
-        std::cerr << "3. LLVM version mismatch" << std::endl;
-        std::cerr << "\nTo fix this, rebuild LLVM with:" << std::endl;
-        std::cerr << "  -DLLVM_TARGETS_TO_BUILD=\"X86;ARM;AArch64;RISCV;Mips;PowerPC\"" << std::endl;
+        std::cerr << "No supported targets found. This indicates a configuration problem." << std::endl;
         std::cerr << "===============================" << std::endl;
-    } else if (supportedCount < 3) {
-        std::cout << "\n=== WARNING ===" << std::endl;
-        std::cout << "Limited target support detected. For full cross-platform compilation," << std::endl;
-        std::cout << "consider rebuilding LLVM with more target backends." << std::endl;
-        std::cout << "===============" << std::endl;
     }
 }
 
@@ -451,16 +396,26 @@ std::vector<TargetDetails> TargetRegistry::getTargetsByOS(const String& os) cons
     return result;
 }
 
-bool TargetRegistry::isValidTarget(const String& triple) const {
-    return getTargetInfo(triple).has_value();
+bool TargetRegistry::isValidTarget(const String& targetName) const {
+    return getTargetInfo(targetName).has_value();
 }
 
-std::optional<TargetDetails> TargetRegistry::getTargetInfo(const String& triple) const {
+std::optional<TargetDetails> TargetRegistry::getTargetInfo(const String& targetName) const {
+    // First try exact triple match
     for (const auto& target : targets_) {
-        if (target.triple == triple) {
+        if (target.triple == targetName) {
             return target;
         }
     }
+    
+    // Then try target name match (architecture name)
+    for (const auto& target : targets_) {
+        // Compare architecture names
+        if (target.arch.name == targetName) {
+            return target;
+        }
+    }
+    
     return std::nullopt;
 }
 
