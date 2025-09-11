@@ -13,6 +13,13 @@ if(GTest_FOUND)
         test_closure_llvm_codegen.cpp
         test_closure_integration.cpp
         test_irbuilder_context_management.cpp
+        # New comprehensive tests for critical fixes
+        test_parser_comparison_operators.cpp
+        test_codegen_control_flow.cpp
+        test_regression_critical_fixes.cpp
+        test_ast_validation.cpp
+        test_integration_control_flow.cpp
+        test_system_end_to_end.cpp
     )
     
     target_link_libraries(tsc_tests
