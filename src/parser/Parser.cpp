@@ -1333,18 +1333,101 @@ UnaryExpression::Operator Parser::tokenToUnaryOperator(TokenType type) const {
     }
 }
 
-void Parser::reportError(const String& message, const SourceLocation& location) {
+void Parser::reportError(const String& message, const SourceLocation& location, 
+                        const String& context, const String& suggestion) {
     SourceLocation loc = location.isValid() ? location : getCurrentLocation();
-    diagnostics_.error(message, loc);
+    
+    // Enhanced error reporting with context and suggestions
+    if (!context.empty()) {
+        diagnostics_.error(message + " (Context: " + context + ")", loc);
+    } else {
+        diagnostics_.error(message, loc);
+    }
+    
+    if (!suggestion.empty()) {
+        diagnostics_.warning("Suggestion: " + suggestion, loc);
+    }
 }
 
-void Parser::reportWarning(const String& message, const SourceLocation& location) {
+void Parser::reportWarning(const String& message, const SourceLocation& location, 
+                          const String& context, const String& suggestion) {
     SourceLocation loc = location.isValid() ? location : getCurrentLocation();
-    diagnostics_.warning(message, loc);
+    
+    if (!context.empty()) {
+        diagnostics_.warning(message + " (Context: " + context + ")", loc);
+    } else {
+        diagnostics_.warning(message, loc);
+    }
+    
+    if (!suggestion.empty()) {
+        diagnostics_.warning("Suggestion: " + suggestion, loc);
+    }
+}
+
+void Parser::reportInfo(const String& message, const SourceLocation& location, 
+                       const String& context) {
+    SourceLocation loc = location.isValid() ? location : getCurrentLocation();
+    
+    if (!context.empty()) {
+        diagnostics_.warning("Info: " + message + " (Context: " + context + ")", loc);
+    } else {
+        diagnostics_.warning("Info: " + message, loc);
+    }
 }
 
 void Parser::synchronize() {
-    tokens_->synchronize();
+    skipToStatementBoundary();
+}
+
+void Parser::skipToStatementBoundary() {
+    while (!isAtEnd()) {
+        if (peek().getType() == TokenType::Semicolon) {
+            advance();
+            break;
+        }
+        if (isStatementStart(peek().getType())) {
+            break;
+        }
+        advance();
+    }
+}
+
+void Parser::skipToDeclarationBoundary() {
+    while (!isAtEnd()) {
+        if (peek().getType() == TokenType::Semicolon) {
+            advance();
+            break;
+        }
+        if (isDeclarationStart(peek().getType())) {
+            break;
+        }
+        advance();
+    }
+}
+
+void Parser::setContext(ParsingContext context) {
+    currentContext_ = context;
+}
+
+ParsingContext Parser::getCurrentContext() const {
+    return currentContext_;
+}
+
+Token Parser::peekAhead(size_t offset) const {
+    while (lookaheadCache_.tokens_.size() <= offset) {
+        if (tokens_->isAtEnd()) break;
+        lookaheadCache_.tokens_.push_back(
+            tokens_->peekAhead(lookaheadCache_.tokens_.size())
+        );
+    }
+    if (offset < lookaheadCache_.tokens_.size()) {
+        return lookaheadCache_.tokens_[offset];
+    }
+    return Token(TokenType::EndOfInput, SourceLocation());
+}
+
+bool Parser::hasAhead(size_t offset) const {
+    return !tokens_->isAtEnd() || offset < lookaheadCache_.tokens_.size();
 }
 
 SourceLocation Parser::getCurrentLocation() const {
@@ -1353,8 +1436,19 @@ SourceLocation Parser::getCurrentLocation() const {
 
 // Parse type annotations like ": number", ": string", etc.
 shared_ptr<Type> Parser::parseTypeAnnotation() {
-    // Parse union types: type1 | type2 | type3
-    return parseUnionType();
+    if (!check(TokenType::Colon)) return nullptr;
+    advance();
+    
+    // Set type context for better disambiguation
+    ParsingContext oldContext = currentContext_;
+    setContext(ParsingContext::Type);
+    
+    auto type = parseUnionType();
+    
+    // Restore previous context
+    setContext(oldContext);
+    
+    return type;
 }
 
 shared_ptr<Type> Parser::parseUnionType() {
@@ -1769,76 +1863,85 @@ unique_ptr<Expression> Parser::parseFunctionExpression() {
 }
 
 bool Parser::isTypeArgumentList() const {
-    // Look ahead to determine if this is a type argument list or comparison operator
-    // Type argument lists: func<T>(args) or func<T, U>(args)
-    // Comparison operators: expr < expr or expr > expr
+    if (!check(TokenType::Less)) return false;
     
-    if (!check(TokenType::Less)) {
+    // In type context, < is more likely to be type arguments
+    if (currentContext_ == ParsingContext::Type) {
+        return true;
+    }
+    
+    // In expression context, use sophisticated lookahead
+    return analyzeTypeArgumentPattern();
+}
+
+bool Parser::analyzeTypeArgumentPattern() const {
+    // Look ahead to see if this looks like a type argument list
+    size_t offset = 1;
+    
+    // Skip whitespace
+    while (hasAhead(offset) && peekAhead(offset).getType() == TokenType::WhiteSpace) {
+        offset++;
+    }
+    
+    // Check for identifier (type parameter)
+    if (!hasAhead(offset) || peekAhead(offset).getType() != TokenType::Identifier) {
         return false;
     }
     
-    // Look ahead to see what follows the '<'
-    // Type argument lists are almost always followed by '(' in function calls
-    // while comparison operators are followed by expressions
+    offset++;
     
-    // Check if we have a pattern like: <identifier> or <identifier, identifier>
-    // followed by '>' and then '('
-    
-    size_t offset = 1; // Start looking after the '<'
-    
-    // Look for type argument pattern: <identifier> or <identifier, identifier, ...>
-    while (tokens_->hasAhead(offset)) {
-        Token token = tokens_->peekAhead(offset);
-        
-        if (token.getType() == TokenType::Identifier) {
-            // Found an identifier, check what follows
-            offset++;
-            if (tokens_->hasAhead(offset)) {
-                Token nextToken = tokens_->peekAhead(offset);
-                if (nextToken.getType() == TokenType::Comma) {
-                    // Continue looking for more type arguments
-                    offset++;
-                    continue;
-                } else if (nextToken.getType() == TokenType::Greater) {
-                    // Found the closing '>', check if it's followed by '('
-                    offset++;
-                    if (tokens_->hasAhead(offset)) {
-                        Token afterGreater = tokens_->peekAhead(offset);
-                        if (afterGreater.getType() == TokenType::LeftParen) {
-                            // This is a type argument list: <T>( or <T, U>(
-                            return true;
-                        }
-                    }
-                    // Not followed by '(', so it's a comparison operator
-                    return false;
-                } else {
-                    // Not a comma or '>', so it's a comparison operator
-                    return false;
-                }
-            } else {
-                // End of input, not a valid type argument list
-                return false;
-            }
-        } else if (token.getType() == TokenType::Greater) {
-            // Empty type argument list: <>(
-            offset++;
-            if (tokens_->hasAhead(offset)) {
-                Token afterGreater = tokens_->peekAhead(offset);
-                if (afterGreater.getType() == TokenType::LeftParen) {
-                    // This is an empty type argument list: <>(
-                    return true;
-                }
-            }
-            // Not followed by '(', so it's a comparison operator
-            return false;
-        } else {
-            // Not an identifier or '>', so it's a comparison operator
-            return false;
-        }
+    // Skip whitespace
+    while (hasAhead(offset) && peekAhead(offset).getType() == TokenType::WhiteSpace) {
+        offset++;
     }
     
-    // End of input reached, not a valid type argument list
+    // Check for comma (multiple type parameters) or closing >
+    if (hasAhead(offset)) {
+        TokenType nextType = peekAhead(offset).getType();
+        return nextType == TokenType::Comma || nextType == TokenType::Greater;
+    }
+    
     return false;
+}
+
+bool Parser::isStatementStart(TokenType type) const {
+    switch (type) {
+        case TokenType::If:
+        case TokenType::While:
+        case TokenType::For:
+        case TokenType::Return:
+        case TokenType::Break:
+        case TokenType::Continue:
+        case TokenType::Try:
+        case TokenType::Throw:
+        case TokenType::Let:
+        case TokenType::Const:
+        case TokenType::Var:
+        case TokenType::Function:
+        case TokenType::Class:
+        case TokenType::Interface:
+        case TokenType::Enum:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool Parser::isDeclarationStart(TokenType type) const {
+    switch (type) {
+        case TokenType::Let:
+        case TokenType::Const:
+        case TokenType::Var:
+        case TokenType::Function:
+        case TokenType::Class:
+        case TokenType::Interface:
+        case TokenType::Enum:
+        case TokenType::Type:
+        case TokenType::Namespace:
+            return true;
+        default:
+            return false;
+    }
 }
 
 // Factory function
