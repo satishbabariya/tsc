@@ -1338,23 +1338,156 @@ void Parser::reportError(const String& message, const SourceLocation& location) 
     diagnostics_.error(message, loc);
 }
 
+void Parser::reportError(const String& message, const SourceLocation& location, 
+                        const String& context, const String& suggestion) {
+    SourceLocation loc = location.isValid() ? location : getCurrentLocation();
+    
+    String fullMessage = message;
+    if (!context.empty()) {
+        fullMessage += " (" + context + ")";
+    }
+    if (!suggestion.empty()) {
+        fullMessage += " Suggestion: " + suggestion;
+    }
+    
+    diagnostics_.error(fullMessage, loc);
+}
+
 void Parser::reportWarning(const String& message, const SourceLocation& location) {
     SourceLocation loc = location.isValid() ? location : getCurrentLocation();
     diagnostics_.warning(message, loc);
 }
 
 void Parser::synchronize() {
-    tokens_->synchronize();
+    skipToStatementBoundary();
+}
+
+void Parser::skipToStatementBoundary() {
+    // Skip tokens until we find a statement boundary
+    while (!isAtEnd()) {
+        if (peek().getType() == TokenType::Semicolon) {
+            advance();
+            break;
+        }
+        
+        // Skip to next statement keywords
+        if (isStatementStart(peek().getType())) {
+            break;
+        }
+        
+        advance();
+    }
+}
+
+void Parser::skipToDeclarationBoundary() {
+    // Skip tokens until we find a declaration boundary
+    while (!isAtEnd()) {
+        if (peek().getType() == TokenType::Semicolon) {
+            advance();
+            break;
+        }
+        
+        // Skip to next declaration keywords
+        if (isDeclarationStart(peek().getType())) {
+            break;
+        }
+        
+        advance();
+    }
 }
 
 SourceLocation Parser::getCurrentLocation() const {
     return peek().getLocation();
 }
 
+// Lookahead methods
+Token Parser::peekAhead(size_t offset) const {
+    // Ensure we have enough tokens cached
+    while (lookaheadCache_.tokens_.size() <= offset) {
+        if (tokens_->isAtEnd()) break;
+        lookaheadCache_.tokens_.push_back(
+            tokens_->peekAhead(lookaheadCache_.tokens_.size())
+        );
+    }
+    
+    if (offset >= lookaheadCache_.tokens_.size()) {
+        return Token(TokenType::Eof, SourceLocation());
+    }
+    
+    return lookaheadCache_.tokens_[offset];
+}
+
+bool Parser::hasAhead(size_t offset) const {
+    return !peekAhead(offset).getType() == TokenType::Eof;
+}
+
+// Context management
+void Parser::setContext(ParsingContext context) {
+    currentContext_ = context;
+}
+
+Parser::ParsingContext Parser::getCurrentContext() const {
+    return currentContext_;
+}
+
+// Helper methods for statement and declaration detection
+bool Parser::isStatementStart(TokenType type) const {
+    switch (type) {
+        case TokenType::If:
+        case TokenType::While:
+        case TokenType::For:
+        case TokenType::Do:
+        case TokenType::Switch:
+        case TokenType::Return:
+        case TokenType::Break:
+        case TokenType::Continue:
+        case TokenType::Throw:
+        case TokenType::Try:
+        case TokenType::Var:
+        case TokenType::Let:
+        case TokenType::Const:
+        case TokenType::Function:
+        case TokenType::Class:
+        case TokenType::Interface:
+        case TokenType::Enum:
+        case TokenType::Type:
+        case TokenType::LeftBrace:
+        case TokenType::Semicolon:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool Parser::isDeclarationStart(TokenType type) const {
+    switch (type) {
+        case TokenType::Var:
+        case TokenType::Let:
+        case TokenType::Const:
+        case TokenType::Function:
+        case TokenType::Class:
+        case TokenType::Interface:
+        case TokenType::Enum:
+        case TokenType::Type:
+            return true;
+        default:
+            return false;
+    }
+}
+
 // Parse type annotations like ": number", ": string", etc.
 shared_ptr<Type> Parser::parseTypeAnnotation() {
+    // Set context to Type for better disambiguation
+    auto previousContext = currentContext_;
+    setContext(ParsingContext::Type);
+    
     // Parse union types: type1 | type2 | type3
-    return parseUnionType();
+    auto result = parseUnionType();
+    
+    // Restore previous context
+    setContext(previousContext);
+    
+    return result;
 }
 
 shared_ptr<Type> Parser::parseUnionType() {
@@ -1777,24 +1910,28 @@ bool Parser::isTypeArgumentList() const {
         return false;
     }
     
-    // Look ahead to see what follows the '<'
-    // Type argument lists are almost always followed by '(' in function calls
-    // while comparison operators are followed by expressions
+    // Context-aware parsing: In type context, < is more likely to be type arguments
+    if (currentContext_ == ParsingContext::Type) {
+        return true; // Assume type arguments in type context
+    }
     
-    // Check if we have a pattern like: <identifier> or <identifier, identifier>
-    // followed by '>' and then '('
-    
+    // In expression context, use sophisticated lookahead
+    return analyzeTypeArgumentPattern();
+}
+
+bool Parser::analyzeTypeArgumentPattern() const {
+    // Enhanced pattern analysis with better lookahead
     size_t offset = 1; // Start looking after the '<'
     
     // Look for type argument pattern: <identifier> or <identifier, identifier, ...>
-    while (tokens_->hasAhead(offset)) {
-        Token token = tokens_->peekAhead(offset);
+    while (hasAhead(offset)) {
+        Token token = peekAhead(offset);
         
         if (token.getType() == TokenType::Identifier) {
             // Found an identifier, check what follows
             offset++;
-            if (tokens_->hasAhead(offset)) {
-                Token nextToken = tokens_->peekAhead(offset);
+            if (hasAhead(offset)) {
+                Token nextToken = peekAhead(offset);
                 if (nextToken.getType() == TokenType::Comma) {
                     // Continue looking for more type arguments
                     offset++;
@@ -1802,8 +1939,8 @@ bool Parser::isTypeArgumentList() const {
                 } else if (nextToken.getType() == TokenType::Greater) {
                     // Found the closing '>', check if it's followed by '('
                     offset++;
-                    if (tokens_->hasAhead(offset)) {
-                        Token afterGreater = tokens_->peekAhead(offset);
+                    if (hasAhead(offset)) {
+                        Token afterGreater = peekAhead(offset);
                         if (afterGreater.getType() == TokenType::LeftParen) {
                             // This is a type argument list: <T>( or <T, U>(
                             return true;
@@ -1822,8 +1959,8 @@ bool Parser::isTypeArgumentList() const {
         } else if (token.getType() == TokenType::Greater) {
             // Empty type argument list: <>(
             offset++;
-            if (tokens_->hasAhead(offset)) {
-                Token afterGreater = tokens_->peekAhead(offset);
+            if (hasAhead(offset)) {
+                Token afterGreater = peekAhead(offset);
                 if (afterGreater.getType() == TokenType::LeftParen) {
                     // This is an empty type argument list: <>(
                     return true;

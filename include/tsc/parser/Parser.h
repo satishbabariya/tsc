@@ -33,6 +33,16 @@ private:
     unique_ptr<TokenStream> tokens_;
     String filename_;
     
+    // Parsing context
+    ParsingContext currentContext_ = ParsingContext::Expression;
+    
+    // Lookahead cache
+    struct LookaheadCache {
+        std::vector<Token> tokens_;
+        size_t currentIndex_ = 0;
+    };
+    mutable LookaheadCache lookaheadCache_;
+    
     // Core parsing methods
     unique_ptr<Module> parseModule();
     std::vector<unique_ptr<Statement>> parseStatementList();
@@ -119,9 +129,13 @@ private:
     // Error handling and recovery
     void reportError(const String& message, const SourceLocation& location = {});
     void reportWarning(const String& message, const SourceLocation& location = {});
+    void reportError(const String& message, const SourceLocation& location, 
+                    const String& context, const String& suggestion = "");
     void synchronize();
     void skipUntil(TokenType type);
     void skipUntil(std::initializer_list<TokenType> types);
+    void skipToStatementBoundary();
+    void skipToDeclarationBoundary();
     
     // Operator precedence
     int getBinaryOperatorPrecedence(TokenType type) const;
@@ -131,16 +145,31 @@ private:
     
     // Lookahead helpers
     bool isTypeArgumentList() const;
+    bool analyzeTypeArgumentPattern() const;
+    Token peekAhead(size_t offset) const;
+    bool hasAhead(size_t offset) const;
     
     // Type checking helpers
     bool isTypeToken(TokenType type) const;
     bool isStatementStart(TokenType type) const;
     bool isExpressionStart(TokenType type) const;
     bool isAssignmentOperator(TokenType type) const;
+    bool isDeclarationStart(TokenType type) const;
     
     // Context management
     void enterScope();
     void exitScope();
+    
+    // Parsing context
+    enum class ParsingContext {
+        Expression,    // Normal expression context
+        Type,         // Type annotation context  
+        Template,     // Template literal context
+        JSX          // JSX context (if we add it)
+    };
+    
+    void setContext(ParsingContext context);
+    ParsingContext getCurrentContext() const;
     
     // Current parsing context
     SourceLocation getCurrentLocation() const;
