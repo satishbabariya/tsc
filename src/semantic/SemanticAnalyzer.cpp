@@ -1349,8 +1349,12 @@ void SemanticAnalyzer::performFlowAnalysis(Module& module) {
 // Helper method implementations
 void SemanticAnalyzer::declareSymbol(const String& name, SymbolKind kind, shared_ptr<Type> type, 
                                     const SourceLocation& location, ASTNode* declaration) {
+    std::cout << "DEBUG: declareSymbol called for: " << name << " (kind: " << static_cast<int>(kind) << ")" << std::endl;
     if (!symbolTable_->addSymbol(name, kind, type, location, declaration)) {
+        std::cout << "DEBUG: Symbol redeclaration detected for: " << name << std::endl;
         reportError("Symbol redeclaration: " + name, location);
+    } else {
+        std::cout << "DEBUG: Symbol successfully declared: " << name << std::endl;
     }
 }
 
@@ -1577,7 +1581,15 @@ void SemanticAnalyzer::visit(PropertyDeclaration& node) {
         }
     } else {
         // Resolve the property type (important for generic type parameters)
+        std::cout << "DEBUG: PropertyDeclaration resolving type: " << (propertyType ? propertyType->toString() : "null") << std::endl;
+        if (propertyType) {
+            std::cout << "DEBUG: PropertyDeclaration type kind: " << static_cast<int>(propertyType->getKind()) << std::endl;
+        }
         propertyType = resolveType(propertyType);
+        std::cout << "DEBUG: PropertyDeclaration resolved type: " << (propertyType ? propertyType->toString() : "null") << std::endl;
+        if (propertyType) {
+            std::cout << "DEBUG: PropertyDeclaration resolved type kind: " << static_cast<int>(propertyType->getKind()) << std::endl;
+        }
     }
     
     // Analyze initializer if present
@@ -1655,10 +1667,13 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     // Process type parameters AFTER entering class scope
     std::vector<shared_ptr<Type>> typeParameters;
     for (const auto& typeParam : node.getTypeParameters()) {
+        std::cout << "DEBUG: Processing type parameter: " << typeParam->getName() << std::endl;
+        std::cout << "DEBUG: Current scope when adding type parameter: " << symbolTable_->getCurrentScope() << std::endl;
         auto paramType = typeSystem_->createTypeParameter(typeParam->getName(), typeParam->getConstraint());
         typeParameters.push_back(paramType);
         
         // Add type parameter to class scope so it can be referenced within the class
+        std::cout << "DEBUG: Declaring type parameter symbol: " << typeParam->getName() << std::endl;
         declareSymbol(typeParam->getName(), SymbolKind::Type, paramType, typeParam->getLocation());
     }
     
@@ -1712,6 +1727,8 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     
     // Analyze properties
     for (const auto& property : node.getProperties()) {
+        std::cout << "DEBUG: Processing property: " << property->getName() << std::endl;
+        std::cout << "DEBUG: Current scope when processing property: " << symbolTable_->getCurrentScope() << std::endl;
         property->accept(*this);
         
         // Add property to class scope
@@ -1925,6 +1942,8 @@ shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
         if (symbol->getType()) {
             std::cout << "DEBUG: Symbol type kind: " << static_cast<int>(symbol->getType()->getKind()) << std::endl;
         }
+    } else {
+        std::cout << "DEBUG: resolveType failed to find symbol '" << typeName << "' - this will cause type parameter to be treated as variable" << std::endl;
     }
     if (symbol && (symbol->getKind() == SymbolKind::Type || symbol->getKind() == SymbolKind::Class)) {
         auto resolvedType = symbol->getType();

@@ -340,9 +340,18 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 ));
             } else {
                 // Property declaration
+                std::cout << "DEBUG: Parser processing property: " << memberName << std::endl;
                 shared_ptr<Type> propertyType = nullptr;
                 if (match(TokenType::Colon)) {
-                    propertyType = parseTypeAnnotation();
+                    std::cout << "DEBUG: Parser found colon, parsing type annotation" << std::endl;
+                    // Parse type directly without colon (colon already consumed)
+                    ParsingContext oldContext = currentContext_;
+                    setContext(ParsingContext::Type);
+                    propertyType = parseUnionType();
+                    setContext(oldContext);
+                    std::cout << "DEBUG: Parser parsed type annotation: " << (propertyType ? propertyType->toString() : "null") << std::endl;
+                } else {
+                    std::cout << "DEBUG: Parser did not find colon, no type annotation" << std::endl;
                 }
                 
                 unique_ptr<Expression> initializer = nullptr;
@@ -1705,7 +1714,11 @@ std::vector<shared_ptr<Type>> Parser::parseTypeArgumentList() {
     
     if (!check(TokenType::Greater)) {
         do {
-            typeArguments.push_back(parseTypeAnnotation());
+            // Parse type directly without colon (type arguments don't have colons)
+            ParsingContext oldContext = currentContext_;
+            setContext(ParsingContext::Type);
+            typeArguments.push_back(parseUnionType());
+            setContext(oldContext);
         } while (match(TokenType::Comma));
     }
     
