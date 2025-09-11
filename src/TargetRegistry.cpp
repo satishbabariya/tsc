@@ -34,8 +34,10 @@ void TargetRegistry::initializeAllTargets() {
         detectedTriple = "unknown-unknown-unknown";
     }
     
-    // Step 2: Try native target initialization first
+    // Step 2: Try to initialize only the targets we have libraries for
+    // This is safer than InitializeAllTargets which might fail if not all libraries are available
     try {
+        // Try to initialize the native target first (this should work since we have AArch64 libraries)
         llvm::InitializeNativeTarget();
         llvm::InitializeNativeTargetAsmParser();
         llvm::InitializeNativeTargetAsmPrinter();
@@ -76,16 +78,16 @@ void TargetRegistry::initializeAllTargets() {
     try {
         std::cout << "Initializing available targets conservatively..." << std::endl;
         
-        // Always try to initialize the native target first
+        // Try to initialize additional targets if native failed
         if (!nativeInitialized) {
             try {
                 llvm::InitializeNativeTarget();
                 llvm::InitializeNativeTargetAsmParser();
                 llvm::InitializeNativeTargetAsmPrinter();
                 llvm::InitializeNativeTargetDisassembler();
-                std::cout << "Successfully initialized native target" << std::endl;
+                std::cout << "Successfully initialized native target (fallback)" << std::endl;
             } catch (const std::exception& e) {
-                std::cerr << "Warning: Native target initialization failed: " << e.what() << std::endl;
+                std::cerr << "Warning: Fallback native target initialization failed: " << e.what() << std::endl;
             }
         }
         
