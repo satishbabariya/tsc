@@ -3038,13 +3038,11 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(Module& node) override {}
     };
     
-    // TEMPORARY FIX: Disable return statement checker to prevent double processing
-    // ReturnStatementChecker checker;
-    // if (funcDecl.getBody()) {
-    //     funcDecl.getBody()->accept(checker);
-    // }
-    // return checker.hasReturnStatements();
-    return true; // Assume all functions have return statements for now
+    ReturnStatementChecker checker;
+    if (funcDecl.getBody()) {
+        funcDecl.getBody()->accept(checker);
+    }
+    return checker.hasReturnStatements();
 }
 
 // Memory management implementation
