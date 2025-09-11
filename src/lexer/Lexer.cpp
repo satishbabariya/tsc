@@ -187,6 +187,11 @@ Token Lexer::scanToken() {
         return makeToken(TokenType::EndOfInput);
     }
     
+    // Handle template literal state
+    if (state_ == LexerState::Template) {
+        return scanTemplateTail();
+    }
+    
     char c = peek();
     SourceLocation startLocation = getCurrentLocation();
     
@@ -417,7 +422,7 @@ Token Lexer::scanTemplate() {
             // Template expression found - return TemplateHead
             String value = substring(start, current_);
             advance(); // consume $
-            advance(); // consume {
+            // Don't consume { - let it be handled as LeftBrace token
             state_ = LexerState::TemplateExpression;
             return makeToken(TokenType::TemplateHead, value);
         } else {
@@ -452,7 +457,7 @@ Token Lexer::scanTemplateTail() {
             // Another template expression found - return TemplateMiddle
             String value = substring(start, current_);
             advance(); // consume $
-            advance(); // consume {
+            // Don't consume { - let it be handled as LeftBrace token
             state_ = LexerState::TemplateExpression;
             return makeToken(TokenType::TemplateMiddle, value);
         } else {
@@ -570,9 +575,9 @@ Token Lexer::scanPunctuation() {
         case '{': return makeToken(TokenType::LeftBrace);
         case '}': 
             if (state_ == LexerState::TemplateExpression) {
-                // We're in a template expression, need to scan for TemplateMiddle or TemplateTail
+                // We're in a template expression, return RightBrace and transition to Template state
                 state_ = LexerState::Template;
-                return scanTemplateTail();
+                return makeToken(TokenType::RightBrace);
             }
             return makeToken(TokenType::RightBrace);
         case '(': return makeToken(TokenType::LeftParen);

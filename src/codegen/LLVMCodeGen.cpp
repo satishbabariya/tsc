@@ -2375,9 +2375,13 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
                 if (auto* constant = llvm::dyn_cast<llvm::Constant>(initValue)) {
                     globalVar->setInitializer(constant);
                 } else {
-                    // For non-constant initializers, we need to defer initialization
-                    // to a constructor function or main function
-                    reportError("Global variable initializer must be constant", node.getLocation());
+                    // For non-constant initializers, defer initialization to main function
+                    globalVar->setInitializer(llvm::Constant::getNullValue(llvmType));
+                    
+                    // Store the initialization code to be executed in main function
+                    deferredGlobalInitializations_.push_back([this, initValue, storage]() {
+                        builder_->CreateStore(initValue, storage);
+                    });
                 }
             }
         }
@@ -2506,6 +2510,11 @@ void LLVMCodeGen::visit(Module& module) {
         llvm::BasicBlock* entry = llvm::BasicBlock::Create(*context_, "entry", mainFunc);
         builder_->SetInsertPoint(entry);
         
+        // Execute deferred global variable initializations
+        for (auto& init : deferredGlobalInitializations_) {
+            init();
+        }
+        
         // Generate module-level statements within main function
         for (const auto& stmt : moduleStatements) {
             std::cout << "DEBUG: Processing module-level statement in main function" << std::endl;
@@ -2569,6 +2578,11 @@ void LLVMCodeGen::visit(Module& module) {
         
         llvm::BasicBlock* entry = llvm::BasicBlock::Create(*context_, "entry", mainFunc);
         builder_->SetInsertPoint(entry);
+        
+        // Execute deferred global variable initializations even if no module statements
+        for (auto& init : deferredGlobalInitializations_) {
+            init();
+        }
         
         // Return 0 from main
         builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));

@@ -569,6 +569,9 @@ private:
     // Error handling
     void reportError(const String& message, const SourceLocation& location);
     void reportWarning(const String& message, const SourceLocation& location);
+    
+    // Deferred global variable initializations
+    std::vector<std::function<void()>> deferredGlobalInitializations_;
 };
 
 // Code generation result
