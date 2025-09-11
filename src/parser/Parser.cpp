@@ -168,14 +168,13 @@ unique_ptr<Statement> Parser::parseVariableStatement() {
     
     // Optional type annotation
     shared_ptr<Type> typeAnnotation = nullptr;
+    
     if (match(TokenType::Colon)) {
-        std::cout << "DEBUG: Parser found colon in variable declaration, parsing type annotation" << std::endl;
         // Parse type directly without colon (colon already consumed)
         ParsingContext oldContext = currentContext_;
         setContext(ParsingContext::Type);
         typeAnnotation = parseUnionType();
         setContext(oldContext);
-        std::cout << "DEBUG: Parser parsed type annotation: " << (typeAnnotation ? typeAnnotation->toString() : "null") << std::endl;
     }
     
     // Optional initializer
@@ -211,7 +210,11 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     // Optional return type
     shared_ptr<Type> returnType = nullptr;
     if (match(TokenType::Colon)) {
-        returnType = parseTypeAnnotation();
+        // Parse type directly without colon (colon already consumed)
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
+        returnType = parseUnionType();
+        setContext(oldContext);
     }
     
     auto body = parseFunctionBody();

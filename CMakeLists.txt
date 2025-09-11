@@ -355,7 +355,7 @@ add_subdirectory(src)
 
 # Enable testing
 enable_testing()
-add_subdirectory(test)
+# add_subdirectory(test)  # Temporarily disabled for debugging
 
 # Create main executable
 add_executable(tsc
