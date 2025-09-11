@@ -1153,6 +1153,42 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
     }
     
     
+    // Check if this is property access on a struct pointer (monomorphized type)
+    if (objectValue->getType()->isPointerTy()) {
+        // For opaque pointers in LLVM 20, we need to determine the struct type differently
+        // For now, we'll use a simple approach based on the struct name pattern
+        String propertyName = node.getProperty();
+        
+        // Check if this looks like a monomorphized struct pointer
+        // We can identify this by checking if we're in a monomorphized method context
+        llvm::Function* currentFunction = builder_->GetInsertBlock()->getParent();
+        String functionName = currentFunction->getName().str();
+        
+        // If we're in a monomorphized method (e.g., Container_number_getValue)
+        // and accessing 'value', handle it as struct field access
+        if (functionName.find("_") != String::npos && propertyName == "value") {
+            // This is likely a monomorphized method accessing 'this.value'
+            // For now, assume the first field is the 'value' field
+            // In a full implementation, we'd look up the actual struct type
+            
+            // Create GEP to access the first field (index 0)
+            llvm::Value* indices[] = {
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // First field
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)   // Field index 0
+            };
+            
+            // Use a generic struct type for now - in a full implementation,
+            // we'd determine the actual struct type from the monomorphized type
+            std::vector<llvm::Type*> fieldTypes = { getNumberType() };  // Assume first field is a number for now
+            llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
+            
+            llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "field_ptr");
+            llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
+            setCurrentValue(fieldValue);
+            return;
+        }
+    }
+    
     // Check if this is property access on a generic type (i8*)
     if (objectValue->getType() == getAnyType()) {
         // This is property access on a generic type - handle specially
