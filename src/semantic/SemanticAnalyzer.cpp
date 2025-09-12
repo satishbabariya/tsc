@@ -1399,12 +1399,22 @@ void SemanticAnalyzer::checkFunctionCall(const CallExpression& call) {
         return;
     }
     
-    // Handle generic function calls with basic monomorphization
+    // Handle generic function calls with constraint validation
     if (auto identifier = dynamic_cast<const Identifier*>(call.getCallee())) {
         Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
         if (symbol && symbol->getKind() == SymbolKind::Function) {
             // Check if this is a generic function call
             if (auto functionType = dynamic_cast<const FunctionType*>(calleeType.get())) {
+                // Get the function declaration to access type parameters
+                FunctionDeclaration* funcDecl = getFunctionDeclaration(identifier->getName());
+                if (funcDecl && !funcDecl->getTypeParameters().empty()) {
+                    // This is a generic function call - validate constraints
+                    if (!validateGenericFunctionCall(call, *funcDecl, *functionType)) {
+                        setExpressionType(call, typeSystem_->getErrorType());
+                        return;
+                    }
+                }
+                
                 // Extract return type from function type
                 auto returnType = functionType->getReturnType();
                 
@@ -2173,6 +2183,60 @@ void SemanticAnalyzer::markVariableAsCaptured(Symbol* symbol) {
         diagnostics_.warning("Captured variable: " + symbol->getName() + " in function: " + currentFunction->getName(), 
                             currentFunction->getLocation());
     }
+}
+
+// Generic constraint validation helpers
+FunctionDeclaration* SemanticAnalyzer::getFunctionDeclaration(const String& functionName) {
+    // Look up the function symbol to get the declaration
+    Symbol* symbol = symbolTable_->lookupSymbol(functionName);
+    if (symbol && symbol->getKind() == SymbolKind::Function) {
+        // Get the declaration from the symbol
+        ASTNode* declaration = symbol->getDeclaration();
+        if (declaration) {
+            return dynamic_cast<FunctionDeclaration*>(declaration);
+        }
+    }
+    return nullptr;
+}
+
+bool SemanticAnalyzer::validateGenericFunctionCall(const CallExpression& call, const FunctionDeclaration& funcDecl, const FunctionType& functionType) {
+    // Get type parameters from the function declaration
+    const auto& typeParams = funcDecl.getTypeParameters();
+    if (typeParams.empty()) {
+        return true; // Not a generic function
+    }
+    
+    // Get argument types
+    std::vector<shared_ptr<Type>> argumentTypes;
+    for (const auto& arg : call.getArguments()) {
+        auto argType = getExpressionType(*arg);
+        argumentTypes.push_back(argType);
+    }
+    
+    // For each type parameter with a constraint, validate the corresponding argument
+    for (size_t i = 0; i < typeParams.size() && i < argumentTypes.size(); ++i) {
+        const auto& typeParam = typeParams[i];
+        auto argType = argumentTypes[i];
+        
+        // Check if this type parameter has a constraint
+        if (typeParam->hasConstraint()) {
+            auto constraint = typeParam->getConstraint();
+            if (constraint) {
+                // Validate that the argument type satisfies the constraint
+                if (!constraintChecker_->satisfiesConstraint(argType, constraint)) {
+                    constraintChecker_->reportConstraintError(
+                        "Argument type '" + argType->toString() + 
+                        "' does not satisfy constraint '" + constraint->toString() + 
+                        "' for type parameter '" + typeParam->getName() + "'",
+                        call.getLocation()
+                    );
+                    return false;
+                }
+            }
+        }
+    }
+    
+    return true;
 }
 
 // Factory function

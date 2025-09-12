@@ -221,6 +221,10 @@ private:
     
     // Built-in function and variable setup
     void setupBuiltinEnvironment();
+    
+    // Generic constraint validation helpers
+    FunctionDeclaration* getFunctionDeclaration(const String& functionName);
+    bool validateGenericFunctionCall(const CallExpression& call, const FunctionDeclaration& funcDecl, const FunctionType& functionType);
 };
 
 // Semantic analysis result
