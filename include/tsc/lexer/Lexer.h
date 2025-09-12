@@ -68,6 +68,8 @@ private:
     Token scanNumber();
     Token scanString(char quote);
     Token scanTemplate();
+    Token scanTemplateExpression();
+    Token scanTemplateTail();
     Token scanRegularExpression();
     Token scanIdentifier();
     Token scanPrivateIdentifier();

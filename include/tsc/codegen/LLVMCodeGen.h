@@ -470,6 +470,9 @@ private:
     // Closure struct type cache to ensure consistent types
     std::unordered_map<String, llvm::StructType*> closureTypeCache_;
     
+    // Deferred global variable initializations (for non-constant values)
+    std::vector<std::pair<llvm::GlobalVariable*, llvm::Value*>> deferredGlobalInitializations_;
+    
     // Type mapping from TypeScript to LLVM
     llvm::Type* mapTypeScriptTypeToLLVM(const Type& type);
     llvm::Type* getNumberType() const;

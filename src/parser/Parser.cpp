@@ -1299,16 +1299,42 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
         return make_unique<TemplateLiteral>(std::move(elements), location);
     }
     
-    // For now, just treat TemplateHead as a simple string literal
-    // TODO: Implement full template literal parsing with expressions
-    if (check(TokenType::TemplateHead)) {
-        Token token = advance();
-        elements.emplace_back(TemplateElement(token.getStringValue()));
-        return make_unique<TemplateLiteral>(std::move(elements), location);
+    // Parse template literal with expressions: `Hello ${name}!`
+    while (true) {
+        if (check(TokenType::TemplateHead)) {
+            // TemplateHead: "Hello "
+            Token token = advance();
+            std::cout << "DEBUG: parseTemplateLiteral() processing TemplateHead with value: '" << token.getStringValue() << "'" << std::endl;
+            elements.emplace_back(TemplateElement(token.getStringValue()));
+            
+            // Parse the expression inside ${}
+            auto expression = parseExpression();
+            elements.emplace_back(TemplateElement(std::move(expression)));
+            
+        } else if (check(TokenType::TemplateMiddle)) {
+            // TemplateMiddle: " world "
+            Token token = advance();
+            std::cout << "DEBUG: parseTemplateLiteral() processing TemplateMiddle with value: '" << token.getStringValue() << "'" << std::endl;
+            elements.emplace_back(TemplateElement(token.getStringValue()));
+            
+            // Parse the expression inside ${}
+            auto expression = parseExpression();
+            elements.emplace_back(TemplateElement(std::move(expression)));
+            
+        } else if (check(TokenType::TemplateTail)) {
+            // TemplateTail: "!"
+            Token token = advance();
+            std::cout << "DEBUG: parseTemplateLiteral() processing TemplateTail with value: '" << token.getStringValue() << "'" << std::endl;
+            elements.emplace_back(TemplateElement(token.getStringValue()));
+            break; // End of template literal
+            
+        } else {
+            // Unexpected token
+            std::cout << "DEBUG: parseTemplateLiteral() unexpected token type: " << static_cast<int>(peek().getType()) << std::endl;
+            break;
+        }
     }
     
-    // Fallback: create an empty template literal
-    elements.emplace_back(TemplateElement(""));
     return make_unique<TemplateLiteral>(std::move(elements), location);
 }
 

@@ -188,6 +188,16 @@ Token Lexer::scanToken() {
         return makeToken(TokenType::EndOfInput);
     }
     
+    // Handle template expression state
+    if (state_ == LexerState::TemplateExpression) {
+        return scanTemplateExpression();
+    }
+    
+    // Handle template state (after expression)
+    if (state_ == LexerState::Template) {
+        return scanTemplateTail();
+    }
+    
     char c = peek();
     SourceLocation startLocation = getCurrentLocation();
     
@@ -417,6 +427,7 @@ Token Lexer::scanTemplate() {
             String value = substring(start, current_);
             advance(); // consume $
             advance(); // consume {
+            setState(LexerState::TemplateExpression);
             std::cout << "DEBUG: scanTemplate() returning TemplateHead with value: '" << value << "'" << std::endl;
             return makeToken(TokenType::TemplateHead, value);
         } else {
@@ -435,6 +446,117 @@ Token Lexer::scanTemplate() {
     
     std::cout << "DEBUG: scanTemplate() returning NoSubstitutionTemplate with value: '" << value << "'" << std::endl;
     return makeToken(TokenType::NoSubstitutionTemplate, value);
+}
+
+Token Lexer::scanTemplateExpression() {
+    std::cout << "DEBUG: scanTemplateExpression() called" << std::endl;
+    
+    // We're inside ${expression} - scan until we find the closing }
+    // For now, we'll use a simplified approach and scan the entire expression
+    // In a full implementation, this would need to handle nested braces, strings, etc.
+    
+    size_t braceCount = 1; // We're already inside one brace
+    size_t start = current_;
+    
+    while (!isAtEnd() && braceCount > 0) {
+        char c = peek();
+        
+        if (c == '{') {
+            braceCount++;
+            advance();
+        } else if (c == '}') {
+            braceCount--;
+            if (braceCount > 0) {
+                advance();
+            }
+        } else if (c == '"' || c == '\'') {
+            // Skip string literals
+            advance(); // consume opening quote
+            while (!isAtEnd() && peek() != c) {
+                if (peek() == '\\') {
+                    advance(); // consume backslash
+                    if (!isAtEnd()) {
+                        advance(); // consume escaped character
+                    }
+                } else {
+                    advance();
+                }
+            }
+            if (!isAtEnd()) {
+                advance(); // consume closing quote
+            }
+        } else if (c == '`') {
+            // Skip template literals (nested)
+            advance(); // consume opening `
+            while (!isAtEnd() && peek() != '`') {
+                if (peek() == '\\') {
+                    advance(); // consume backslash
+                    if (!isAtEnd()) {
+                        advance(); // consume escaped character
+                    }
+                } else {
+                    advance();
+                }
+            }
+            if (!isAtEnd()) {
+                advance(); // consume closing `
+            }
+        } else {
+            advance();
+        }
+    }
+    
+    if (isAtEnd()) {
+        std::cout << "DEBUG: scanTemplateExpression() returning error - unterminated template expression" << std::endl;
+        return makeErrorToken("Unterminated template expression");
+    }
+    
+    // Extract the expression content (without the closing })
+    String expression = substring(start, current_);
+    advance(); // consume the closing }
+    
+    // Return the expression content as an identifier token for now
+    // This is a simplified approach - in a full implementation, we'd need to
+    // tokenize the expression content properly
+    std::cout << "DEBUG: scanTemplateExpression() returning expression: '" << expression << "'" << std::endl;
+    setState(LexerState::Template);
+    return makeToken(TokenType::Identifier, expression);
+}
+
+Token Lexer::scanTemplateTail() {
+    std::cout << "DEBUG: scanTemplateTail() called" << std::endl;
+    size_t start = current_;
+    
+    while (!isAtEnd() && peek() != '`') {
+        if (peek() == '\\') {
+            advance(); // consume backslash
+            if (!isAtEnd()) {
+                advance(); // consume escaped character
+            }
+        } else if (peek() == '$' && peek(1) == '{') {
+            // Found another template expression - return template middle
+            String value = substring(start, current_);
+            advance(); // consume $
+            advance(); // consume {
+            setState(LexerState::TemplateExpression);
+            std::cout << "DEBUG: scanTemplateTail() returning TemplateMiddle with value: '" << value << "'" << std::endl;
+            return makeToken(TokenType::TemplateMiddle, value);
+        } else {
+            advance();
+        }
+    }
+    
+    if (isAtEnd()) {
+        std::cout << "DEBUG: scanTemplateTail() returning error - unterminated template literal" << std::endl;
+        return makeErrorToken("Unterminated template literal");
+    }
+    
+    // End of template literal
+    String value = substring(start, current_);
+    advance(); // consume closing `
+    setState(LexerState::Initial);
+    std::cout << "DEBUG: scanTemplateTail() returning TemplateTail with value: '" << value << "'" << std::endl;
+    return makeToken(TokenType::TemplateTail, value);
 }
 
 Token Lexer::scanRegularExpression() {

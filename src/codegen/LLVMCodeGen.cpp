@@ -2,6 +2,7 @@
 #include "tsc/Compiler.h"
 #include "tsc/TargetRegistry.h"
 #include "tsc/semantic/TypeSystem.h"
+#include "tsc/AST.h"
 
 // LLVM includes for implementation
 #include "llvm/IR/Constants.h"
@@ -2481,22 +2482,38 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
     
     // Allocate storage for the variable
     llvm::Value* storage = allocateVariable(node.getName(), llvmType, node.getLocation());
+    std::cout << "DEBUG: Variable " << node.getName() << " allocated storage: " << (storage ? "YES" : "NO") << std::endl;
     
     // Store the initializer if present
+    std::cout << "DEBUG: Variable " << node.getName() << " initValue: " << (initValue ? "YES" : "NO") << " storage: " << (storage ? "YES" : "NO") << std::endl;
     if (initValue && storage) {
         llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+        std::cout << "DEBUG: Variable " << node.getName() << " currentFunc: " << (currentFunc ? currentFunc->getName().str() : "null") << std::endl;
         if (currentFunc) {
-            // Local variable - store normally
-            builder_->CreateStore(initValue, storage);
+            // Check if this is a global variable being processed in main function
+            llvm::Value* globalStorage = codeGenContext_->getSymbolValue(node.getName());
+            if (globalStorage && llvm::isa<llvm::GlobalVariable>(globalStorage)) {
+                // This is a global variable - store the result to the global variable
+                std::cout << "DEBUG: Storing template literal result to global variable: " << node.getName() << std::endl;
+                builder_->CreateStore(initValue, globalStorage);
+            } else {
+                // Local variable - store normally
+                std::cout << "DEBUG: Storing as local variable: " << node.getName() << std::endl;
+                builder_->CreateStore(initValue, storage);
+            }
         } else {
             // Global variable - set initial value if it's a global variable
             if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(storage)) {
+                std::cout << "DEBUG: Global variable " << node.getName() << " initValue type: " << (initValue ? initValue->getType()->getTypeID() : -1) << std::endl;
                 if (auto* constant = llvm::dyn_cast<llvm::Constant>(initValue)) {
+                    std::cout << "DEBUG: Setting constant initializer for global variable: " << node.getName() << std::endl;
                     globalVar->setInitializer(constant);
                 } else {
-                    // For non-constant initializers, we need to defer initialization
-                    // to a constructor function or main function
-                    reportError("Global variable initializer must be constant", node.getLocation());
+                    // Non-constant initializer for global variable - defer initialization
+                    // This happens for template literals with interpolation, function calls, etc.
+                    // We'll store the initialization in the main function when it's created
+                    std::cout << "DEBUG: Deferring initialization for global variable: " << node.getName() << std::endl;
+                    deferredGlobalInitializations_.push_back({globalVar, initValue});
                 }
             }
         }
@@ -2629,7 +2646,16 @@ void LLVMCodeGen::visit(Module& module) {
         llvm::BasicBlock* entry = llvm::BasicBlock::Create(*context_, "entry", mainFunc);
         builder_->SetInsertPoint(entry);
         
+        // Process deferred global variable initializations
+        std::cout << "DEBUG: Processing " << deferredGlobalInitializations_.size() << " deferred global initializations" << std::endl;
+        for (const auto& [globalVar, initValue] : deferredGlobalInitializations_) {
+            std::cout << "DEBUG: Storing to global variable: " << globalVar->getName().str() << std::endl;
+            builder_->CreateStore(initValue, globalVar);
+        }
+        deferredGlobalInitializations_.clear();
+        
         // Generate module-level statements within main function
+        std::cout << "DEBUG: Processing " << moduleStatements.size() << " module-level statements in main function" << std::endl;
         for (const auto& stmt : moduleStatements) {
             std::cout << "DEBUG: Processing module-level statement in main function" << std::endl;
             
