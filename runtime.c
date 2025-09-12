@@ -35,3 +35,21 @@ void __rethrow_exception(void) {
     printf("Re-throwing exception\n");
     exit(1); // Simple termination for now
 }
+
+// Array length function
+// Signature: int array_length(void* array_ptr)
+// Returns: The length of the array (first i32 field)
+int array_length(void* array_ptr) {
+    if (!array_ptr) {
+        fprintf(stderr, "Error: array_length called with null pointer\n");
+        exit(3); // Exit code 3 for null pointer
+    }
+    
+    // The array structure is { i32 length, [N x elementType] data }
+    // We need to read the first i32 field (length)
+    int* length_ptr = (int*)array_ptr;
+    int length = *length_ptr;
+    
+    printf("DEBUG: array_length called with ptr=%p, length=%d\n", array_ptr, length);
+    return length;
+}

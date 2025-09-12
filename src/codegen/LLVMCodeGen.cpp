@@ -1294,14 +1294,24 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 });
                 
                 std::cout << "DEBUG: PropertyAccess - Creating GEP for length field with struct type" << std::endl;
+                std::cout << "DEBUG: PropertyAccess - arrayStructType: " << arrayStructType << std::endl;
+                std::cout << "DEBUG: PropertyAccess - arrayValue: " << arrayValue << std::endl;
+                
                 llvm::Value* lengthPtr = builder_->CreateGEP(arrayStructType, arrayValue, 
                     {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)}, "length.ptr");
+                std::cout << "DEBUG: PropertyAccess - lengthPtr created: " << lengthPtr << std::endl;
+                std::cout << "DEBUG: PropertyAccess - lengthPtr type: " << lengthPtr->getType() << std::endl;
+                
                 std::cout << "DEBUG: PropertyAccess - Loading length value" << std::endl;
                 llvm::Value* arrayLength = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "array.length");
-                
+                std::cout << "DEBUG: PropertyAccess - arrayLength loaded: " << arrayLength << std::endl;
+                std::cout << "DEBUG: PropertyAccess - arrayLength type: " << arrayLength->getType() << std::endl;
+
                 std::cout << "DEBUG: PropertyAccess - Converting length to double" << std::endl;
                 // Convert i32 to double for consistency with number type
                 llvm::Value* lengthAsDouble = builder_->CreateSIToFP(arrayLength, getNumberType(), "length.double");
+                std::cout << "DEBUG: PropertyAccess - lengthAsDouble created: " << lengthAsDouble << std::endl;
+                std::cout << "DEBUG: PropertyAccess - lengthAsDouble type: " << lengthAsDouble->getType() << std::endl;
                 std::cout << "DEBUG: PropertyAccess - Setting current value and returning" << std::endl;
                 setCurrentValue(lengthAsDouble);
                 return;
@@ -2686,15 +2696,28 @@ void LLVMCodeGen::visit(Module& module) {
         builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
     }
     
-    // Dump LLVM IR to file for debugging
-    std::error_code ec;
-    llvm::raw_fd_ostream irFile("generated_ir.ll", ec, llvm::sys::fs::OF_Text);
-    if (!ec) {
-        module_->print(irFile, nullptr);
-        std::cout << "DEBUG: LLVM IR dumped to generated_ir.ll" << std::endl;
-    } else {
-        std::cout << "DEBUG: Failed to dump LLVM IR: " << ec.message() << std::endl;
-    }
+        // Verify LLVM IR before dumping
+        std::string verificationError;
+        llvm::raw_string_ostream errorStream(verificationError);
+        bool isValid = llvm::verifyModule(*module_, &errorStream);
+        
+        if (!isValid) {
+            std::cout << "ERROR: LLVM IR verification failed!" << std::endl;
+            std::cout << "Verification errors: " << verificationError << std::endl;
+            std::cout << "ERROR: Continuing despite verification failure..." << std::endl;
+        } else {
+            std::cout << "DEBUG: LLVM IR verification passed" << std::endl;
+        }
+        
+        // Dump LLVM IR to file for debugging
+        std::error_code ec;
+        llvm::raw_fd_ostream irFile("generated_ir.ll", ec, llvm::sys::fs::OF_Text);
+        if (!ec) {
+            module_->print(irFile, nullptr);
+            std::cout << "DEBUG: LLVM IR dumped to generated_ir.ll" << std::endl;
+        } else {
+            std::cout << "DEBUG: Failed to dump LLVM IR: " << ec.message() << std::endl;
+        }
 }
 
 // Type mapping implementation
