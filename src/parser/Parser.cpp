@@ -994,7 +994,8 @@ unique_ptr<Expression> Parser::parseBinaryExpression(int minPrecedence) {
 
 unique_ptr<Expression> Parser::parseUnaryExpression() {
     if (check(TokenType::Plus) || check(TokenType::Minus) || 
-        check(TokenType::Exclamation)) {
+        check(TokenType::Exclamation) || check(TokenType::PlusPlus) || 
+        check(TokenType::MinusMinus)) {
         
         Token opToken = advance();
         auto operand = parseUnaryExpression();
@@ -1087,6 +1088,26 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
                 std::move(expr),
                 propertyToken.getStringValue(),
                 location
+            );
+        }
+        else if (match(TokenType::PlusPlus)) {
+            // Parse postfix increment: expr++
+            SourceLocation location = getCurrentLocation();
+            expr = make_unique<UnaryExpression>(
+                UnaryExpression::Operator::PostIncrement,
+                std::move(expr),
+                location,
+                false
+            );
+        }
+        else if (match(TokenType::MinusMinus)) {
+            // Parse postfix decrement: expr--
+            SourceLocation location = getCurrentLocation();
+            expr = make_unique<UnaryExpression>(
+                UnaryExpression::Operator::PostDecrement,
+                std::move(expr),
+                location,
+                false
             );
         }
         else {
@@ -1400,6 +1421,8 @@ UnaryExpression::Operator Parser::tokenToUnaryOperator(TokenType type) const {
         case TokenType::Plus: return UnaryExpression::Operator::Plus;
         case TokenType::Minus: return UnaryExpression::Operator::Minus;
         case TokenType::Exclamation: return UnaryExpression::Operator::LogicalNot;
+        case TokenType::PlusPlus: return UnaryExpression::Operator::PreIncrement;
+        case TokenType::MinusMinus: return UnaryExpression::Operator::PreDecrement;
         default:
             return UnaryExpression::Operator::Plus;
     }

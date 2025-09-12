@@ -478,6 +478,7 @@ private:
     llvm::Type* getAnyType() const;
     llvm::Type* convertFunctionTypeToLLVM(const FunctionType& functionType);
     llvm::Value* convertValueToType(llvm::Value* value, llvm::Type* targetType);
+    llvm::Value* convertValueToString(llvm::Value* value);
     
     // Memory management functions
     llvm::Function* getOrCreateMallocFunction();
@@ -518,6 +519,7 @@ private:
     
     // Unary operations
     llvm::Value* generateUnaryOp(int op, llvm::Value* operand, llvm::Type* operandType);
+    void generateIncrementDecrementExpression(UnaryExpression& node);
     
     // Function generation
     llvm::Function* generateFunctionDeclaration(const FunctionDeclaration& funcDecl);

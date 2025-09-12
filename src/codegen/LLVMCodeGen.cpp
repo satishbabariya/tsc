@@ -524,7 +524,17 @@ void LLVMCodeGen::visit(BinaryExpression& node) {
 }
 
 void LLVMCodeGen::visit(UnaryExpression& node) {
-    // Generate operand
+    // Handle increment/decrement operators specially
+    if (node.getOperator() == UnaryExpression::Operator::PreIncrement ||
+        node.getOperator() == UnaryExpression::Operator::PostIncrement ||
+        node.getOperator() == UnaryExpression::Operator::PreDecrement ||
+        node.getOperator() == UnaryExpression::Operator::PostDecrement) {
+        
+        generateIncrementDecrementExpression(node);
+        return;
+    }
+    
+    // Generate operand for other unary operations
     node.getOperand()->accept(*this);
     llvm::Value* operand = getCurrentValue();
     
@@ -910,6 +920,30 @@ void LLVMCodeGen::visit(CallExpression& node) {
         if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
             // This is a function call (like console.log), not a method call
             function = llvm::cast<llvm::Function>(calleeValue);
+            
+            // Special handling for console.log - convert all arguments to strings
+            if (function->getName() == "console_log") {
+                std::vector<llvm::Value*> args;
+                
+                for (const auto& arg : node.getArguments()) {
+                    arg->accept(*this);
+                    llvm::Value* argValue = getCurrentValue();
+                    if (!argValue) {
+                        reportError("Failed to generate argument for console.log", arg->getLocation());
+                        setCurrentValue(createNullValue(getAnyType()));
+                        return;
+                    }
+                    
+                    // Convert argument to string
+                    llvm::Value* stringValue = convertValueToString(argValue);
+                    args.push_back(stringValue);
+                }
+                
+                // Call console.log with string arguments
+                builder_->CreateCall(function, args);
+                setCurrentValue(nullptr); // console.log returns void
+                return;
+            }
         } else {
             // This is a method call (like obj.method())
             String methodName = propertyAccess->getProperty();
@@ -3127,6 +3161,34 @@ llvm::Value* LLVMCodeGen::convertValueToType(llvm::Value* value, llvm::Type* tar
     return value;
 }
 
+llvm::Value* LLVMCodeGen::convertValueToString(llvm::Value* value) {
+    if (!value) {
+        return nullptr;
+    }
+    
+    llvm::Type* sourceType = value->getType();
+    
+    // If it's already a string (pointer), return it
+    if (sourceType->isPointerTy()) {
+        return value;
+    }
+    
+    // If it's a number (double), convert to string using number_to_string
+    if (sourceType->isDoubleTy()) {
+        llvm::Function* numberToStringFunc = getOrCreateNumberToStringFunction();
+        return builder_->CreateCall(numberToStringFunc, {value}, "number_to_string_result");
+    }
+    
+    // If it's a boolean (i1), convert to string using boolean_to_string
+    if (sourceType->isIntegerTy(1)) {
+        llvm::Function* booleanToStringFunc = getOrCreateBooleanToStringFunction();
+        return builder_->CreateCall(booleanToStringFunc, {value}, "boolean_to_string_result");
+    }
+    
+    // For other types, create a placeholder string
+    return builder_->CreateGlobalString("(unknown)", "placeholder_string");
+}
+
 // Value creation implementation
 llvm::Value* LLVMCodeGen::createNumberLiteral(double value) {
     return llvm::ConstantFP::get(getNumberType(), value);
@@ -3172,60 +3234,24 @@ llvm::Function* LLVMCodeGen::getOrCreateConsoleLogFunction() {
         return existingFunc;
     }
     
-    // Create console.log function that takes a variable number of arguments
-    // For simplicity, we'll create a function that takes a single "any" type argument
+    // Create console.log function that matches the runtime signature
+    // The runtime expects: void console_log(const char* message)
     std::vector<llvm::Type*> paramTypes;
-    paramTypes.push_back(getAnyType()); // Single parameter of any type
+    paramTypes.push_back(llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)); // const char*
     
     llvm::FunctionType* funcType = llvm::FunctionType::get(
         llvm::Type::getVoidTy(*context_), // Return type: void
         paramTypes,                       // Parameter types
-        false                            // Not variadic for now
+        false                            // Not variadic
     );
     
-    // Create the function
+    // Create the function declaration (external linkage to match runtime)
     llvm::Function* consoleLogFunc = llvm::Function::Create(
         funcType,
         llvm::Function::ExternalLinkage,
         "console_log",
         *module_
     );
-    
-    // Create a basic block for the function body
-    llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", consoleLogFunc);
-    llvm::IRBuilder<> funcBuilder(entryBlock);
-    
-    // Get the parameter
-    llvm::Value* arg = consoleLogFunc->arg_begin();
-    
-    // For now, we'll create a simple implementation that calls printf
-    // First, declare printf function
-    llvm::FunctionType* printfType = llvm::FunctionType::get(
-        llvm::Type::getInt32Ty(*context_), // Return type: int
-        {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)}, // Format string parameter
-        true // Variadic
-    );
-    
-    llvm::Function* printfFunc = llvm::Function::Create(
-        printfType,
-        llvm::Function::ExternalLinkage,
-        "printf",
-        *module_
-    );
-    
-    // Create format string for different types
-    // For simplicity, we'll assume the argument is a number and print it
-    llvm::Value* formatStr = funcBuilder.CreateGlobalString("%g\n", "format_str");
-    
-    // For now, just print a placeholder value since we can't easily determine the type
-    // TODO: Implement proper type handling for console.log arguments
-    llvm::Value* doubleValue = llvm::ConstantFP::get(getNumberType(), 42.0);
-    
-    // Call printf
-    funcBuilder.CreateCall(printfFunc, {formatStr, doubleValue});
-    
-    // Return void
-    funcBuilder.CreateRetVoid();
     
     return consoleLogFunc;
 }
@@ -3376,13 +3402,69 @@ llvm::Value* LLVMCodeGen::generateUnaryOp(int op, llvm::Value* operand, llvm::Ty
         operand = convertToNumber(operand, operandType);
         return builder_->CreateFNeg(operand, "neg");
     }
-    if (op == 2) { // LogicalNot
+    if (op == 2) { // BitwiseNot
+        operand = convertToNumber(operand, operandType);
+        return builder_->CreateNot(operand, "bitnot");
+    }
+    if (op == 3) { // LogicalNot
         operand = convertToBoolean(operand, operandType);
         return builder_->CreateNot(operand, "not");
     }
     
+    // Increment/Decrement operators are handled in visit(UnaryExpression& node)
+    // This should not be reached for increment/decrement operators
+    
     reportError("Unsupported unary operator", SourceLocation());
     return createNullValue(getAnyType());
+}
+
+void LLVMCodeGen::generateIncrementDecrementExpression(UnaryExpression& node) {
+    // Check if operand is a variable that can be modified
+    if (auto identifier = dynamic_cast<Identifier*>(node.getOperand())) {
+        // Get the current value of the variable
+        llvm::Value* currentValue = loadVariable(identifier->getName(), node.getLocation());
+        if (!currentValue) {
+            reportError("Variable '" + identifier->getName() + "' not found", node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
+        
+        // Convert to number for arithmetic operations
+        currentValue = convertToNumber(currentValue, currentValue->getType());
+        
+        // Create increment/decrement value (1.0 for increment, -1.0 for decrement)
+        llvm::Value* delta = nullptr;
+        bool isIncrement = (node.getOperator() == UnaryExpression::Operator::PreIncrement ||
+                           node.getOperator() == UnaryExpression::Operator::PostIncrement);
+        
+        if (isIncrement) {
+            delta = llvm::ConstantFP::get(*context_, llvm::APFloat(1.0));
+        } else {
+            delta = llvm::ConstantFP::get(*context_, llvm::APFloat(-1.0));
+        }
+        
+        // Calculate new value
+        llvm::Value* newValue = builder_->CreateFAdd(currentValue, delta, "incdec");
+        
+        // Store the new value back to the variable
+        storeVariable(identifier->getName(), newValue, node.getLocation());
+        
+        // Return appropriate value based on pre/post
+        bool isPre = (node.getOperator() == UnaryExpression::Operator::PreIncrement ||
+                     node.getOperator() == UnaryExpression::Operator::PreDecrement);
+        
+        if (isPre) {
+            // Pre-increment/decrement: return the new value
+            setCurrentValue(newValue);
+        } else {
+            // Post-increment/decrement: return the old value
+            setCurrentValue(currentValue);
+        }
+    } else {
+        // Operand is not a simple identifier - this is an error
+        reportError("Increment/decrement operators can only be applied to variables", node.getLocation());
+        setCurrentValue(createNullValue(getAnyType()));
+    }
 }
 
 // Type conversion implementation
