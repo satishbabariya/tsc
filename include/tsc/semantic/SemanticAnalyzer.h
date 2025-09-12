@@ -78,6 +78,7 @@ public:
     void visit(ConditionalExpression& node) override;
     void visit(CallExpression& node) override;
     void visit(ArrayLiteral& node) override;
+    void visit(TemplateLiteral& node) override;
     void visit(IndexExpression& node) override;
     void visit(ObjectLiteral& node) override;
     void visit(PropertyAccess& node) override;

@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <cctype>
 #include <algorithm>
+#include <iostream>
 
 namespace tsc {
 
@@ -401,6 +402,7 @@ Token Lexer::scanString(char quote) {
 }
 
 Token Lexer::scanTemplate() {
+    std::cout << "DEBUG: scanTemplate() called" << std::endl;
     advance(); // consume opening `
     size_t start = current_;
     
@@ -415,6 +417,7 @@ Token Lexer::scanTemplate() {
             String value = substring(start, current_);
             advance(); // consume $
             advance(); // consume {
+            std::cout << "DEBUG: scanTemplate() returning TemplateHead with value: '" << value << "'" << std::endl;
             return makeToken(TokenType::TemplateHead, value);
         } else {
             advance();
@@ -422,6 +425,7 @@ Token Lexer::scanTemplate() {
     }
     
     if (isAtEnd()) {
+        std::cout << "DEBUG: scanTemplate() returning error - unterminated template literal" << std::endl;
         return makeErrorToken("Unterminated template literal");
     }
     
@@ -429,6 +433,7 @@ Token Lexer::scanTemplate() {
     String value = substring(start, current_);
     advance(); // consume closing `
     
+    std::cout << "DEBUG: scanTemplate() returning NoSubstitutionTemplate with value: '" << value << "'" << std::endl;
     return makeToken(TokenType::NoSubstitutionTemplate, value);
 }
 
