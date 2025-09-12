@@ -1282,14 +1282,12 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 }
                 
                 // This is an array variable - access its length field
-                // Arrays are stored as struct { i32 length, [0 x elementType] data }
-                llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
-                    llvm::Type::getInt32Ty(*context_),  // length
-                    llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 0)  // data (flexible array)
-                });
+                // Use the arrayValue type directly - it should be a pointer to the array struct
+                llvm::Type* arrayStructType = arrayValue->getType();
                 
-                std::cout << "DEBUG: PropertyAccess - Creating GEP for length field" << std::endl;
-                llvm::Value* lengthPtr = builder_->CreateStructGEP(arrayStructType, arrayValue, 0, "length.ptr");
+                std::cout << "DEBUG: PropertyAccess - Creating GEP for length field with actual type" << std::endl;
+                llvm::Value* lengthPtr = builder_->CreateGEP(arrayStructType, arrayValue, 
+                    {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)}, "length.ptr");
                 std::cout << "DEBUG: PropertyAccess - Loading length value" << std::endl;
                 llvm::Value* arrayLength = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "array.length");
                 
@@ -2678,6 +2676,16 @@ void LLVMCodeGen::visit(Module& module) {
         
         // Return 0 from main
         builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
+    }
+    
+    // Dump LLVM IR to file for debugging
+    std::error_code ec;
+    llvm::raw_fd_ostream irFile("generated_ir.ll", ec, llvm::sys::fs::OF_Text);
+    if (!ec) {
+        module_->print(irFile, nullptr);
+        std::cout << "DEBUG: LLVM IR dumped to generated_ir.ll" << std::endl;
+    } else {
+        std::cout << "DEBUG: Failed to dump LLVM IR: " << ec.message() << std::endl;
     }
 }
 
