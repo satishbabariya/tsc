@@ -164,16 +164,17 @@ void LLVMCodeGen::visit(TemplateLiteral& node) {
             element.getExpression()->accept(*this);
             elementValue = getCurrentValue();
             
-            // For now, convert all expression results to string representation
-            // TODO: Implement proper type-to-string conversion functions
+            // Convert expression results to string representation
+            // Note: Currently supports simple variable references only
+            // Future enhancement: Support complex expressions (arithmetic, function calls, etc.)
             if (elementValue->getType()->isDoubleTy()) {
-                // Convert number to string (simplified - just use placeholder)
+                // Convert number to string (placeholder implementation)
                 elementValue = createStringLiteral("[number]");
             } else if (elementValue->getType()->isIntegerTy(1)) {
-                // Convert boolean to string (simplified - just use placeholder)
+                // Convert boolean to string (placeholder implementation)
                 elementValue = createStringLiteral("[boolean]");
             } else if (elementValue->getType() != getStringType()) {
-                // For other types, convert to string representation (simplified)
+                // For other types, convert to string representation (placeholder implementation)
                 elementValue = createStringLiteral("[object]");
             }
         } else {
