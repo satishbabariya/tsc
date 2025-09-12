@@ -588,6 +588,22 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
         }
     }
     
+    // Check if this is array property access (e.g., arr.length)
+    if (objectType->getKind() == TypeKind::Array) {
+        String propertyName = node.getProperty();
+        
+        if (propertyName == "length") {
+            // Array length property returns number
+            setExpressionType(node, typeSystem_->getNumberType());
+            return;
+        } else {
+            // Unknown property on array
+            reportError("Array has no property '" + propertyName + "'", node.getLocation());
+            setExpressionType(node, typeSystem_->getErrorType());
+            return;
+        }
+    }
+    
     // Handle other property access types (objects, etc.)
     // For now, assume property access returns any type
     // TODO: Implement proper property type checking based on object type
@@ -957,7 +973,13 @@ void SemanticAnalyzer::visit(VariableDeclaration& node) {
     // Analyze initializer if present
     if (node.getInitializer()) {
         node.getInitializer()->accept(*this);
-        varType = getExpressionType(*node.getInitializer());
+        
+        // If there's a type annotation, use it; otherwise infer from initializer
+        if (node.getTypeAnnotation()) {
+            varType = resolveType(node.getTypeAnnotation());
+        } else {
+            varType = getExpressionType(*node.getInitializer());
+        }
         
     } else {
         // No initializer - use explicit type or infer as 'any'

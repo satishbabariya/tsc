@@ -1000,16 +1000,35 @@ void LLVMCodeGen::visit(CallExpression& node) {
 }
 
 void LLVMCodeGen::visit(ArrayLiteral& node) {
+    std::cout << "DEBUG: ArrayLiteral visitor called with " << node.getElements().size() << " elements" << std::endl;
     const auto& elements = node.getElements();
     
     if (elements.empty()) {
-        // Empty array - return null for now
-        setCurrentValue(createNullValue(getAnyType()));
+        // Empty array - create array with length 0
+        llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+        if (!currentFunc) {
+            reportError("Array literals not supported at global scope", node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
+        
+        // Create array structure: { i32 length, [0 x elementType] data }
+        llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
+            llvm::Type::getInt32Ty(*context_),  // length
+            llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 0)  // data (flexible array)
+        });
+        
+        llvm::IRBuilder<> allocaBuilder(&currentFunc->getEntryBlock(), 
+                                       currentFunc->getEntryBlock().begin());
+        llvm::AllocaInst* arrayStorage = allocaBuilder.CreateAlloca(arrayStructType, nullptr, "empty_array");
+        
+        // Set length to 0
+        llvm::Value* lengthPtr = builder_->CreateStructGEP(arrayStructType, arrayStorage, 0, "length.ptr");
+        builder_->CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), lengthPtr);
+        
+        setCurrentValue(arrayStorage);
         return;
     }
-    
-    // For simplicity, create a stack-allocated array for small arrays
-    // In a full implementation, we'd use heap allocation for dynamic arrays
     
     // Determine element type from first element
     elements[0]->accept(*this);
@@ -1022,8 +1041,12 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
     llvm::Type* elementType = firstElement->getType();
     size_t arraySize = elements.size();
     
-    // Create array type and allocate storage
-    llvm::ArrayType* arrayType = llvm::ArrayType::get(elementType, arraySize);
+    // Create array structure: { i32 length, [size x elementType] data }
+    llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
+        llvm::Type::getInt32Ty(*context_),  // length
+        llvm::ArrayType::get(elementType, arraySize)  // data
+    });
+    
     llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
     
     if (!currentFunc) {
@@ -1032,10 +1055,14 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
         return;
     }
     
-    // Allocate array on stack
+    // Allocate array structure on stack
     llvm::IRBuilder<> allocaBuilder(&currentFunc->getEntryBlock(), 
                                    currentFunc->getEntryBlock().begin());
-    llvm::AllocaInst* arrayStorage = allocaBuilder.CreateAlloca(arrayType, nullptr, "array");
+    llvm::AllocaInst* arrayStorage = allocaBuilder.CreateAlloca(arrayStructType, nullptr, "array");
+    
+    // Set the length field
+    llvm::Value* lengthPtr = builder_->CreateStructGEP(arrayStructType, arrayStorage, 0, "length.ptr");
+    builder_->CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), arraySize), lengthPtr);
     
     // Initialize array elements
     for (size_t i = 0; i < elements.size(); ++i) {
@@ -1056,12 +1083,13 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
             return;
         }
         
-        // Create GEP to element location
+        // Create GEP to element location in the data field (field 1)
         llvm::Value* indices[] = {
             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Element index
         };
-        llvm::Value* elementPtr = builder_->CreateGEP(arrayType, arrayStorage, indices, "element_ptr");
+        llvm::Value* elementPtr = builder_->CreateGEP(arrayStructType, arrayStorage, indices, "element_ptr");
         
         // Store element
         builder_->CreateStore(elementValue, elementPtr);
@@ -1107,7 +1135,27 @@ void LLVMCodeGen::visit(IndexExpression& node) {
     // Try to get the array type from the alloca instruction
     if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(objectValue)) {
         arrayType = allocaInst->getAllocatedType();
-        if (auto* arrType = llvm::dyn_cast<llvm::ArrayType>(arrayType)) {
+        if (auto* structType = llvm::dyn_cast<llvm::StructType>(arrayType)) {
+            // This is our new array structure: { i32 length, [size x elementType] data }
+            if (structType->getNumElements() == 2) {
+                auto* dataArrayType = llvm::dyn_cast<llvm::ArrayType>(structType->getElementType(1));
+                if (dataArrayType) {
+                    elementType = dataArrayType->getElementType();
+                    
+                    // Create GEP to access array element in the data field (field 1)
+                    std::vector<llvm::Value*> indices = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
+                        indexValue  // Element index
+                    };
+                    llvm::Value* elementPtr = builder_->CreateGEP(arrayType, arrayPtr, indices, "indexed_element");
+                    llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value");
+                    setCurrentValue(elementValue);
+                    return;
+                }
+            }
+        } else if (auto* arrType = llvm::dyn_cast<llvm::ArrayType>(arrayType)) {
+            // Legacy array type (for backward compatibility)
             elementType = arrType->getElementType();
         }
     } else {
@@ -1204,6 +1252,61 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
     std::cout << "DEBUG: PropertyAccess - object type: " << (node.getObject() ? "present" : "null") << std::endl;
     if (node.getObject()) {
         std::cout << "DEBUG: PropertyAccess - object class: " << typeid(*node.getObject()).name() << std::endl;
+    }
+    
+    // Check if this is array.length access
+    if (node.getProperty() == "length") {
+        // Generate the array object
+        node.getObject()->accept(*this);
+        llvm::Value* arrayValue = getCurrentValue();
+        
+        if (!arrayValue) {
+            reportError("Cannot access length property on null array", node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
+        
+        // Check if this is an array type by looking at the symbol table
+        if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {
+            Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
+            std::cout << "DEBUG: PropertyAccess - symbol lookup for '" << identifier->getName() << "': " << (symbol ? "found" : "not found") << std::endl;
+            if (symbol) {
+                std::cout << "DEBUG: PropertyAccess - symbol type: " << symbol->getType()->toString() << std::endl;
+                std::cout << "DEBUG: PropertyAccess - symbol type kind: " << static_cast<int>(symbol->getType()->getKind()) << std::endl;
+            }
+            if (symbol && symbol->getType()->getKind() == TypeKind::Array) {
+                std::cout << "DEBUG: PropertyAccess - Found array type, accessing length field" << std::endl;
+                std::cout << "DEBUG: PropertyAccess - arrayValue: " << (arrayValue ? "valid" : "null") << std::endl;
+                if (arrayValue) {
+                    std::cout << "DEBUG: PropertyAccess - arrayValue type: " << arrayValue->getType() << std::endl;
+                }
+                
+                // This is an array variable - access its length field
+                // Arrays are stored as struct { i32 length, [0 x elementType] data }
+                llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
+                    llvm::Type::getInt32Ty(*context_),  // length
+                    llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 0)  // data (flexible array)
+                });
+                
+                std::cout << "DEBUG: PropertyAccess - Creating GEP for length field" << std::endl;
+                llvm::Value* lengthPtr = builder_->CreateStructGEP(arrayStructType, arrayValue, 0, "length.ptr");
+                std::cout << "DEBUG: PropertyAccess - Loading length value" << std::endl;
+                llvm::Value* arrayLength = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "array.length");
+                
+                std::cout << "DEBUG: PropertyAccess - Converting length to double" << std::endl;
+                // Convert i32 to double for consistency with number type
+                llvm::Value* lengthAsDouble = builder_->CreateSIToFP(arrayLength, getNumberType(), "length.double");
+                std::cout << "DEBUG: PropertyAccess - Setting current value and returning" << std::endl;
+                setCurrentValue(lengthAsDouble);
+                return;
+            }
+        }
+        
+        // For array literals or other array expressions, we need to handle them differently
+        // For now, return a placeholder value
+        reportError("Array length access not yet supported for this expression type", node.getLocation());
+        setCurrentValue(createNullValue(getAnyType()));
+        return;
     }
     
     // Check if this is console.log access first
@@ -2329,6 +2432,7 @@ void LLVMCodeGen::visit(ThrowStatement& node) {
 }
 
 void LLVMCodeGen::visit(VariableDeclaration& node) {
+    std::cout << "DEBUG: VariableDeclaration visitor called for variable: " << node.getName() << std::endl;
     // Generate initializer first to determine the type
     llvm::Value* initValue = nullptr;
     llvm::Type* llvmType = getAnyType(); // Default to any type
