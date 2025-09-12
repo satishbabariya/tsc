@@ -3364,7 +3364,11 @@ llvm::Value* LLVMCodeGen::generateUnaryOp(int op, llvm::Value* operand, llvm::Ty
         operand = convertToNumber(operand, operandType);
         return builder_->CreateFNeg(operand, "neg");
     }
-    if (op == 2) { // LogicalNot
+    if (op == 2) { // BitwiseNot
+        operand = convertToNumber(operand, operandType);
+        return builder_->CreateNot(operand, "bitnot");
+    }
+    if (op == 3) { // LogicalNot
         operand = convertToBoolean(operand, operandType);
         return builder_->CreateNot(operand, "not");
     }
