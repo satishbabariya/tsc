@@ -418,6 +418,19 @@ void SemanticAnalyzer::visit(ArrayLiteral& node) {
     setExpressionType(node, arrayType);
 }
 
+void SemanticAnalyzer::visit(TemplateLiteral& node) {
+    // TODO: Implement template literal semantic analysis
+    // For now, just analyze all elements and set type to string
+    for (const auto& element : node.getElements()) {
+        if (element.isExpression()) {
+            element.getExpression()->accept(*this);
+        }
+    }
+    
+    // Template literals always result in strings
+    setExpressionType(node, typeSystem_->getStringType());
+}
+
 void SemanticAnalyzer::visit(IndexExpression& node) {
     // Analyze object and index
     node.getObject()->accept(*this);

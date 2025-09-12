@@ -1099,6 +1099,13 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
     setCurrentValue(arrayStorage);
 }
 
+void LLVMCodeGen::visit(TemplateLiteral& node) {
+    // TODO: Implement template literal code generation
+    // For now, just create a placeholder string
+    reportError("Template literals not yet implemented", node.getLocation());
+    setCurrentValue(createNullValue(getAnyType()));
+}
+
 void LLVMCodeGen::visit(IndexExpression& node) {
     // Generate object and index values
     node.getObject()->accept(*this);
@@ -3837,8 +3844,7 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         // Default implementations for all other node types (no-op)
         void visit(NumericLiteral& node) override {}
         void visit(StringLiteral& node) override {}
-        // TODO: Template literals
-        // void visit(TemplateLiteral& node) override { }
+        void visit(TemplateLiteral& node) override { }
         void visit(BooleanLiteral& node) override {}
         void visit(NullLiteral& node) override {}
         void visit(Identifier& node) override {}
