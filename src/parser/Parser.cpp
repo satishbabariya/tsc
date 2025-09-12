@@ -1745,7 +1745,18 @@ unique_ptr<TypeParameter> Parser::parseTypeParameter() {
     
     shared_ptr<Type> constraint = nullptr;
     if (match(TokenType::Extends)) {
-        constraint = parseTypeAnnotation();
+        // Set type context for better disambiguation
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
+        
+        constraint = parsePrimaryType();
+        if (!constraint) {
+            reportError("Expected constraint type after 'extends'", getCurrentLocation());
+            constraint = typeSystem_.getErrorType();
+        }
+        
+        // Restore previous context
+        setContext(oldContext);
     }
     
     return make_unique<TypeParameter>(name, constraint, Variance::Invariant, nameToken.getLocation());
