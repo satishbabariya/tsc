@@ -32,6 +32,8 @@ if(GTest_FOUND)
         test_generic_constraints_performance.cpp
         test_generic_constraints_edge_cases.cpp
         test_generic_constraints_advanced_negative.cpp
+        # Runtime function declaration tests
+        test_runtime_function_declarations.cpp
     )
     
     target_link_libraries(tsc_tests
