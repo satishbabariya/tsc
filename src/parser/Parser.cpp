@@ -1110,12 +1110,8 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
     }
     
     // Template literals support
-    std::cout << "DEBUG: parsePrimaryExpression() checking for template literals" << std::endl;
     std::cout << "DEBUG: Current token type: " << static_cast<int>(peek().getType()) << std::endl;
-    std::cout << "DEBUG: NoSubstitutionTemplate check: " << check(TokenType::NoSubstitutionTemplate) << std::endl;
-    std::cout << "DEBUG: TemplateHead check: " << check(TokenType::TemplateHead) << std::endl;
     if (check(TokenType::NoSubstitutionTemplate) || check(TokenType::TemplateHead)) {
-        std::cout << "DEBUG: parsePrimaryExpression() calling parseTemplateLiteral()" << std::endl;
         return parseTemplateLiteral();
     }
     
@@ -1287,14 +1283,12 @@ unique_ptr<Expression> Parser::parseNewExpression() {
 
 // Template literals parser
 unique_ptr<Expression> Parser::parseTemplateLiteral() {
-    std::cout << "DEBUG: parseTemplateLiteral() called" << std::endl;
     SourceLocation location = getCurrentLocation();
     std::vector<TemplateElement> elements;
     
     if (check(TokenType::NoSubstitutionTemplate)) {
         // Simple template literal without expressions: `hello world`
         Token token = advance();
-        std::cout << "DEBUG: parseTemplateLiteral() processing NoSubstitutionTemplate with value: '" << token.getStringValue() << "'" << std::endl;
         elements.emplace_back(TemplateElement(token.getStringValue()));
         return make_unique<TemplateLiteral>(std::move(elements), location);
     }
@@ -1304,7 +1298,6 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
         if (check(TokenType::TemplateHead)) {
             // TemplateHead: "Hello "
             Token token = advance();
-            std::cout << "DEBUG: parseTemplateLiteral() processing TemplateHead with value: '" << token.getStringValue() << "'" << std::endl;
             elements.emplace_back(TemplateElement(token.getStringValue()));
             
             // Parse the expression inside ${}
@@ -1314,7 +1307,6 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
         } else if (check(TokenType::TemplateMiddle)) {
             // TemplateMiddle: " world "
             Token token = advance();
-            std::cout << "DEBUG: parseTemplateLiteral() processing TemplateMiddle with value: '" << token.getStringValue() << "'" << std::endl;
             elements.emplace_back(TemplateElement(token.getStringValue()));
             
             // Parse the expression inside ${}
@@ -1324,13 +1316,11 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
         } else if (check(TokenType::TemplateTail)) {
             // TemplateTail: "!"
             Token token = advance();
-            std::cout << "DEBUG: parseTemplateLiteral() processing TemplateTail with value: '" << token.getStringValue() << "'" << std::endl;
             elements.emplace_back(TemplateElement(token.getStringValue()));
             break; // End of template literal
             
         } else {
             // Unexpected token
-            std::cout << "DEBUG: parseTemplateLiteral() unexpected token type: " << static_cast<int>(peek().getType()) << std::endl;
             break;
         }
     }

@@ -538,6 +538,7 @@ private:
     llvm::Function* getOrCreateStringConcatFunction();
     llvm::Function* getOrCreateNumberToStringFunction();
     llvm::Function* getOrCreateBooleanToStringFunction();
+    llvm::Function* getOrCreateObjectToStringFunction();
     llvm::Function* getOrCreateThrowFunction();
     llvm::Function* getOrCreateRethrowFunction();
     

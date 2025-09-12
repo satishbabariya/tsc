@@ -168,14 +168,17 @@ void LLVMCodeGen::visit(TemplateLiteral& node) {
             // Note: Currently supports simple variable references only
             // Future enhancement: Support complex expressions (arithmetic, function calls, etc.)
             if (elementValue->getType()->isDoubleTy()) {
-                // Convert number to string (placeholder implementation)
-                elementValue = createStringLiteral("[number]");
+                // Convert number to string using runtime function
+                llvm::Function* numberToStringFunc = getOrCreateNumberToStringFunction();
+                elementValue = builder_->CreateCall(numberToStringFunc, {elementValue}, "number_to_string");
             } else if (elementValue->getType()->isIntegerTy(1)) {
-                // Convert boolean to string (placeholder implementation)
-                elementValue = createStringLiteral("[boolean]");
+                // Convert boolean to string using runtime function
+                llvm::Function* booleanToStringFunc = getOrCreateBooleanToStringFunction();
+                elementValue = builder_->CreateCall(booleanToStringFunc, {elementValue}, "boolean_to_string");
             } else if (elementValue->getType() != getStringType()) {
-                // For other types, convert to string representation (placeholder implementation)
-                elementValue = createStringLiteral("[object]");
+                // For other types, convert to string representation using runtime function
+                llvm::Function* objectToStringFunc = getOrCreateObjectToStringFunction();
+                elementValue = builder_->CreateCall(objectToStringFunc, {elementValue}, "object_to_string");
             }
         } else {
             // Text element
@@ -2495,7 +2498,6 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
             llvm::Value* globalStorage = codeGenContext_->getSymbolValue(node.getName());
             if (globalStorage && llvm::isa<llvm::GlobalVariable>(globalStorage)) {
                 // This is a global variable - store the result to the global variable
-                std::cout << "DEBUG: Storing template literal result to global variable: " << node.getName() << std::endl;
                 builder_->CreateStore(initValue, globalStorage);
             } else {
                 // Local variable - store normally
@@ -4112,6 +4114,39 @@ llvm::Function* LLVMCodeGen::getOrCreateRethrowFunction() {
     llvm::FunctionType* rethrowType = llvm::FunctionType::get(
         getVoidType(), {}, false);
     return llvm::Function::Create(rethrowType, llvm::Function::ExternalLinkage, "__rethrow_exception", module_.get());
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateNumberToStringFunction() {
+    if (auto existing = module_->getFunction("number_to_string")) {
+        return existing;
+    }
+    
+    // char* number_to_string(double value)
+    llvm::FunctionType* numberToStringType = llvm::FunctionType::get(
+        getStringType(), {getNumberType()}, false);
+    return llvm::Function::Create(numberToStringType, llvm::Function::ExternalLinkage, "number_to_string", module_.get());
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateBooleanToStringFunction() {
+    if (auto existing = module_->getFunction("boolean_to_string")) {
+        return existing;
+    }
+    
+    // char* boolean_to_string(bool value)
+    llvm::FunctionType* booleanToStringType = llvm::FunctionType::get(
+        getStringType(), {getBooleanType()}, false);
+    return llvm::Function::Create(booleanToStringType, llvm::Function::ExternalLinkage, "boolean_to_string", module_.get());
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateObjectToStringFunction() {
+    if (auto existing = module_->getFunction("object_to_string")) {
+        return existing;
+    }
+    
+    // char* object_to_string(void* obj)
+    llvm::FunctionType* objectToStringType = llvm::FunctionType::get(
+        getStringType(), {getAnyType()}, false);
+    return llvm::Function::Create(objectToStringType, llvm::Function::ExternalLinkage, "object_to_string", module_.get());
 }
 
 // Optimization implementation
