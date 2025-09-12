@@ -4048,13 +4048,15 @@ void LLVMCodeGen::storeVariable(const String& name, llvm::Value* value, const So
 
 // Built-in functions implementation
 void LLVMCodeGen::declareBuiltinFunctions() {
-    // Only declare runtime functions that are actually implemented in runtime.c
-    getOrCreateStringConcatFunction();  // ✅ Implemented in runtime.c
-    getOrCreateThrowFunction();        // ✅ Implemented in runtime.c  
-    getOrCreateRethrowFunction();      // ✅ Implemented in runtime.c
+    // NOTE: We don't declare any runtime functions by default to avoid unused external declarations
+    // Runtime functions are created on-demand when they're actually used during code generation
+    // This prevents LLVM IR verification failures due to unused external function declarations
     
-    // Note: We don't declare console_log, console_error, math_abs, math_sqrt, string_length
-    // because they are not implemented in runtime.c and would cause LLVM IR verification failures
+    // The following functions are available and implemented in runtime.c:
+    // - string_concat (created by getOrCreateStringConcatFunction when needed)
+    // - __throw_exception (created by getOrCreateThrowFunction when needed)
+    // - __rethrow_exception (created by getOrCreateRethrowFunction when needed)
+    // - array_length (created by getOrCreateArrayLengthFunction when needed)
 }
 
 llvm::Function* LLVMCodeGen::getOrCreateStringConcatFunction() {
@@ -4997,68 +4999,33 @@ void LLVMCodeGen::BuiltinFunctionRegistry::registerBuiltinFunctions() {
 }
 
 void LLVMCodeGen::BuiltinFunctionRegistry::registerConsoleFunctions() {
-    // console.log
-    auto logType = llvm::FunctionType::get(
-        llvm::Type::getVoidTy(*context_),
-        {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)}, // const char*
-        true // variadic
-    );
-    auto logFunc = llvm::Function::Create(
-        logType, llvm::Function::ExternalLinkage, "console_log", module_
-    );
-    builtinFunctions_["console.log"] = logFunc;
+    // NOTE: console.log and console.error are NOT implemented in runtime.c
+    // We should not create external declarations for unimplemented functions
+    // This would cause LLVM IR verification failures
     
-    // console.error
-    auto errorType = llvm::FunctionType::get(
-        llvm::Type::getVoidTy(*context_),
-        {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)},
-        true
-    );
-    auto errorFunc = llvm::Function::Create(
-        errorType, llvm::Function::ExternalLinkage, "console_error", module_
-    );
-    builtinFunctions_["console.error"] = errorFunc;
+    // console.log - DISABLED (not implemented in runtime.c)
+    // console.error - DISABLED (not implemented in runtime.c)
 }
 
 void LLVMCodeGen::BuiltinFunctionRegistry::registerMathFunctions() {
-    // Math.abs
-    auto absType = llvm::FunctionType::get(
-        llvm::Type::getDoubleTy(*context_),
-        {llvm::Type::getDoubleTy(*context_)},
-        false
-    );
-    auto absFunc = llvm::Function::Create(
-        absType, llvm::Function::ExternalLinkage, "math_abs", module_
-    );
-    builtinFunctions_["Math.abs"] = absFunc;
+    // NOTE: Math.abs and Math.sqrt are NOT implemented in runtime.c
+    // We should not create external declarations for unimplemented functions
+    // This would cause LLVM IR verification failures
     
-    // Math.sqrt
-    auto sqrtType = llvm::FunctionType::get(
-        llvm::Type::getDoubleTy(*context_),
-        {llvm::Type::getDoubleTy(*context_)},
-        false
-    );
-    auto sqrtFunc = llvm::Function::Create(
-        sqrtType, llvm::Function::ExternalLinkage, "math_sqrt", module_
-    );
-    builtinFunctions_["Math.sqrt"] = sqrtFunc;
+    // Math.abs - DISABLED (not implemented in runtime.c)
+    // Math.sqrt - DISABLED (not implemented in runtime.c)
 }
 
 void LLVMCodeGen::BuiltinFunctionRegistry::registerStringFunctions() {
-    // String.length
-    auto lengthType = llvm::FunctionType::get(
-        llvm::Type::getInt32Ty(*context_),
-        {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)},
-        false
-    );
-    auto lengthFunc = llvm::Function::Create(
-        lengthType, llvm::Function::ExternalLinkage, "string_length", module_
-    );
-    builtinFunctions_["String.length"] = lengthFunc;
+    // NOTE: String.length is NOT implemented in runtime.c
+    // We should not create external declarations for unimplemented functions
+    // This would cause LLVM IR verification failures
+    
+    // String.length - DISABLED (not implemented in runtime.c)
 }
 
 void LLVMCodeGen::BuiltinFunctionRegistry::registerArrayFunctions() {
-    // Array.length
+    // Array.length - ✅ IMPLEMENTED in runtime.c
     auto arrayLengthType = llvm::FunctionType::get(
         llvm::Type::getInt32Ty(*context_),
         {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)}, // Array pointer

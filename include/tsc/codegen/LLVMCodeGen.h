@@ -231,7 +231,8 @@ public:
     public:
         BuiltinFunctionRegistry(llvm::Module* module, llvm::LLVMContext* context)
             : module_(module), context_(context) {
-            registerBuiltinFunctions();
+            // NOTE: We don't call registerBuiltinFunctions() to avoid unused external declarations
+            // Runtime functions are created on-demand when they're actually used during code generation
         }
         
         llvm::Function* getBuiltinFunction(const String& name) {
