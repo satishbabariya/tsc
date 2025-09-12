@@ -30,6 +30,8 @@ if(GTest_FOUND)
         test_generic_constraints_ast_validation.cpp
         test_generic_constraints_regression.cpp
         test_generic_constraints_performance.cpp
+        test_generic_constraints_edge_cases.cpp
+        test_generic_constraints_advanced_negative.cpp
     )
     
     target_link_libraries(tsc_tests
