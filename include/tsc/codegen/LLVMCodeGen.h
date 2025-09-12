@@ -534,6 +534,7 @@ private:
     
     // Built-in functions
     void declareBuiltinFunctions();
+    void declareBuiltinGlobals();
     llvm::Function* getOrCreatePrintFunction();
     llvm::Function* getOrCreateStringConcatFunction();
     llvm::Function* getOrCreateNumberToStringFunction();

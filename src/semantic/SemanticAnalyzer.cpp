@@ -1567,6 +1567,11 @@ void SemanticAnalyzer::setupBuiltinEnvironment() {
     // Add console object
     auto consoleType = typeSystem_->createObjectType();
     symbolTable_->addSymbol("console", SymbolKind::Variable, consoleType, SourceLocation());
+    
+    // Add built-in number constants
+    auto numberType = typeSystem_->getNumberType();
+    symbolTable_->addSymbol("Infinity", SymbolKind::Variable, numberType, SourceLocation());
+    symbolTable_->addSymbol("NaN", SymbolKind::Variable, numberType, SourceLocation());
 }
 
 // Type inference helpers

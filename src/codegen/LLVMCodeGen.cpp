@@ -3,6 +3,7 @@
 #include "tsc/TargetRegistry.h"
 #include "tsc/semantic/TypeSystem.h"
 #include "tsc/AST.h"
+#include <cmath>
 
 // LLVM includes for implementation
 #include "llvm/IR/Constants.h"
@@ -102,6 +103,9 @@ LLVMCodeGen::LLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& o
     
     // Declare built-in functions
     declareBuiltinFunctions();
+    
+    // Declare built-in global variables
+    declareBuiltinGlobals();
 }
 
 LLVMCodeGen::~LLVMCodeGen() = default;
@@ -3408,6 +3412,7 @@ llvm::Value* LLVMCodeGen::generateBinaryOp(BinaryExpression::Operator op, llvm::
         case BinaryExpression::Operator::Subtract:
         case BinaryExpression::Operator::Multiply:
         case BinaryExpression::Operator::Divide:
+        case BinaryExpression::Operator::Modulo:
             return generateArithmeticOp(op, left, right);
             
         case BinaryExpression::Operator::Equal:
@@ -3454,6 +3459,9 @@ llvm::Value* LLVMCodeGen::generateArithmeticOp(BinaryExpression::Operator op,
                 case BinaryExpression::Operator::Divide:
                     result = leftVal / rightVal;
                     break;
+                case BinaryExpression::Operator::Modulo:
+                    result = std::fmod(leftVal, rightVal);
+                    break;
                 default:
                     result = 0.0;
                     break;
@@ -3494,6 +3502,8 @@ llvm::Value* LLVMCodeGen::generateArithmeticOp(BinaryExpression::Operator op,
             return builder_->CreateFMul(left, right, "mul");
         case BinaryExpression::Operator::Divide:
             return builder_->CreateFDiv(left, right, "div");
+        case BinaryExpression::Operator::Modulo:
+            return builder_->CreateFRem(left, right, "mod");
         default:
             return createNullValue(getNumberType());
     }
@@ -4097,6 +4107,31 @@ void LLVMCodeGen::declareBuiltinFunctions() {
     // - __throw_exception (created by getOrCreateThrowFunction when needed)
     // - __rethrow_exception (created by getOrCreateRethrowFunction when needed)
     // - array_length (created by getOrCreateArrayLengthFunction when needed)
+}
+
+// Built-in global variables implementation
+void LLVMCodeGen::declareBuiltinGlobals() {
+    // Declare Infinity as an external global variable
+    llvm::GlobalVariable* infinityVar = new llvm::GlobalVariable(
+        *module_,
+        getNumberType(),
+        true, // isConstant
+        llvm::GlobalValue::ExternalLinkage,
+        nullptr, // initializer (will be provided by runtime.c)
+        "Infinity"
+    );
+    codeGenContext_->setSymbolValue("Infinity", infinityVar);
+    
+    // Declare NaN as an external global variable
+    llvm::GlobalVariable* nanVar = new llvm::GlobalVariable(
+        *module_,
+        getNumberType(),
+        true, // isConstant
+        llvm::GlobalValue::ExternalLinkage,
+        nullptr, // initializer (will be provided by runtime.c)
+        "NaN"
+    );
+    codeGenContext_->setSymbolValue("NaN", nanVar);
 }
 
 llvm::Function* LLVMCodeGen::getOrCreateStringConcatFunction() {

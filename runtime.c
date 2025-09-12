@@ -113,3 +113,7 @@ char* object_to_string(void* obj) {
     snprintf(result, 32, "[object %p]", obj);
     return result;
 }
+
+// Global constants for JavaScript built-ins
+double Infinity = 1.0 / 0.0;  // Positive infinity
+double NaN = 0.0 / 0.0;        // Not a Number

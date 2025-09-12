@@ -27,6 +27,7 @@ static const std::unordered_map<TokenType, int> operatorPrecedence = {
     {TokenType::Minus, 11},
     {TokenType::Star, 12},
     {TokenType::Slash, 12},
+    {TokenType::Percent, 12},  // Modulo operator has same precedence as multiplication/division
 };
 
 Parser::Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) 
@@ -1301,8 +1302,15 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
             elements.emplace_back(TemplateElement(token.getStringValue()));
             
             // Parse the expression inside ${}
-            auto expression = parseExpression();
-            elements.emplace_back(TemplateElement(std::move(expression)));
+            // Handle empty expressions gracefully
+            if (check(TokenType::TemplateTail)) {
+                // Empty expression: ${} - create an empty string literal
+                auto emptyExpression = make_unique<StringLiteral>("", location);
+                elements.emplace_back(TemplateElement(std::move(emptyExpression)));
+            } else {
+                auto expression = parseExpression();
+                elements.emplace_back(TemplateElement(std::move(expression)));
+            }
             
         } else if (check(TokenType::TemplateMiddle)) {
             // TemplateMiddle: " world "
@@ -1310,8 +1318,15 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
             elements.emplace_back(TemplateElement(token.getStringValue()));
             
             // Parse the expression inside ${}
-            auto expression = parseExpression();
-            elements.emplace_back(TemplateElement(std::move(expression)));
+            // Handle empty expressions gracefully
+            if (check(TokenType::TemplateTail)) {
+                // Empty expression: ${} - create an empty string literal
+                auto emptyExpression = make_unique<StringLiteral>("", location);
+                elements.emplace_back(TemplateElement(std::move(emptyExpression)));
+            } else {
+                auto expression = parseExpression();
+                elements.emplace_back(TemplateElement(std::move(expression)));
+            }
             
         } else if (check(TokenType::TemplateTail)) {
             // TemplateTail: "!"
@@ -1383,6 +1398,7 @@ BinaryExpression::Operator Parser::tokenToBinaryOperator(TokenType type) const {
         case TokenType::Minus: return BinaryExpression::Operator::Subtract;
         case TokenType::Star: return BinaryExpression::Operator::Multiply;
         case TokenType::Slash: return BinaryExpression::Operator::Divide;
+        case TokenType::Percent: return BinaryExpression::Operator::Modulo;
         case TokenType::EqualEqual: return BinaryExpression::Operator::Equal;
         case TokenType::NotEqual: return BinaryExpression::Operator::NotEqual;
         case TokenType::Less: return BinaryExpression::Operator::Less;
