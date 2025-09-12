@@ -921,26 +921,44 @@ void LLVMCodeGen::visit(CallExpression& node) {
             // This is a function call (like console.log), not a method call
             function = llvm::cast<llvm::Function>(calleeValue);
             
-            // Special handling for console.log - convert all arguments to strings
+            // Special handling for console.log - convert all arguments to strings and concatenate them
             if (function->getName() == "console_log") {
-                std::vector<llvm::Value*> args;
-                
-                for (const auto& arg : node.getArguments()) {
-                    arg->accept(*this);
-                    llvm::Value* argValue = getCurrentValue();
-                    if (!argValue) {
-                        reportError("Failed to generate argument for console.log", arg->getLocation());
+                if (node.getArguments().empty()) {
+                    // No arguments, just call with empty string
+                    llvm::Value* emptyString = builder_->CreateGlobalString("", "empty_string");
+                    builder_->CreateCall(function, {emptyString});
+                } else {
+                    // Convert first argument to string
+                    node.getArguments()[0]->accept(*this);
+                    llvm::Value* firstArgValue = getCurrentValue();
+                    if (!firstArgValue) {
+                        reportError("Failed to generate first argument for console.log", node.getArguments()[0]->getLocation());
                         setCurrentValue(createNullValue(getAnyType()));
                         return;
                     }
+                    llvm::Value* resultString = convertValueToString(firstArgValue);
                     
-                    // Convert argument to string
-                    llvm::Value* stringValue = convertValueToString(argValue);
-                    args.push_back(stringValue);
+                    // Concatenate remaining arguments
+                    for (size_t i = 1; i < node.getArguments().size(); ++i) {
+                        node.getArguments()[i]->accept(*this);
+                        llvm::Value* argValue = getCurrentValue();
+                        if (!argValue) {
+                            reportError("Failed to generate argument for console.log", node.getArguments()[i]->getLocation());
+                            setCurrentValue(createNullValue(getAnyType()));
+                            return;
+                        }
+                        
+                        // Convert argument to string
+                        llvm::Value* stringValue = convertValueToString(argValue);
+                        
+                        // Concatenate with result string
+                        llvm::Function* stringConcatFunc = getOrCreateStringConcatFunction();
+                        resultString = builder_->CreateCall(stringConcatFunc, {resultString, stringValue});
+                    }
+                    
+                    // Call console.log with single concatenated string
+                    builder_->CreateCall(function, {resultString});
                 }
-                
-                // Call console.log with string arguments
-                builder_->CreateCall(function, args);
                 setCurrentValue(nullptr); // console.log returns void
                 return;
             }
@@ -3256,6 +3274,36 @@ llvm::Function* LLVMCodeGen::getOrCreateConsoleLogFunction() {
     return consoleLogFunc;
 }
 
+llvm::Function* LLVMCodeGen::getOrCreateStringConcatFunction() {
+    // Check if string_concat function already exists
+    llvm::Function* existingFunc = module_->getFunction("string_concat");
+    if (existingFunc) {
+        return existingFunc;
+    }
+    
+    // Create string_concat function that matches the runtime signature
+    // The runtime expects: char* string_concat(const char* str1, const char* str2)
+    std::vector<llvm::Type*> paramTypes;
+    paramTypes.push_back(llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)); // const char*
+    paramTypes.push_back(llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)); // const char*
+    
+    llvm::FunctionType* funcType = llvm::FunctionType::get(
+        llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0), // Return type: char*
+        paramTypes,                                                    // Parameter types
+        false                                                         // Not variadic
+    );
+    
+    // Create the function declaration (external linkage to match runtime)
+    llvm::Function* stringConcatFunc = llvm::Function::Create(
+        funcType,
+        llvm::Function::ExternalLinkage,
+        "string_concat",
+        *module_
+    );
+    
+    return stringConcatFunc;
+}
+
 // Binary operations implementation
 llvm::Value* LLVMCodeGen::generateBinaryOp(BinaryExpression::Operator op, llvm::Value* left, 
                                            llvm::Value* right, llvm::Type* leftType, llvm::Type* rightType) {
@@ -3993,17 +4041,6 @@ void LLVMCodeGen::declareBuiltinFunctions() {
     getOrCreateThrowFunction();
     getOrCreateRethrowFunction();
 }
-
-llvm::Function* LLVMCodeGen::getOrCreateStringConcatFunction() {
-    if (auto existing = module_->getFunction("string_concat")) {
-        return existing;
-    }
-    
-    llvm::FunctionType* concatType = llvm::FunctionType::get(
-        getStringType(), {getStringType(), getStringType()}, false);
-    return llvm::Function::Create(concatType, llvm::Function::ExternalLinkage, "string_concat", module_.get());
-}
-
 
 llvm::Function* LLVMCodeGen::getOrCreateThrowFunction() {
     if (auto existing = module_->getFunction("__throw_exception")) {
@@ -4991,7 +5028,7 @@ void LLVMCodeGen::BuiltinFunctionRegistry::registerConsoleFunctions() {
     auto logType = llvm::FunctionType::get(
         llvm::Type::getVoidTy(*context_),
         {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)}, // const char*
-        true // variadic
+        false // not variadic - matches runtime signature
     );
     auto logFunc = llvm::Function::Create(
         logType, llvm::Function::ExternalLinkage, "console_log", module_

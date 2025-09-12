@@ -502,6 +502,7 @@ private:
     llvm::Value* createNullValue(llvm::Type* type);
     llvm::Value* createDefaultValue(llvm::Type* type);
     llvm::Function* getOrCreateConsoleLogFunction();
+    llvm::Function* getOrCreateStringConcatFunction();
     
     // Type conversions
     llvm::Value* convertToNumber(llvm::Value* value, llvm::Type* fromType);
@@ -533,7 +534,6 @@ private:
     // Built-in functions
     void declareBuiltinFunctions();
     llvm::Function* getOrCreatePrintFunction();
-    llvm::Function* getOrCreateStringConcatFunction();
     llvm::Function* getOrCreateNumberToStringFunction();
     llvm::Function* getOrCreateBooleanToStringFunction();
     llvm::Function* getOrCreateThrowFunction();
