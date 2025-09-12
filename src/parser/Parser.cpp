@@ -5,6 +5,7 @@
 #include "tsc/utils/ASTAllocator.h"
 #include "tsc/lexer/Lexer.h"
 #include "tsc/semantic/TypeSystem.h"
+#include "tsc/AST.h"
 #include <unordered_map>
 #include <iostream>
 
@@ -1108,10 +1109,10 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
         return make_unique<StringLiteral>(token.getStringValue(), token.getLocation());
     }
     
-    // TODO: Template literals support
-    // if (check(TokenType::NoSubstitutionTemplate) || check(TokenType::TemplateHead)) {
-    //     return parseTemplateLiteral();
-    // }
+    // Template literals support
+    if (check(TokenType::NoSubstitutionTemplate) || check(TokenType::TemplateHead)) {
+        return parseTemplateLiteral();
+    }
     
     if (check(TokenType::True)) {
         advance();
@@ -1176,7 +1177,7 @@ unique_ptr<Expression> Parser::parseArrayLiteral() {
     
     // Handle empty array
     if (match(TokenType::RightBracket)) {
-        return make_unique<ArrayLiteral>(std::move(elements), location);
+        return make_unique<ArrayLiteral>(elements, location);
     }
     
     // Parse elements
@@ -1193,7 +1194,7 @@ unique_ptr<Expression> Parser::parseArrayLiteral() {
     
     consume(TokenType::RightBracket, "Expected ']' after array elements");
     
-    return make_unique<ArrayLiteral>(std::move(elements), location);
+    return make_unique<ArrayLiteral>(elements, location);
 }
 
 unique_ptr<Expression> Parser::parseObjectLiteral() {
@@ -1279,8 +1280,7 @@ unique_ptr<Expression> Parser::parseNewExpression() {
                                      std::move(arguments), location);
 }
 
-// TODO: Template literals parser
-/*
+// Template literals parser
 unique_ptr<Expression> Parser::parseTemplateLiteral() {
     SourceLocation location = getCurrentLocation();
     vector<TemplateElement> elements;
@@ -1289,7 +1289,7 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
         // Simple template literal without expressions: `hello world`
         Token token = advance();
         elements.emplace_back(TemplateElement(token.getStringValue()));
-        return make_unique<TemplateLiteral>(std::move(elements), location);
+        return make_unique<TemplateLiteral>(elements, location);
     }
     
     // For now, just treat TemplateHead as a simple string literal
@@ -1297,14 +1297,13 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
     if (check(TokenType::TemplateHead)) {
         Token token = advance();
         elements.emplace_back(TemplateElement(token.getStringValue()));
-        return make_unique<TemplateLiteral>(std::move(elements), location);
+        return make_unique<TemplateLiteral>(elements, location);
     }
     
     // Fallback: create an empty template literal
     elements.emplace_back(TemplateElement(""));
     return make_unique<TemplateLiteral>(std::move(elements), location);
 }
-*/
 
 // Utility methods
 Token Parser::peek() const {

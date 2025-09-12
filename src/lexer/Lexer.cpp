@@ -411,7 +411,7 @@ Token Lexer::scanTemplate() {
                 advance(); // consume escaped character
             }
         } else if (peek() == '$' && peek(1) == '{') {
-            // Template expression - for now, simplified handling
+            // Found template expression - return template head
             String value = substring(start, current_);
             advance(); // consume $
             advance(); // consume {
@@ -425,6 +425,7 @@ Token Lexer::scanTemplate() {
         return makeErrorToken("Unterminated template literal");
     }
     
+    // No template expressions found - this is a no-substitution template
     String value = substring(start, current_);
     advance(); // consume closing `
     

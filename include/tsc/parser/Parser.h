@@ -90,7 +90,7 @@ private:
     unique_ptr<Expression> parseUnaryExpression();
     unique_ptr<Expression> parsePostfixExpression();
     unique_ptr<Expression> parsePrimaryExpression();
-    // unique_ptr<Expression> parseTemplateLiteral();  // TODO: Template literals
+    unique_ptr<Expression> parseTemplateLiteral();
     unique_ptr<Expression> parseCallExpression(unique_ptr<Expression> callee);
     unique_ptr<Expression> parseMemberExpression(unique_ptr<Expression> object);
     

@@ -148,7 +148,6 @@ private:
 
 // TODO: Template literals support
 // Template literal element (text or expression)
-/*
 class TemplateElement {
 public:
     TemplateElement(const String& text, bool isExpression = false)
@@ -191,7 +190,7 @@ private:
 class TemplateLiteral : public Expression {
 public:
     TemplateLiteral(vector<TemplateElement> elements, const SourceLocation& loc)
-        : elements_(std::move(elements)), location_(loc) {}
+        : elements_(elements), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
@@ -204,7 +203,6 @@ private:
     vector<TemplateElement> elements_;
     SourceLocation location_;
 };
-*/
 
 class BooleanLiteral : public Expression {
 public:
