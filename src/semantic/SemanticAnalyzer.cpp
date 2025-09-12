@@ -1400,16 +1400,22 @@ void SemanticAnalyzer::checkFunctionCall(const CallExpression& call) {
     }
     
     // Handle generic function calls with constraint validation
+    // This section integrates constraint validation into the existing function call checking
     if (auto identifier = dynamic_cast<const Identifier*>(call.getCallee())) {
         Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
         if (symbol && symbol->getKind() == SymbolKind::Function) {
-            // Check if this is a generic function call
-            if (auto functionType = dynamic_cast<const FunctionType*>(calleeType.get())) {
+            // Check if this is a generic function call by examining the function type
+            if (auto functionType = 
+                dynamic_cast<const FunctionType*>(calleeType.get())) {
                 // Get the function declaration to access type parameters
+                // This is necessary because the symbol table only stores the function type,
+                // not the detailed AST information including type parameters
                 FunctionDeclaration* funcDecl = getFunctionDeclaration(identifier->getName());
                 if (funcDecl && !funcDecl->getTypeParameters().empty()) {
-                    // This is a generic function call - validate constraints
+                    // This is a generic function call - validate that all argument types
+                    // satisfy their corresponding type parameter constraints
                     if (!validateGenericFunctionCall(call, *funcDecl, *functionType)) {
+                        // Constraint validation failed - mark expression as error type
                         setExpressionType(call, typeSystem_->getErrorType());
                         return;
                     }
@@ -2186,57 +2192,89 @@ void SemanticAnalyzer::markVariableAsCaptured(Symbol* symbol) {
 }
 
 // Generic constraint validation helpers
+
+/**
+ * Retrieves the function declaration AST node for a given function name.
+ * This is needed to access type parameters for constraint validation.
+ * 
+ * @param functionName The name of the function to look up
+ * @return Pointer to FunctionDeclaration if found, nullptr otherwise
+ */
 FunctionDeclaration* SemanticAnalyzer::getFunctionDeclaration(const String& functionName) {
-    // Look up the function symbol to get the declaration
+    // Look up the function symbol in the symbol table
     Symbol* symbol = symbolTable_->lookupSymbol(functionName);
     if (symbol && symbol->getKind() == SymbolKind::Function) {
-        // Get the declaration from the symbol
+        // Get the AST declaration node from the symbol
         ASTNode* declaration = symbol->getDeclaration();
         if (declaration) {
+            // Cast to FunctionDeclaration to access type parameters
             return dynamic_cast<FunctionDeclaration*>(declaration);
         }
     }
-    return nullptr;
+    return nullptr; // Function not found or not a function symbol
 }
 
-bool SemanticAnalyzer::validateGenericFunctionCall(const CallExpression& call, const FunctionDeclaration& funcDecl, const FunctionType& functionType) {
+/**
+ * Validates generic function call constraints by checking that each argument
+ * type satisfies the corresponding type parameter's constraint.
+ * 
+ * Algorithm:
+ * 1. Extract type parameters from function declaration
+ * 2. Extract argument types from function call
+ * 3. For each type parameter with a constraint:
+ *    - Check if corresponding argument type satisfies the constraint
+ *    - Report error if constraint is violated
+ * 
+ * @param call The function call expression to validate
+ * @param funcDecl The function declaration containing type parameters
+ * @param functionType The function type (used for type checking)
+ * @return true if all constraints are satisfied, false otherwise
+ */
+bool SemanticAnalyzer::validateGenericFunctionCall(const CallExpression& call, 
+                                                   const FunctionDeclaration& funcDecl, 
+                                                   const FunctionType& functionType) {
     // Get type parameters from the function declaration
     const auto& typeParams = funcDecl.getTypeParameters();
     if (typeParams.empty()) {
-        return true; // Not a generic function
+        return true; // Not a generic function - no constraints to validate
     }
     
-    // Get argument types
+    // Extract argument types from the function call
+    // This step resolves the types of all arguments passed to the function
     std::vector<shared_ptr<Type>> argumentTypes;
     for (const auto& arg : call.getArguments()) {
         auto argType = getExpressionType(*arg);
         argumentTypes.push_back(argType);
     }
     
-    // For each type parameter with a constraint, validate the corresponding argument
-    for (size_t i = 0; i < typeParams.size() && i < argumentTypes.size(); ++i) {
+    // Validate constraints: for each type parameter with a constraint,
+    // check that the corresponding argument type satisfies the constraint
+    constexpr size_t START_INDEX = 0;
+    for (size_t i = START_INDEX; i < typeParams.size() && i < argumentTypes.size(); ++i) {
         const auto& typeParam = typeParams[i];
         auto argType = argumentTypes[i];
         
-        // Check if this type parameter has a constraint
+        // Only validate type parameters that have constraints
         if (typeParam->hasConstraint()) {
             auto constraint = typeParam->getConstraint();
             if (constraint) {
-                // Validate that the argument type satisfies the constraint
+                // Use the constraint checker to validate the relationship
+                // between the argument type and the constraint type
                 if (!constraintChecker_->satisfiesConstraint(argType, constraint)) {
-                    constraintChecker_->reportConstraintError(
-                        "Argument type '" + argType->toString() + 
-                        "' does not satisfy constraint '" + constraint->toString() + 
-                        "' for type parameter '" + typeParam->getName() + "'",
-                        call.getLocation()
-                    );
-                    return false;
+                    // Construct a detailed error message for the developer
+                    std::string errorMsg = "Argument type '" + argType->toString() + 
+                                          "' does not satisfy constraint '" + 
+                                          constraint->toString() + 
+                                          "' for type parameter '" + 
+                                          typeParam->getName() + "'";
+                    constraintChecker_->reportConstraintError(errorMsg, call.getLocation());
+                    return false; // Constraint violation - stop validation
                 }
             }
         }
     }
     
-    return true;
+    return true; // All constraints satisfied
 }
 
 // Factory function
