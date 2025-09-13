@@ -470,7 +470,11 @@ unique_ptr<Statement> Parser::parseInterfaceDeclaration() {
             // Return type is required for interface methods
             shared_ptr<Type> returnType = typeSystem_.getVoidType();
             if (match(TokenType::Colon)) {
-                returnType = parseTypeAnnotation();
+                // Parse type directly without colon (colon already consumed)
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                returnType = parseUnionType();
+                setContext(oldContext);
             }
             
             consume(TokenType::Semicolon, "Expected ';' after interface method signature");
@@ -482,16 +486,27 @@ unique_ptr<Statement> Parser::parseInterfaceDeclaration() {
             ));
         } else {
             // Property signature
+            bool isOptional = false;
+            
+            // Check for optional property syntax: name?: type
+            if (match(TokenType::Question)) {
+                isOptional = true;
+            }
+            
             shared_ptr<Type> propertyType = nullptr;
             if (match(TokenType::Colon)) {
-                propertyType = parseTypeAnnotation();
+                // Parse type directly without colon (colon already consumed)
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                propertyType = parseUnionType();
+                setContext(oldContext);
             }
             
             consume(TokenType::Semicolon, "Expected ';' after interface property");
             
             properties.push_back(make_unique<PropertyDeclaration>(
                 memberName, propertyType, nullptr, memberToken.getLocation(),
-                false, false, false, false
+                false, false, false, isOptional
             ));
         }
     }
