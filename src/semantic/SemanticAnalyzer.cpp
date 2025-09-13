@@ -412,6 +412,12 @@ void SemanticAnalyzer::visit(ArrayLiteral& node) {
         if (!allSameType) {
             elementType = typeSystem_->getAnyType();
         }
+    } else {
+        // For empty arrays, we need to be more careful about type inference
+        // Check if this array literal is in an assignment context
+        // If so, we'll let the assignment checker handle the type compatibility
+        // For now, use 'any' as the default element type for empty arrays
+        elementType = typeSystem_->getAnyType();
     }
     
     auto arrayType = typeSystem_->createArrayType(elementType);
@@ -1448,6 +1454,86 @@ void SemanticAnalyzer::checkAssignment(const Expression& left, const Expression&
                                       const SourceLocation& location) {
     auto leftType = getExpressionType(left);
     auto rightType = getExpressionType(right);
+    
+    
+    // Special handling for array literal assignments
+    if (auto arrayLiteral = dynamic_cast<const ArrayLiteral*>(&right)) {
+        if (leftType->getKind() == TypeKind::Array && rightType->getKind() == TypeKind::Array) {
+            auto leftArrayType = static_cast<const ArrayType*>(leftType.get());
+            auto rightArrayType = static_cast<const ArrayType*>(rightType.get());
+            
+            // If the right side is an empty array (any[]), and the left side is a generic array (T[]),
+            // allow the assignment since empty arrays can be assigned to any array type
+            
+            if (arrayLiteral->getElements().empty() && 
+                rightArrayType->getElementType()->getKind() == TypeKind::Any &&
+                (leftArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::Unresolved)) {
+                // This is a valid assignment: [] can be assigned to T[]
+                return;
+            }
+            
+            // If both sides are generic arrays with the same generic type parameter,
+            // allow the assignment even if they're different instances
+            if ((leftArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::Unresolved) &&
+                (rightArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                 rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                 rightArrayType->getElementType()->getKind() == TypeKind::Unresolved)) {
+                
+                // For TypeParameter types, we can directly compare the toString() values
+                if (leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter &&
+                    rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter) {
+                    if (leftArrayType->getElementType()->toString() == rightArrayType->getElementType()->toString()) {
+                        // This is a valid assignment: T[] can be assigned to T[]
+                        return;
+                    }
+                }
+                
+                // Handle mixed Generic, TypeParameter, and Unresolved types
+                if ((leftArrayType->getElementType()->getKind() == TypeKind::Generic && 
+                     (rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                      rightArrayType->getElementType()->getKind() == TypeKind::Unresolved)) ||
+                    (leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter && 
+                     (rightArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                      rightArrayType->getElementType()->getKind() == TypeKind::Unresolved)) ||
+                    (leftArrayType->getElementType()->getKind() == TypeKind::Unresolved && 
+                     (rightArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                      rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter))) {
+                    // Compare the string representations
+                    if (leftArrayType->getElementType()->toString() == rightArrayType->getElementType()->toString()) {
+                        // This is a valid assignment: T[] can be assigned to T[]
+                        return;
+                    }
+                }
+                
+                // Handle Unresolved types on both sides
+                if (leftArrayType->getElementType()->getKind() == TypeKind::Unresolved &&
+                    rightArrayType->getElementType()->getKind() == TypeKind::Unresolved) {
+                    if (leftArrayType->getElementType()->toString() == rightArrayType->getElementType()->toString()) {
+                        // This is a valid assignment: T[] can be assigned to T[]
+                        return;
+                    }
+                }
+                
+                // For Generic types, check the base type
+                if (leftArrayType->getElementType()->getKind() == TypeKind::Generic &&
+                    rightArrayType->getElementType()->getKind() == TypeKind::Generic) {
+                    auto leftGenericType = static_cast<const GenericType*>(leftArrayType->getElementType().get());
+                    auto rightGenericType = static_cast<const GenericType*>(rightArrayType->getElementType().get());
+                    
+                    
+                    // Check if they have the same generic type parameter name
+                    if (leftGenericType->getBaseType()->toString() == rightGenericType->getBaseType()->toString()) {
+                        // This is a valid assignment: T[] can be assigned to T[]
+                        return;
+                    }
+                }
+            }
+        }
+    }
     
     if (!isValidAssignment(*rightType, *leftType)) {
         reportTypeError(leftType->toString(), rightType->toString(), location);
