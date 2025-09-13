@@ -1598,6 +1598,16 @@ shared_ptr<Type> Parser::parseUnionType() {
     return typeSystem_.createUnionType(std::move(unionTypes));
 }
 
+shared_ptr<Type> Parser::parseArrayType(shared_ptr<Type> baseType) {
+    // Handle recursive array syntax: T[], T[][], T[][][], etc.
+    while (check(TokenType::LeftBracket)) {
+        advance(); // consume '['
+        consume(TokenType::RightBracket, "Expected ']' after array type");
+        baseType = typeSystem_.createArrayType(baseType);
+    }
+    return baseType;
+}
+
 shared_ptr<Type> Parser::parsePrimaryType() {
     // Handle TypeScript type keywords
     shared_ptr<Type> baseType = nullptr;
@@ -1632,12 +1642,7 @@ shared_ptr<Type> Parser::parsePrimaryType() {
     
     // If we parsed a primitive type, check for array syntax
     if (baseType) {
-        if (check(TokenType::LeftBracket)) {
-            advance(); // consume '['
-            consume(TokenType::RightBracket, "Expected ']' after array type");
-            return typeSystem_.createArrayType(baseType);
-        }
-        return baseType;
+        return parseArrayType(baseType);
     }
     
     // Handle regular identifiers (for custom types, interfaces, etc.)
@@ -1687,14 +1692,8 @@ shared_ptr<Type> Parser::parsePrimaryType() {
         // Create unresolved type for unknown identifiers (will be resolved in semantic analysis)
         auto baseType = typeSystem_.createUnresolvedType(typeName);
         
-        // Check for array syntax: TypeName[]
-        if (check(TokenType::LeftBracket)) {
-            advance(); // consume '['
-            consume(TokenType::RightBracket, "Expected ']' after array type");
-            return typeSystem_.createArrayType(baseType);
-        }
-        
-        return baseType;
+        // Check for array syntax: TypeName[] (can be recursive for multi-dimensional arrays)
+        return parseArrayType(baseType);
     }
     
     // Handle array types like "number[]"
