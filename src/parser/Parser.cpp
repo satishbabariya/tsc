@@ -273,12 +273,19 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     // Optional base class (extends clause)
     shared_ptr<Type> baseClass = nullptr;
     if (match(TokenType::Extends)) {
-        // Parse full type annotation to support generic base classes like Container<T>
-        baseClass = parseTypeAnnotation();
+        // Parse type without colon (extends doesn't use colon syntax)
+        // Set type context for better disambiguation
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
+        
+        baseClass = parseUnionType();
         if (!baseClass) {
             reportError("Expected base class type after 'extends'", getCurrentLocation());
             baseClass = typeSystem_.getErrorType();
         }
+        
+        // Restore previous context
+        setContext(oldContext);
     }
     
     // Optional interfaces (implements clause)
@@ -378,13 +385,19 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                     ));
                 } else {
                     // This is a property declaration
+                    // Check for optional initializer
+                    unique_ptr<Expression> initializer = nullptr;
+                    if (match(TokenType::Equal)) {
+                        initializer = parseExpression();
+                    }
+                    
                     // Optional semicolon for property declarations
                     if (match(TokenType::Semicolon)) {
                         // Semicolon consumed
                     }
                     
                     properties.push_back(make_unique<PropertyDeclaration>(
-                        memberName, returnType, nullptr, memberToken.getLocation(),
+                        memberName, returnType, std::move(initializer), memberToken.getLocation(),
                         isStatic, isPrivate, isProtected, isReadonly
                     ));
                 }
@@ -1734,6 +1747,11 @@ std::vector<MethodDeclaration::Parameter> Parser::parseMethodParameterList() {
                 setContext(ParsingContext::Type);
                 param.type = parseUnionType();
                 setContext(oldContext);
+            }
+            
+            // Parse optional default value
+            if (match(TokenType::Equal)) {
+                param.defaultValue = parseExpression();
             }
             
             parameters.push_back(std::move(param));
