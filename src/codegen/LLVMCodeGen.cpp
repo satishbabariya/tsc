@@ -3068,20 +3068,35 @@ void LLVMCodeGen::visit(Module& module) {
                 // Find the method function
                 llvm::Function* methodFunc = nullptr;
                 
-                // Try to find the method function by mangled name
-                // We need to determine the type of the global variable to generate the correct mangled name
-                // For now, we'll try to find the method by looking for common patterns
-                String mangledName = globalVar->getName().str() + "_" + methodName;
-                methodFunc = module_->getFunction(mangledName);
+                // Get the type information for the global variable from the symbol table
+                String varName = globalVar->getName().str();
+                Symbol* varSymbol = symbolTable_->lookupSymbol(varName);
+                
+                if (varSymbol && varSymbol->getType()) {
+                    std::cout << "DEBUG: Found variable symbol for " << varName << " with type: " << varSymbol->getType()->toString() << std::endl;
+                    
+                    // Check if the variable type is a GenericType
+                    if (auto genericType = std::dynamic_pointer_cast<GenericType>(varSymbol->getType())) {
+                        // Generate the correct mangled method name using the actual type
+                        String mangledMethodName = generateMangledMethodName(*genericType, methodName);
+                        std::cout << "DEBUG: Generated correct mangled method name: " << mangledMethodName << std::endl;
+                        methodFunc = module_->getFunction(mangledMethodName);
+                    } else {
+                        std::cout << "DEBUG: Variable type is not a GenericType: " << varSymbol->getType()->toString() << std::endl;
+                    }
+                } else {
+                    std::cout << "DEBUG: Could not find symbol or type for variable: " << varName << std::endl;
+                }
                 
                 if (!methodFunc) {
-                    // Try other common mangling patterns
-                    // This is a simplified approach - in a full implementation, we'd need proper type information
+                    std::cout << "DEBUG: Method function not found, trying fallback search" << std::endl;
+                    // Fallback: try to find the method by looking for common patterns
                     for (auto& func : module_->functions()) {
                         String funcName = func.getName().str();
                         if (funcName.find(methodName) != String::npos && 
                             funcName.find("BasicArrayOperations") != String::npos) {
                             methodFunc = &func;
+                            std::cout << "DEBUG: Found fallback method function: " << funcName << std::endl;
                             break;
                         }
                     }
