@@ -1645,6 +1645,23 @@ shared_ptr<Type> Parser::parsePrimaryType() {
         return parseArrayType(baseType);
     }
     
+    // Handle literal types (string literals, numeric literals, boolean literals)
+    if (check(TokenType::StringLiteral)) {
+        Token literalToken = advance();
+        String literalValue = literalToken.getStringValue();
+        return typeSystem_.createLiteralType(TypeKind::StringLiteral, literalValue);
+    } else if (check(TokenType::NumericLiteral)) {
+        Token literalToken = advance();
+        String literalValue = literalToken.getStringValue();
+        return typeSystem_.createLiteralType(TypeKind::NumericLiteral, literalValue);
+    } else if (check(TokenType::True)) {
+        advance(); // consume 'true'
+        return typeSystem_.createLiteralType(TypeKind::BooleanLiteral, "true");
+    } else if (check(TokenType::False)) {
+        advance(); // consume 'false'
+        return typeSystem_.createLiteralType(TypeKind::BooleanLiteral, "false");
+    }
+    
     // Handle regular identifiers (for custom types, interfaces, etc.)
     if (check(TokenType::Identifier)) {
         Token typeToken = advance();
