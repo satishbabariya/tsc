@@ -152,6 +152,67 @@ char* number_to_string_9(double value) {
     return number_to_string(value);
 }
 
+// Array push function
+// Signature: void arrayPush(void* array_ptr, void* item)
+// Adds an item to the end of the array
+void arrayPush(void* array_ptr, void* item) {
+    if (!array_ptr) {
+        fprintf(stderr, "Error: arrayPush called with null array pointer\n");
+        exit(3);
+    }
+    
+    // The array structure is { i32 length, [N x elementType] data }
+    // We need to increment the length and store the item at the new position
+    int* length_ptr = (int*)array_ptr;
+    int current_length = *length_ptr;
+    
+    printf("DEBUG: arrayPush called with array=%p, item=%p, current_length=%d\n", array_ptr, item, current_length);
+    
+    // For now, this is a placeholder implementation
+    // In a full implementation, we would:
+    // 1. Check if the array has space for another item
+    // 2. Store the item at the appropriate position
+    // 3. Increment the length
+    // For now, just increment the length as a proof of concept
+    *length_ptr = current_length + 1;
+    
+    printf("DEBUG: arrayPush updated length to %d\n", *length_ptr);
+}
+
+// Array pop function
+// Signature: void* arrayPop(void* array_ptr)
+// Removes and returns the last item from the array
+void* arrayPop(void* array_ptr) {
+    if (!array_ptr) {
+        fprintf(stderr, "Error: arrayPop called with null array pointer\n");
+        exit(3);
+    }
+    
+    // The array structure is { i32 length, [N x elementType] data }
+    int* length_ptr = (int*)array_ptr;
+    int current_length = *length_ptr;
+    
+    printf("DEBUG: arrayPop called with array=%p, current_length=%d\n", array_ptr, current_length);
+    
+    if (current_length <= 0) {
+        printf("DEBUG: arrayPop called on empty array, returning null\n");
+        return NULL;
+    }
+    
+    // For now, this is a placeholder implementation
+    // In a full implementation, we would:
+    // 1. Get the item at the last position
+    // 2. Decrement the length
+    // 3. Return the item
+    // For now, just decrement the length and return a placeholder
+    *length_ptr = current_length - 1;
+    
+    printf("DEBUG: arrayPop updated length to %d\n", *length_ptr);
+    
+    // Return a placeholder value (in a real implementation, this would be the actual item)
+    return (void*)0x12345678; // Placeholder address
+}
+
 // Assembly aliases for mangled names with dots
 // These create symbols with dots in the name that the linker expects
 __asm__(".weak number_to_string.1");

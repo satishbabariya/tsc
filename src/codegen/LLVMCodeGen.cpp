@@ -1069,11 +1069,100 @@ void LLVMCodeGen::visit(CallExpression& node) {
             setCurrentValue(callResult);
             return;
         } else if (calleeValue) {
-            // The property access already returned a result (e.g., from nested property access like array.length.toString())
-            // This means the call has already been processed, so we can return the result directly
-            std::cout << "DEBUG: CallExpression - Property access already returned a result, skipping call processing" << std::endl;
-            setCurrentValue(calleeValue);
-            return;
+            // The property access returned a result - check if it's a function that needs to be called
+            if (llvm::isa<llvm::Function>(calleeValue)) {
+                // This is a function pointer from PropertyAccess - we need to call it
+                llvm::Function* function = llvm::cast<llvm::Function>(calleeValue);
+                std::cout << "DEBUG: CallExpression - Property access returned function: " << function->getName().str() << std::endl;
+                
+                // Generate the object being called on
+                propertyAccess->getObject()->accept(*this);
+                llvm::Value* objectInstance = getCurrentValue();
+                
+                // Check if this is a method call on a global variable in global context
+                std::cout << "DEBUG: CallExpression - Checking if method call should be deferred" << std::endl;
+                std::cout << "DEBUG: CallExpression - Current function: " << (codeGenContext_->getCurrentFunction() ? "exists" : "null") << std::endl;
+                std::cout << "DEBUG: CallExpression - Object instance type: " << objectInstance->getType()->getTypeID() << std::endl;
+                std::cout << "DEBUG: CallExpression - Is GlobalVariable: " << (llvm::isa<llvm::GlobalVariable>(objectInstance) ? "YES" : "NO") << std::endl;
+                
+                if (!codeGenContext_->getCurrentFunction()) {
+                    // Check if this is a method call on a global variable
+                    // We need to check if the objectInstance is a global variable pointer
+                    llvm::GlobalVariable* globalVar = nullptr;
+                    if (auto identifier = dynamic_cast<Identifier*>(propertyAccess->getObject())) {
+                        String varName = identifier->getName();
+                        llvm::Value* storage = codeGenContext_->getSymbolValue(varName);
+                        if (storage && llvm::isa<llvm::GlobalVariable>(storage)) {
+                            globalVar = llvm::cast<llvm::GlobalVariable>(storage);
+                        }
+                    }
+                    
+                    if (globalVar) {
+                        // This is a method call on a global variable in global context
+                        // Defer the method call to be processed after global variables are initialized
+                        std::cout << "DEBUG: CallExpression - Deferring method call on global variable: " << 
+                            globalVar->getName().str() << std::endl;
+                        deferredMethodCalls_.push_back({&node, globalVar});
+                        setCurrentValue(createNullValue(getAnyType()));
+                        return;
+                    }
+                }
+                
+                // Convert object instance to the correct type for the function
+                llvm::FunctionType* funcType = function->getFunctionType();
+                if (funcType->getNumParams() > 0) {
+                    llvm::Type* expectedType = funcType->getParamType(0);
+                    llvm::Type* actualType = objectInstance->getType();
+                    
+                    if (actualType != expectedType) {
+                        std::cout << "DEBUG: Converting object instance from " << actualType->getTypeID() << " to " << expectedType->getTypeID() << std::endl;
+                        
+                        if (actualType == getAnyType() && expectedType == getNumberType()) {
+                            // Dereference the pointer to get the actual value
+                            objectInstance = builder_->CreateLoad(getNumberType(), objectInstance, "dereferenced_value");
+                            std::cout << "DEBUG: Dereferenced pointer to get double value" << std::endl;
+                        }
+                    }
+                }
+                
+                // Prepare arguments for the method call
+                std::vector<llvm::Value*> args;
+                
+                // Add 'this' pointer as first argument (object instance)
+                args.push_back(objectInstance);
+                
+                // Add method arguments
+                for (const auto& arg : node.getArguments()) {
+                    arg->accept(*this);
+                    llvm::Value* argValue = getCurrentValue();
+                    if (!argValue) {
+                        reportError("Failed to generate argument for method call", node.getLocation());
+                        setCurrentValue(createNullValue(getAnyType()));
+                        return;
+                    }
+                    args.push_back(argValue);
+                    std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
+                }
+                
+                // Generate the method call
+                llvm::Value* callResult;
+                if (function->getReturnType()->isVoidTy()) {
+                    // Don't assign a name to void method calls
+                    callResult = builder_->CreateCall(function, args);
+                    std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
+                } else {
+                    callResult = builder_->CreateCall(function, args, "method_call_result");
+                    std::cout << "DEBUG: Created function call to " << function->getName().str() << std::endl;
+                }
+                setCurrentValue(callResult);
+                return;
+            } else {
+                // The property access already returned a result (e.g., from nested property access like array.length.toString())
+                // This means the call has already been processed, so we can return the result directly
+                std::cout << "DEBUG: CallExpression - Property access already returned a result, skipping call processing" << std::endl;
+                setCurrentValue(calleeValue);
+                return;
+            }
         } else {
             // This is a method call (like obj.method())
             String methodName = propertyAccess->getProperty();
@@ -1709,9 +1798,15 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 };
                 llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
                 
+                // Use index 1 for the items field (second field)
+                llvm::Value* indices[] = {
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // First field
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)   // Field index 1 (items field)
+                };
+                
                 llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "items_ptr");
                 setCurrentValue(fieldPtr);
-                std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'items'" << std::endl;
+                std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'items' at index 1" << std::endl;
                 return;
             }
         } else {
@@ -1879,6 +1974,27 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                     llvm::Value* lengthAsDouble = builder_->CreateSIToFP(arrayLength, getNumberType(), "length.double");
                     setCurrentValue(lengthAsDouble);
                     return;
+                }
+            }
+        } else if (auto propertyAccess = dynamic_cast<PropertyAccess*>(node.getObject())) {
+            // Handle method access on array returned by property access (e.g., this.items.push)
+            std::cout << "DEBUG: Handling method access on array returned by property access: " << propertyName << std::endl;
+            
+            // Check if this is a method call on an array (like push, pop, etc.)
+            if (propertyName == "push" || propertyName == "pop" || propertyName == "length" || propertyName == "toString") {
+                std::cout << "DEBUG: Found array method: " << propertyName << std::endl;
+                
+                // For array methods, we need to create a builtin method function
+                // This is a simplified approach - in a full implementation, we'd look up the actual method
+                auto arrayType = std::make_shared<ArrayType>(std::make_shared<PrimitiveType>(TypeKind::Number));
+                llvm::Function* methodFunc = createBuiltinMethodFunction(propertyName, arrayType, node.getLocation());
+                
+                if (methodFunc) {
+                    std::cout << "DEBUG: Created builtin method function for: " << propertyName << std::endl;
+                    setCurrentValue(methodFunc);
+                    return;
+                } else {
+                    std::cout << "DEBUG: Failed to create builtin method function for: " << propertyName << std::endl;
                 }
             }
         } else if (propertyName == "length") {
@@ -5787,6 +5903,30 @@ llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodNam
             funcType, llvm::Function::ExternalLinkage, "arrayToString", module_.get()
         );
         std::cout << "DEBUG: Created arrayToString function" << std::endl;
+        return func;
+    } else if (methodName == "push") {
+        // push(array, item) -> void
+        auto funcType = llvm::FunctionType::get(
+            getVoidType(),    // Return type: void
+            {getAnyType(), getAnyType()}, // Parameters: array, item
+            false
+        );
+        auto func = llvm::Function::Create(
+            funcType, llvm::Function::ExternalLinkage, "arrayPush", module_.get()
+        );
+        std::cout << "DEBUG: Created arrayPush function" << std::endl;
+        return func;
+    } else if (methodName == "pop") {
+        // pop(array) -> any
+        auto funcType = llvm::FunctionType::get(
+            getAnyType(),     // Return type: any (the popped item)
+            {getAnyType()},   // Parameter: any type (the array)
+            false
+        );
+        auto func = llvm::Function::Create(
+            funcType, llvm::Function::ExternalLinkage, "arrayPop", module_.get()
+        );
+        std::cout << "DEBUG: Created arrayPop function" << std::endl;
         return func;
     }
     
