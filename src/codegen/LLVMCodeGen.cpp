@@ -948,6 +948,35 @@ void LLVMCodeGen::visit(CallExpression& node) {
             propertyAccess->getObject()->accept(*this);
             llvm::Value* objectInstance = getCurrentValue();
             
+            // Check if this is a method call on a global variable in global context
+            std::cout << "DEBUG: CallExpression - Checking if method call should be deferred" << std::endl;
+            std::cout << "DEBUG: CallExpression - Current function: " << (codeGenContext_->getCurrentFunction() ? "exists" : "null") << std::endl;
+            std::cout << "DEBUG: CallExpression - Object instance type: " << objectInstance->getType()->getTypeID() << std::endl;
+            std::cout << "DEBUG: CallExpression - Is GlobalVariable: " << (llvm::isa<llvm::GlobalVariable>(objectInstance) ? "YES" : "NO") << std::endl;
+            
+            if (!codeGenContext_->getCurrentFunction()) {
+                // Check if this is a method call on a global variable
+                // We need to check if the objectInstance is a global variable pointer
+                llvm::GlobalVariable* globalVar = nullptr;
+                if (auto identifier = dynamic_cast<Identifier*>(propertyAccess->getObject())) {
+                    String varName = identifier->getName();
+                    llvm::Value* storage = codeGenContext_->getSymbolValue(varName);
+                    if (storage && llvm::isa<llvm::GlobalVariable>(storage)) {
+                        globalVar = llvm::cast<llvm::GlobalVariable>(storage);
+                    }
+                }
+                
+                if (globalVar) {
+                    // This is a method call on a global variable in global context
+                    // Defer the method call to be processed after global variables are initialized
+                    std::cout << "DEBUG: CallExpression - Deferring method call on global variable: " << 
+                        globalVar->getName().str() << std::endl;
+                    deferredMethodCalls_.push_back({&node, globalVar});
+                    setCurrentValue(createNullValue(getAnyType()));
+                    return;
+                }
+            }
+            
             // Convert object instance to the correct type for the function
             llvm::FunctionType* funcType = function->getFunctionType();
             if (funcType->getNumParams() > 0) {
@@ -1108,7 +1137,9 @@ void LLVMCodeGen::visit(CallExpression& node) {
             // Skip regular argument processing for method calls since objectInstance is already added
             goto generate_call;
         }
-    } else if (function && function->getName() == "toString" && node.getArguments().empty()) {
+    }
+    
+    if (function && function->getName() == "toString" && node.getArguments().empty()) {
         // Special case: toString() call without arguments - this might be a method call on a value
         // We need to find the object being called on from the context
         // This is a simplified approach - in a real implementation, we'd need better context tracking
@@ -3020,6 +3051,72 @@ void LLVMCodeGen::visit(Module& module) {
         }
         deferredGlobalInitializations_.clear();
         deferredExternalSymbols_.clear();
+        
+        // Process deferred method calls AFTER global variables are initialized
+        std::cout << "DEBUG: Processing " << deferredMethodCalls_.size() << " deferred method calls" << std::endl;
+        for (const auto& [callExpr, globalVar] : deferredMethodCalls_) {
+            std::cout << "DEBUG: Processing deferred method call on global variable: " << globalVar->getName().str() << std::endl;
+            
+            // Load the global variable value
+            llvm::Value* objectInstance = builder_->CreateLoad(globalVar->getValueType(), globalVar, globalVar->getName().str() + "_val");
+            
+            // Process the method call with the loaded object instance
+            if (auto propertyAccess = dynamic_cast<PropertyAccess*>(callExpr->getCallee())) {
+                String methodName = propertyAccess->getProperty();
+                std::cout << "DEBUG: Processing deferred method call: " << methodName << std::endl;
+                
+                // Find the method function
+                llvm::Function* methodFunc = nullptr;
+                
+                // Try to find the method function by mangled name
+                // We need to determine the type of the global variable to generate the correct mangled name
+                // For now, we'll try to find the method by looking for common patterns
+                String mangledName = globalVar->getName().str() + "_" + methodName;
+                methodFunc = module_->getFunction(mangledName);
+                
+                if (!methodFunc) {
+                    // Try other common mangling patterns
+                    // This is a simplified approach - in a full implementation, we'd need proper type information
+                    for (auto& func : module_->functions()) {
+                        String funcName = func.getName().str();
+                        if (funcName.find(methodName) != String::npos && 
+                            funcName.find("BasicArrayOperations") != String::npos) {
+                            methodFunc = &func;
+                            break;
+                        }
+                    }
+                }
+                
+                if (methodFunc) {
+                    std::cout << "DEBUG: Found method function: " << methodFunc->getName().str() << std::endl;
+                    
+                    // Prepare arguments for the method call
+                    std::vector<llvm::Value*> args;
+                    args.push_back(objectInstance); // 'this' pointer
+                    
+                    // Process method arguments
+                    for (const auto& arg : callExpr->getArguments()) {
+                        arg->accept(*this);
+                        llvm::Value* argValue = getCurrentValue();
+                        if (argValue) {
+                            args.push_back(argValue);
+                        }
+                    }
+                    
+                    // Generate the method call
+                    if (methodFunc->getReturnType()->isVoidTy()) {
+                        builder_->CreateCall(methodFunc, args);
+                        std::cout << "DEBUG: Created deferred void method call to " << methodFunc->getName().str() << std::endl;
+                    } else {
+                        llvm::Value* callResult = builder_->CreateCall(methodFunc, args, "deferred_method_call_result");
+                        std::cout << "DEBUG: Created deferred method call to " << methodFunc->getName().str() << std::endl;
+                    }
+                } else {
+                    std::cout << "DEBUG: WARNING - Could not find method function for: " << methodName << std::endl;
+                }
+            }
+        }
+        deferredMethodCalls_.clear();
         
         // Always ensure main function has a terminator
         std::cout << "DEBUG: Checking terminator in main function" << std::endl;

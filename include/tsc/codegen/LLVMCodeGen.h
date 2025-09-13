@@ -473,6 +473,9 @@ private:
     // Deferred global variable initializations (for non-constant values)
     std::vector<std::pair<llvm::GlobalVariable*, llvm::Value*>> deferredGlobalInitializations_;
     
+    // Deferred method calls (for method calls on global variables)
+    std::vector<std::pair<CallExpression*, llvm::GlobalVariable*>> deferredMethodCalls_;
+    
     // Deferred external symbol references (for Infinity, NaN, etc.)
     std::unordered_map<String, llvm::GlobalVariable*> deferredExternalSymbols_;
     
