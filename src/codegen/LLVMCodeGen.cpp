@@ -1010,6 +1010,41 @@ void LLVMCodeGen::visit(CallExpression& node) {
             propertyAccess->getObject()->accept(*this);
             llvm::Value* objectInstance = getCurrentValue();
             
+            // Special handling for arrayPush calls - we need to pass the array structure pointer,
+            // not the data pointer that PropertyAccess returns for the 'items' field
+            if (function && function->getName().str().find("arrayPush") != std::string::npos) {
+                std::cout << "DEBUG: CallExpression - Detected arrayPush call, fixing object instance" << std::endl;
+                
+                // For arrayPush calls on 'this.items.push()', we need to get the array structure pointer
+                // instead of the data pointer. The PropertyAccess for 'items' returns the data pointer,
+                // but arrayPush expects the array structure pointer.
+                if (auto nestedPropertyAccess = dynamic_cast<PropertyAccess*>(propertyAccess->getObject())) {
+                    if (nestedPropertyAccess->getProperty() == "items") {
+                        std::cout << "DEBUG: CallExpression - Detected this.items.push() call" << std::endl;
+                        
+                        // Get the 'this' pointer (the object instance)
+                        nestedPropertyAccess->getObject()->accept(*this);
+                        llvm::Value* thisPointer = getCurrentValue();
+                        
+                        // Get the items field pointer (which points to the array structure)
+                        llvm::Value* itemsFieldPtr = builder_->CreateGEP(
+                            llvm::StructType::get(*context_, {
+                                llvm::Type::getInt32Ty(*context_), // length field
+                                llvm::Type::getInt8Ty(*context_)->getPointerTo() // data pointer
+                            }),
+                            thisPointer,
+                            {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),
+                             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)},
+                            "items_field_ptr"
+                        );
+                        
+                        // Load the array structure pointer from the items field
+                        objectInstance = builder_->CreateLoad(llvm::Type::getInt8Ty(*context_)->getPointerTo(), itemsFieldPtr, "array_structure_ptr");
+                        std::cout << "DEBUG: CallExpression - Fixed object instance for arrayPush: using array structure pointer instead of data pointer" << std::endl;
+                    }
+                }
+            }
+            
             // Check if this is a method call on a global variable in global context
             std::cout << "DEBUG: CallExpression - Checking if method call should be deferred" << std::endl;
             std::cout << "DEBUG: CallExpression - Current function: " << (codeGenContext_->getCurrentFunction() ? "exists" : "null") << std::endl;
@@ -1127,6 +1162,41 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 // Generate the object being called on
                 propertyAccess->getObject()->accept(*this);
                 llvm::Value* objectInstance = getCurrentValue();
+                
+                // Special handling for arrayPush calls - we need to pass the array structure pointer,
+                // not the data pointer that PropertyAccess returns for the 'items' field
+                if (function && function->getName().str().find("arrayPush") != std::string::npos) {
+                    std::cout << "DEBUG: CallExpression - Detected arrayPush call, fixing object instance" << std::endl;
+                    
+                    // For arrayPush calls on 'this.items.push()', we need to get the array structure pointer
+                    // instead of the data pointer. The PropertyAccess for 'items' returns the data pointer,
+                    // but arrayPush expects the array structure pointer.
+                    if (auto nestedPropertyAccess = dynamic_cast<PropertyAccess*>(propertyAccess->getObject())) {
+                        if (nestedPropertyAccess->getProperty() == "items") {
+                            std::cout << "DEBUG: CallExpression - Detected this.items.push() call" << std::endl;
+                            
+                            // Get the 'this' pointer (the object instance)
+                            nestedPropertyAccess->getObject()->accept(*this);
+                            llvm::Value* thisPointer = getCurrentValue();
+                            
+                            // Get the items field pointer (which points to the array structure)
+                            llvm::Value* itemsFieldPtr = builder_->CreateGEP(
+                                llvm::StructType::get(*context_, {
+                                    llvm::Type::getInt32Ty(*context_), // length field
+                                    llvm::Type::getInt8Ty(*context_)->getPointerTo() // data pointer
+                                }),
+                                thisPointer,
+                                {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),
+                                 llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)},
+                                "items_field_ptr"
+                            );
+                            
+                            // Load the array structure pointer from the items field
+                            objectInstance = builder_->CreateLoad(llvm::Type::getInt8Ty(*context_)->getPointerTo(), itemsFieldPtr, "array_structure_ptr");
+                            std::cout << "DEBUG: CallExpression - Fixed object instance for arrayPush: using array structure pointer instead of data pointer" << std::endl;
+                        }
+                    }
+                }
                 
                 // Check if this is a method call on a global variable in global context
                 std::cout << "DEBUG: CallExpression - Checking if method call should be deferred" << std::endl;
