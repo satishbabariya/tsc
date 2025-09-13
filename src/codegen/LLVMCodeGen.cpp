@@ -4,6 +4,7 @@
 #include "tsc/semantic/TypeSystem.h"
 #include "tsc/AST.h"
 #include <cmath>
+#include <limits>
 
 // LLVM includes for implementation
 #include "llvm/IR/Constants.h"
@@ -158,6 +159,7 @@ void LLVMCodeGen::visit(StringLiteral& node) {
 }
 
 void LLVMCodeGen::visit(TemplateLiteral& node) {
+    std::cout << "DEBUG: TemplateLiteral visitor called" << std::endl;
     // Build the template literal by concatenating all parts
     llvm::Value* result = nullptr;
     
@@ -166,25 +168,34 @@ void LLVMCodeGen::visit(TemplateLiteral& node) {
         
         if (element.isExpression()) {
             // Generate code for the expression
+            std::cout << "DEBUG: Processing template expression" << std::endl;
             element.getExpression()->accept(*this);
             elementValue = getCurrentValue();
+            std::cout << "DEBUG: Template expression result type: " << (elementValue ? elementValue->getType()->getTypeID() : -1) << std::endl;
             
             // Convert expression results to string representation
             // Note: Currently supports simple variable references only
             // Future enhancement: Support complex expressions (arithmetic, function calls, etc.)
+            std::cout << "DEBUG: Converting template expression to string, type: " << elementValue->getType()->getTypeID() << std::endl;
             if (elementValue->getType()->isDoubleTy()) {
                 // Convert number to string using runtime function
+                std::cout << "DEBUG: Converting double to string" << std::endl;
                 llvm::Function* numberToStringFunc = getOrCreateNumberToStringFunction();
+                std::cout << "DEBUG: numberToStringFunc type: " << numberToStringFunc->getReturnType()->getTypeID() << std::endl;
                 elementValue = builder_->CreateCall(numberToStringFunc, {elementValue}, "number_to_string");
+                std::cout << "DEBUG: After CreateCall, elementValue type: " << elementValue->getType()->getTypeID() << std::endl;
             } else if (elementValue->getType()->isIntegerTy(1)) {
                 // Convert boolean to string using runtime function
+                std::cout << "DEBUG: Converting boolean to string" << std::endl;
                 llvm::Function* booleanToStringFunc = getOrCreateBooleanToStringFunction();
                 elementValue = builder_->CreateCall(booleanToStringFunc, {elementValue}, "boolean_to_string");
             } else if (elementValue->getType() != getStringType()) {
                 // For other types, convert to string representation using runtime function
+                std::cout << "DEBUG: Converting other type to string" << std::endl;
                 llvm::Function* objectToStringFunc = getOrCreateObjectToStringFunction();
                 elementValue = builder_->CreateCall(objectToStringFunc, {elementValue}, "object_to_string");
             }
+            std::cout << "DEBUG: After conversion, type: " << elementValue->getType()->getTypeID() << std::endl;
         } else {
             // Text element
             elementValue = createStringLiteral(element.getText());
@@ -204,6 +215,7 @@ void LLVMCodeGen::visit(TemplateLiteral& node) {
         result = createStringLiteral("");
     }
     
+    std::cout << "DEBUG: TemplateLiteral result type: " << (result ? result->getType()->getTypeID() : -1) << std::endl;
     setCurrentValue(result);
 }
 
@@ -662,6 +674,7 @@ void LLVMCodeGen::visit(ConditionalExpression& node) {
 }
 
 void LLVMCodeGen::visit(CallExpression& node) {
+    std::cout << "DEBUG: CallExpression visitor called" << std::endl;
     // Generate the callee (function to call)
     node.getCallee()->accept(*this);
     llvm::Value* calleeValue = getCurrentValue();
@@ -1803,6 +1816,7 @@ void LLVMCodeGen::visit(FunctionExpression& node) {
 }
 
 void LLVMCodeGen::visit(ExpressionStatement& node) {
+    std::cout << "DEBUG: ExpressionStatement visitor called" << std::endl;
     node.getExpression()->accept(*this);
     // Expression statement doesn't return a value
 }
@@ -2513,6 +2527,7 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
             // Global variable - set initial value if it's a global variable
             if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(storage)) {
                 std::cout << "DEBUG: Global variable " << node.getName() << " initValue type: " << (initValue ? initValue->getType()->getTypeID() : -1) << std::endl;
+                std::cout << "DEBUG: initValue is constant: " << (llvm::isa<llvm::Constant>(initValue) ? "YES" : "NO") << std::endl;
                 if (auto* constant = llvm::dyn_cast<llvm::Constant>(initValue)) {
                     // Check if this is a null constant (our deferred external symbol marker)
                     if (llvm::isa<llvm::ConstantPointerNull>(initValue) || 
@@ -2663,7 +2678,29 @@ void LLVMCodeGen::visit(Module& module) {
         llvm::BasicBlock* entry = llvm::BasicBlock::Create(*context_, "entry", mainFunc);
         builder_->SetInsertPoint(entry);
         
-        // Process deferred global variable initializations
+        
+        // Generate module-level statements within main function
+        std::cout << "DEBUG: Processing " << moduleStatements.size() << " module-level statements in main function" << std::endl;
+        for (const auto& stmt : moduleStatements) {
+            std::cout << "DEBUG: Processing module-level statement in main function" << std::endl;
+            
+            // Check if current block already has a terminator
+            if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
+                std::cout << "DEBUG: Current block already has terminator, skipping remaining statements" << std::endl;
+                break;
+            }
+            
+            stmt->accept(*this);
+            if (hasErrors()) break;
+            
+            // Check if the statement generated a terminator
+            if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
+                std::cout << "DEBUG: Statement generated terminator, stopping processing" << std::endl;
+                break;
+            }
+        }
+        
+        // Process deferred global variable initializations AFTER module statements
         std::cout << "DEBUG: Processing " << deferredGlobalInitializations_.size() << " deferred global initializations" << std::endl;
         for (const auto& [globalVar, initValue] : deferredGlobalInitializations_) {
             std::cout << "DEBUG: Storing to global variable: " << globalVar->getName().str() << std::endl;
@@ -2687,27 +2724,6 @@ void LLVMCodeGen::visit(Module& module) {
         }
         deferredGlobalInitializations_.clear();
         deferredExternalSymbols_.clear();
-        
-        // Generate module-level statements within main function
-        std::cout << "DEBUG: Processing " << moduleStatements.size() << " module-level statements in main function" << std::endl;
-        for (const auto& stmt : moduleStatements) {
-            std::cout << "DEBUG: Processing module-level statement in main function" << std::endl;
-            
-            // Check if current block already has a terminator
-            if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
-                std::cout << "DEBUG: Current block already has terminator, skipping remaining statements" << std::endl;
-                break;
-            }
-            
-            stmt->accept(*this);
-            if (hasErrors()) break;
-            
-            // Check if the statement generated a terminator
-            if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
-                std::cout << "DEBUG: Statement generated terminator, stopping processing" << std::endl;
-                break;
-            }
-        }
         
         // Always ensure main function has a terminator
         std::cout << "DEBUG: Checking terminator in main function" << std::endl;
@@ -2836,7 +2852,9 @@ llvm::Type* LLVMCodeGen::getNumberType() const {
 
 llvm::Type* LLVMCodeGen::getStringType() const {
     // Use i8* for strings (C-style strings for now)
-    return llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    llvm::Type* stringType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    std::cout << "DEBUG: getStringType() returning type: " << stringType->getTypeID() << std::endl;
+    return stringType;
 }
 
 llvm::Type* LLVMCodeGen::getBooleanType() const {
@@ -4121,16 +4139,28 @@ llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation&
         return builder_->CreateLoad(elementType, storage, name + "_val");
     } else {
         // We're at global scope - can only reference constants
+        std::cout << "DEBUG: Global scope - checking storage for " << name << std::endl;
+        std::cout << "DEBUG: Storage value: " << storage << std::endl;
         if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(storage)) {
+            std::cout << "DEBUG: Found global variable " << name << " with linkage: " << globalVar->getLinkage() << std::endl;
             if (globalVar->hasInitializer()) {
                 return globalVar->getInitializer();
             }
             // Check if this is an external symbol (like Infinity, NaN)
-            if (globalVar->getLinkage() == llvm::GlobalValue::ExternalLinkage) {
-                // For external symbols, we need to defer initialization
-                // Return a special marker that indicates this needs deferred processing
-                return createDeferredExternalSymbolMarker(globalVar, name);
+            // Check by name since linkage might not be set correctly
+            if (name == "Infinity" || name == "NaN") {
+                // For external symbols in global scope, return a special constant
+                // that will be replaced with actual loads in the main function
+                std::cout << "DEBUG: Creating special constant for external symbol: " << name << std::endl;
+                if (name == "Infinity") {
+                    return llvm::ConstantFP::get(getNumberType(), std::numeric_limits<double>::infinity());
+                } else if (name == "NaN") {
+                    return llvm::ConstantFP::get(getNumberType(), std::numeric_limits<double>::quiet_NaN());
+                }
             }
+        } else {
+            std::cout << "DEBUG: Storage is not a GlobalVariable for " << name << " in global scope" << std::endl;
+            std::cout << "DEBUG: Storage type name: " << storage->getType()->getTypeID() << std::endl;
         }
         // Can't load non-constant values at global scope
         reportError("Cannot reference non-constant values in global initializers", location);
@@ -4172,6 +4202,7 @@ void LLVMCodeGen::declareBuiltinGlobals() {
         nullptr, // initializer (will be provided by runtime.c)
         "Infinity"
     );
+    std::cout << "DEBUG: Created Infinity global variable with linkage: " << infinityVar->getLinkage() << std::endl;
     codeGenContext_->setSymbolValue("Infinity", infinityVar);
     
     // Declare NaN as an external global variable
