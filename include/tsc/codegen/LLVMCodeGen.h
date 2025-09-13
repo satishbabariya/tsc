@@ -473,6 +473,9 @@ private:
     // Deferred global variable initializations (for non-constant values)
     std::vector<std::pair<llvm::GlobalVariable*, llvm::Value*>> deferredGlobalInitializations_;
     
+    // Deferred external symbol references (for Infinity, NaN, etc.)
+    std::unordered_map<String, llvm::GlobalVariable*> deferredExternalSymbols_;
+    
     // Type mapping from TypeScript to LLVM
     llvm::Type* mapTypeScriptTypeToLLVM(const Type& type);
     llvm::Type* getNumberType() const;
@@ -535,6 +538,7 @@ private:
     // Built-in functions
     void declareBuiltinFunctions();
     void declareBuiltinGlobals();
+    llvm::Value* createDeferredExternalSymbolMarker(llvm::GlobalVariable* externalVar, const String& name);
     llvm::Function* getOrCreatePrintFunction();
     llvm::Function* getOrCreateStringConcatFunction();
     llvm::Function* getOrCreateNumberToStringFunction();

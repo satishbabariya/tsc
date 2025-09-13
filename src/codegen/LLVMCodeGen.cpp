@@ -2513,8 +2513,17 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
             if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(storage)) {
                 std::cout << "DEBUG: Global variable " << node.getName() << " initValue type: " << (initValue ? initValue->getType()->getTypeID() : -1) << std::endl;
                 if (auto* constant = llvm::dyn_cast<llvm::Constant>(initValue)) {
-                    std::cout << "DEBUG: Setting constant initializer for global variable: " << node.getName() << std::endl;
-                    globalVar->setInitializer(constant);
+                    // Check if this is a null constant (our deferred external symbol marker)
+                    if (llvm::isa<llvm::ConstantPointerNull>(initValue) || 
+                        (llvm::isa<llvm::ConstantFP>(initValue) && 
+                         llvm::cast<llvm::ConstantFP>(initValue)->isNullValue())) {
+                        // This is a deferred external symbol - defer initialization
+                        std::cout << "DEBUG: Deferring initialization for global variable with external symbol: " << node.getName() << std::endl;
+                        deferredGlobalInitializations_.push_back({globalVar, initValue});
+                    } else {
+                        std::cout << "DEBUG: Setting constant initializer for global variable: " << node.getName() << std::endl;
+                        globalVar->setInitializer(constant);
+                    }
                 } else {
                     // Non-constant initializer for global variable - defer initialization
                     // This happens for template literals with interpolation, function calls, etc.
@@ -4079,6 +4088,12 @@ llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation&
             if (globalVar->hasInitializer()) {
                 return globalVar->getInitializer();
             }
+            // Check if this is an external symbol (like Infinity, NaN)
+            if (globalVar->getLinkage() == llvm::GlobalValue::ExternalLinkage) {
+                // For external symbols, we need to defer initialization
+                // Return a special marker that indicates this needs deferred processing
+                return createDeferredExternalSymbolMarker(globalVar, name);
+            }
         }
         // Can't load non-constant values at global scope
         reportError("Cannot reference non-constant values in global initializers", location);
@@ -4132,6 +4147,19 @@ void LLVMCodeGen::declareBuiltinGlobals() {
         "NaN"
     );
     codeGenContext_->setSymbolValue("NaN", nanVar);
+}
+
+// Create a marker for deferred external symbol initialization
+llvm::Value* LLVMCodeGen::createDeferredExternalSymbolMarker(llvm::GlobalVariable* externalVar, const String& name) {
+    // Create a special marker that indicates this needs deferred processing
+    // We'll use a null pointer as a marker, and store the external variable reference
+    // for later processing in the main function
+    
+    // Store the external variable reference for deferred initialization
+    deferredExternalSymbols_[name] = externalVar;
+    
+    // Return a null pointer as a placeholder
+    return llvm::Constant::getNullValue(externalVar->getValueType());
 }
 
 llvm::Function* LLVMCodeGen::getOrCreateStringConcatFunction() {
