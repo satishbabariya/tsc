@@ -583,9 +583,9 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
             std::cout << "DEBUG: PropertyAssignment - property: " << propertyName << std::endl;
             
             // Handle specific property assignments for class fields
-            if (propertyName == "items") {
+            if (propertyName == "items" || propertyName == "data") {
                 // Implement proper property assignment to object fields
-                std::cout << "DEBUG: PropertyAssignment - assigning to items field" << std::endl;
+                std::cout << "DEBUG: PropertyAssignment - assigning to " << propertyName << " field" << std::endl;
                 
                 // Get the object type to determine the field layout
                 // For BasicArrayOperations<T>, the layout is { i32, ptr }
@@ -625,15 +625,15 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
                         llvm::StructType* structType = llvm::cast<llvm::StructType>(elementType);
                         std::cout << "DEBUG: PropertyAssignment - struct type with " << structType->getNumElements() << " elements" << std::endl;
                         
-                        // The items field is at index 1 (after the length field at index 0)
+                        // The items/data field is at index 1 (after the length field at index 0)
                         if (structType->getNumElements() >= 2) {
-                            // Get pointer to the items field
+                            // Get pointer to the items/data field
                             llvm::Value* itemsFieldPtr = builder_->CreateStructGEP(structType, objectPtr, 1, "items_field_ptr");
-                            std::cout << "DEBUG: PropertyAssignment - items field pointer created" << std::endl;
+                            std::cout << "DEBUG: PropertyAssignment - " << propertyName << " field pointer created" << std::endl;
                             
-                            // Store the array value to the items field
+                            // Store the array value to the items/data field
                             builder_->CreateStore(value, itemsFieldPtr);
-                            std::cout << "DEBUG: PropertyAssignment - array value stored to items field" << std::endl;
+                            std::cout << "DEBUG: PropertyAssignment - array value stored to " << propertyName << " field" << std::endl;
                         } else {
                             std::cout << "DEBUG: PropertyAssignment - struct has insufficient elements" << std::endl;
                         }
@@ -1481,10 +1481,10 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
             return;
         }
         
-        // Create array structure: { i32 length, [3 x double] data }
+        // Create array structure: { i32 length, ptr data }
         llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
             llvm::Type::getInt32Ty(*context_),  // length
-            llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 3)  // data (fixed size array)
+            llvm::Type::getInt8Ty(*context_)->getPointerTo()  // data (pointer to dynamically allocated array)
         });
         
         // Allocate the array on the heap since it needs to outlive the function
@@ -1502,6 +1502,10 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
         // Set length to 0
         llvm::Value* lengthPtr = builder_->CreateStructGEP(arrayStructType, arrayStorage, 0, "length.ptr");
         builder_->CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), lengthPtr);
+        
+        // Initialize data pointer to null (will be allocated when first element is added)
+        llvm::Value* dataPtr = builder_->CreateStructGEP(arrayStructType, arrayStorage, 1, "data.ptr");
+        builder_->CreateStore(llvm::ConstantPointerNull::get(llvm::Type::getInt8Ty(*context_)->getPointerTo()), dataPtr);
         
         setCurrentValue(arrayStorage);
         return;
@@ -1914,8 +1918,8 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         std::cout << "DEBUG: PropertyAccess - property name: " << propertyName << std::endl;
         
         // If we're in a monomorphized method (e.g., Container_number_getValue or BasicArrayOperations_number_getLength)
-        // and accessing 'value' or 'items', handle it as struct field access
-        if (functionName.find("_") != String::npos && (propertyName == "value" || propertyName == "items")) {
+        // and accessing 'value', 'items', or 'data', handle it as struct field access
+        if (functionName.find("_") != String::npos && (propertyName == "value" || propertyName == "items" || propertyName == "data")) {
             std::cout << "DEBUG: PropertyAccess - Entering struct field access for monomorphized method" << std::endl;
             // This is likely a monomorphized method accessing 'this.value' or 'this.items'
             // For now, assume the first field is the requested field
@@ -1938,8 +1942,8 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 setCurrentValue(fieldValue);
                 std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'value'" << std::endl;
                 return;
-            } else if (propertyName == "items") {
-                // For 'items', the object structure is { i32, ptr }
+            } else if (propertyName == "items" || propertyName == "data") {
+                // For 'items' or 'data', the object structure is { i32, ptr }
                 // Field 0: length field (not used, but kept for compatibility)
                 // Field 1: pointer to array data
                 std::vector<llvm::Type*> fieldTypes = { 
@@ -1948,15 +1952,15 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 };
                 llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
                 
-                // Use index 1 for the items field (second field - pointer to array)
+                // Use index 1 for the items/data field (second field - pointer to array)
                 llvm::Value* indices[] = {
                     llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
                     llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)   // Field index 1 (pointer to array)
                 };
                 
-                llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "items_ptr");
+                llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "data_ptr");
                 setCurrentValue(fieldPtr);
-                std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'items' at index 1 (pointer to array)" << std::endl;
+                std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field '" << propertyName << "' at index 1 (pointer to array)" << std::endl;
                 return;
             }
         } else {
@@ -4135,17 +4139,18 @@ llvm::Function* LLVMCodeGen::getOrCreateConsoleLogFunction() {
     }
     
     // Create console.log function that takes a variable number of arguments
-    // For simplicity, we'll create a function that takes a single "any" type argument
+    // Make it variadic to handle multiple arguments like console.log("msg", value)
     std::vector<llvm::Type*> paramTypes;
-    paramTypes.push_back(getAnyType()); // Single parameter of any type
+    paramTypes.push_back(getAnyType()); // First parameter of any type
     
     llvm::FunctionType* funcType = llvm::FunctionType::get(
         llvm::Type::getVoidTy(*context_), // Return type: void
         paramTypes,                       // Parameter types
-        false                            // Not variadic for now
+        true                             // Variadic to accept multiple arguments
     );
     
-    // Create the function
+    // Create the function as external (declaration only)
+    // The actual implementation is in runtime.c
     llvm::Function* consoleLogFunc = llvm::Function::Create(
         funcType,
         llvm::Function::ExternalLinkage,
@@ -4153,41 +4158,7 @@ llvm::Function* LLVMCodeGen::getOrCreateConsoleLogFunction() {
         *module_
     );
     
-    // Create a basic block for the function body
-    llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", consoleLogFunc);
-    llvm::IRBuilder<> funcBuilder(entryBlock);
-    
-    // Get the parameter
-    llvm::Value* arg = consoleLogFunc->arg_begin();
-    
-    // For now, we'll create a simple implementation that calls printf
-    // First, declare printf function
-    llvm::FunctionType* printfType = llvm::FunctionType::get(
-        llvm::Type::getInt32Ty(*context_), // Return type: int
-        {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)}, // Format string parameter
-        true // Variadic
-    );
-    
-    llvm::Function* printfFunc = llvm::Function::Create(
-        printfType,
-        llvm::Function::ExternalLinkage,
-        "printf",
-        *module_
-    );
-    
-    // Create format string for different types
-    // For simplicity, we'll assume the argument is a number and print it
-    llvm::Value* formatStr = funcBuilder.CreateGlobalString("%g\n", "format_str");
-    
-    // Use the actual argument passed to console.log
-    // Since the argument is a pointer (i8*), we need to print it as a string
-    llvm::Value* stringFormatStr = funcBuilder.CreateGlobalString("%s\n", "string_format_str");
-    
-    // Call printf with the actual argument
-    funcBuilder.CreateCall(printfFunc, {stringFormatStr, arg});
-    
-    // Return void
-    funcBuilder.CreateRetVoid();
+    // No function body needed - the implementation is in runtime.c
     
     return consoleLogFunc;
 }

@@ -238,8 +238,22 @@ __asm__(".weak number_to_string.12");
 __asm__(".set number_to_string.12, number_to_string_8");
 
 // Aliases for mangled arrayPush functions
+__asm__(".weak arrayPush.1");
+__asm__(".set arrayPush.1, arrayPush");
+__asm__(".weak arrayPush.2");
+__asm__(".set arrayPush.2, arrayPush");
+__asm__(".weak arrayPush.3");
+__asm__(".set arrayPush.3, arrayPush");
+__asm__(".weak arrayPush.4");
+__asm__(".set arrayPush.4, arrayPush");
+__asm__(".weak arrayPush.5");
+__asm__(".set arrayPush.5, arrayPush");
 __asm__(".weak arrayPush.6");
 __asm__(".set arrayPush.6, arrayPush");
+__asm__(".weak arrayPush.7");
+__asm__(".set arrayPush.7, arrayPush");
+__asm__(".weak arrayPush.8");
+__asm__(".set arrayPush.8, arrayPush");
 __asm__(".weak arrayPush.9");
 __asm__(".set arrayPush.9, arrayPush");
 __asm__(".weak arrayPush.10");
@@ -280,7 +294,50 @@ void* malloc_16(size_t size) {
     return malloc(size);
 }
 
+// Function definitions for mangled malloc functions
+void* malloc_2(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_3(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_4(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_5(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_6(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_7(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_8(size_t size) {
+    return malloc(size);
+}
+
 // Aliases for mangled malloc functions
+__asm__(".weak malloc.2");
+__asm__(".set malloc.2, malloc_2");
+__asm__(".weak malloc.3");
+__asm__(".set malloc.3, malloc_3");
+__asm__(".weak malloc.4");
+__asm__(".set malloc.4, malloc_4");
+__asm__(".weak malloc.5");
+__asm__(".set malloc.5, malloc_5");
+__asm__(".weak malloc.6");
+__asm__(".set malloc.6, malloc_6");
+__asm__(".weak malloc.7");
+__asm__(".set malloc.7, malloc_7");
+__asm__(".weak malloc.8");
+__asm__(".set malloc.8, malloc_8");
 __asm__(".weak malloc.9");
 __asm__(".set malloc.9, malloc_9");
 __asm__(".weak malloc.10");
@@ -301,3 +358,17 @@ __asm__(".set malloc.16, malloc_16");
 // Additional number_to_string aliases
 __asm__(".weak number_to_string.13");
 __asm__(".set number_to_string.13, number_to_string_7");
+
+// Console log function
+// This is a variadic function that can accept multiple arguments
+void console_log(void* first_arg, ...) {
+    // For now, just print a simple message
+    // In a full implementation, this would format and print all arguments
+    printf("Console log called\n");
+    
+    // Note: This is a placeholder implementation
+    // A full implementation would:
+    // 1. Process all variadic arguments
+    // 2. Convert them to strings
+    // 3. Format and print them
+}
