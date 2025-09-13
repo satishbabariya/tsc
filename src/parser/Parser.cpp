@@ -489,9 +489,12 @@ unique_ptr<Statement> Parser::parseInterfaceDeclaration() {
     std::vector<shared_ptr<Type>> extends;
     if (match(TokenType::Extends)) {
         do {
-            Token extendsToken = consume(TokenType::Identifier, "Expected interface name");
-            // Create placeholder type - will be resolved in semantic analysis
-            extends.push_back(typeSystem_.createInterfaceType(extendsToken.getStringValue()));
+            // Parse interface type (which may include generic type arguments)
+            ParsingContext oldContext = currentContext_;
+            setContext(ParsingContext::Type);
+            auto extendsType = parseUnionType();
+            setContext(oldContext);
+            extends.push_back(extendsType);
         } while (match(TokenType::Comma));
     }
     

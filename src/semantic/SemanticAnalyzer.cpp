@@ -1976,6 +1976,21 @@ void SemanticAnalyzer::visit(InterfaceDeclaration& node) {
     for (const auto& typeParam : node.getTypeParameters()) {
         std::cout << "DEBUG: Processing interface type parameter: " << typeParam->getName() << std::endl;
         std::cout << "DEBUG: Current scope when adding interface type parameter: " << symbolTable_->getCurrentScope() << std::endl;
+        
+        // Validate type parameter constraint if present
+        if (typeParam->getConstraint()) {
+            std::cout << "DEBUG: Validating constraint for type parameter: " << typeParam->getName() << std::endl;
+            auto constraintType = typeParam->getConstraint();
+            std::cout << "DEBUG: Constraint type: " << constraintType->toString() << std::endl;
+            
+            // For now, we validate that the constraint is a valid type
+            // In a full implementation, we'd check that the constraint is a valid base type
+            if (constraintType->isError()) {
+                reportError("Invalid constraint type for type parameter '" + typeParam->getName() + "'", 
+                           typeParam->getLocation());
+            }
+        }
+        
         auto paramType = typeSystem_->createTypeParameter(typeParam->getName(), typeParam->getConstraint());
         typeParameters.push_back(paramType);
         
@@ -1986,8 +2001,26 @@ void SemanticAnalyzer::visit(InterfaceDeclaration& node) {
     
     // Analyze extended interfaces if present
     for (const auto& extended : node.getExtends()) {
-        // Interface extension validation would go here
-        // For now, we assume they're valid
+        std::cout << "DEBUG: Processing interface extension: " << extended->toString() << std::endl;
+        
+        // Validate that the extended type is a valid interface type
+        if (extended->isError()) {
+            reportError("Invalid interface type in extends clause", node.getLocation());
+            continue;
+        }
+        
+        // For generic interfaces with type arguments, validate that the type arguments
+        // satisfy the constraints of the base interface
+        if (auto genericType = dynamic_cast<GenericType*>(extended.get())) {
+            std::cout << "DEBUG: Extended interface is generic with " << genericType->getTypeArguments().size() << " type arguments" << std::endl;
+            
+            // TODO: Validate that type arguments satisfy constraints
+            // This would require looking up the base interface and checking its constraints
+        }
+        
+        // TODO: Implement full interface inheritance validation
+        // This would include checking that the extended interface exists,
+        // validating type argument constraints, and ensuring compatibility
     }
     
     // Analyze property signatures
