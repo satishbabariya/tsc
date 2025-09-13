@@ -148,7 +148,6 @@ private:
 
 // TODO: Template literals support
 // Template literal element (text or expression)
-/*
 class TemplateElement {
 public:
     TemplateElement(const String& text, bool isExpression = false)
@@ -190,7 +189,7 @@ private:
 // Template literals: `Hello ${name}!`
 class TemplateLiteral : public Expression {
 public:
-    TemplateLiteral(vector<TemplateElement> elements, const SourceLocation& loc)
+    TemplateLiteral(std::vector<TemplateElement>&& elements, const SourceLocation& loc)
         : elements_(std::move(elements)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
@@ -198,13 +197,12 @@ public:
     Category getCategory() const override { return Category::RValue; }
     String toString() const override;
     
-    const vector<TemplateElement>& getElements() const { return elements_; }
+    const std::vector<TemplateElement>& getElements() const { return elements_; }
 
 private:
-    vector<TemplateElement> elements_;
+    std::vector<TemplateElement> elements_;
     SourceLocation location_;
 };
-*/
 
 class BooleanLiteral : public Expression {
 public:
@@ -1342,6 +1340,7 @@ public:
     virtual void visit(ConditionalExpression& node) = 0;
     virtual void visit(CallExpression& node) = 0;
     virtual void visit(ArrayLiteral& node) = 0;
+    virtual void visit(TemplateLiteral& node) = 0;
     virtual void visit(IndexExpression& node) = 0;
     virtual void visit(ObjectLiteral& node) = 0;
     virtual void visit(PropertyAccess& node) = 0;

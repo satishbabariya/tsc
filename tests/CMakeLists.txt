@@ -24,6 +24,16 @@ if(GTest_FOUND)
         test_advanced_generics_semantic.cpp
         test_integration_advanced_generics.cpp
         test_regression_advanced_generics.cpp
+        # Comprehensive generic constraints tests
+        test_generic_constraints_integration.cpp
+        test_generic_constraints_negative.cpp
+        test_generic_constraints_ast_validation.cpp
+        test_generic_constraints_regression.cpp
+        test_generic_constraints_performance.cpp
+        test_generic_constraints_edge_cases.cpp
+        test_generic_constraints_advanced_negative.cpp
+        # Runtime function declaration tests
+        test_runtime_function_declarations.cpp
     )
     
     target_link_libraries(tsc_tests

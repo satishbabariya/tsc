@@ -78,6 +78,7 @@ public:
     void visit(ConditionalExpression& node) override;
     void visit(CallExpression& node) override;
     void visit(ArrayLiteral& node) override;
+    void visit(TemplateLiteral& node) override;
     void visit(IndexExpression& node) override;
     void visit(ObjectLiteral& node) override;
     void visit(PropertyAccess& node) override;
@@ -221,6 +222,10 @@ private:
     
     // Built-in function and variable setup
     void setupBuiltinEnvironment();
+    
+    // Generic constraint validation helpers
+    FunctionDeclaration* getFunctionDeclaration(const String& functionName);
+    bool validateGenericFunctionCall(const CallExpression& call, const FunctionDeclaration& funcDecl, const FunctionType& functionType);
 };
 
 // Semantic analysis result

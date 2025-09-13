@@ -239,7 +239,7 @@ bool Compiler::linkExecutable(const std::vector<String>& objectFiles, const Stri
         }
         
         // Add our runtime library (if it exists)
-        String runtimePath = "runtime.o";
+        String runtimePath = "build/libtsc_runtime.a";
         std::ifstream runtimeFile(runtimePath);
         if (runtimeFile.good()) {
             command += " " + runtimePath;

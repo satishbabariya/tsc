@@ -231,7 +231,8 @@ public:
     public:
         BuiltinFunctionRegistry(llvm::Module* module, llvm::LLVMContext* context)
             : module_(module), context_(context) {
-            registerBuiltinFunctions();
+            // NOTE: We don't call registerBuiltinFunctions() to avoid unused external declarations
+            // Runtime functions are created on-demand when they're actually used during code generation
         }
         
         llvm::Function* getBuiltinFunction(const String& name) {
@@ -375,7 +376,7 @@ public:
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;
     void visit(StringLiteral& node) override;
-    // void visit(TemplateLiteral& node) override;  // TODO: Template literals
+    void visit(TemplateLiteral& node) override;
     void visit(BooleanLiteral& node) override;
     void visit(NullLiteral& node) override;
     void visit(Identifier& node) override;
@@ -469,6 +470,12 @@ private:
     // Closure struct type cache to ensure consistent types
     std::unordered_map<String, llvm::StructType*> closureTypeCache_;
     
+    // Deferred global variable initializations (for non-constant values)
+    std::vector<std::pair<llvm::GlobalVariable*, llvm::Value*>> deferredGlobalInitializations_;
+    
+    // Deferred external symbol references (for Infinity, NaN, etc.)
+    std::unordered_map<String, llvm::GlobalVariable*> deferredExternalSymbols_;
+    
     // Type mapping from TypeScript to LLVM
     llvm::Type* mapTypeScriptTypeToLLVM(const Type& type);
     llvm::Type* getNumberType() const;
@@ -530,10 +537,13 @@ private:
     
     // Built-in functions
     void declareBuiltinFunctions();
+    void declareBuiltinGlobals();
+    llvm::Value* createDeferredExternalSymbolMarker(llvm::GlobalVariable* externalVar, const String& name);
     llvm::Function* getOrCreatePrintFunction();
     llvm::Function* getOrCreateStringConcatFunction();
     llvm::Function* getOrCreateNumberToStringFunction();
     llvm::Function* getOrCreateBooleanToStringFunction();
+    llvm::Function* getOrCreateObjectToStringFunction();
     llvm::Function* getOrCreateThrowFunction();
     llvm::Function* getOrCreateRethrowFunction();
     

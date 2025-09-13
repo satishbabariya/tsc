@@ -221,6 +221,11 @@ void SymbolTable::addBuiltinSymbols() {
     auto consoleType = make_shared<ObjectType>();
     addSymbol("console", SymbolKind::Variable, consoleType, SourceLocation());
     
+    // Add built-in number constants
+    auto numberType = make_shared<PrimitiveType>(TypeKind::Number);
+    addSymbol("Infinity", SymbolKind::Variable, numberType, SourceLocation());
+    addSymbol("NaN", SymbolKind::Variable, numberType, SourceLocation());
+    
     // Add built-in types (these would be handled by the type system)
     // This is mainly for demonstration - in a full implementation,
     // built-in types would be handled differently

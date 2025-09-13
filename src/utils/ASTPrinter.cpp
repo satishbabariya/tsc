@@ -21,8 +21,6 @@ void ASTPrinter::visit(StringLiteral& node) {
     output_ << "StringLiteral: \"" << node.getValue() << "\"" << std::endl;
 }
 
-// TODO: Template literals ASTPrinter
-/*
 void ASTPrinter::visit(TemplateLiteral& node) {
     printIndent();
     output_ << "TemplateLiteral:" << std::endl;
@@ -42,7 +40,6 @@ void ASTPrinter::visit(TemplateLiteral& node) {
     }
     decreaseIndent();
 }
-*/
 
 void ASTPrinter::visit(BooleanLiteral& node) {
     printIndent();

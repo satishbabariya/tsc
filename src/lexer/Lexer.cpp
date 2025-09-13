@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <cctype>
 #include <algorithm>
+#include <iostream>
 
 namespace tsc {
 
@@ -185,6 +186,22 @@ Token Lexer::scanToken() {
     
     if (isAtEnd()) {
         return makeToken(TokenType::EndOfInput);
+    }
+    
+    // Handle template expression state
+    if (state_ == LexerState::TemplateExpression) {
+        // Check for closing brace to end template expression
+        if (peek() == '}') {
+            advance(); // consume '}'
+            setState(LexerState::Template);
+            return scanTemplateTail(); // Continue with template tail
+        }
+        // Otherwise, tokenize normally (fall through to normal tokenizing)
+    }
+    
+    // Handle template state (after expression)
+    if (state_ == LexerState::Template) {
+        return scanTemplateTail();
     }
     
     char c = peek();
@@ -411,10 +428,11 @@ Token Lexer::scanTemplate() {
                 advance(); // consume escaped character
             }
         } else if (peek() == '$' && peek(1) == '{') {
-            // Template expression - for now, simplified handling
+            // Found template expression - return template head
             String value = substring(start, current_);
             advance(); // consume $
             advance(); // consume {
+            setState(LexerState::TemplateExpression);
             return makeToken(TokenType::TemplateHead, value);
         } else {
             advance();
@@ -425,10 +443,44 @@ Token Lexer::scanTemplate() {
         return makeErrorToken("Unterminated template literal");
     }
     
+    // No template expressions found - this is a no-substitution template
     String value = substring(start, current_);
     advance(); // consume closing `
     
     return makeToken(TokenType::NoSubstitutionTemplate, value);
+}
+
+
+Token Lexer::scanTemplateTail() {
+    size_t start = current_;
+    
+    while (!isAtEnd() && peek() != '`') {
+        if (peek() == '\\') {
+            advance(); // consume backslash
+            if (!isAtEnd()) {
+                advance(); // consume escaped character
+            }
+        } else if (peek() == '$' && peek(1) == '{') {
+            // Found another template expression - return template middle
+            String value = substring(start, current_);
+            advance(); // consume $
+            advance(); // consume {
+            setState(LexerState::TemplateExpression);
+            return makeToken(TokenType::TemplateMiddle, value);
+        } else {
+            advance();
+        }
+    }
+    
+    if (isAtEnd()) {
+        return makeErrorToken("Unterminated template literal");
+    }
+    
+    // End of template literal
+    String value = substring(start, current_);
+    advance(); // consume closing `
+    setState(LexerState::Initial);
+    return makeToken(TokenType::TemplateTail, value);
 }
 
 Token Lexer::scanRegularExpression() {

@@ -5,6 +5,7 @@
 #include "tsc/utils/ASTAllocator.h"
 #include "tsc/lexer/Lexer.h"
 #include "tsc/semantic/TypeSystem.h"
+#include "tsc/AST.h"
 #include <unordered_map>
 #include <iostream>
 
@@ -26,6 +27,7 @@ static const std::unordered_map<TokenType, int> operatorPrecedence = {
     {TokenType::Minus, 11},
     {TokenType::Star, 12},
     {TokenType::Slash, 12},
+    {TokenType::Percent, 12},  // Modulo operator has same precedence as multiplication/division
 };
 
 Parser::Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) 
@@ -1108,10 +1110,11 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
         return make_unique<StringLiteral>(token.getStringValue(), token.getLocation());
     }
     
-    // TODO: Template literals support
-    // if (check(TokenType::NoSubstitutionTemplate) || check(TokenType::TemplateHead)) {
-    //     return parseTemplateLiteral();
-    // }
+    // Template literals support
+    std::cout << "DEBUG: Current token type: " << static_cast<int>(peek().getType()) << std::endl;
+    if (check(TokenType::NoSubstitutionTemplate) || check(TokenType::TemplateHead)) {
+        return parseTemplateLiteral();
+    }
     
     if (check(TokenType::True)) {
         advance();
@@ -1279,11 +1282,10 @@ unique_ptr<Expression> Parser::parseNewExpression() {
                                      std::move(arguments), location);
 }
 
-// TODO: Template literals parser
-/*
+// Template literals parser
 unique_ptr<Expression> Parser::parseTemplateLiteral() {
     SourceLocation location = getCurrentLocation();
-    vector<TemplateElement> elements;
+    std::vector<TemplateElement> elements;
     
     if (check(TokenType::NoSubstitutionTemplate)) {
         // Simple template literal without expressions: `hello world`
@@ -1292,19 +1294,54 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
         return make_unique<TemplateLiteral>(std::move(elements), location);
     }
     
-    // For now, just treat TemplateHead as a simple string literal
-    // TODO: Implement full template literal parsing with expressions
-    if (check(TokenType::TemplateHead)) {
-        Token token = advance();
-        elements.emplace_back(TemplateElement(token.getStringValue()));
-        return make_unique<TemplateLiteral>(std::move(elements), location);
+    // Parse template literal with expressions: `Hello ${name}!`
+    while (true) {
+        if (check(TokenType::TemplateHead)) {
+            // TemplateHead: "Hello "
+            Token token = advance();
+            elements.emplace_back(TemplateElement(token.getStringValue()));
+            
+            // Parse the expression inside ${}
+            // Handle empty expressions gracefully
+            if (check(TokenType::TemplateTail)) {
+                // Empty expression: ${} - create an empty string literal
+                auto emptyExpression = make_unique<StringLiteral>("", location);
+                elements.emplace_back(TemplateElement(std::move(emptyExpression)));
+            } else {
+                auto expression = parseExpression();
+                elements.emplace_back(TemplateElement(std::move(expression)));
+            }
+            
+        } else if (check(TokenType::TemplateMiddle)) {
+            // TemplateMiddle: " world "
+            Token token = advance();
+            elements.emplace_back(TemplateElement(token.getStringValue()));
+            
+            // Parse the expression inside ${}
+            // Handle empty expressions gracefully
+            if (check(TokenType::TemplateTail)) {
+                // Empty expression: ${} - create an empty string literal
+                auto emptyExpression = make_unique<StringLiteral>("", location);
+                elements.emplace_back(TemplateElement(std::move(emptyExpression)));
+            } else {
+                auto expression = parseExpression();
+                elements.emplace_back(TemplateElement(std::move(expression)));
+            }
+            
+        } else if (check(TokenType::TemplateTail)) {
+            // TemplateTail: "!"
+            Token token = advance();
+            elements.emplace_back(TemplateElement(token.getStringValue()));
+            break; // End of template literal
+            
+        } else {
+            // Unexpected token
+            break;
+        }
     }
     
-    // Fallback: create an empty template literal
-    elements.emplace_back(TemplateElement(""));
     return make_unique<TemplateLiteral>(std::move(elements), location);
 }
-*/
 
 // Utility methods
 Token Parser::peek() const {
@@ -1361,6 +1398,7 @@ BinaryExpression::Operator Parser::tokenToBinaryOperator(TokenType type) const {
         case TokenType::Minus: return BinaryExpression::Operator::Subtract;
         case TokenType::Star: return BinaryExpression::Operator::Multiply;
         case TokenType::Slash: return BinaryExpression::Operator::Divide;
+        case TokenType::Percent: return BinaryExpression::Operator::Modulo;
         case TokenType::EqualEqual: return BinaryExpression::Operator::Equal;
         case TokenType::NotEqual: return BinaryExpression::Operator::NotEqual;
         case TokenType::Less: return BinaryExpression::Operator::Less;
@@ -1745,7 +1783,18 @@ unique_ptr<TypeParameter> Parser::parseTypeParameter() {
     
     shared_ptr<Type> constraint = nullptr;
     if (match(TokenType::Extends)) {
-        constraint = parseTypeAnnotation();
+        // Set type context for better disambiguation
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
+        
+        constraint = parsePrimaryType();
+        if (!constraint) {
+            reportError("Expected constraint type after 'extends'", getCurrentLocation());
+            constraint = typeSystem_.getErrorType();
+        }
+        
+        // Restore previous context
+        setContext(oldContext);
     }
     
     return make_unique<TypeParameter>(name, constraint, Variance::Invariant, nameToken.getLocation());
