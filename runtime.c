@@ -163,23 +163,30 @@ void arrayPush(void* array_ptr, void* item) {
     }
     printf("DEBUG: arrayPush - array_ptr is not null, proceeding...\n");
     
-    // The array structure is { i32 length, [N x elementType] data }
-    // We need to increment the length and store the item at the new position
-    int* length_ptr = (int*)array_ptr;
-    printf("DEBUG: arrayPush - length_ptr=%p\n", length_ptr);
-    int current_length = *length_ptr;
+    // The new array structure is { i32 length, ptr data }
+    // We need to access the length field correctly
+    struct {
+        int length;
+        void* data_ptr;
+    }* array_struct = (void*)array_ptr;
     
-    printf("DEBUG: arrayPush called with array=%p, item=%p, current_length=%d\n", array_ptr, item, current_length);
+    printf("DEBUG: arrayPush - array_struct=%p, length_ptr=%p, data_ptr=%p\n", 
+           array_struct, &array_struct->length, array_struct->data_ptr);
+    
+    int current_length = array_struct->length;
+    
+    printf("DEBUG: arrayPush called with array=%p, item=%p, current_length=%d\n", 
+           array_ptr, item, current_length);
     
     // For now, this is a placeholder implementation
     // In a full implementation, we would:
     // 1. Check if the array has space for another item
-    // 2. Store the item at the appropriate position
+    // 2. Store the item at the appropriate position using data_ptr
     // 3. Increment the length
     // For now, just increment the length as a proof of concept
-    *length_ptr = current_length + 1;
+    array_struct->length = current_length + 1;
     
-    printf("DEBUG: arrayPush updated length to %d\n", *length_ptr);
+    printf("DEBUG: arrayPush updated length to %d\n", array_struct->length);
 }
 
 // Array pop function
@@ -295,6 +302,10 @@ void* malloc_16(size_t size) {
 }
 
 // Function definitions for mangled malloc functions
+void* malloc_1(size_t size) {
+    return malloc(size);
+}
+
 void* malloc_2(size_t size) {
     return malloc(size);
 }
@@ -324,6 +335,8 @@ void* malloc_8(size_t size) {
 }
 
 // Aliases for mangled malloc functions
+__asm__(".weak malloc.1");
+__asm__(".set malloc.1, malloc_1");
 __asm__(".weak malloc.2");
 __asm__(".set malloc.2, malloc_2");
 __asm__(".weak malloc.3");
