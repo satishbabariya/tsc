@@ -937,6 +937,23 @@ void LLVMCodeGen::visit(CallExpression& node) {
             propertyAccess->getObject()->accept(*this);
             llvm::Value* objectInstance = getCurrentValue();
             
+            // Convert object instance to the correct type for the function
+            llvm::FunctionType* funcType = function->getFunctionType();
+            if (funcType->getNumParams() > 0) {
+                llvm::Type* expectedType = funcType->getParamType(0);
+                llvm::Type* actualType = objectInstance->getType();
+                
+                if (actualType != expectedType) {
+                    std::cout << "DEBUG: Converting object instance from " << actualType->getTypeID() << " to " << expectedType->getTypeID() << std::endl;
+                    
+                    if (actualType == getAnyType() && expectedType == getNumberType()) {
+                        // Dereference the pointer to get the actual value
+                        objectInstance = builder_->CreateLoad(getNumberType(), objectInstance, "dereferenced_value");
+                        std::cout << "DEBUG: Dereferenced pointer to get double value" << std::endl;
+                    }
+                }
+            }
+            
             // Store the object instance for later use in argument generation
             // We'll need to prepend it to the arguments list
         } else if (calleeValue) {
@@ -1032,6 +1049,9 @@ void LLVMCodeGen::visit(CallExpression& node) {
             
             args.push_back(objectInstance);
             std::cout << "DEBUG: Prepended object instance as first argument for method call" << std::endl;
+            
+            // Skip regular argument processing for method calls since objectInstance is already added
+            goto generate_call;
         }
     } else if (function && function->getName() == "toString" && node.getArguments().empty()) {
         // Special case: toString() call without arguments - this might be a method call on a value
@@ -1043,6 +1063,9 @@ void LLVMCodeGen::visit(CallExpression& node) {
         llvm::Value* dummyArg = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(getAnyType()));
         args.push_back(dummyArg);
         std::cout << "DEBUG: Added dummy argument to toString call" << std::endl;
+        
+        // Skip regular argument processing for this case too
+        goto generate_call;
     }
     
     for (size_t i = 0; i < node.getArguments().size(); ++i) {
@@ -1069,6 +1092,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
         args.push_back(argValue);
     }
     
+generate_call:
     // Generate the function call
     llvm::Value* callResult;
     if (function->getReturnType()->isVoidTy()) {
@@ -1358,32 +1382,19 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         
         // Now handle the property access on the nested value
         if (propertyName == "toString") {
-            // For toString on a number (which is what array.length returns), create a toString function
-            std::cout << "DEBUG: Creating toString function for nested value" << std::endl;
+            // For toString on a number (which is what array.length returns), create a number_to_string function
+            std::cout << "DEBUG: Creating number_to_string function for nested value" << std::endl;
             auto numberType = std::make_shared<PrimitiveType>(TypeKind::Number);
             llvm::Function* toStringFunc = createBuiltinMethodFunction("toString", numberType, node.getLocation());
             
-            // Instead of just setting the function as the current value, we need to handle the call immediately
-            // Convert the nested value (double) to ptr before calling the function
-            llvm::Type* expectedType = toStringFunc->getFunctionType()->getParamType(0);
-            llvm::Type* actualType = nestedValue->getType();
+            // The function expects a double parameter, and nestedValue should already be a double
+            // No conversion needed since array.length returns a double and number_to_string expects a double
             
-            if (expectedType != actualType) {
-                std::cout << "DEBUG: Converting nested value type from " << actualType->getTypeID() << " to " << expectedType->getTypeID() << std::endl;
-                
-                if (actualType == getNumberType() && expectedType == getAnyType()) {
-                    // Convert double to ptr (allocate on stack and store the value)
-                    llvm::Value* alloca = builder_->CreateAlloca(getNumberType(), nullptr, "temp_number");
-                    builder_->CreateStore(nestedValue, alloca);
-                    nestedValue = alloca;
-                }
-            }
-            
-            // Call the toString function with the converted argument
+            // Call the number_to_string function directly
             std::vector<llvm::Value*> args = {nestedValue};
             llvm::Value* result = builder_->CreateCall(toStringFunc, args, "toString_result");
             setCurrentValue(result);
-            std::cout << "DEBUG: Called toString function with converted argument" << std::endl;
+            std::cout << "DEBUG: Called number_to_string function with double argument" << std::endl;
             return;
         }
     }
@@ -5424,7 +5435,7 @@ llvm::Function* LLVMCodeGen::genericMethodLookup(const String& methodName, share
             // Handle methods based on constraint type
             if (constraintType->getKind() == TypeKind::Number) {
                 if (methodName == "toString") {
-                    return createBuiltinMethodFunction("numberToString", constraintType, location);
+                    return createBuiltinMethodFunction("toString", constraintType, location);
                 }
             } else if (constraintType->getKind() == TypeKind::String) {
                 if (methodName == "toString") {
@@ -5458,21 +5469,17 @@ llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodNam
     
     // Create appropriate function based on method name
     if (methodName == "toString" || methodName == "numberToString") {
-        // For toString, we need to create a function that can handle the specific type
-        // Since we're dealing with generic types, we'll use getAnyType() as the parameter
-        // and handle the type conversion at the call site
-        llvm::Type* paramType = getAnyType(); // Always use ptr for generic toString
-        
-        // toString() -> string
+        // For toString on numbers, use the runtime function number_to_string
+        // This function takes a double and returns a char*
         auto funcType = llvm::FunctionType::get(
-            getStringType(),  // Return type: string
-            {paramType},      // Parameter: always ptr for generic toString
+            getStringType(),  // Return type: char* (string)
+            {getNumberType()}, // Parameter: double (number)
             false
         );
         auto func = llvm::Function::Create(
-            funcType, llvm::Function::ExternalLinkage, "toString", module_.get()
+            funcType, llvm::Function::ExternalLinkage, "number_to_string", module_.get()
         );
-        std::cout << "DEBUG: Created toString function with parameter type: " << paramType->getTypeID() << std::endl;
+        std::cout << "DEBUG: Created number_to_string function with parameter type: double" << std::endl;
         return func;
     } else if (methodName == "valueOf") {
         // valueOf() -> any (returns the object itself)
