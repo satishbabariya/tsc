@@ -4442,6 +4442,10 @@ llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation&
             if (globalVar->hasInitializer()) {
                 return globalVar->getInitializer();
             }
+            // For global variables without initializers (like those initialized with malloc),
+            // return the global variable pointer itself instead of trying to load from it
+            std::cout << "DEBUG: Global variable " << name << " has no initializer, returning global variable pointer" << std::endl;
+            return globalVar;
             // Check if this is an external symbol (like Infinity, NaN)
             // Check by name since linkage might not be set correctly
             if (name == "Infinity" || name == "NaN") {
