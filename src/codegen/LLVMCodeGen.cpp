@@ -931,6 +931,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
         if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
             // This is a function call (like console.log), not a method call
             function = llvm::cast<llvm::Function>(calleeValue);
+            std::cout << "DEBUG: CallExpression - Found function from PropertyAccess: " << function->getName().str() << std::endl;
         } else {
             // This is a method call (like obj.method())
             String methodName = propertyAccess->getProperty();
@@ -976,7 +977,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
             setCurrentValue(callResult);
             return;
         }
-        return;
+        // Continue to generate the function call for functions found via PropertyAccess
     } else {
         reportError("Complex function calls not yet supported", node.getLocation());
         setCurrentValue(createNullValue(getAnyType()));
@@ -1011,9 +1012,11 @@ void LLVMCodeGen::visit(CallExpression& node) {
         // Don't assign a name to void function calls
         callResult = builder_->CreateCall(function, args);
         std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
+        std::cout << "DEBUG: Function call generated in block: " << builder_->GetInsertBlock()->getName().str() << std::endl;
     } else {
         callResult = builder_->CreateCall(function, args, "call_result");
         std::cout << "DEBUG: Created non-void function call to " << function->getName().str() << std::endl;
+        std::cout << "DEBUG: Function call generated in block: " << builder_->GetInsertBlock()->getName().str() << std::endl;
     }
     setCurrentValue(callResult);
 }
@@ -3430,12 +3433,12 @@ llvm::Function* LLVMCodeGen::getOrCreateConsoleLogFunction() {
     // For simplicity, we'll assume the argument is a number and print it
     llvm::Value* formatStr = funcBuilder.CreateGlobalString("%g\n", "format_str");
     
-    // For now, just print a placeholder value since we can't easily determine the type
-    // TODO: Implement proper type handling for console.log arguments
-    llvm::Value* doubleValue = llvm::ConstantFP::get(getNumberType(), 42.0);
+    // Use the actual argument passed to console.log
+    // Since the argument is a pointer (i8*), we need to print it as a string
+    llvm::Value* stringFormatStr = funcBuilder.CreateGlobalString("%s\n", "string_format_str");
     
-    // Call printf
-    funcBuilder.CreateCall(printfFunc, {formatStr, doubleValue});
+    // Call printf with the actual argument
+    funcBuilder.CreateCall(printfFunc, {stringFormatStr, arg});
     
     // Return void
     funcBuilder.CreateRetVoid();
