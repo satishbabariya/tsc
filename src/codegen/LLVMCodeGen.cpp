@@ -457,55 +457,56 @@ void LLVMCodeGen::visit(NewExpression& node) {
         
         llvm::Function* constructorFunc = module_->getFunction(constructorName);
         if (constructorFunc) {
-            // Ensure we're in the correct function context before calling the constructor
-            if (codeGenContext_->getCurrentFunction()) {
-                // For generic classes, process the constructor body inline to avoid cross-function references
-                if (node.hasExplicitTypeArguments()) {
-                    std::cout << "DEBUG: Processing constructor body inline for generic class" << std::endl;
+            // For generic classes, process the constructor body inline to avoid cross-function references
+            if (node.hasExplicitTypeArguments()) {
+                std::cout << "DEBUG: Processing constructor body inline for generic class" << std::endl;
+                
+                // Find the constructor method in the class declaration
+                // For opaque pointers, we need to get the type from the GenericType
+                auto classType = dynamic_cast<const ClassType*>(classSymbol->getType().get());
+                std::cout << "DEBUG: classSymbol->getType(): " << (classSymbol->getType() ? classSymbol->getType()->toString() : "null") << std::endl;
+                std::cout << "DEBUG: classType: " << (classType ? "found" : "null") << std::endl;
+                if (classType && classType->getDeclaration()) {
+                    std::cout << "DEBUG: classDeclaration: " << (classType->getDeclaration() ? "found" : "null") << std::endl;
+                    auto classDecl = classType->getDeclaration();
                     
-                    // Find the constructor method in the class declaration
-                    // For opaque pointers, we need to get the type from the GenericType
-                    auto classType = dynamic_cast<const ClassType*>(classSymbol->getType().get());
-                    std::cout << "DEBUG: classSymbol->getType(): " << (classSymbol->getType() ? classSymbol->getType()->toString() : "null") << std::endl;
-                    std::cout << "DEBUG: classType: " << (classType ? "found" : "null") << std::endl;
-                    if (classType && classType->getDeclaration()) {
-                        std::cout << "DEBUG: classDeclaration: " << (classType->getDeclaration() ? "found" : "null") << std::endl;
-                        auto classDecl = classType->getDeclaration();
-                        
-                        // Find the constructor method
-                        std::cout << "DEBUG: Available methods in class: ";
-                        for (const auto& method : classDecl->getMethods()) {
-                            std::cout << method->getName() << " ";
-                        }
-                        std::cout << std::endl;
-                        
-                        for (const auto& method : classDecl->getMethods()) {
-                            if (method->getName() == "constructor") {
-                                std::cout << "DEBUG: Found constructor method, processing body inline" << std::endl;
-                                
-                                // Set up the 'this' parameter for the constructor body
-                                // Store the objectPtr as 'this' in the symbol table
-                                codeGenContext_->setSymbolValue("this", objectPtr);
-                                std::cout << "DEBUG: Set 'this' parameter to objectPtr for inline constructor body" << std::endl;
-                                
-                                // Process the constructor body inline
-                                // This ensures all variables are in the same function context
-                                method->getBody()->accept(*this);
-                                
-                                std::cout << "DEBUG: Constructor body processed inline successfully" << std::endl;
-                                break;
-                            }
+                    // Find the constructor method
+                    std::cout << "DEBUG: Available methods in class: ";
+                    for (const auto& method : classDecl->getMethods()) {
+                        std::cout << method->getName() << " ";
+                    }
+                    std::cout << std::endl;
+                    
+                    for (const auto& method : classDecl->getMethods()) {
+                        if (method->getName() == "constructor") {
+                            std::cout << "DEBUG: Found constructor method, processing body inline" << std::endl;
+                            
+                            // Set up the 'this' parameter for the constructor body
+                            // Store the objectPtr as 'this' in the symbol table
+                            codeGenContext_->setSymbolValue("this", objectPtr);
+                            std::cout << "DEBUG: Set 'this' parameter to objectPtr for inline constructor body" << std::endl;
+                            
+                            // Process the constructor body inline
+                            // This ensures all variables are in the same function context
+                            method->getBody()->accept(*this);
+                            
+                            std::cout << "DEBUG: Constructor body processed inline successfully" << std::endl;
+                            break;
                         }
                     }
-                } else {
-                    // For non-generic classes, call the constructor normally
-                    builder_->CreateCall(constructorFunc, constructorArgs);
                 }
             } else {
-                // We're in global context, this shouldn't happen for NewExpression
-                reportError("NewExpression called in global context", node.getLocation());
-                setCurrentValue(createNullValue(getAnyType()));
-                return;
+                // For non-generic classes, call the constructor normally
+                // Check if we're in a function context or global context
+                if (codeGenContext_->getCurrentFunction()) {
+                    // We're in a function context, call the constructor normally
+                    builder_->CreateCall(constructorFunc, constructorArgs);
+                } else {
+                    // We're in global context, defer the constructor call to initialization time
+                    std::cout << "DEBUG: Deferring constructor call for global context" << std::endl;
+                    // For now, we'll skip the constructor call in global context
+                    // The object will be initialized later when the global variable is initialized
+                }
             }
         } else {
             // If no constructor found, just initialize with default values
