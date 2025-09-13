@@ -336,7 +336,7 @@ void LLVMCodeGen::visit(SuperExpression& node) {
 }
 
 void LLVMCodeGen::visit(NewExpression& node) {
-    std::cout << "DEBUG: NewExpression visitor called for: " << node.toString() << std::endl;
+    std::cout << "DEBUG: *** NewExpression visitor called for: " << node.toString() << " ***" << std::endl;
     std::cout << "DEBUG: Current insert point at start of NewExpression: " << builder_->GetInsertBlock() << std::endl;
     if (builder_->GetInsertBlock()) {
         std::cout << "DEBUG: Current block name at start of NewExpression: " << builder_->GetInsertBlock()->getName().str() << std::endl;
@@ -412,14 +412,24 @@ void LLVMCodeGen::visit(NewExpression& node) {
         
         // Calculate actual object size based on the type
         llvm::Type* pointeeType = nullptr;
-        if (objectType->isPointerTy()) {
-            // For now, assume all object types are structs and use a fixed size
-            // TODO: This should be improved to get the actual struct type
+        std::cout << "DEBUG: NewExpression - objectType: " << (objectType ? "valid" : "null") << std::endl;
+        if (objectType) {
+            std::cout << "DEBUG: NewExpression - objectType->isPointerTy(): " << (objectType->isPointerTy() ? "true" : "false") << std::endl;
+            std::cout << "DEBUG: NewExpression - objectType->getTypeID(): " << objectType->getTypeID() << std::endl;
+            std::cout << "DEBUG: NewExpression - objectType == getAnyType(): " << (objectType == getAnyType() ? "true" : "false") << std::endl;
+        }
+        bool isPointerType = objectType->isPointerTy();
+        bool isTypedPointerType = (objectType->getTypeID() == llvm::Type::TypedPointerTyID);
+        bool isPointerTyID = (objectType->getTypeID() == llvm::Type::PointerTyID);
+        bool isTypeID15 = (objectType->getTypeID() == 15);  // Handle the actual type ID we're seeing
+        if (isPointerType || isTypedPointerType || isTypeID15) {
+            // The object structure should contain a pointer to the array, not the array itself
+            // This matches what the constructor expects: { i32, ptr }
             pointeeType = llvm::StructType::get(*context_, {
-                llvm::Type::getInt32Ty(*context_),  // length field
-                llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 3)  // array field
+                llvm::Type::getInt32Ty(*context_),  // length field (not used, but kept for compatibility)
+                llvm::PointerType::get(*context_, 0)  // pointer to array data
             });
-            std::cout << "DEBUG: Object type is pointer, using fixed struct type for allocation" << std::endl;
+            std::cout << "DEBUG: Object type is pointer, using struct type { i32, ptr } for allocation" << std::endl;
             std::cout << "DEBUG: Created pointeeType: " << (pointeeType ? "valid" : "null") << std::endl;
             std::cout << "DEBUG: pointeeType isStructTy(): " << (pointeeType->isStructTy() ? "true" : "false") << std::endl;
         } else {
@@ -440,9 +450,9 @@ void LLVMCodeGen::visit(NewExpression& node) {
             std::cout << "DEBUG: Allocating " << module_->getDataLayout().getTypeAllocSize(structType) << " bytes for struct type" << std::endl;
         } else {
             // For the hardcoded struct type, calculate the size manually
-            // { i32, [3 x double] } = 4 + 24 = 28 bytes, but aligned to 32 bytes
-            objectSize = llvm::ConstantInt::get(sizeType, 32);
-            std::cout << "DEBUG: Using hardcoded allocation of 32 bytes for struct type" << std::endl;
+            // { i32, ptr } = 4 + 8 = 12 bytes, but aligned to 16 bytes
+            objectSize = llvm::ConstantInt::get(sizeType, 16);
+            std::cout << "DEBUG: Using hardcoded allocation of 16 bytes for struct type { i32, ptr }" << std::endl;
         }
         
         llvm::Value* objectPtr = builder_->CreateCall(mallocFunc, {objectSize}, "malloced_object");
@@ -578,9 +588,9 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
                 std::cout << "DEBUG: PropertyAssignment - assigning to items field" << std::endl;
                 
                 // Get the object type to determine the field layout
-                // For BasicArrayOperations<T>, the layout is { i32, [3 x T] }
-                // Field 0: length (i32)
-                // Field 1: items array ([3 x T])
+                // For BasicArrayOperations<T>, the layout is { i32, ptr }
+                // Field 0: length field (not used, but kept for compatibility)
+                // Field 1: pointer to array data
                 
                 // Get the object type from the object pointer
                 llvm::Type* objectType = objectPtr->getType();
@@ -602,12 +612,12 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
                         // For now, let's try to infer the type from context or use a different approach
                         std::cout << "DEBUG: PropertyAssignment - object is regular PointerType, cannot get element type directly" << std::endl;
                         // For now, assume it's a pointer to the expected struct type
-                        // This is a workaround - we should ideally store type information somewhere
+                        // The object structure is { i32, ptr } where ptr points to array data
                         elementType = llvm::StructType::get(*context_, {
-                            llvm::Type::getInt32Ty(*context_),  // length field
-                            llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 3)  // array field
+                            llvm::Type::getInt32Ty(*context_),  // length field (not used, but kept for compatibility)
+                            llvm::PointerType::get(*context_, 0)  // pointer to array data
                         });
-                        std::cout << "DEBUG: PropertyAssignment - using hardcoded struct type as workaround" << std::endl;
+                        std::cout << "DEBUG: PropertyAssignment - using hardcoded struct type { i32, ptr } as workaround" << std::endl;
                     }
                     std::cout << "DEBUG: PropertyAssignment - element type: " << (elementType ? "valid" : "null") << std::endl;
                     
@@ -1929,23 +1939,24 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'value'" << std::endl;
                 return;
             } else if (propertyName == "items") {
-                // For 'items', assume it's an array type
-                // Create a simple array struct with length and data fields
+                // For 'items', the object structure is { i32, ptr }
+                // Field 0: length field (not used, but kept for compatibility)
+                // Field 1: pointer to array data
                 std::vector<llvm::Type*> fieldTypes = { 
                     llvm::Type::getInt32Ty(*context_),  // length field
-                    llvm::ArrayType::get(getNumberType(), 3)  // array data (3 elements for now)
+                    llvm::PointerType::get(*context_, 0)  // pointer to array data
                 };
                 llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
                 
-                // Use index 1 for the items field (second field)
+                // Use index 1 for the items field (second field - pointer to array)
                 llvm::Value* indices[] = {
-                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // First field
-                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)   // Field index 1 (items field)
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)   // Field index 1 (pointer to array)
                 };
                 
                 llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "items_ptr");
                 setCurrentValue(fieldPtr);
-                std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'items' at index 1" << std::endl;
+                std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'items' at index 1 (pointer to array)" << std::endl;
                 return;
             }
         } else {
