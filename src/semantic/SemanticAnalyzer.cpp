@@ -601,13 +601,46 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
         }
     }
     
-    // Check if this is array property access (e.g., arr.length)
+    // Check if this is array property access (e.g., arr.length, arr.push)
     if (objectType->getKind() == TypeKind::Array) {
         String propertyName = node.getProperty();
         
         if (propertyName == "length") {
             // Array length property returns number
             setExpressionType(node, typeSystem_->getNumberType());
+            return;
+        } else if (propertyName == "push" || propertyName == "pop" || 
+                   propertyName == "shift" || propertyName == "unshift" ||
+                   propertyName == "concat" || propertyName == "slice" ||
+                   propertyName == "splice" || propertyName == "indexOf" ||
+                   propertyName == "forEach" || propertyName == "map" ||
+                   propertyName == "filter" || propertyName == "reduce") {
+            // Array methods - create appropriate function types
+            if (propertyName == "push" || propertyName == "unshift") {
+                // push/unshift take variable arguments and return number (new length)
+                std::vector<FunctionType::Parameter> params;
+                auto elementType = typeSystem_->getArrayElementType(objectType);
+                if (elementType) {
+                    FunctionType::Parameter param;
+                    param.name = "item";
+                    param.type = elementType;
+                    param.optional = false;
+                    param.rest = true; // Variable number of arguments
+                    params.push_back(param);
+                }
+                auto funcType = typeSystem_->createFunctionType(std::move(params), typeSystem_->getNumberType());
+                setExpressionType(node, funcType);
+            } else if (propertyName == "pop" || propertyName == "shift") {
+                // pop/shift return the element type or undefined
+                auto elementType = typeSystem_->getArrayElementType(objectType);
+                auto returnType = elementType ? elementType : typeSystem_->getAnyType();
+                auto funcType = typeSystem_->createFunctionType({}, returnType);
+                setExpressionType(node, funcType);
+            } else {
+                // For other methods, return a generic function type for now
+                auto funcType = typeSystem_->createFunctionType({}, typeSystem_->getAnyType());
+                setExpressionType(node, funcType);
+            }
             return;
         } else {
             // Unknown property on array
