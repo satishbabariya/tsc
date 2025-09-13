@@ -840,8 +840,8 @@ UnaryExpression<Yield, Await> -> Expr /* interface */:
 %left '&';
 %left '==' '!=' '===' '!==';
 %left resolveShift;
-%left '<' '>' '<=' '>=' 'instanceof' 'in' 'as' 'satisfies';
 %left '<<' '>>' '>>>';
+%left '<' '>' '<=' '>=' 'instanceof' 'in' 'as' 'satisfies';
 %left '-' '+';
 %left '*' '/' '%';
 %right '**';
@@ -1501,7 +1501,7 @@ DecoratorCallExpression<Yield, Await>:
 %flag NoQuest = false;
 
 Type<NoQuest> -> TsType /* interface */:
-    UnionOrIntersectionOrPrimaryType %prec resolveShift
+    UnionOrIntersectionOrPrimaryType
   | [!NoQuest] check=UnionOrIntersectionOrPrimaryType 'extends' ext=Type<+NoQuest> '?' truet=Type ':' falset=Type -> TsConditional
   | FunctionType
   | ConstructorType
@@ -1548,7 +1548,7 @@ TypeArguments -> TsTypeArguments:
 
 # More restrictive type arguments that only work in type contexts
 TypeArgumentsInTypeContext -> TsTypeArguments:
-    '<' (Type separator ',')+ '>' %prec resolveShift ;
+    '<' (Type separator ',')+ '>' ;
 
 # Lookahead rule to check if < is followed by a valid type name
 # This rule is more restrictive to avoid parsing < in expression contexts
@@ -1566,7 +1566,7 @@ StartOfTypeContext:
 
 UnionOrIntersectionOrPrimaryType<NoQuest> -> TsType /* interface */:
     inner+=UnionOrIntersectionOrPrimaryType? '|' inner+=IntersectionOrPrimaryType -> TsUnionType
-  | IntersectionOrPrimaryType %prec resolveShift
+  | IntersectionOrPrimaryType
 ;
 
 IntersectionOrPrimaryType<NoQuest> -> TsType /* interface */:
@@ -1632,8 +1632,8 @@ TypeReference -> TsTypeReference:
 
 # More restrictive type reference that only works in type contexts
 TypeReferenceInTypeContext -> TsTypeReference:
-    TypeName .noLineBreak (?= StartOfGenericType) TypeArguments %prec resolveShift
-  | TypeName %prec resolveShift ;
+    TypeName .noLineBreak (?= StartOfGenericType) TypeArguments
+  | TypeName ;
 
 TypeName -> TsTypeName:
     ref+=IdentifierReference<+WithoutPredefinedTypes, ~Yield, ~Await>
@@ -1732,7 +1732,7 @@ TypeQuery -> TsTypeQuery:
 
 # 2.9
 ImportType -> TsImportType:
-    ImportTypeStart .noLineBreak TypeArguments? %prec resolveShift ;
+    ImportTypeStart .noLineBreak TypeArguments? ;
 
 ImportTypeStart -> TsImportTypeStart:
     ('typeof' -> TsTypeOf)? 'import' '(' Type ')'
