@@ -1815,12 +1815,10 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
             // In LLVM 20 with opaque pointers, we need to handle this differently
             // The arrayValue is a pointer, but we need to determine the struct type from context
             
-            // For now, let's create the struct type directly based on our array structure
-            // This is a temporary fix - we should ideally get this from the type system
-            llvm::Type* elementType = getNumberType(); // double for number arrays
+            // Use the correct array structure: { i32 length, ptr data }
             llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
                 llvm::Type::getInt32Ty(*context_), // length field
-                llvm::ArrayType::get(elementType, 3) // array with 3 elements (matching our test case)
+                llvm::Type::getInt8Ty(*context_)->getPointerTo() // data pointer
             });
             
             std::cout << "DEBUG: PropertyAccess - Creating GEP for length field with struct type" << std::endl;
@@ -2116,10 +2114,10 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                     }
                     
                     // For generic array types, we need to handle length access
-                    // This is a simplified implementation - we'll assume it's an array
+                    // Use the correct array structure: { i32 length, ptr data }
                     llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
                         llvm::Type::getInt32Ty(*context_),  // length
-                        llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 0)  // data (flexible array)
+                        llvm::Type::getInt8Ty(*context_)->getPointerTo() // data pointer
                     });
                     
                     llvm::Value* lengthPtr = builder_->CreateGEP(arrayStructType, arrayValue, 
@@ -2166,10 +2164,10 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
             }
             
             // For nested property access, we need to handle length access
-            // This is a simplified implementation - we'll assume it's an array
+            // Use the correct array structure: { i32 length, ptr data }
             llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
                 llvm::Type::getInt32Ty(*context_),  // length
-                llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 0)  // data (flexible array)
+                llvm::Type::getInt8Ty(*context_)->getPointerTo() // data pointer
             });
             
             llvm::Value* lengthPtr = builder_->CreateGEP(arrayStructType, arrayValue, 
