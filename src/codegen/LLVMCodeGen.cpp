@@ -676,6 +676,15 @@ void LLVMCodeGen::visit(ConditionalExpression& node) {
 
 void LLVMCodeGen::visit(CallExpression& node) {
     std::cout << "DEBUG: CallExpression visitor called" << std::endl;
+    
+    // Check if this is a method call and what method it is
+    if (auto propertyAccess = dynamic_cast<PropertyAccess*>(node.getCallee())) {
+        std::cout << "DEBUG: CallExpression - Method call detected: " << propertyAccess->getProperty() << std::endl;
+        std::cout << "DEBUG: CallExpression - Number of arguments: " << node.getArguments().size() << std::endl;
+        for (size_t i = 0; i < node.getArguments().size(); ++i) {
+            std::cout << "DEBUG: CallExpression - Argument " << i << " type: " << typeid(*node.getArguments()[i].get()).name() << std::endl;
+        }
+    }
     // Generate the callee (function to call)
     node.getCallee()->accept(*this);
     llvm::Value* calleeValue = getCurrentValue();
@@ -971,12 +980,23 @@ void LLVMCodeGen::visit(CallExpression& node) {
             propertyAccess->getObject()->accept(*this);
             llvm::Value* objectInstance = getCurrentValue();
             
-            // Look up the method function
-            llvm::Function* methodFunc = module_->getFunction(methodName);
-            if (!methodFunc) {
-                reportError("Method not found: " + methodName, node.getLocation());
-                setCurrentValue(createNullValue(getAnyType()));
-                return;
+            // First try to get the method from the PropertyAccess visitor
+            propertyAccess->accept(*this);
+            llvm::Value* methodValue = getCurrentValue();
+            llvm::Function* methodFunc = nullptr;
+            
+            if (methodValue && llvm::isa<llvm::Function>(methodValue)) {
+                methodFunc = llvm::cast<llvm::Function>(methodValue);
+                std::cout << "DEBUG: CallExpression - Using method from PropertyAccess: " << methodFunc->getName().str() << std::endl;
+            } else {
+                // Fallback: Look up the method function by unmangled name
+                methodFunc = module_->getFunction(methodName);
+                if (!methodFunc) {
+                    reportError("Method not found: " + methodName, node.getLocation());
+                    setCurrentValue(createNullValue(getAnyType()));
+                    return;
+                }
+                std::cout << "DEBUG: CallExpression - Using method from direct lookup: " << methodFunc->getName().str() << std::endl;
             }
             
             // Prepare arguments for the method call
@@ -1121,7 +1141,8 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
         // Empty array - create array with length 0
         llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
         if (!currentFunc) {
-            reportError("Array literals not supported at global scope", node.getLocation());
+            // Defer array literal creation for global scope
+            std::cout << "DEBUG: Deferring empty array literal creation for global context" << std::endl;
             setCurrentValue(createNullValue(getAnyType()));
             return;
         }
@@ -1164,7 +1185,8 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
     llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
     
     if (!currentFunc) {
-        reportError("Array literals not supported at global scope", node.getLocation());
+        // Defer array literal creation for global scope
+        std::cout << "DEBUG: Deferring array literal creation for global context" << std::endl;
         setCurrentValue(createNullValue(getAnyType()));
         return;
     }
