@@ -361,11 +361,7 @@ void LLVMCodeGen::visit(NewExpression& node) {
         // Get the class type and map it to LLVM type
         shared_ptr<Type> classType = classSymbol->getType();
         std::cout << "DEBUG: Class type: " << classType->toString() << ", kind: " << static_cast<int>(classType->getKind()) << std::endl;
-        llvm::Type* objectType = mapTypeScriptTypeToLLVM(*classType);
-        std::cout << "DEBUG: Mapped object type: " << (objectType ? "valid" : "null") << std::endl;
-        if (objectType) {
-            std::cout << "DEBUG: Object type == getAnyType(): " << (objectType == getAnyType() ? "true" : "false") << std::endl;
-        }
+        llvm::Type* objectType = nullptr;
         
         // Handle generic class instantiation
         if (node.hasExplicitTypeArguments()) {
@@ -383,6 +379,10 @@ void LLVMCodeGen::visit(NewExpression& node) {
             // Create monomorphized type and methods
             std::cout << "DEBUG: Creating monomorphized type for: " << genericType->toString() << std::endl;
             objectType = createMonomorphizedType(*genericTypePtr);
+            std::cout << "DEBUG: Created monomorphized object type: " << (objectType ? "valid" : "null") << std::endl;
+            if (objectType) {
+                std::cout << "DEBUG: Monomorphized object type == getAnyType(): " << (objectType == getAnyType() ? "true" : "false") << std::endl;
+            }
             
             // Generate monomorphized methods for this instantiation
             std::cout << "DEBUG: Generating monomorphized methods for: " << genericType->toString() << std::endl;
@@ -400,6 +400,13 @@ void LLVMCodeGen::visit(NewExpression& node) {
             if (builder_->GetInsertBlock()) {
                 std::cout << "DEBUG: Current block name after restore: " << builder_->GetInsertBlock()->getName().str() << std::endl;
                 std::cout << "DEBUG: Current block parent function after restore: " << (builder_->GetInsertBlock()->getParent() ? builder_->GetInsertBlock()->getParent()->getName().str() : "null") << std::endl;
+            }
+        } else {
+            // For non-generic classes, use the base class type
+            objectType = mapTypeScriptTypeToLLVM(*classType);
+            std::cout << "DEBUG: Mapped non-generic object type: " << (objectType ? "valid" : "null") << std::endl;
+            if (objectType) {
+                std::cout << "DEBUG: Non-generic object type == getAnyType(): " << (objectType == getAnyType() ? "true" : "false") << std::endl;
             }
         }
         
@@ -432,8 +439,10 @@ void LLVMCodeGen::visit(NewExpression& node) {
                 module_->getDataLayout().getTypeAllocSize(structType));
             std::cout << "DEBUG: Allocating " << module_->getDataLayout().getTypeAllocSize(structType) << " bytes for struct type" << std::endl;
         } else {
-            objectSize = llvm::ConstantInt::get(sizeType, 8); // Fallback
-            std::cout << "DEBUG: Using fallback allocation of 8 bytes" << std::endl;
+            // For the hardcoded struct type, calculate the size manually
+            // { i32, [3 x double] } = 4 + 24 = 28 bytes, but aligned to 32 bytes
+            objectSize = llvm::ConstantInt::get(sizeType, 32);
+            std::cout << "DEBUG: Using hardcoded allocation of 32 bytes for struct type" << std::endl;
         }
         
         llvm::Value* objectPtr = builder_->CreateCall(mallocFunc, {objectSize}, "malloced_object");
@@ -3090,12 +3099,25 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
     llvm::Value* initValue = nullptr;
     llvm::Type* llvmType = getAnyType(); // Default to any type
     
+    // First, try to get the type from the symbol table
+    Symbol* varSymbol = symbolTable_->lookupSymbol(node.getName());
+    if (varSymbol && varSymbol->getType()) {
+        llvmType = mapTypeScriptTypeToLLVM(*varSymbol->getType());
+        std::cout << "DEBUG: Variable " << node.getName() << " using symbol table type: " << varSymbol->getType()->toString() << std::endl;
+        
+        // For global variables, ensure they are pointers to the type
+        llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+        if (!currentFunc && llvmType && !llvmType->isPointerTy()) {
+            llvmType = llvm::PointerType::get(llvmType, 0);
+            std::cout << "DEBUG: Variable " << node.getName() << " converted to pointer type for global variable" << std::endl;
+        }
+    }
+    
     if (node.getInitializer()) {
         node.getInitializer()->accept(*this);
         initValue = getCurrentValue();
         
         // Check if this variable should have a generic type by looking up its symbol
-        Symbol* varSymbol = symbolTable_->lookupSymbol(node.getName());
         if (varSymbol && varSymbol->getType()->getKind() == TypeKind::TypeParameter) {
             // This variable has a TypeParameterType - use getAnyType() for LLVM type
             llvmType = getAnyType(); // i8* for generic types
@@ -3114,8 +3136,10 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
                 }
             }
         } else if (initValue) {
-            // Use the initializer's type for non-generic variables
-            llvmType = initValue->getType();
+            // Use the initializer's type for non-generic variables if symbol table type is not available
+            if (!varSymbol || !varSymbol->getType()) {
+                llvmType = initValue->getType();
+            }
         }
     }
     
