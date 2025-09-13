@@ -15,6 +15,7 @@
 #include "llvm/IR/TypedPointerType.h"
 
 #include <iostream>
+#include <unordered_map>
 
 namespace tsc {
 
@@ -2666,9 +2667,26 @@ void LLVMCodeGen::visit(Module& module) {
         std::cout << "DEBUG: Processing " << deferredGlobalInitializations_.size() << " deferred global initializations" << std::endl;
         for (const auto& [globalVar, initValue] : deferredGlobalInitializations_) {
             std::cout << "DEBUG: Storing to global variable: " << globalVar->getName().str() << std::endl;
-            builder_->CreateStore(initValue, globalVar);
+            
+            // Check if this is a deferred external symbol
+            llvm::Value* actualValue = initValue;
+            if (llvm::isa<llvm::ConstantPointerNull>(initValue) || 
+                (llvm::isa<llvm::ConstantFP>(initValue) && 
+                 llvm::cast<llvm::ConstantFP>(initValue)->isNullValue())) {
+                // This might be a deferred external symbol - check if we have a reference
+                String varName = globalVar->getName().str();
+                if (deferredExternalSymbols_.find(varName) != deferredExternalSymbols_.end()) {
+                    // Load the actual external symbol value
+                    llvm::GlobalVariable* externalVar = deferredExternalSymbols_[varName];
+                    actualValue = builder_->CreateLoad(externalVar->getValueType(), externalVar, varName + "_val");
+                    std::cout << "DEBUG: Loading external symbol " << varName << " from " << externalVar->getName().str() << std::endl;
+                }
+            }
+            
+            builder_->CreateStore(actualValue, globalVar);
         }
         deferredGlobalInitializations_.clear();
+        deferredExternalSymbols_.clear();
         
         // Generate module-level statements within main function
         std::cout << "DEBUG: Processing " << moduleStatements.size() << " module-level statements in main function" << std::endl;
@@ -4066,6 +4084,9 @@ llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation&
     std::cout << "DEBUG: loadVariable called for: " << name << std::endl;
     llvm::Value* storage = codeGenContext_->getSymbolValue(name);
     std::cout << "DEBUG: loadVariable found storage for " << name << ": " << (storage ? "YES" : "NO") << std::endl;
+    if (storage) {
+        std::cout << "DEBUG: Storage type for " << name << ": " << storage->getType()->getTypeID() << std::endl;
+    }
     if (!storage) {
         return nullptr;
     }
@@ -4075,6 +4096,22 @@ llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation&
     if (currentFunc) {
         // We're in a function - can use CreateLoad
         llvm::Type* elementType = getAnyType(); // Default fallback
+        
+        // Check if this is an external symbol (like Infinity, NaN)
+        std::cout << "DEBUG: Checking if storage is GlobalVariable for " << name << std::endl;
+        std::cout << "DEBUG: Storage value: " << storage << std::endl;
+        if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(storage)) {
+            std::cout << "DEBUG: Found global variable " << name << " with linkage: " << globalVar->getLinkage() << std::endl;
+            if (globalVar->getLinkage() == llvm::GlobalValue::ExternalLinkage) {
+                // This is an external symbol - load it directly
+                std::cout << "DEBUG: Loading external symbol " << name << " in function context" << std::endl;
+                elementType = globalVar->getValueType();
+                return builder_->CreateLoad(elementType, storage, name + "_val");
+            }
+        } else {
+            std::cout << "DEBUG: Storage is not a GlobalVariable for " << name << std::endl;
+            std::cout << "DEBUG: Storage type name: " << storage->getType()->getTypeID() << std::endl;
+        }
         
         // Try to get the correct element type from the alloca instruction
         if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(storage)) {
