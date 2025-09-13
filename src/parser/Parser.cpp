@@ -202,7 +202,11 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     // Parse optional type parameters
     std::vector<unique_ptr<TypeParameter>> typeParameters;
     if (check(TokenType::Less)) {
+        // Set type context for type parameter parsing to handle union types correctly
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
         typeParameters = parseTypeParameterList();
+        setContext(oldContext);
     }
     
     consume(TokenType::LeftParen, "Expected '(' after function name");
@@ -251,11 +255,15 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
             // Parse constraint (optional)
             shared_ptr<Type> constraint = nullptr;
             if (match(TokenType::Extends)) {
-                constraint = parseTypeAnnotation();
+                // Set type context for constraint parsing to handle union types correctly
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                constraint = parseUnionType();
                 if (!constraint) {
                     reportError("Expected constraint type after 'extends'", getCurrentLocation());
                     constraint = typeSystem_.getErrorType();
                 }
+                setContext(oldContext);
             }
             
             auto typeParam = make_unique<TypeParameter>(
