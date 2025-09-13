@@ -941,6 +941,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
         if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
             function = llvm::cast<llvm::Function>(calleeValue);
             std::cout << "DEBUG: CallExpression - Found function from PropertyAccess: " << function->getName().str() << std::endl;
+            std::cout << "DEBUG: CallExpression - Processing method call with " << node.getArguments().size() << " arguments" << std::endl;
             
             // For method calls, we need to pass the object as the first argument
             // Generate the object being called on
@@ -964,8 +965,37 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 }
             }
             
-            // Store the object instance for later use in argument generation
-            // We'll need to prepend it to the arguments list
+            // Prepare arguments for the method call
+            std::vector<llvm::Value*> args;
+            
+            // Add 'this' pointer as first argument (object instance)
+            args.push_back(objectInstance);
+            
+            // Add method arguments
+            for (const auto& arg : node.getArguments()) {
+                arg->accept(*this);
+                llvm::Value* argValue = getCurrentValue();
+                if (!argValue) {
+                    reportError("Failed to generate argument for method call", node.getLocation());
+                    setCurrentValue(createNullValue(getAnyType()));
+                    return;
+                }
+                args.push_back(argValue);
+                std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
+            }
+            
+            // Generate the method call
+            llvm::Value* callResult;
+            if (function->getReturnType()->isVoidTy()) {
+                // Don't assign a name to void method calls
+                callResult = builder_->CreateCall(function, args);
+                std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
+            } else {
+                callResult = builder_->CreateCall(function, args, "method_call_result");
+                std::cout << "DEBUG: Created function call to " << function->getName().str() << std::endl;
+            }
+            setCurrentValue(callResult);
+            return;
         } else if (calleeValue) {
             // The property access already returned a result (e.g., from nested property access like array.length.toString())
             // This means the call has already been processed, so we can return the result directly
