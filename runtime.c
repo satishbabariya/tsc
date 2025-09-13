@@ -156,14 +156,17 @@ char* number_to_string_9(double value) {
 // Signature: void arrayPush(void* array_ptr, void* item)
 // Adds an item to the end of the array
 void arrayPush(void* array_ptr, void* item) {
+    printf("DEBUG: arrayPush ENTRY - array_ptr=%p, item=%p\n", array_ptr, item);
     if (!array_ptr) {
         fprintf(stderr, "Error: arrayPush called with null array pointer\n");
         exit(3);
     }
+    printf("DEBUG: arrayPush - array_ptr is not null, proceeding...\n");
     
     // The array structure is { i32 length, [N x elementType] data }
     // We need to increment the length and store the item at the new position
     int* length_ptr = (int*)array_ptr;
+    printf("DEBUG: arrayPush - length_ptr=%p\n", length_ptr);
     int current_length = *length_ptr;
     
     printf("DEBUG: arrayPush called with array=%p, item=%p, current_length=%d\n", array_ptr, item, current_length);
@@ -229,3 +232,72 @@ __asm__(".weak number_to_string.8");
 __asm__(".set number_to_string.8, number_to_string_8");
 __asm__(".weak number_to_string.9");
 __asm__(".set number_to_string.9, number_to_string_9");
+__asm__(".weak number_to_string.11");
+__asm__(".set number_to_string.11, number_to_string_7");
+__asm__(".weak number_to_string.12");
+__asm__(".set number_to_string.12, number_to_string_8");
+
+// Aliases for mangled arrayPush functions
+__asm__(".weak arrayPush.6");
+__asm__(".set arrayPush.6, arrayPush");
+__asm__(".weak arrayPush.9");
+__asm__(".set arrayPush.9, arrayPush");
+__asm__(".weak arrayPush.10");
+__asm__(".set arrayPush.10, arrayPush");
+__asm__(".weak arrayPush.11");
+__asm__(".set arrayPush.11, arrayPush");
+
+// Function definitions for mangled malloc functions
+void* malloc_9(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_10(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_11(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_12(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_13(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_14(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_15(size_t size) {
+    return malloc(size);
+}
+
+void* malloc_16(size_t size) {
+    return malloc(size);
+}
+
+// Aliases for mangled malloc functions
+__asm__(".weak malloc.9");
+__asm__(".set malloc.9, malloc_9");
+__asm__(".weak malloc.10");
+__asm__(".set malloc.10, malloc_10");
+__asm__(".weak malloc.11");
+__asm__(".set malloc.11, malloc_11");
+__asm__(".weak malloc.12");
+__asm__(".set malloc.12, malloc_12");
+__asm__(".weak malloc.13");
+__asm__(".set malloc.13, malloc_13");
+__asm__(".weak malloc.14");
+__asm__(".set malloc.14, malloc_14");
+__asm__(".weak malloc.15");
+__asm__(".set malloc.15, malloc_15");
+__asm__(".weak malloc.16");
+__asm__(".set malloc.16, malloc_16");
+
+// Additional number_to_string aliases
+__asm__(".weak number_to_string.13");
+__asm__(".set number_to_string.13, number_to_string_7");

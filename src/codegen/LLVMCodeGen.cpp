@@ -1045,15 +1045,45 @@ void LLVMCodeGen::visit(CallExpression& node) {
             
             // Add method arguments
             for (const auto& arg : node.getArguments()) {
-                arg->accept(*this);
-                llvm::Value* argValue = getCurrentValue();
-                if (!argValue) {
-                    reportError("Failed to generate argument for method call", node.getLocation());
-                    setCurrentValue(createNullValue(getAnyType()));
-                    return;
+                // Special handling for arrayPush calls - pass storage location instead of loaded value
+                if (function && function->getName().str().find("arrayPush") != std::string::npos) {
+                    // For arrayPush calls, we need to pass the storage location of the argument
+                    // instead of loading the value
+                    if (auto identifier = dynamic_cast<Identifier*>(arg.get())) {
+                        // Get the storage location for the identifier
+                        llvm::Value* storageLocation = codeGenContext_->getSymbolValue(identifier->getName());
+                        if (storageLocation) {
+                            args.push_back(storageLocation);
+                            std::cout << "DEBUG: CallExpression - Added storage location for arrayPush argument: " << storageLocation->getName().str() << std::endl;
+                        } else {
+                            reportError("Failed to find storage location for arrayPush argument", node.getLocation());
+                            setCurrentValue(createNullValue(getAnyType()));
+                            return;
+                        }
+                    } else {
+                        // For non-identifier arguments to arrayPush, still use the normal processing
+                        arg->accept(*this);
+                        llvm::Value* argValue = getCurrentValue();
+                        if (!argValue) {
+                            reportError("Failed to generate argument for arrayPush call", node.getLocation());
+                            setCurrentValue(createNullValue(getAnyType()));
+                            return;
+                        }
+                        args.push_back(argValue);
+                        std::cout << "DEBUG: CallExpression - Added argument to arrayPush call: " << argValue->getName().str() << std::endl;
+                    }
+                } else {
+                    // Normal argument processing for non-arrayPush calls
+                    arg->accept(*this);
+                    llvm::Value* argValue = getCurrentValue();
+                    if (!argValue) {
+                        reportError("Failed to generate argument for method call", node.getLocation());
+                        setCurrentValue(createNullValue(getAnyType()));
+                        return;
+                    }
+                    args.push_back(argValue);
+                    std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
                 }
-                args.push_back(argValue);
-                std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
             }
             
             // Generate the method call
@@ -1133,15 +1163,45 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 
                 // Add method arguments
                 for (const auto& arg : node.getArguments()) {
-                    arg->accept(*this);
-                    llvm::Value* argValue = getCurrentValue();
-                    if (!argValue) {
-                        reportError("Failed to generate argument for method call", node.getLocation());
-                        setCurrentValue(createNullValue(getAnyType()));
-                        return;
+                    // Special handling for arrayPush calls - pass storage location instead of loaded value
+                    if (function && function->getName().str().find("arrayPush") != std::string::npos) {
+                        // For arrayPush calls, we need to pass the storage location of the argument
+                        // instead of loading the value
+                        if (auto identifier = dynamic_cast<Identifier*>(arg.get())) {
+                            // Get the storage location for the identifier
+                            llvm::Value* storageLocation = codeGenContext_->getSymbolValue(identifier->getName());
+                            if (storageLocation) {
+                                args.push_back(storageLocation);
+                                std::cout << "DEBUG: CallExpression - Added storage location for arrayPush argument: " << storageLocation->getName().str() << std::endl;
+                            } else {
+                                reportError("Failed to find storage location for arrayPush argument", node.getLocation());
+                                setCurrentValue(createNullValue(getAnyType()));
+                                return;
+                            }
+                        } else {
+                            // For non-identifier arguments to arrayPush, still use the normal processing
+                            arg->accept(*this);
+                            llvm::Value* argValue = getCurrentValue();
+                            if (!argValue) {
+                                reportError("Failed to generate argument for arrayPush call", node.getLocation());
+                                setCurrentValue(createNullValue(getAnyType()));
+                                return;
+                            }
+                            args.push_back(argValue);
+                            std::cout << "DEBUG: CallExpression - Added argument to arrayPush call: " << argValue->getName().str() << std::endl;
+                        }
+                    } else {
+                        // Normal argument processing for non-arrayPush calls
+                        arg->accept(*this);
+                        llvm::Value* argValue = getCurrentValue();
+                        if (!argValue) {
+                            reportError("Failed to generate argument for method call", node.getLocation());
+                            setCurrentValue(createNullValue(getAnyType()));
+                            return;
+                        }
+                        args.push_back(argValue);
+                        std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
                     }
-                    args.push_back(argValue);
-                    std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
                 }
                 
                 // Generate the method call
@@ -1198,14 +1258,44 @@ void LLVMCodeGen::visit(CallExpression& node) {
             
             // Add method arguments
             for (const auto& arg : node.getArguments()) {
-                arg->accept(*this);
-                llvm::Value* argValue = getCurrentValue();
-                if (!argValue) {
-                    reportError("Failed to generate argument for method call", node.getLocation());
-                    setCurrentValue(createNullValue(getAnyType()));
-                    return;
+                // Special handling for arrayPush calls - pass storage location instead of loaded value
+                if (methodFunc && methodFunc->getName().str().find("arrayPush") != std::string::npos) {
+                    // For arrayPush calls, we need to pass the storage location of the argument
+                    // instead of loading the value
+                    if (auto identifier = dynamic_cast<Identifier*>(arg.get())) {
+                        // Get the storage location for the identifier
+                        llvm::Value* storageLocation = codeGenContext_->getSymbolValue(identifier->getName());
+                        if (storageLocation) {
+                            args.push_back(storageLocation);
+                            std::cout << "DEBUG: CallExpression - Added storage location for arrayPush argument: " << storageLocation->getName().str() << std::endl;
+                        } else {
+                            reportError("Failed to find storage location for arrayPush argument", node.getLocation());
+                            setCurrentValue(createNullValue(getAnyType()));
+                            return;
+                        }
+                    } else {
+                        // For non-identifier arguments to arrayPush, still use the normal processing
+                        arg->accept(*this);
+                        llvm::Value* argValue = getCurrentValue();
+                        if (!argValue) {
+                            reportError("Failed to generate argument for arrayPush call", node.getLocation());
+                            setCurrentValue(createNullValue(getAnyType()));
+                            return;
+                        }
+                        args.push_back(argValue);
+                        std::cout << "DEBUG: CallExpression - Added argument to arrayPush call: " << argValue->getName().str() << std::endl;
+                    }
+                } else {
+                    // Normal argument processing for non-arrayPush calls
+                    arg->accept(*this);
+                    llvm::Value* argValue = getCurrentValue();
+                    if (!argValue) {
+                        reportError("Failed to generate argument for method call", node.getLocation());
+                        setCurrentValue(createNullValue(getAnyType()));
+                        return;
+                    }
+                    args.push_back(argValue);
                 }
-                args.push_back(argValue);
             }
             
             // Generate the method call
@@ -1287,6 +1377,38 @@ void LLVMCodeGen::visit(CallExpression& node) {
     }
     
     for (size_t i = 0; i < node.getArguments().size(); ++i) {
+        // Special handling for arrayPush calls - pass storage location instead of loaded value
+        if (function && function->getName().str().find("arrayPush") != std::string::npos) {
+            // For arrayPush calls, we need to pass the storage location of the argument
+            // instead of loading the value
+            if (auto identifier = dynamic_cast<Identifier*>(node.getArguments()[i].get())) {
+                // Get the storage location for the identifier
+                llvm::Value* storageLocation = codeGenContext_->getSymbolValue(identifier->getName());
+                if (storageLocation) {
+                    args.push_back(storageLocation);
+                    std::cout << "DEBUG: CallExpression - Added storage location for arrayPush argument: " << storageLocation->getName().str() << std::endl;
+                    continue;
+                } else {
+                    reportError("Failed to find storage location for arrayPush argument", node.getLocation());
+                    setCurrentValue(createNullValue(getAnyType()));
+                    return;
+                }
+            } else {
+                // For non-identifier arguments to arrayPush, still use the normal processing
+                node.getArguments()[i]->accept(*this);
+                llvm::Value* argValue = getCurrentValue();
+                if (!argValue) {
+                    reportError("Failed to generate argument for arrayPush call", node.getLocation());
+                    setCurrentValue(createNullValue(getAnyType()));
+                    return;
+                }
+                args.push_back(argValue);
+                std::cout << "DEBUG: CallExpression - Added argument to arrayPush call: " << argValue->getName().str() << std::endl;
+                continue;
+            }
+        }
+        
+        // Normal argument processing for non-arrayPush calls
         node.getArguments()[i]->accept(*this);
         llvm::Value* argValue = getCurrentValue();
         if (!argValue) {
@@ -1340,15 +1462,23 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
             return;
         }
         
-        // Create array structure: { i32 length, [0 x elementType] data }
+        // Create array structure: { i32 length, [3 x double] data }
         llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
             llvm::Type::getInt32Ty(*context_),  // length
-            llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 0)  // data (flexible array)
+            llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 3)  // data (fixed size array)
         });
         
-        llvm::IRBuilder<> allocaBuilder(&currentFunc->getEntryBlock(), 
-                                       currentFunc->getEntryBlock().begin());
-        llvm::AllocaInst* arrayStorage = allocaBuilder.CreateAlloca(arrayStructType, nullptr, "empty_array");
+        // Allocate the array on the heap since it needs to outlive the function
+        llvm::Value* arraySize = llvm::ConstantInt::get(llvm::Type::getInt64Ty(*context_), 
+            module_->getDataLayout().getTypeAllocSize(arrayStructType));
+        llvm::Value* arrayStorage = builder_->CreateCall(
+            module_->getOrInsertFunction("malloc", llvm::PointerType::get(*context_, 0), 
+                                        llvm::Type::getInt64Ty(*context_)),
+            arraySize, "empty_array");
+        
+        // Cast the malloc result to our array struct type
+        llvm::Type* arrayStructPtrType = llvm::PointerType::get(arrayStructType, 0);
+        arrayStorage = builder_->CreateBitCast(arrayStorage, arrayStructPtrType, "empty_array_cast");
         
         // Set length to 0
         llvm::Value* lengthPtr = builder_->CreateStructGEP(arrayStructType, arrayStorage, 0, "length.ptr");
