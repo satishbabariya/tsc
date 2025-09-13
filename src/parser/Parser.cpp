@@ -1872,7 +1872,7 @@ unique_ptr<TypeParameter> Parser::parseTypeParameter() {
         ParsingContext oldContext = currentContext_;
         setContext(ParsingContext::Type);
         
-        constraint = parsePrimaryType();
+        constraint = parseUnionType();
         if (!constraint) {
             reportError("Expected constraint type after 'extends'", getCurrentLocation());
             constraint = typeSystem_.getErrorType();
