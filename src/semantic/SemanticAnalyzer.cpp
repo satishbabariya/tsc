@@ -558,8 +558,22 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
             reportError("Class '" + classType.getName() + "' has no member '" + memberName + "'", node.getLocation());
             setExpressionType(node, typeSystem_->getErrorType());
             return;
+        } else if (baseType->getKind() == TypeKind::Interface) {
+            const auto& interfaceType = static_cast<const InterfaceType&>(*baseType);
+            String memberName = node.getProperty();
+            
+            // Check if the interface has this member
+            if (auto memberType = findInterfaceMember(interfaceType, memberName)) {
+                setExpressionType(node, memberType);
+                return;
+            }
+            
+            // If we get here, the member wasn't found
+            reportError("Interface '" + interfaceType.getName() + "' has no member '" + memberName + "'", node.getLocation());
+            setExpressionType(node, typeSystem_->getErrorType());
+            return;
         } else {
-            reportError("Generic type base is not a class", node.getLocation());
+            reportError("Generic type base is not a class or interface", node.getLocation());
             setExpressionType(node, typeSystem_->getErrorType());
             return;
         }
@@ -2081,6 +2095,64 @@ shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
     
     // If not found, return error type
     return typeSystem_->getErrorType();
+}
+
+shared_ptr<Type> SemanticAnalyzer::findInterfaceMember(const InterfaceType& interfaceType, const String& memberName) {
+    
+    InterfaceDeclaration* interfaceDecl = interfaceType.getDeclaration();
+    
+    // If the InterfaceType doesn't have a declaration pointer, try to find it in the symbol table
+    if (!interfaceDecl) {
+        Symbol* symbol = resolveSymbol(interfaceType.getName(), SourceLocation());
+        if (symbol && symbol->getKind() == SymbolKind::Type && symbol->getDeclaration()) {
+            interfaceDecl = dynamic_cast<InterfaceDeclaration*>(symbol->getDeclaration());
+        }
+    }
+    
+    if (!interfaceDecl) {
+        return nullptr;
+    }
+    
+    // Look for property in current interface
+    for (const auto& property : interfaceDecl->getProperties()) {
+        if (property->getName() == memberName) {
+            return getDeclarationType(*property);
+        }
+    }
+    
+    // Look for method in current interface
+    for (const auto& method : interfaceDecl->getMethods()) {
+        if (method->getName() == memberName) {
+            return getDeclarationType(*method);
+        }
+    }
+    
+    // If not found in current interface, look in extended interfaces
+    for (const auto& extendedInterface : interfaceDecl->getExtends()) {
+        auto resolvedExtendedType = resolveType(extendedInterface);
+        if (resolvedExtendedType) {
+            if (resolvedExtendedType->getKind() == TypeKind::Interface) {
+                const auto& extendedInterfaceType = static_cast<const InterfaceType&>(*resolvedExtendedType);
+                auto memberType = findInterfaceMember(extendedInterfaceType, memberName);
+                if (memberType) {
+                    return memberType;
+                }
+            } else if (resolvedExtendedType->getKind() == TypeKind::Generic) {
+                // Handle generic extended interfaces (e.g., ExtendedInterface<T>)
+                const auto& genericExtendedType = static_cast<const GenericType&>(*resolvedExtendedType);
+                auto baseType = genericExtendedType.getBaseType();
+                if (baseType->getKind() == TypeKind::Interface) {
+                    const auto& extendedInterfaceType = static_cast<const InterfaceType&>(*baseType);
+                    auto memberType = findInterfaceMember(extendedInterfaceType, memberName);
+                    if (memberType) {
+                        return memberType;
+                    }
+                }
+            }
+        }
+    }
+    
+    return nullptr;
 }
 
 shared_ptr<Type> SemanticAnalyzer::findClassMember(const ClassType& classType, const String& memberName) {
