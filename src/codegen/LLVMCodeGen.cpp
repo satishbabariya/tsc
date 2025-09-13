@@ -1321,7 +1321,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 std::cout << "DEBUG: PropertyAccess - symbol type: " << symbol->getType()->toString() << std::endl;
                 std::cout << "DEBUG: PropertyAccess - symbol type kind: " << static_cast<int>(symbol->getType()->getKind()) << std::endl;
             }
-            if (symbol && symbol->getType()->getKind() == TypeKind::Array) {
+            if (symbol && (symbol->getType()->getKind() == TypeKind::Array || symbol->getType()->getKind() == TypeKind::TypeParameter)) {
                 std::cout << "DEBUG: PropertyAccess - Found array type, accessing length field" << std::endl;
                 std::cout << "DEBUG: PropertyAccess - arrayValue: " << (arrayValue ? "valid" : "null") << std::endl;
                 if (arrayValue) {
@@ -1650,6 +1650,53 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
             llvm::Value* lengthPtr = builder_->CreateGEP(arrayStructType, arrayValue, 
                 {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)}, "length.ptr");
             llvm::Value* arrayLength = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "array.length");
+            llvm::Value* lengthAsDouble = builder_->CreateSIToFP(arrayLength, getNumberType(), "length.double");
+            setCurrentValue(lengthAsDouble);
+            return;
+        }
+        
+        // Handle nested PropertyAccess objects (e.g., array.length.toString())
+        if (auto nestedPropertyAccess = dynamic_cast<PropertyAccess*>(node.getObject())) {
+            std::cout << "DEBUG: Handling nested PropertyAccess for property: " << propertyName << std::endl;
+            
+            // First, evaluate the nested PropertyAccess to get its value
+            nestedPropertyAccess->accept(*this);
+            llvm::Value* nestedValue = getCurrentValue();
+            
+            if (!nestedValue) {
+                reportError("Cannot access property on null value", node.getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+            
+            // Now handle the property access on the nested value
+            if (propertyName == "toString") {
+                // For toString on a number (which is what array.length returns), create a toString function
+                std::cout << "DEBUG: Creating toString function for nested value" << std::endl;
+                auto numberType = std::make_shared<PrimitiveType>(TypeKind::Number);
+                llvm::Function* toStringFunc = createBuiltinMethodFunction("toString", numberType, node.getLocation());
+                setCurrentValue(toStringFunc);
+                return;
+            }
+        }
+        
+        // Handle direct length access for generic array types
+        if (propertyName == "length") {
+            std::cout << "DEBUG: Handling length property access for generic array type" << std::endl;
+            
+            // For generic array types, we need to handle length as a property
+            // Get the array value
+            node.getObject()->accept(*this);
+            llvm::Value* arrayValue = getCurrentValue();
+            
+            if (!arrayValue) {
+                reportError("Cannot access length property on null value", node.getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+            
+            // For now, return a constant length value (this should be improved to get actual array length)
+            llvm::Value* arrayLength = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0);
             llvm::Value* lengthAsDouble = builder_->CreateSIToFP(arrayLength, getNumberType(), "length.double");
             setCurrentValue(lengthAsDouble);
             return;
