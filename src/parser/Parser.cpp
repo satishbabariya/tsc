@@ -441,6 +441,42 @@ unique_ptr<Statement> Parser::parseInterfaceDeclaration() {
     Token nameToken = consume(TokenType::Identifier, "Expected interface name");
     String name = nameToken.getStringValue();
     
+    // Optional type parameters
+    std::vector<unique_ptr<TypeParameter>> typeParameters;
+    if (match(TokenType::Less)) {
+        do {
+            // Parse variance annotation (optional)
+            Variance variance = Variance::Invariant;
+            if (match(TokenType::Out)) {
+                variance = Variance::Covariant;
+            } else if (match(TokenType::In)) {
+                variance = Variance::Contravariant;
+            }
+            
+            Token typeParamToken = consume(TokenType::Identifier, "Expected type parameter name");
+            
+            // Optional constraint (extends clause)
+            shared_ptr<Type> constraint = nullptr;
+            if (match(TokenType::Extends)) {
+                // Set type context for better disambiguation
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                constraint = parseUnionType();
+                setContext(oldContext);
+            }
+            
+            auto typeParam = make_unique<TypeParameter>(
+                typeParamToken.getStringValue(),
+                constraint,
+                variance,
+                getCurrentLocation()
+            );
+            typeParameters.push_back(std::move(typeParam));
+        } while (match(TokenType::Comma));
+        
+        consume(TokenType::Greater, "Expected '>' after type parameters");
+    }
+    
     // Optional extends clause
     std::vector<shared_ptr<Type>> extends;
     if (match(TokenType::Extends)) {
@@ -514,7 +550,7 @@ unique_ptr<Statement> Parser::parseInterfaceDeclaration() {
     consume(TokenType::RightBrace, "Expected '}' after interface body");
     
     return make_unique<InterfaceDeclaration>(
-        name, std::move(extends), std::move(properties), std::move(methods), location
+        name, std::move(typeParameters), std::move(extends), std::move(properties), std::move(methods), location
     );
 }
 

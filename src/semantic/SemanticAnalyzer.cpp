@@ -1838,6 +1838,19 @@ void SemanticAnalyzer::visit(InterfaceDeclaration& node) {
     // Enter interface scope (using Class scope type since interfaces are similar)
     enterScope(Scope::ScopeType::Class, node.getName());
     
+    // Process type parameters AFTER entering interface scope
+    std::vector<shared_ptr<Type>> typeParameters;
+    for (const auto& typeParam : node.getTypeParameters()) {
+        std::cout << "DEBUG: Processing interface type parameter: " << typeParam->getName() << std::endl;
+        std::cout << "DEBUG: Current scope when adding interface type parameter: " << symbolTable_->getCurrentScope() << std::endl;
+        auto paramType = typeSystem_->createTypeParameter(typeParam->getName(), typeParam->getConstraint());
+        typeParameters.push_back(paramType);
+        
+        // Add type parameter to interface scope so it can be referenced within the interface
+        std::cout << "DEBUG: Declaring interface type parameter symbol: " << typeParam->getName() << std::endl;
+        declareSymbol(typeParam->getName(), SymbolKind::Type, paramType, typeParam->getLocation());
+    }
+    
     // Analyze extended interfaces if present
     for (const auto& extended : node.getExtends()) {
         // Interface extension validation would go here
