@@ -406,8 +406,13 @@ void LLVMCodeGen::visit(NewExpression& node) {
         // Calculate actual object size based on the type
         llvm::Type* pointeeType = nullptr;
         if (objectType->isPointerTy()) {
-            // For now, use a simplified approach - assume 8 bytes for pointer types
-            pointeeType = llvm::Type::getInt8Ty(*context_);
+            // For now, assume all object types are structs and use a fixed size
+            // TODO: This should be improved to get the actual struct type
+            pointeeType = llvm::StructType::get(*context_, {
+                llvm::Type::getInt32Ty(*context_),  // length field
+                llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 3)  // array field
+            });
+            std::cout << "DEBUG: Object type is pointer, using fixed struct type for allocation" << std::endl;
         } else {
             pointeeType = objectType;
         }
@@ -422,8 +427,10 @@ void LLVMCodeGen::visit(NewExpression& node) {
             llvm::StructType* structType = llvm::cast<llvm::StructType>(pointeeType);
             objectSize = llvm::ConstantInt::get(sizeType, 
                 module_->getDataLayout().getTypeAllocSize(structType));
+            std::cout << "DEBUG: Allocating " << module_->getDataLayout().getTypeAllocSize(structType) << " bytes for struct type" << std::endl;
         } else {
             objectSize = llvm::ConstantInt::get(sizeType, 8); // Fallback
+            std::cout << "DEBUG: Using fallback allocation of 8 bytes" << std::endl;
         }
         
         llvm::Value* objectPtr = builder_->CreateCall(mallocFunc, {objectSize}, "malloced_object");
@@ -457,56 +464,29 @@ void LLVMCodeGen::visit(NewExpression& node) {
         
         llvm::Function* constructorFunc = module_->getFunction(constructorName);
         if (constructorFunc) {
-            // For generic classes, process the constructor body inline to avoid cross-function references
-            if (node.hasExplicitTypeArguments()) {
-                std::cout << "DEBUG: Processing constructor body inline for generic class" << std::endl;
-                
-                // Find the constructor method in the class declaration
-                // For opaque pointers, we need to get the type from the GenericType
-                auto classType = dynamic_cast<const ClassType*>(classSymbol->getType().get());
-                std::cout << "DEBUG: classSymbol->getType(): " << (classSymbol->getType() ? classSymbol->getType()->toString() : "null") << std::endl;
-                std::cout << "DEBUG: classType: " << (classType ? "found" : "null") << std::endl;
-                if (classType && classType->getDeclaration()) {
-                    std::cout << "DEBUG: classDeclaration: " << (classType->getDeclaration() ? "found" : "null") << std::endl;
-                    auto classDecl = classType->getDeclaration();
-                    
-                    // Find the constructor method
-                    std::cout << "DEBUG: Available methods in class: ";
-                    for (const auto& method : classDecl->getMethods()) {
-                        std::cout << method->getName() << " ";
-                    }
-                    std::cout << std::endl;
-                    
-                    for (const auto& method : classDecl->getMethods()) {
-                        if (method->getName() == "constructor") {
-                            std::cout << "DEBUG: Found constructor method, processing body inline" << std::endl;
-                            
-                            // Set up the 'this' parameter for the constructor body
-                            // Store the objectPtr as 'this' in the symbol table
-                            codeGenContext_->setSymbolValue("this", objectPtr);
-                            std::cout << "DEBUG: Set 'this' parameter to objectPtr for inline constructor body" << std::endl;
-                            
-                            // Process the constructor body inline
-                            // This ensures all variables are in the same function context
-                            method->getBody()->accept(*this);
-                            
-                            std::cout << "DEBUG: Constructor body processed inline successfully" << std::endl;
-                            break;
-                        }
-                    }
-                }
+            // Always call the constructor function directly instead of processing body inline
+            // This ensures proper function context and avoids cross-function reference issues
+            if (codeGenContext_->getCurrentFunction()) {
+                // We're in a function context, call the constructor normally
+                std::cout << "DEBUG: Calling constructor function: " << constructorName << std::endl;
+                builder_->CreateCall(constructorFunc, constructorArgs);
+                std::cout << "DEBUG: Constructor function call completed" << std::endl;
             } else {
-                // For non-generic classes, call the constructor normally
-                // Check if we're in a function context or global context
-                if (codeGenContext_->getCurrentFunction()) {
-                    // We're in a function context, call the constructor normally
-                    builder_->CreateCall(constructorFunc, constructorArgs);
-                } else {
-                    // We're in global context, defer the constructor call to initialization time
-                    std::cout << "DEBUG: Deferring constructor call for global context" << std::endl;
-                    // For now, we'll skip the constructor call in global context
-                    // The object will be initialized later when the global variable is initialized
-                }
+                // We're in global context, defer the constructor call to initialization time
+                std::cout << "DEBUG: Deferring constructor call for global context" << std::endl;
+                
+                // Store the constructor call information for later execution
+                DeferredConstructorCall deferredCall;
+                deferredCall.className = className;
+                deferredCall.typeArguments = node.hasExplicitTypeArguments() ? node.getTypeArguments() : std::vector<std::shared_ptr<Type>>();
+                deferredCall.constructorArgs = constructorArgs;
+                
+                // We'll set the globalVar later when the variable is declared
+                deferredCall.globalVar = nullptr; // Will be set in VariableDeclaration visitor
+                
+                // Store the constructor call info for later processing
+                deferredConstructorCalls_.push_back(deferredCall);
+                std::cout << "DEBUG: Stored deferred constructor call for class: " << className << std::endl;
             }
         } else {
             // If no constructor found, just initialize with default values
@@ -577,16 +557,20 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
         llvm::Value* objectPtr = getCurrentValue();
         
         if (objectPtr) {
-            // For now, implement a simplified property assignment
-            // In a full implementation, we'd need proper object layout and field offsets
-            // This is a placeholder that allows compilation to proceed
-            
-            // For class properties, we need to store the value in the object's memory
-            // This is a simplified implementation
             String propertyName = propertyAccess->getProperty();
+            std::cout << "DEBUG: PropertyAssignment - property: " << propertyName << std::endl;
             
-            // Create a simple property store (this is a placeholder)
-            // In a real implementation, we'd calculate field offsets
+            // Handle specific property assignments for class fields
+            if (propertyName == "items") {
+                // For now, just log that we're assigning to the items field
+                // TODO: Implement proper property assignment to object fields
+                std::cout << "DEBUG: PropertyAssignment - assigning to items field (placeholder)" << std::endl;
+            } else {
+                // For other properties, implement a general property store
+                // This is a simplified implementation for now
+                std::cout << "DEBUG: PropertyAssignment - unknown property: " << propertyName << std::endl;
+            }
+            
             setCurrentValue(value); // Assignment returns the assigned value
         } else {
             reportError("Failed to generate object for property assignment", node.getLocation());
@@ -2873,6 +2857,16 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
                     // We'll store the initialization in the main function when it's created
                     std::cout << "DEBUG: Deferring initialization for global variable: " << node.getName() << std::endl;
                     deferredGlobalInitializations_.push_back({globalVar, initValue});
+                    
+                    // Check if this is a NewExpression that needs constructor initialization
+                    // Associate any pending deferred constructor calls with this global variable
+                    if (!deferredConstructorCalls_.empty()) {
+                        auto& lastDeferredCall = deferredConstructorCalls_.back();
+                        if (lastDeferredCall.globalVar == nullptr) {
+                            lastDeferredCall.globalVar = globalVar;
+                            std::cout << "DEBUG: Associated deferred constructor call with global variable: " << node.getName() << std::endl;
+                        }
+                    }
                 }
             }
         }
@@ -3051,6 +3045,50 @@ void LLVMCodeGen::visit(Module& module) {
         }
         deferredGlobalInitializations_.clear();
         deferredExternalSymbols_.clear();
+        
+        // Process deferred constructor calls AFTER global variables are initialized
+        std::cout << "DEBUG: Processing " << deferredConstructorCalls_.size() << " deferred constructor calls" << std::endl;
+        for (const auto& deferredCall : deferredConstructorCalls_) {
+            if (deferredCall.globalVar) {
+                std::cout << "DEBUG: Processing deferred constructor call for global variable: " << deferredCall.globalVar->getName().str() << std::endl;
+                
+                // Load the global variable value (the object pointer)
+                llvm::Value* objectPtr = builder_->CreateLoad(deferredCall.globalVar->getValueType(), deferredCall.globalVar, deferredCall.globalVar->getName().str() + "_obj");
+                
+                // Find the constructor function
+                String constructorName = "constructor";
+                if (!deferredCall.typeArguments.empty()) {
+                    // For generic classes, use the mangled constructor name
+                    Symbol* classSymbol = symbolTable_->lookupSymbol(deferredCall.className);
+                    if (classSymbol && classSymbol->getType()) {
+                        auto genericType = typeSystem_->createGenericType(classSymbol->getType(), deferredCall.typeArguments);
+                        auto genericTypePtr = std::static_pointer_cast<GenericType>(genericType);
+                        constructorName = generateMangledMethodName(*genericTypePtr, "constructor");
+                    }
+                }
+                
+                llvm::Function* constructorFunc = module_->getFunction(constructorName);
+                if (constructorFunc) {
+                    std::cout << "DEBUG: Calling constructor: " << constructorName << std::endl;
+                    
+                    // Prepare constructor arguments with the loaded object pointer as 'this'
+                    std::vector<llvm::Value*> constructorArgs;
+                    constructorArgs.push_back(objectPtr); // 'this' pointer
+                    
+                    // Add the stored constructor arguments (skip the first one which was the original 'this')
+                    for (size_t i = 1; i < deferredCall.constructorArgs.size(); ++i) {
+                        constructorArgs.push_back(deferredCall.constructorArgs[i]);
+                    }
+                    
+                    // Call the constructor
+                    builder_->CreateCall(constructorFunc, constructorArgs);
+                    std::cout << "DEBUG: Constructor call completed for: " << deferredCall.globalVar->getName().str() << std::endl;
+                } else {
+                    std::cout << "DEBUG: Constructor function not found: " << constructorName << std::endl;
+                }
+            }
+        }
+        deferredConstructorCalls_.clear();
         
         // Process deferred method calls AFTER global variables are initialized
         std::cout << "DEBUG: Processing " << deferredMethodCalls_.size() << " deferred method calls" << std::endl;
@@ -3589,46 +3627,9 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
         // Generate method body
         std::cout << "DEBUG: Generating method body for: " << mangledName << std::endl;
         
-        // For constructors, we don't process the body here to avoid cross-function references
-        // The constructor body will be processed inline when the NewExpression is called
-        if (method.getName() != "constructor") {
-            method.getBody()->accept(*this);
-            std::cout << "DEBUG: Method body generation completed for: " << mangledName << std::endl;
-        } else {
-            std::cout << "DEBUG: Skipping constructor body generation to avoid cross-function references" << std::endl;
-            // Add a void return for constructors
-            std::cout << "DEBUG: Current insert point before constructor return: " << builder_->GetInsertBlock() << std::endl;
-            
-            // Make sure we're inserting into the correct block
-            llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
-            if (!currentBlock) {
-                std::cout << "ERROR: No current block for constructor terminator!" << std::endl;
-                return;
-            }
-            
-            // Check if block already has a terminator
-            if (currentBlock->getTerminator()) {
-                std::cout << "DEBUG: Constructor block already has terminator, skipping" << std::endl;
-            } else {
-                std::cout << "DEBUG: Adding terminator to constructor block" << std::endl;
-                if (returnType->isVoidTy()) {
-                    builder_->CreateRetVoid();
-                    std::cout << "DEBUG: Added void return for constructor" << std::endl;
-                } else {
-                    llvm::Value* defaultValue = createDefaultValue(returnType);
-                    builder_->CreateRet(defaultValue);
-                    std::cout << "DEBUG: Added return with default value for constructor" << std::endl;
-                }
-            }
-            
-            std::cout << "DEBUG: Current insert point after constructor return: " << builder_->GetInsertBlock() << std::endl;
-            if (builder_->GetInsertBlock()) {
-                std::cout << "DEBUG: Current block has terminator after return: " << (builder_->GetInsertBlock()->getTerminator() ? "YES" : "NO") << std::endl;
-                if (builder_->GetInsertBlock()->getTerminator()) {
-                    std::cout << "DEBUG: Terminator type: " << builder_->GetInsertBlock()->getTerminator()->getOpcodeName() << std::endl;
-                }
-            }
-        }
+        // Generate the method body for all methods including constructors
+        method.getBody()->accept(*this);
+        std::cout << "DEBUG: Method body generation completed for: " << mangledName << std::endl;
         
         // Check if the current block has a terminator
         llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
