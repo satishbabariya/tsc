@@ -413,8 +413,11 @@ void LLVMCodeGen::visit(NewExpression& node) {
                 llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 3)  // array field
             });
             std::cout << "DEBUG: Object type is pointer, using fixed struct type for allocation" << std::endl;
+            std::cout << "DEBUG: Created pointeeType: " << (pointeeType ? "valid" : "null") << std::endl;
+            std::cout << "DEBUG: pointeeType isStructTy(): " << (pointeeType->isStructTy() ? "true" : "false") << std::endl;
         } else {
             pointeeType = objectType;
+            std::cout << "DEBUG: Object type is not pointer, using objectType directly" << std::endl;
         }
         
         // Allocate memory on the heap using malloc
@@ -562,9 +565,65 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
             
             // Handle specific property assignments for class fields
             if (propertyName == "items") {
-                // For now, just log that we're assigning to the items field
-                // TODO: Implement proper property assignment to object fields
-                std::cout << "DEBUG: PropertyAssignment - assigning to items field (placeholder)" << std::endl;
+                // Implement proper property assignment to object fields
+                std::cout << "DEBUG: PropertyAssignment - assigning to items field" << std::endl;
+                
+                // Get the object type to determine the field layout
+                // For BasicArrayOperations<T>, the layout is { i32, [3 x T] }
+                // Field 0: length (i32)
+                // Field 1: items array ([3 x T])
+                
+                // Get the object type from the object pointer
+                llvm::Type* objectType = objectPtr->getType();
+                std::cout << "DEBUG: PropertyAssignment - object type: " << (objectType ? "valid" : "null") << std::endl;
+                
+                if (objectType && objectType->isPointerTy()) {
+                    // Get the element type of the pointer
+                    // Check the actual type ID to determine how to get the element type
+                    std::cout << "DEBUG: PropertyAssignment - object type ID: " << objectType->getTypeID() << std::endl;
+                    
+                    llvm::Type* elementType = nullptr;
+                    if (objectType->getTypeID() == llvm::Type::TypedPointerTyID) {
+                        // It's a TypedPointerType
+                        llvm::TypedPointerType* typedPointerType = llvm::cast<llvm::TypedPointerType>(objectType);
+                        elementType = typedPointerType->getElementType();
+                        std::cout << "DEBUG: PropertyAssignment - using TypedPointerType::getElementType()" << std::endl;
+                    } else if (objectType->getTypeID() == llvm::Type::PointerTyID) {
+                        // It's a regular PointerType - in LLVM 20, we need to get the element type differently
+                        // For now, let's try to infer the type from context or use a different approach
+                        std::cout << "DEBUG: PropertyAssignment - object is regular PointerType, cannot get element type directly" << std::endl;
+                        // For now, assume it's a pointer to the expected struct type
+                        // This is a workaround - we should ideally store type information somewhere
+                        elementType = llvm::StructType::get(*context_, {
+                            llvm::Type::getInt32Ty(*context_),  // length field
+                            llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 3)  // array field
+                        });
+                        std::cout << "DEBUG: PropertyAssignment - using hardcoded struct type as workaround" << std::endl;
+                    }
+                    std::cout << "DEBUG: PropertyAssignment - element type: " << (elementType ? "valid" : "null") << std::endl;
+                    
+                    if (elementType && elementType->isStructTy()) {
+                        llvm::StructType* structType = llvm::cast<llvm::StructType>(elementType);
+                        std::cout << "DEBUG: PropertyAssignment - struct type with " << structType->getNumElements() << " elements" << std::endl;
+                        
+                        // The items field is at index 1 (after the length field at index 0)
+                        if (structType->getNumElements() >= 2) {
+                            // Get pointer to the items field
+                            llvm::Value* itemsFieldPtr = builder_->CreateStructGEP(structType, objectPtr, 1, "items_field_ptr");
+                            std::cout << "DEBUG: PropertyAssignment - items field pointer created" << std::endl;
+                            
+                            // Store the array value to the items field
+                            builder_->CreateStore(value, itemsFieldPtr);
+                            std::cout << "DEBUG: PropertyAssignment - array value stored to items field" << std::endl;
+                        } else {
+                            std::cout << "DEBUG: PropertyAssignment - struct has insufficient elements" << std::endl;
+                        }
+                    } else {
+                        std::cout << "DEBUG: PropertyAssignment - element type is not a struct" << std::endl;
+                    }
+                } else {
+                    std::cout << "DEBUG: PropertyAssignment - object type is not a pointer" << std::endl;
+                }
             } else {
                 // For other properties, implement a general property store
                 // This is a simplified implementation for now
