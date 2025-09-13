@@ -927,11 +927,18 @@ void LLVMCodeGen::visit(CallExpression& node) {
         propertyAccess->accept(*this);
         llvm::Value* calleeValue = getCurrentValue();
         
-        // Check if the property access returned a function (like console.log)
+        // Check if the property access returned a function
         if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
-            // This is a function call (like console.log), not a method call
             function = llvm::cast<llvm::Function>(calleeValue);
             std::cout << "DEBUG: CallExpression - Found function from PropertyAccess: " << function->getName().str() << std::endl;
+            
+            // For method calls, we need to pass the object as the first argument
+            // Generate the object being called on
+            propertyAccess->getObject()->accept(*this);
+            llvm::Value* objectInstance = getCurrentValue();
+            
+            // Store the object instance for later use in argument generation
+            // We'll need to prepend it to the arguments list
         } else {
             // This is a method call (like obj.method())
             String methodName = propertyAccess->getProperty();
@@ -988,6 +995,17 @@ void LLVMCodeGen::visit(CallExpression& node) {
     std::vector<llvm::Value*> args;
     llvm::FunctionType* funcType = function->getFunctionType();
     
+    // If this is a method call from PropertyAccess, prepend the object as first argument
+    if (auto propertyAccess = dynamic_cast<PropertyAccess*>(node.getCallee())) {
+        // We already generated the object instance above, now we need to get it again
+        propertyAccess->getObject()->accept(*this);
+        llvm::Value* objectInstance = getCurrentValue();
+        if (objectInstance) {
+            args.push_back(objectInstance);
+            std::cout << "DEBUG: Prepended object instance as first argument for method call" << std::endl;
+        }
+    }
+    
     for (size_t i = 0; i < node.getArguments().size(); ++i) {
         node.getArguments()[i]->accept(*this);
         llvm::Value* argValue = getCurrentValue();
@@ -998,8 +1016,14 @@ void LLVMCodeGen::visit(CallExpression& node) {
         }
         
         // Convert argument type to match expected parameter type if needed
-        if (i < funcType->getNumParams()) {
-            llvm::Type* expectedType = funcType->getParamType(i);
+        // For method calls, the parameter index is offset by 1 due to the prepended object
+        size_t paramIndex = i;
+        if (auto propertyAccess = dynamic_cast<PropertyAccess*>(node.getCallee())) {
+            paramIndex = i + 1; // Skip the first parameter (the object)
+        }
+        
+        if (paramIndex < funcType->getNumParams()) {
+            llvm::Type* expectedType = funcType->getParamType(paramIndex);
             argValue = convertValueToType(argValue, expectedType);
         }
         
@@ -1560,8 +1584,74 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 return;
             }
             
-            reportError("Generic method lookup not implemented for this case: " + propertyName, node.getLocation());
-            setCurrentValue(createNullValue(getAnyType()));
+            // This will be handled by the generic method lookup below
+        }
+        
+        // Try generic method lookup for constrained types
+        if (auto identifier = dynamic_cast<Identifier*>(node.getObject())) {
+            Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
+            if (symbol && symbol->getType()) {
+                std::cout << "DEBUG: Attempting generic method lookup for symbol: " << identifier->getName() << " with type: " << symbol->getType()->toString() << std::endl;
+                llvm::Function* methodFunc = genericMethodLookup(propertyName, symbol->getType(), node.getLocation());
+                if (methodFunc) {
+                    std::cout << "DEBUG: Found generic method: " << propertyName << std::endl;
+                    setCurrentValue(methodFunc);
+                    return;
+                } else if (propertyName == "length") {
+                    // Handle length as property access for generic array types
+                    std::cout << "DEBUG: Handling length as property access for generic array type" << std::endl;
+                    
+                    // Generate the array object
+                    node.getObject()->accept(*this);
+                    llvm::Value* arrayValue = getCurrentValue();
+                    
+                    if (!arrayValue) {
+                        reportError("Cannot access length property on null array", node.getLocation());
+                        setCurrentValue(createNullValue(getAnyType()));
+                        return;
+                    }
+                    
+                    // For generic array types, we need to handle length access
+                    // This is a simplified implementation - we'll assume it's an array
+                    llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
+                        llvm::Type::getInt32Ty(*context_),  // length
+                        llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 0)  // data (flexible array)
+                    });
+                    
+                    llvm::Value* lengthPtr = builder_->CreateGEP(arrayStructType, arrayValue, 
+                        {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)}, "length.ptr");
+                    llvm::Value* arrayLength = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "array.length");
+                    llvm::Value* lengthAsDouble = builder_->CreateSIToFP(arrayLength, getNumberType(), "length.double");
+                    setCurrentValue(lengthAsDouble);
+                    return;
+                }
+            }
+        } else if (propertyName == "length") {
+            // Handle length access for nested property access (e.g., array.length.toString())
+            std::cout << "DEBUG: Handling nested length property access" << std::endl;
+            
+            // Generate the array object
+            node.getObject()->accept(*this);
+            llvm::Value* arrayValue = getCurrentValue();
+            
+            if (!arrayValue) {
+                reportError("Cannot access length property on null array", node.getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+            
+            // For nested property access, we need to handle length access
+            // This is a simplified implementation - we'll assume it's an array
+            llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
+                llvm::Type::getInt32Ty(*context_),  // length
+                llvm::ArrayType::get(llvm::Type::getDoubleTy(*context_), 0)  // data (flexible array)
+            });
+            
+            llvm::Value* lengthPtr = builder_->CreateGEP(arrayStructType, arrayValue, 
+                {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)}, "length.ptr");
+            llvm::Value* arrayLength = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "array.length");
+            llvm::Value* lengthAsDouble = builder_->CreateSIToFP(arrayLength, getNumberType(), "length.double");
+            setCurrentValue(lengthAsDouble);
             return;
         }
         
@@ -5195,6 +5285,133 @@ void LLVMCodeGen::FunctionContext::cleanup() {
     while (!exceptionStack_.empty()) {
         exceptionStack_.pop();
     }
+}
+
+// Generic method lookup implementation
+llvm::Function* LLVMCodeGen::genericMethodLookup(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location) {
+    std::cout << "DEBUG: genericMethodLookup called for method: " << methodName << " on type: " << objectType->toString() << std::endl;
+    
+    // Handle built-in methods that are available on all types
+    if (methodName == "toString") {
+        return createBuiltinMethodFunction("toString", objectType, location);
+    } else if (methodName == "valueOf") {
+        return createBuiltinMethodFunction("valueOf", objectType, location);
+    }
+    
+    // Handle array properties (not methods)
+    if (methodName == "length") {
+        // For generic types that might be arrays, we need to handle length as a property
+        // This should not return a function, but should be handled in PropertyAccess
+        return nullptr; // Signal that this should be handled as property access
+    }
+    
+    // Handle type-specific methods based on constraints
+    if (objectType->getKind() == TypeKind::TypeParameter) {
+        auto typeParamType = std::static_pointer_cast<TypeParameterType>(objectType);
+        if (typeParamType->getConstraint()) {
+            auto constraintType = typeParamType->getConstraint();
+            std::cout << "DEBUG: Type parameter has constraint: " << constraintType->toString() << std::endl;
+            
+            // Handle methods based on constraint type
+            if (constraintType->getKind() == TypeKind::Number) {
+                if (methodName == "toString") {
+                    return createBuiltinMethodFunction("numberToString", constraintType, location);
+                }
+            } else if (constraintType->getKind() == TypeKind::String) {
+                if (methodName == "toString") {
+                    return createBuiltinMethodFunction("stringToString", constraintType, location);
+                }
+            } else if (constraintType->getKind() == TypeKind::Array) {
+                auto arrayType = std::static_pointer_cast<ArrayType>(constraintType);
+                if (methodName == "length") {
+                    return createBuiltinMethodFunction("arrayLength", constraintType, location);
+                } else if (methodName == "toString") {
+                    return createBuiltinMethodFunction("arrayToString", constraintType, location);
+                }
+            }
+        }
+    }
+    
+    // If no specific method found, return null
+    std::cout << "DEBUG: No method found for: " << methodName << " on type: " << objectType->toString() << std::endl;
+    return nullptr;
+}
+
+llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location) {
+    std::cout << "DEBUG: createBuiltinMethodFunction called for: " << methodName << " on type: " << objectType->toString() << std::endl;
+    
+    // Check if function already exists
+    llvm::Function* existingFunc = module_->getFunction(methodName);
+    if (existingFunc) {
+        std::cout << "DEBUG: Found existing function: " << methodName << std::endl;
+        return existingFunc;
+    }
+    
+    // Create appropriate function based on method name
+    if (methodName == "toString" || methodName == "numberToString") {
+        // toString() -> string
+        auto funcType = llvm::FunctionType::get(
+            getStringType(),  // Return type: string
+            {getAnyType()},   // Parameter: any type (the object)
+            false
+        );
+        auto func = llvm::Function::Create(
+            funcType, llvm::Function::ExternalLinkage, "toString", module_.get()
+        );
+        std::cout << "DEBUG: Created toString function" << std::endl;
+        return func;
+    } else if (methodName == "valueOf") {
+        // valueOf() -> any (returns the object itself)
+        auto funcType = llvm::FunctionType::get(
+            getAnyType(),     // Return type: any
+            {getAnyType()},   // Parameter: any type (the object)
+            false
+        );
+        auto func = llvm::Function::Create(
+            funcType, llvm::Function::ExternalLinkage, "valueOf", module_.get()
+        );
+        std::cout << "DEBUG: Created valueOf function" << std::endl;
+        return func;
+    } else if (methodName == "arrayLength") {
+        // arrayLength(array) -> number
+        auto funcType = llvm::FunctionType::get(
+            getNumberType(),  // Return type: number
+            {getAnyType()},   // Parameter: any type (the array)
+            false
+        );
+        auto func = llvm::Function::Create(
+            funcType, llvm::Function::ExternalLinkage, "arrayLength", module_.get()
+        );
+        std::cout << "DEBUG: Created arrayLength function" << std::endl;
+        return func;
+    } else if (methodName == "stringToString") {
+        // stringToString(string) -> string (identity function)
+        auto funcType = llvm::FunctionType::get(
+            getStringType(),  // Return type: string
+            {getStringType()}, // Parameter: string
+            false
+        );
+        auto func = llvm::Function::Create(
+            funcType, llvm::Function::ExternalLinkage, "stringToString", module_.get()
+        );
+        std::cout << "DEBUG: Created stringToString function" << std::endl;
+        return func;
+    } else if (methodName == "arrayToString") {
+        // arrayToString(array) -> string
+        auto funcType = llvm::FunctionType::get(
+            getStringType(),  // Return type: string
+            {getAnyType()},   // Parameter: any type (the array)
+            false
+        );
+        auto func = llvm::Function::Create(
+            funcType, llvm::Function::ExternalLinkage, "arrayToString", module_.get()
+        );
+        std::cout << "DEBUG: Created arrayToString function" << std::endl;
+        return func;
+    }
+    
+    std::cout << "DEBUG: Unknown method name: " << methodName << std::endl;
+    return nullptr;
 }
 
 // BuiltinFunctionRegistry implementation

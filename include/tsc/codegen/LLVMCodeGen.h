@@ -501,6 +501,10 @@ private:
     void generateMonomorphizedMethods(const GenericType& genericType, Symbol* classSymbol);
     void generateMonomorphizedMethod(const MethodDeclaration& method, const GenericType& genericType, const String& mangledName);
     
+    // Generic method lookup for constrained types
+    llvm::Function* genericMethodLookup(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location);
+    llvm::Function* createBuiltinMethodFunction(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location);
+    
     // Value operations
     llvm::Value* createNumberLiteral(double value);
     llvm::Value* createStringLiteral(const String& value);
