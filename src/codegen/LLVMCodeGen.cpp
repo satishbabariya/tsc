@@ -1545,9 +1545,37 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
         // Empty array - create array with length 0
         llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
         if (!currentFunc) {
-            // Defer array literal creation for global scope
-            std::cout << "DEBUG: Deferring empty array literal creation for global context" << std::endl;
-            setCurrentValue(createNullValue(getAnyType()));
+            // For global scope, create a proper empty array structure
+            std::cout << "DEBUG: Creating empty array literal for global context" << std::endl;
+            
+            // Create array structure: { i32 length, ptr data }
+            llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
+                llvm::Type::getInt32Ty(*context_),  // length
+                llvm::Type::getInt8Ty(*context_)->getPointerTo()  // data (pointer to dynamically allocated array)
+            });
+            
+            // Create a global variable for the array structure
+            llvm::GlobalVariable* globalArray = new llvm::GlobalVariable(
+                *module_,
+                arrayStructType,
+                false, // not constant
+                llvm::GlobalValue::PrivateLinkage,
+                nullptr, // no initializer for now
+                "empty_array_global"
+            );
+            
+            // Initialize the array structure with proper values
+            llvm::Constant* lengthConst = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0);
+            llvm::Constant* dataConst = llvm::ConstantPointerNull::get(llvm::Type::getInt8Ty(*context_)->getPointerTo());
+            
+            llvm::Constant* arrayConst = llvm::ConstantStruct::get(
+                llvm::cast<llvm::StructType>(arrayStructType),
+                {lengthConst, dataConst}
+            );
+            
+            globalArray->setInitializer(arrayConst);
+            
+            setCurrentValue(globalArray);
             return;
         }
         
@@ -1601,9 +1629,37 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
     llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
     
     if (!currentFunc) {
-        // Defer array literal creation for global scope
-        std::cout << "DEBUG: Deferring array literal creation for global context" << std::endl;
-        setCurrentValue(createNullValue(getAnyType()));
+        // For global scope, create a proper array structure
+        std::cout << "DEBUG: Creating array literal for global context" << std::endl;
+        
+        // Create array structure: { i32 length, ptr data }
+        llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
+            llvm::Type::getInt32Ty(*context_),  // length
+            llvm::Type::getInt8Ty(*context_)->getPointerTo()  // data (pointer to dynamically allocated array)
+        });
+        
+        // Create a global variable for the array structure
+        llvm::GlobalVariable* globalArray = new llvm::GlobalVariable(
+            *module_,
+            arrayStructType,
+            false, // not constant
+            llvm::GlobalValue::PrivateLinkage,
+            nullptr, // no initializer for now
+            "array_global"
+        );
+        
+        // Initialize the array structure with proper values
+        llvm::Constant* lengthConst = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), arraySize);
+        llvm::Constant* dataConst = llvm::ConstantPointerNull::get(llvm::Type::getInt8Ty(*context_)->getPointerTo());
+        
+        llvm::Constant* arrayConst = llvm::ConstantStruct::get(
+            llvm::cast<llvm::StructType>(arrayStructType),
+            {lengthConst, dataConst}
+        );
+        
+        globalArray->setInitializer(arrayConst);
+        
+        setCurrentValue(globalArray);
         return;
     }
     
