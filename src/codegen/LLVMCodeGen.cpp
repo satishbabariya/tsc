@@ -2159,18 +2159,15 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
             std::cout << "DEBUG: Resolved property " << propertyName << " from spread " << propInfo.spreadOrder << std::endl;
         }
         
-        // Add fields for regular properties
-        if (!regularProperties.empty()) {
-            // Determine element type from first regular property
-            regularProperties[0]->getValue()->accept(*this);
-            llvm::Value* firstValue = getCurrentValue();
-            if (firstValue) {
-                llvm::Type* elementType = firstValue->getType();
-                
-                for (const auto* property : regularProperties) {
-                    fieldTypes.push_back(elementType);
-                    fieldNames.push_back(property->getKey());
-                }
+        // Add fields for regular properties (each property can have its own type)
+        for (const auto* property : regularProperties) {
+            property->getValue()->accept(*this);
+            llvm::Value* propertyValue = getCurrentValue();
+            if (propertyValue) {
+                llvm::Type* propertyType = propertyValue->getType();
+                fieldTypes.push_back(propertyType);
+                fieldNames.push_back(property->getKey());
+                std::cout << "DEBUG: Regular property " << property->getKey() << " has type: " << propertyType->getTypeID() << std::endl;
             }
         }
         
