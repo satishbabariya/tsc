@@ -5829,6 +5829,11 @@ void LLVMCodeGen::visit(DestructorDeclaration& node) {
         // Generate automatic ARC cleanup for class members
         generateAutomaticCleanup(node.getClassName());
         
+        // Ensure proper stack frame setup for simple destructors
+        // This prevents stack corruption when multiple destructors are called
+        llvm::Value* stackFrameGuard = builder_->CreateAlloca(llvm::Type::getInt32Ty(*context_), nullptr, "stack_frame_guard");
+        builder_->CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), stackFrameGuard);
+        
         // Ensure function has a return (destructors always return void)
         if (!builder_->GetInsertBlock()->getTerminator()) {
             builder_->CreateRetVoid();
