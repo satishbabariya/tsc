@@ -5,6 +5,7 @@
 
 // Include ARC runtime
 #include "runtime/arc/arc_runtime.h"
+#include "runtime/arc/smart_pointers.h"
 
 // String concatenation function
 // Signature: char* string_concat(char* str1, char* str2)

@@ -364,6 +364,7 @@ add_library(tsc_runtime STATIC
     runtime/arc/arc_runtime.c
     runtime/arc/weak_references.c
     runtime/arc/cycle_detection.c
+    runtime/arc/smart_pointers.c
 )
 
 # Create main executable

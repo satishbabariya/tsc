@@ -237,7 +237,10 @@ void SemanticAnalyzer::visit(NewExpression& node) {
             std::cout << "DEBUG: Class type: " << classType->toString() << ", kind: " << static_cast<int>(classType->getKind()) << std::endl;
             
             // Check if this is a class type that can be instantiated
-            if (classType->getKind() == TypeKind::Class) {
+            if (classType->getKind() == TypeKind::Class || 
+                classType->getKind() == TypeKind::UniquePtr ||
+                classType->getKind() == TypeKind::SharedPtr ||
+                classType->getKind() == TypeKind::WeakPtr) {
                 // Handle explicit type arguments for generic classes
                 if (node.hasExplicitTypeArguments()) {
                     std::cout << "DEBUG: Processing explicit type arguments" << std::endl;
@@ -1705,6 +1708,25 @@ void SemanticAnalyzer::setupBuiltinEnvironment() {
     auto numberType = typeSystem_->getNumberType();
     symbolTable_->addSymbol("Infinity", SymbolKind::Variable, numberType, SourceLocation());
     symbolTable_->addSymbol("NaN", SymbolKind::Variable, numberType, SourceLocation());
+    
+    // Add smart pointer constructors
+    auto anyType = typeSystem_->getAnyType();
+    
+    // unique_ptr constructor
+    auto uniquePtrType = typeSystem_->createUniquePtrType(anyType);
+    symbolTable_->addSymbol("unique_ptr", SymbolKind::Class, uniquePtrType, SourceLocation());
+    
+    // shared_ptr constructor
+    auto sharedPtrType = typeSystem_->createSharedPtrType(anyType);
+    symbolTable_->addSymbol("shared_ptr", SymbolKind::Class, sharedPtrType, SourceLocation());
+    
+    // weak_ptr constructor
+    auto weakPtrType = typeSystem_->createWeakPtrType(anyType);
+    symbolTable_->addSymbol("weak_ptr", SymbolKind::Class, weakPtrType, SourceLocation());
+    
+    // std namespace
+    auto stdType = typeSystem_->createObjectType();
+    symbolTable_->addSymbol("std", SymbolKind::Variable, stdType, SourceLocation());
 }
 
 // Type inference helpers
