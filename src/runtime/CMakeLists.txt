@@ -1,7 +1,6 @@
 # Runtime memory management library
 add_library(tsc_memory_runtime
     ReferenceCounter.cpp
-    GarbageCollector.cpp
     LLVMMemoryManager.cpp
 )
 

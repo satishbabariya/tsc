@@ -3,7 +3,6 @@
 #include "ReferenceCounter.h"
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 #include <any>
 
@@ -17,10 +16,9 @@ public:
     TypeScriptObject() = default;
     virtual ~TypeScriptObject() = default;
     
-    // Pure virtual methods for object behavior
-    virtual std::string getTypeName() const = 0;
-    virtual void markReachable(std::unordered_set<TypeScriptObject*>& reachable) const = 0;
-    virtual void cleanup() {}
+            // Pure virtual methods for object behavior
+            virtual std::string getTypeName() const = 0;
+            virtual void cleanup() {}
     
     // Get reference count for debugging
     size_t getRefCount() const { return refCount_.getRefCount(); }
@@ -122,18 +120,6 @@ public:
     
     std::string getTypeName() const override { return "Array"; }
     
-    void markReachable(std::unordered_set<TypeScriptObject*>& reachable) const override {
-        // Mark all contained objects as reachable
-        for (const auto& element : elements_) {
-            if (element.has_value()) {
-                if (auto obj = std::any_cast<TypeScriptObjectPtr>(&element)) {
-                    if (obj->get()) {
-                        reachable.insert(obj->get());
-                    }
-                }
-            }
-        }
-    }
     
     // Array operations
     void push(const std::any& value) {
@@ -180,16 +166,6 @@ public:
     
     std::string getTypeName() const override { return "Object"; }
     
-    void markReachable(std::unordered_set<TypeScriptObject*>& reachable) const override {
-        // Mark all property values as reachable
-        for (const auto& [key, value] : properties_) {
-            if (auto obj = std::any_cast<TypeScriptObjectPtr>(&value)) {
-                if (obj->get()) {
-                    reachable.insert(obj->get());
-                }
-            }
-        }
-    }
     
     // Object operations
     void setProperty(const std::string& key, const std::any& value) {

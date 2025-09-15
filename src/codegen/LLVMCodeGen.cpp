@@ -3246,7 +3246,10 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
         
         // For global variables, ensure they are pointers to the type
         llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
-        if (!currentFunc && llvmType && !llvmType->isPointerTy()) {
+        // For global variables, only convert to pointer type for complex types
+        // Simple types like numbers should be stored directly
+        if (!currentFunc && llvmType && !llvmType->isPointerTy() && 
+            !llvmType->isIntegerTy() && !llvmType->isFloatingPointTy()) {
             llvmType = llvm::PointerType::get(llvmType, 0);
             std::cout << "DEBUG: Variable " << node.getName() << " converted to pointer type for global variable" << std::endl;
         }

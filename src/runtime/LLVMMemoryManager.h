@@ -1,7 +1,6 @@
 #pragma once
 
 #include "TypeScriptObject.h"
-#include "GarbageCollector.h"
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instructions.h>
@@ -26,8 +25,8 @@ public:
     llvm::Value* addRef(llvm::IRBuilder<>& builder, llvm::Value* object);
     llvm::Value* releaseRef(llvm::IRBuilder<>& builder, llvm::Value* object);
     
-    // Generate LLVM IR for garbage collection
-    void generateGC(llvm::IRBuilder<>& builder);
+    // Generate LLVM IR for cleanup
+    void generateCleanup(llvm::IRBuilder<>& builder);
     
     // Get LLVM types for TypeScript objects
     llvm::StructType* getObjectType() const { return objectType_; }
@@ -36,9 +35,6 @@ public:
     
     // Runtime function declarations
     void declareRuntimeFunctions();
-    
-    // Generate cleanup code
-    void generateCleanup(llvm::IRBuilder<>& builder);
     
     // Get runtime function references
     llvm::Function* getMallocFunc() const { return mallocFunc_; }
@@ -71,8 +67,8 @@ private:
     // Generate reference counting functions
     void generateReferenceCountingFunctions();
     
-    // Generate garbage collection functions
-    void generateGCFunctions();
+            // Generate cleanup functions
+            void generateCleanupFunctions();
 };
 
 /**

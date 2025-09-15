@@ -11,7 +11,7 @@ LLVMMemoryManager::LLVMMemoryManager(llvm::LLVMContext& context, llvm::Module& m
     initializeTypes();
     declareRuntimeFunctions();
     generateReferenceCountingFunctions();
-    generateGCFunctions();
+    generateCleanupFunctions();
 }
 
 void LLVMMemoryManager::initializeTypes() {
@@ -95,13 +95,13 @@ void LLVMMemoryManager::declareRuntimeFunctions() {
     );
     releaseRefFunc_ = llvm::Function::Create(releaseRefType, llvm::Function::ExternalLinkage, "tsc_releaseRef", &module_);
     
-    // Declare garbage collection function
-    llvm::FunctionType* gcType = llvm::FunctionType::get(
-        llvm::Type::getVoidTy(context_),
-        {},
-        false
-    );
-    gcCollectFunc_ = llvm::Function::Create(gcType, llvm::Function::ExternalLinkage, "tsc_gc_collect", &module_);
+            // Declare cleanup function
+            llvm::FunctionType* cleanupType = llvm::FunctionType::get(
+                llvm::Type::getVoidTy(context_),
+                {},
+                false
+            );
+            gcCollectFunc_ = llvm::Function::Create(cleanupType, llvm::Function::ExternalLinkage, "tsc_cleanup", &module_);
 }
 
 llvm::Value* LLVMMemoryManager::createObject(llvm::IRBuilder<>& builder, const std::string& typeName) {
@@ -132,13 +132,8 @@ llvm::Value* LLVMMemoryManager::releaseRef(llvm::IRBuilder<>& builder, llvm::Val
     return builder.CreateCall(releaseRefFunc_, {object}, "release_ref");
 }
 
-void LLVMMemoryManager::generateGC(llvm::IRBuilder<>& builder) {
-    builder.CreateCall(gcCollectFunc_, {}, "gc_collect");
-}
-
 void LLVMMemoryManager::generateCleanup(llvm::IRBuilder<>& builder) {
-    // Generate cleanup code for any remaining objects
-    generateGC(builder);
+    builder.CreateCall(gcCollectFunc_, {}, "cleanup");
 }
 
 void LLVMMemoryManager::generateReferenceCountingFunctions() {
@@ -146,8 +141,8 @@ void LLVMMemoryManager::generateReferenceCountingFunctions() {
     // This is a placeholder for the runtime functions
 }
 
-void LLVMMemoryManager::generateGCFunctions() {
-    // Implementation would go here for the garbage collection logic
+void LLVMMemoryManager::generateCleanupFunctions() {
+    // Implementation would go here for the cleanup logic
     // This is a placeholder for the runtime functions
 }
 
