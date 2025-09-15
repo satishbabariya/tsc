@@ -22,7 +22,7 @@ let indexResult3 = testArray3.indexOf(true);  // Should return number
 
 // Test 4: Higher-order array methods
 let testArray4: Array<number> = [1, 2, 3, 4, 5];
-let forEachResult4 = testArray4.forEach((item) => console.log(item));  // Should return void
+let forEachResult4 = testArray4.forEach((item) => _print(item));  // Should return void
 let mapResult4 = testArray4.map((item) => item * 2);  // Should return Array<number>
 let filterResult4 = testArray4.filter((item) => item > 2);  // Should return Array<number>
 let reduceResult4 = testArray4.reduce((acc, item) => acc + item, 0);  // Should return number
@@ -52,4 +52,4 @@ let stringPop = stringArray.pop();
 let numberPop = numberArray.pop();
 let booleanPop = booleanArray.pop();
 
-console.log("Array method unit tests completed successfully");
+_print("Array method unit tests completed successfully");

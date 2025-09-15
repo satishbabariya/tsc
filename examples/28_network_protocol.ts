@@ -152,9 +152,9 @@ class Connection {
       this.isConnected = true;
       this.sendHandshake();
       this.startHeartbeat();
-      console.log(`Connected to ${this.address}:${this.port}`);
+      _print(`Connected to ${this.address}:${this.port}`);
     } catch (error) {
-      console.error(`Failed to connect to ${this.address}:${this.port}:`, error);
+      _print(`Failed to connect to ${this.address}:${this.port}:`, error);
       throw error;
     }
   }
@@ -169,7 +169,7 @@ class Connection {
       checksum: 0
     });
     await this.socket.close();
-    console.log(`Disconnected from ${this.address}:${this.port}`);
+    _print(`Disconnected from ${this.address}:${this.port}`);
   }
 
   async sendData(data: Uint8Array): Promise<void> {
@@ -200,7 +200,7 @@ class Connection {
       await this.handleMessage(message);
       return message;
     } catch (error) {
-      console.error('Error receiving message:', error);
+      _print('Error receiving message:', error);
       return null;
     }
   }
@@ -229,7 +229,7 @@ class Connection {
   }
 
   private async handleHandshake(message: ProtocolMessage): Promise<void> {
-    console.log('Received handshake');
+    _print('Received handshake');
     await this.sendMessage({
       type: MessageType.ACK,
       sequence: this.getNextSequence(),
@@ -240,7 +240,7 @@ class Connection {
   }
 
   private async handleData(message: ProtocolMessage): Promise<void> {
-    console.log(`Received data: ${message.payload.length} bytes`);
+    _print(`Received data: ${message.payload.length} bytes`);
     this.messageQueue.push(message);
     
     // Send ACK
@@ -254,20 +254,20 @@ class Connection {
   }
 
   private async handleAck(message: ProtocolMessage): Promise<void> {
-    console.log('Received ACK');
+    _print('Received ACK');
   }
 
   private async handleNack(message: ProtocolMessage): Promise<void> {
-    console.log('Received NACK');
+    _print('Received NACK');
   }
 
   private async handleHeartbeat(message: ProtocolMessage): Promise<void> {
     this.lastHeartbeat = Date.now();
-    console.log('Received heartbeat');
+    _print('Received heartbeat');
   }
 
   private async handleDisconnect(message: ProtocolMessage): Promise<void> {
-    console.log('Received disconnect');
+    _print('Received disconnect');
     this.isConnected = false;
   }
 
@@ -339,7 +339,7 @@ class TCPSocket {
   constructor(private address: string, private port: number) {}
 
   async connect(): Promise<void> {
-    console.log(`Connecting to ${this.address}:${this.port}`);
+    _print(`Connecting to ${this.address}:${this.port}`);
     // Simulate connection
     this.connected = true;
   }
@@ -348,7 +348,7 @@ class TCPSocket {
     if (!this.connected) {
       throw new Error('Socket not connected');
     }
-    console.log(`Sending ${data.length} bytes`);
+    _print(`Sending ${data.length} bytes`);
   }
 
   async receive(): Promise<Uint8Array> {
@@ -361,7 +361,7 @@ class TCPSocket {
 
   async close(): Promise<void> {
     this.connected = false;
-    console.log('Socket closed');
+    _print('Socket closed');
   }
 }
 
@@ -377,7 +377,7 @@ class ProtocolServer {
   }
 
   async start(): Promise<void> {
-    console.log(`Starting protocol server on port ${this.port}`);
+    _print(`Starting protocol server on port ${this.port}`);
     this.isRunning = true;
     
     // Simulate server loop
@@ -388,7 +388,7 @@ class ProtocolServer {
   }
 
   async stop(): Promise<void> {
-    console.log('Stopping protocol server');
+    _print('Stopping protocol server');
     this.isRunning = false;
     
     // Close all connections
@@ -408,7 +408,7 @@ class ProtocolServer {
           await this.processMessage(connection, message);
         }
       } catch (error) {
-        console.error(`Error handling connection ${connection.id}:`, error);
+        _print(`Error handling connection ${connection.id}:`, error);
         this.connectionManager.removeConnection(connection.id);
       }
     }
@@ -423,19 +423,19 @@ class ProtocolServer {
         await this.handleHeartbeatMessage(connection, message);
         break;
       default:
-        console.log(`Received message type: ${message.type}`);
+        _print(`Received message type: ${message.type}`);
     }
   }
 
   private async handleDataMessage(connection: Connection, message: ProtocolMessage): Promise<void> {
-    console.log(`Processing data message from ${connection.id}: ${message.payload.length} bytes`);
+    _print(`Processing data message from ${connection.id}: ${message.payload.length} bytes`);
     
     // Echo the data back
     await connection.sendData(message.payload);
   }
 
   private async handleHeartbeatMessage(connection: Connection, message: ProtocolMessage): Promise<void> {
-    console.log(`Received heartbeat from ${connection.id}`);
+    _print(`Received heartbeat from ${connection.id}`);
   }
 
   private async sleep(ms: number): Promise<void> {
@@ -541,10 +541,10 @@ interface ServerStats {
 
 // Usage examples
 async function demonstrateNetworkProtocol(): Promise<void> {
-  console.log("=== Network Protocol Demo ===\n");
+  _print("=== Network Protocol Demo ===\n");
 
   // 1. Message serialization
-  console.log("1. Message Serialization:");
+  _print("1. Message Serialization:");
   const message: ProtocolMessage = {
     type: MessageType.DATA,
     sequence: 1,
@@ -554,50 +554,50 @@ async function demonstrateNetworkProtocol(): Promise<void> {
   };
 
   const serialized = MessageSerializer.serialize(message);
-  console.log(`Serialized message: ${serialized.length} bytes`);
+  _print(`Serialized message: ${serialized.length} bytes`);
 
   const deserialized = MessageSerializer.deserialize(serialized);
-  console.log(`Deserialized message type: ${deserialized.type}`);
-  console.log(`Deserialized payload: ${new TextDecoder().decode(deserialized.payload)}`);
+  _print(`Deserialized message type: ${deserialized.type}`);
+  _print(`Deserialized payload: ${new TextDecoder().decode(deserialized.payload)}`);
 
   // 2. Connection management
-  console.log("\n2. Connection Management:");
+  _print("\n2. Connection Management:");
   const connectionManager = new ConnectionManager();
   
   const conn1 = connectionManager.createConnection("127.0.0.1", 8080);
   const conn2 = connectionManager.createConnection("127.0.0.1", 8081);
   
-  console.log(`Created ${connectionManager.getConnectionCount()} connections`);
+  _print(`Created ${connectionManager.getConnectionCount()} connections`);
 
   // 3. Protocol server
-  console.log("\n3. Protocol Server:");
+  _print("\n3. Protocol Server:");
   const server = new ProtocolServer(8080);
   
   // Start server in background
-  server.start().catch(console.error);
+  server.start().catch(_print);
   
   // Wait a bit for server to start
   await new Promise(resolve => setTimeout(resolve, 100));
 
   // 4. Protocol client
-  console.log("\n4. Protocol Client:");
+  _print("\n4. Protocol Client:");
   const client = new ProtocolClient();
   
   try {
     const connection = await client.connectToServer("127.0.0.1", 8080);
-    console.log(`Connected to server: ${connection.id}`);
+    _print(`Connected to server: ${connection.id}`);
     
     await client.sendData(connection.id, new TextEncoder().encode("Test message"));
-    console.log("Sent test message");
+    _print("Sent test message");
     
     await client.disconnectFromServer(connection.id);
-    console.log("Disconnected from server");
+    _print("Disconnected from server");
   } catch (error) {
-    console.error("Client error:", error);
+    _print("Client error:", error);
   }
 
   // 5. Load balancer
-  console.log("\n5. Load Balancer:");
+  _print("\n5. Load Balancer:");
   const loadBalancer = new LoadBalancer();
   
   loadBalancer.addServer("127.0.0.1", 8080, 1);
@@ -608,10 +608,10 @@ async function demonstrateNetworkProtocol(): Promise<void> {
   const server2 = loadBalancer.getNextServer();
   const server3 = loadBalancer.getNextServer();
   
-  console.log(`Selected servers: ${server1?.port}, ${server2?.port}, ${server3?.port}`);
+  _print(`Selected servers: ${server1?.port}, ${server2?.port}, ${server3?.port}`);
   
   const stats = loadBalancer.getServerStats();
-  console.log("Server stats:", stats);
+  _print("Server stats:", stats);
 
   // Stop server
   await server.stop();

@@ -7,6 +7,7 @@
 #include "tsc/semantic/ModuleResolver.h"
 #include "tsc/semantic/DependencyScanner.h"
 #include "tsc/semantic/ModuleSymbolTable.h"
+#include "tsc/semantic/CycleDetector.h"
 #include "tsc/utils/DiagnosticEngine.h"
 
 namespace tsc {
@@ -69,6 +70,19 @@ public:
     const TypeSystem& getTypeSystem() const { return *typeSystem_; }
     ModuleSymbolManager* getModuleSymbolManager() { return moduleSymbolManager_.get(); }
     
+    // Cycle detection
+    void runCycleDetection();
+    bool hasCycleErrors() const;
+    void printCycleResults() const;
+    
+    // RAII Analysis
+    void analyzeDestructor(const DestructorDeclaration& destructor);
+    void validateRAIIPatterns(const ClassDeclaration& classDecl);
+    void suggestResourceCleanup(const ClassDeclaration& classDecl);
+    void detectResourceLeaks(const ClassDeclaration& classDecl);
+    void analyzeResourceOwnership(const ClassDeclaration& classDecl);
+    void validateDestructorSafety(const DestructorDeclaration& destructor);
+    
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;
     void visit(StringLiteral& node) override;
@@ -91,6 +105,7 @@ public:
     void visit(PropertyAccess& node) override;
     void visit(ArrowFunction& node) override;
     void visit(FunctionExpression& node) override;
+    void visit(MoveExpression& node) override;
     void visit(ForOfStatement& node) override;
     
     void visit(ExpressionStatement& node) override;
@@ -114,6 +129,7 @@ public:
     // Class-related declarations
     void visit(PropertyDeclaration& node) override;
     void visit(MethodDeclaration& node) override;
+    void visit(DestructorDeclaration& node) override;
     void visit(ClassDeclaration& node) override;
     void visit(InterfaceDeclaration& node) override;
     void visit(EnumMember& node) override;
@@ -143,6 +159,7 @@ private:
     
     // Module context tracking
     String currentModulePath_;
+    unique_ptr<semantic::CycleDetector> cycleDetector_;
     
     // Function context tracking
     int functionDepth_ = 0;
@@ -243,6 +260,16 @@ private:
     FunctionDeclaration* getFunctionDeclaration(const String& functionName);
     bool validateFunctionArguments(const CallExpression& call, const FunctionType& functionType);
     bool validateGenericFunctionCall(const CallExpression& call, const FunctionDeclaration& funcDecl, const FunctionType& functionType);
+    
+    // ARC Memory Management Analysis
+    void analyzeOwnership(const Expression& expr);
+    void analyzeMoveSemantics(const MoveExpression& moveExpr);
+    void analyzeAssignmentOwnership(const AssignmentExpression& assignExpr);
+    void detectCycles(const ClassDeclaration& classDecl);
+    void suggestWeakReferences(const ClassDeclaration& classDecl);
+    bool isARCManaged(const Type& type) const;
+    bool isMoveable(const Type& type) const;
+    bool hasDestructor(const Type& type) const;
 };
 
 // Semantic analysis result

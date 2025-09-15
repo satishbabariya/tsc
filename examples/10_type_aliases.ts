@@ -241,7 +241,7 @@ let userProfile: UserProfile = {
 
 // Function signature usage
 let clickHandler: EventHandler<string> = (event: string): void => {
-    console.log("Clicked: " + event);
+    _print("Clicked: " + event);
 };
 
 let asyncProcessor: AsyncFunction<number, string> = async (input: number): Promise<string> => {

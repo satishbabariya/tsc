@@ -6,4 +6,4 @@ let firstElement = numbers[0];
 let secondElement = numbers[1];
 let thirdElement = numbers[2];
 
-console.log("Array element access test completed");
+_print("Array element access test completed");

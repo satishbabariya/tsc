@@ -24,7 +24,7 @@ bigArray.push(10);
 bigArray.push(20);
 bigArray.push(30);
 bigArray.push(40);
-console.log("Big array size:", bigArray.size());
+_print("Big array size:", bigArray.size());
 
 // Test 2: Multiple arrays with different types
 let numArray = new TestArray<number>();
@@ -33,17 +33,17 @@ let strArray = new TestArray<string>();
 numArray.push(100);
 strArray.push("test");
 
-console.log("Number array size:", numArray.size());
-console.log("String array size:", strArray.size());
+_print("Number array size:", numArray.size());
+_print("String array size:", strArray.size());
 
 // Test 3: Array operations in sequence
 let sequentialArray = new TestArray<number>();
 sequentialArray.push(1);
 sequentialArray.push(2);
 sequentialArray.push(3);
-console.log("Sequential array size:", sequentialArray.size());
+_print("Sequential array size:", sequentialArray.size());
 
 // Test 4: Global array initialization
 let globalArray = new TestArray<string>();
 globalArray.push("global");
-console.log("Global array size:", globalArray.size());
+_print("Global array size:", globalArray.size());

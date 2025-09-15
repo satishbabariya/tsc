@@ -100,32 +100,32 @@ abstract class Animal {
   abstract makeSound(): void;
   
   move(): void {
-    console.log(`${this.name} is moving...`);
+    _print(`${this.name} is moving...`);
   }
   
   // Concrete method
   sleep(): void {
-    console.log(`${this.name} is sleeping...`);
+    _print(`${this.name} is sleeping...`);
   }
 }
 
 class Dog extends Animal {
   makeSound(): void {
-    console.log(`${this.name} says Woof!`);
+    _print(`${this.name} says Woof!`);
   }
   
   wagTail(): void {
-    console.log(`${this.name} is wagging tail`);
+    _print(`${this.name} is wagging tail`);
   }
 }
 
 class Cat extends Animal {
   makeSound(): void {
-    console.log(`${this.name} says Meow!`);
+    _print(`${this.name} says Meow!`);
   }
   
   purr(): void {
-    console.log(`${this.name} is purring`);
+    _print(`${this.name} is purring`);
   }
 }
 
@@ -135,7 +135,7 @@ type Constructor<T = {}> = new (...args: any[]) => T;
 function CanFly<TBase extends Constructor>(Base: TBase) {
   return class extends Base {
     fly(): void {
-      console.log("Flying...");
+      _print("Flying...");
     }
   };
 }
@@ -143,7 +143,7 @@ function CanFly<TBase extends Constructor>(Base: TBase) {
 function CanSwim<TBase extends Constructor>(Base: TBase) {
   return class extends Base {
     swim(): void {
-      console.log("Swimming...");
+      _print("Swimming...");
     }
   };
 }
@@ -156,19 +156,19 @@ class Animal {
   }
   
   move(): void {
-    console.log(`${this.name} is moving`);
+    _print(`${this.name} is moving`);
   }
 }
 
 class Bird extends CanFly(Animal) {
   chirp(): void {
-    console.log(`${this.name} is chirping`);
+    _print(`${this.name} is chirping`);
   }
 }
 
 class Duck extends CanFly(CanSwim(Animal)) {
   quack(): void {
-    console.log(`${this.name} is quacking`);
+    _print(`${this.name} is quacking`);
   }
 }
 
@@ -293,15 +293,15 @@ function isObject(value: unknown): value is object {
 
 function print(value: unknown): void {
   if (isString(value)) {
-    console.log(value.toUpperCase());
+    _print(value.toUpperCase());
   } else if (isNumber(value)) {
-    console.log(value.toFixed(2));
+    _print(value.toFixed(2));
   } else if (isArray(value)) {
-    console.log(`Array with ${value.length} items`);
+    _print(`Array with ${value.length} items`);
   } else if (isObject(value)) {
-    console.log("Object:", Object.keys(value));
+    _print("Object:", Object.keys(value));
   } else {
-    console.log("Unknown type");
+    _print("Unknown type");
   }
 }
 
@@ -393,9 +393,9 @@ let loadingResponse: ApiResponse<never> = {
   status: "loading"
 };
 
-console.log(handleResponse(successResponse));
-console.log(handleResponse(errorResponse));
-console.log(handleResponse(loadingResponse));
+_print(handleResponse(successResponse));
+_print(handleResponse(errorResponse));
+_print(handleResponse(loadingResponse));
 
 // Abstract class usage
 let dog = new Dog("Buddy");

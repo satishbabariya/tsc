@@ -9,8 +9,8 @@ function processArrayBracket<T>(arr: T[]): number {
 
 let testArrayT: Array<number> = [];
 testArrayT.push(1);
-console.log("Function with Array<T> parameter:", processArrayT(testArrayT));
+_print("Function with Array<T> parameter:", processArrayT(testArrayT));
 
 let testArrayBracket: number[] = [];
 testArrayBracket.push(2);
-console.log("Function with T[] parameter:", processArrayBracket(testArrayBracket));
+_print("Function with T[] parameter:", processArrayBracket(testArrayBracket));

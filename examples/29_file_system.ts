@@ -132,7 +132,7 @@ class FileSystem {
     parent.children.set(dirName, newDir);
     parent.modifiedAt = new Date();
     
-    console.log(`Created directory: ${resolvedPath}`);
+    _print(`Created directory: ${resolvedPath}`);
   }
 
   rmdir(path: string): void {
@@ -159,7 +159,7 @@ class FileSystem {
     parent.children.delete(node.name);
     parent.modifiedAt = new Date();
     
-    console.log(`Removed directory: ${resolvedPath}`);
+    _print(`Removed directory: ${resolvedPath}`);
   }
 
   // File operations
@@ -186,7 +186,7 @@ class FileSystem {
     parent.children.set(fileName, newFile);
     parent.modifiedAt = new Date();
     
-    console.log(`Created file: ${resolvedPath} (${content.length} bytes)`);
+    _print(`Created file: ${resolvedPath} (${content.length} bytes)`);
   }
 
   writeFile(path: string, content: string): void {
@@ -205,7 +205,7 @@ class FileSystem {
     node.modifiedAt = new Date();
     node.accessedAt = new Date();
     
-    console.log(`Written to file: ${resolvedPath} (${content.length} bytes)`);
+    _print(`Written to file: ${resolvedPath} (${content.length} bytes)`);
   }
 
   readFile(path: string): string {
@@ -222,7 +222,7 @@ class FileSystem {
     
     node.accessedAt = new Date();
     
-    console.log(`Read file: ${resolvedPath} (${node.size} bytes)`);
+    _print(`Read file: ${resolvedPath} (${node.size} bytes)`);
     return `Content of ${node.name}`; // Simulated content
   }
 
@@ -242,7 +242,7 @@ class FileSystem {
     parent.children.delete(node.name);
     parent.modifiedAt = new Date();
     
-    console.log(`Deleted file: ${resolvedPath}`);
+    _print(`Deleted file: ${resolvedPath}`);
   }
 
   // Navigation operations
@@ -261,7 +261,7 @@ class FileSystem {
     this.currentDirectory = node;
     node.accessedAt = new Date();
     
-    console.log(`Changed directory to: ${resolvedPath}`);
+    _print(`Changed directory to: ${resolvedPath}`);
   }
 
   pwd(): string {
@@ -283,7 +283,7 @@ class FileSystem {
     node.accessedAt = new Date();
     
     const entries = Array.from(node.children.keys());
-    console.log(`Listing directory: ${resolvedPath}`);
+    _print(`Listing directory: ${resolvedPath}`);
     return entries;
   }
 
@@ -321,7 +321,7 @@ class FileSystem {
     node.permissions = permissions;
     node.modifiedAt = new Date();
     
-    console.log(`Changed permissions for ${resolvedPath} to ${permissions.toString(8)}`);
+    _print(`Changed permissions for ${resolvedPath} to ${permissions.toString(8)}`);
   }
 
   chown(path: string, owner: string, group: string): void {
@@ -336,7 +336,7 @@ class FileSystem {
     node.group = group;
     node.modifiedAt = new Date();
     
-    console.log(`Changed ownership for ${resolvedPath} to ${owner}:${group}`);
+    _print(`Changed ownership for ${resolvedPath} to ${owner}:${group}`);
   }
 
   // Search operations
@@ -355,7 +355,7 @@ class FileSystem {
     const results: string[] = [];
     this.findRecursive(node, pattern, resolvedPath, results);
     
-    console.log(`Found ${results.length} files matching "${pattern}" in ${resolvedPath}`);
+    _print(`Found ${results.length} files matching "${pattern}" in ${resolvedPath}`);
     return results;
   }
 
@@ -383,7 +383,7 @@ class FileSystem {
     }
     
     const usage = this.calculateDiskUsage(node);
-    console.log(`Disk usage for ${resolvedPath}: ${usage.totalSize} bytes`);
+    _print(`Disk usage for ${resolvedPath}: ${usage.totalSize} bytes`);
     return usage;
   }
 
@@ -482,26 +482,26 @@ class FileSystemUtils {
 
 // Usage examples
 function demonstrateFileSystem(): void {
-  console.log("=== File System Demo ===\n");
+  _print("=== File System Demo ===\n");
 
   const fs = new FileSystem();
 
   // 1. Directory operations
-  console.log("1. Directory Operations:");
+  _print("1. Directory Operations:");
   fs.mkdir('/home');
   fs.mkdir('/home/user');
   fs.mkdir('/home/user/documents');
   fs.mkdir('/home/user/pictures');
   
   fs.cd('/home/user');
-  console.log('Current directory:', fs.pwd());
+  _print('Current directory:', fs.pwd());
   
   fs.mkdir('projects');
   fs.mkdir('projects/web');
   fs.mkdir('projects/mobile');
 
   // 2. File operations
-  console.log("\n2. File Operations:");
+  _print("\n2. File Operations:");
   fs.createFile('/home/user/documents/readme.txt', 'This is a readme file');
   fs.createFile('/home/user/documents/notes.md', '# Notes\n\nImportant information');
   fs.createFile('/home/user/projects/web/index.html', '<html><body>Hello World</body></html>');
@@ -509,24 +509,24 @@ function demonstrateFileSystem(): void {
   fs.writeFile('/home/user/documents/readme.txt', 'Updated readme content');
   
   const content = fs.readFile('/home/user/documents/notes.md');
-  console.log('File content:', content);
+  _print('File content:', content);
 
   // 3. Listing and navigation
-  console.log("\n3. Listing and Navigation:");
-  console.log('Root contents:', fs.ls('/'));
-  console.log('Home contents:', fs.ls('/home'));
-  console.log('User contents:', fs.ls('/home/user'));
+  _print("\n3. Listing and Navigation:");
+  _print('Root contents:', fs.ls('/'));
+  _print('Home contents:', fs.ls('/home'));
+  _print('User contents:', fs.ls('/home/user'));
   
   fs.cd('/home/user/projects');
-  console.log('Projects contents:', fs.ls('.'));
+  _print('Projects contents:', fs.ls('.'));
   
   fs.cd('..');
-  console.log('Back to user directory:', fs.pwd());
+  _print('Back to user directory:', fs.pwd());
 
   // 4. File information
-  console.log("\n4. File Information:");
+  _print("\n4. File Information:");
   const stats = fs.stat('/home/user/documents/readme.txt');
-  console.log('File stats:', {
+  _print('File stats:', {
     name: stats.name,
     type: stats.type,
     size: FileSystemUtils.formatSize(stats.size),
@@ -536,42 +536,42 @@ function demonstrateFileSystem(): void {
   });
 
   // 5. Permissions and ownership
-  console.log("\n5. Permissions and Ownership:");
+  _print("\n5. Permissions and Ownership:");
   fs.chmod('/home/user/documents/readme.txt', 0o600);
   fs.chown('/home/user/documents/readme.txt', 'user', 'users');
   
   const updatedStats = fs.stat('/home/user/documents/readme.txt');
-  console.log('Updated permissions:', FileSystemUtils.formatPermissions(updatedStats.permissions));
-  console.log('Updated ownership:', `${updatedStats.owner}:${updatedStats.group}`);
+  _print('Updated permissions:', FileSystemUtils.formatPermissions(updatedStats.permissions));
+  _print('Updated ownership:', `${updatedStats.owner}:${updatedStats.group}`);
 
   // 6. Search operations
-  console.log("\n6. Search Operations:");
+  _print("\n6. Search Operations:");
   const results = fs.find('/home/user', 'readme');
-  console.log('Search results for "readme":', results);
+  _print('Search results for "readme":', results);
   
   const htmlFiles = fs.find('/home/user', '.html');
-  console.log('Search results for ".html":', htmlFiles);
+  _print('Search results for ".html":', htmlFiles);
 
   // 7. Disk usage
-  console.log("\n7. Disk Usage:");
+  _print("\n7. Disk Usage:");
   const userUsage = fs.du('/home/user');
-  console.log('User directory usage:', {
+  _print('User directory usage:', {
     totalSize: FileSystemUtils.formatSize(userUsage.totalSize),
     files: userUsage.fileCount,
     directories: userUsage.dirCount
   });
   
   const documentsUsage = fs.du('/home/user/documents');
-  console.log('Documents usage:', {
+  _print('Documents usage:', {
     totalSize: FileSystemUtils.formatSize(documentsUsage.totalSize),
     files: documentsUsage.fileCount,
     directories: documentsUsage.dirCount
   });
 
   // 8. File system statistics
-  console.log("\n8. File System Statistics:");
+  _print("\n8. File System Statistics:");
   const fsStats = fs.getStats();
-  console.log('File system stats:', {
+  _print('File system stats:', {
     totalFiles: fsStats.totalFiles,
     totalDirectories: fsStats.totalDirectories,
     totalSize: FileSystemUtils.formatSize(fsStats.totalSize),
@@ -579,11 +579,11 @@ function demonstrateFileSystem(): void {
   });
 
   // 9. Cleanup
-  console.log("\n9. Cleanup:");
+  _print("\n9. Cleanup:");
   fs.deleteFile('/home/user/documents/notes.md');
   fs.rmdir('/home/user/pictures');
   
-  console.log('Final user contents:', fs.ls('/home/user'));
+  _print('Final user contents:', fs.ls('/home/user'));
 }
 
 // This example demonstrates building a complete file system with TypeScript

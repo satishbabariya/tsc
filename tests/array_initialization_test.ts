@@ -22,29 +22,29 @@ class BasicArrayOperations<T> {
 let numberArray = new BasicArrayOperations<number>();
 numberArray.addItem(42);
 numberArray.addItem(100);
-console.log("Number array length:", numberArray.getLength());
+_print("Number array length:", numberArray.getLength());
 
 // Test 2: String array initialization  
 let stringArray = new BasicArrayOperations<string>();
 stringArray.addItem("hello");
 stringArray.addItem("world");
-console.log("String array length:", stringArray.getLength());
+_print("String array length:", stringArray.getLength());
 
 // Test 3: Multiple arrays of same type
 let array1 = new BasicArrayOperations<number>();
 let array2 = new BasicArrayOperations<number>();
 array1.addItem(1);
 array2.addItem(2);
-console.log("Array1 length:", array1.getLength());
-console.log("Array2 length:", array2.getLength());
+_print("Array1 length:", array1.getLength());
+_print("Array2 length:", array2.getLength());
 
 // Test 4: Nested array operations
 let mainArray = new BasicArrayOperations<number>();
 mainArray.addItem(10);
 mainArray.addItem(20);
 mainArray.addItem(30);
-console.log("Main array length:", mainArray.getLength());
+_print("Main array length:", mainArray.getLength());
 
 // Test 5: Empty array initialization
 let emptyArray = new BasicArrayOperations<string>();
-console.log("Empty array length:", emptyArray.getLength());
+_print("Empty array length:", emptyArray.getLength());

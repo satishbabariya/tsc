@@ -6,7 +6,7 @@ function testObjects() {
         isActive: true
     };
     
-    console.log("Function object test completed");
+    _print("Function object test completed");
 }
 
 testObjects();

@@ -9,9 +9,9 @@ function delay(ms: number): Promise<string> {
 }
 
 async function runTask(): Promise<void> {
-  console.log("Task started...");
+  _print("Task started...");
   const result = await delay(1000);
-  console.log(result);
+  _print(result);
 }
 
 // Error handling with try/catch
@@ -29,16 +29,16 @@ async function fetchDataWithError(): Promise<string> {
 async function main(): Promise<void> {
   try {
     const data = await fetchData();
-    console.log("Data:", data);
+    _print("Data:", data);
   } catch (err) {
-    console.error("Error:", err);
+    _print("Error:", err);
   }
 
   try {
     const errorData = await fetchDataWithError();
-    console.log("This won't be reached");
+    _print("This won't be reached");
   } catch (err) {
-    console.error("Caught error:", err);
+    _print("Caught error:", err);
   }
 }
 
@@ -67,9 +67,9 @@ async function* asyncGenerator(): AsyncGenerator<string, void, unknown> {
 }
 
 async function processAsyncGenerator(): Promise<void> {
-  console.log("Processing async generator:");
+  _print("Processing async generator:");
   for await (const value of asyncGenerator()) {
-    console.log("Received:", value);
+    _print("Received:", value);
   }
 }
 
@@ -82,25 +82,25 @@ class ApiClient {
   }
 
   async get<T>(endpoint: string): Promise<T> {
-    console.log(`GET ${this.baseUrl}${endpoint}`);
+    _print(`GET ${this.baseUrl}${endpoint}`);
     await delay(300);
     return {} as T;
   }
 
   async post<T>(endpoint: string, data: any): Promise<T> {
-    console.log(`POST ${this.baseUrl}${endpoint}`, data);
+    _print(`POST ${this.baseUrl}${endpoint}`, data);
     await delay(400);
     return {} as T;
   }
 
   async put<T>(endpoint: string, data: any): Promise<T> {
-    console.log(`PUT ${this.baseUrl}${endpoint}`, data);
+    _print(`PUT ${this.baseUrl}${endpoint}`, data);
     await delay(350);
     return {} as T;
   }
 
   async delete<T>(endpoint: string): Promise<T> {
-    console.log(`DELETE ${this.baseUrl}${endpoint}`);
+    _print(`DELETE ${this.baseUrl}${endpoint}`);
     await delay(250);
     return {} as T;
   }
@@ -128,7 +128,7 @@ class PromiseUtils {
         return await fn();
       } catch (error) {
         lastError = error as Error;
-        console.log(`Attempt ${attempt} failed:`, error);
+        _print(`Attempt ${attempt} failed:`, error);
         
         if (attempt < maxRetries) {
           await delay(delayMs);
@@ -167,7 +167,7 @@ class AsyncErrorHandler {
     try {
       return await primary();
     } catch (error) {
-      console.log("Primary failed, using fallback:", error);
+      _print("Primary failed, using fallback:", error);
       return await fallback();
     }
   }
@@ -198,7 +198,7 @@ class AsyncQueue<T> {
       try {
         await this.processor(item);
       } catch (error) {
-        console.error("Error processing item:", error);
+        _print("Error processing item:", error);
       }
     }
 
@@ -245,36 +245,36 @@ class AsyncCache<K, V> {
 
 // Usage examples
 async function demonstrateAsyncFeatures(): Promise<void> {
-  console.log("=== Basic Async/Await ===");
+  _print("=== Basic Async/Await ===");
   await runTask();
 
-  console.log("\n=== Error Handling ===");
+  _print("\n=== Error Handling ===");
   await main();
 
-  console.log("\n=== Async Functions with Types ===");
+  _print("\n=== Async Functions with Types ===");
   const user = await getUser(1);
-  console.log("User:", user);
+  _print("User:", user);
 
   const users = await getUsers([1, 2, 3]);
-  console.log("Users:", users);
+  _print("Users:", users);
 
-  console.log("\n=== Async Iteration ===");
+  _print("\n=== Async Iteration ===");
   await processAsyncGenerator();
 
-  console.log("\n=== API Client ===");
+  _print("\n=== API Client ===");
   const apiClient = new ApiClient("https://api.example.com");
   await apiClient.get<{ id: number }>("/users/1");
   await apiClient.post<{ id: number }>("/users", { name: "Alice" });
 
-  console.log("\n=== Promise Utilities ===");
+  _print("\n=== Promise Utilities ===");
   try {
     const result = await PromiseUtils.timeout(fetchData(), 2000);
-    console.log("Timeout result:", result);
+    _print("Timeout result:", result);
   } catch (error) {
-    console.log("Timeout error:", error);
+    _print("Timeout error:", error);
   }
 
-  console.log("\n=== Retry Logic ===");
+  _print("\n=== Retry Logic ===");
   try {
     const retryResult = await PromiseUtils.retry(async () => {
       if (Math.random() > 0.5) {
@@ -282,26 +282,26 @@ async function demonstrateAsyncFeatures(): Promise<void> {
       }
       return "Success!";
     }, 3, 500);
-    console.log("Retry result:", retryResult);
+    _print("Retry result:", retryResult);
   } catch (error) {
-    console.log("Retry failed:", error);
+    _print("Retry failed:", error);
   }
 
-  console.log("\n=== Promise.allSettled ===");
+  _print("\n=== Promise.allSettled ===");
   const promises = [
     fetchData(),
     fetchDataWithError(),
     delay(100).then(() => "Delayed result")
   ];
   const settledResults = await PromiseUtils.allSettled(promises);
-  console.log("Settled results:", settledResults);
+  _print("Settled results:", settledResults);
 
-  console.log("\n=== Error Handling Patterns ===");
+  _print("\n=== Error Handling Patterns ===");
   const safeResult = await AsyncErrorHandler.safeExecute(async () => {
     await delay(100);
     return "Safe execution result";
   });
-  console.log("Safe result:", safeResult);
+  _print("Safe result:", safeResult);
 
   const fallbackResult = await AsyncErrorHandler.withFallback(
     async () => {
@@ -311,11 +311,11 @@ async function demonstrateAsyncFeatures(): Promise<void> {
       return "Fallback result";
     }
   );
-  console.log("Fallback result:", fallbackResult);
+  _print("Fallback result:", fallbackResult);
 
-  console.log("\n=== Async Queue ===");
+  _print("\n=== Async Queue ===");
   const queue = new AsyncQueue<number>(async (item) => {
-    console.log(`Processing item: ${item}`);
+    _print(`Processing item: ${item}`);
     await delay(100);
   });
 
@@ -323,17 +323,17 @@ async function demonstrateAsyncFeatures(): Promise<void> {
   await queue.add(2);
   await queue.add(3);
 
-  console.log("\n=== Async Cache ===");
+  _print("\n=== Async Cache ===");
   const cache = new AsyncCache<string, string>(async (key) => {
-    console.log(`Fetching data for key: ${key}`);
+    _print(`Fetching data for key: ${key}`);
     await delay(200);
     return `Data for ${key}`;
   });
 
   const cachedData1 = await cache.get("key1");
   const cachedData2 = await cache.get("key1"); // Should use cache
-  console.log("Cached data 1:", cachedData1);
-  console.log("Cached data 2:", cachedData2);
+  _print("Cached data 1:", cachedData1);
+  _print("Cached data 2:", cachedData2);
 }
 
 // Advanced async patterns

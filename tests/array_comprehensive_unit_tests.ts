@@ -229,39 +229,39 @@ class InterfaceArrayTest implements ArrayOperations {
 
 // Test execution and validation
 let basicTest = new BasicArrayTest();
-console.log("Basic array test - initial length:", basicTest.getLength());
+_print("Basic array test - initial length:", basicTest.getLength());
 
 let stringTest = new StringArrayTest();
-console.log("String array test - initial length:", stringTest.getLength());
+_print("String array test - initial length:", stringTest.getLength());
 
 let genericTest = new GenericArrayTest<number>();
-console.log("Generic array test - initial length:", genericTest.getLength());
-console.log("Generic array test - is empty:", genericTest.isEmpty());
+_print("Generic array test - initial length:", genericTest.getLength());
+_print("Generic array test - is empty:", genericTest.isEmpty());
 
 let multiTest = new MultiOperationArrayTest();
-console.log("Multi operation test - initial length:", multiTest.getTotalLength());
-console.log("Multi operation test - has items:", multiTest.hasItems());
+_print("Multi operation test - initial length:", multiTest.getTotalLength());
+_print("Multi operation test - has items:", multiTest.hasItems());
 
 let nestedTest = new NestedArrayTest();
-console.log("Nested array test - initial length:", nestedTest.getNestedLength());
+_print("Nested array test - initial length:", nestedTest.getNestedLength());
 
 let complexTest = new ComplexArrayTest();
-console.log("Complex array test - items length:", complexTest.getItemsLength());
-console.log("Complex array test - metadata length:", complexTest.getMetadataLength());
-console.log("Complex array test - lengths equal:", complexTest.areLengthsEqual());
+_print("Complex array test - items length:", complexTest.getItemsLength());
+_print("Complex array test - metadata length:", complexTest.getMetadataLength());
+_print("Complex array test - lengths equal:", complexTest.areLengthsEqual());
 
 let edgeTest = new EdgeCaseArrayTest();
-console.log("Edge case test - initial length:", edgeTest.getFinalLength());
+_print("Edge case test - initial length:", edgeTest.getFinalLength());
 
 let initialStateTest = new InitialStateArrayTest();
-console.log("Initial state test - is initialized:", initialStateTest.isInitialized());
-console.log("Initial state test - array length:", initialStateTest.getArrayLength());
+_print("Initial state test - is initialized:", initialStateTest.isInitialized());
+_print("Initial state test - array length:", initialStateTest.getArrayLength());
 
 let constrainedTest = new ConstrainedArrayTest<number>();
-console.log("Constrained array test - initial length:", constrainedTest.getConstrainedLength());
+_print("Constrained array test - initial length:", constrainedTest.getConstrainedLength());
 
 let interfaceTest = new InterfaceArrayTest();
-console.log("Interface array test - initial length:", interfaceTest.getLength());
-console.log("Interface array test - is empty:", interfaceTest.isEmpty());
+_print("Interface array test - initial length:", interfaceTest.getLength());
+_print("Interface array test - is empty:", interfaceTest.isEmpty());
 
-console.log("All comprehensive unit tests completed successfully!");
+_print("All comprehensive unit tests completed successfully!");

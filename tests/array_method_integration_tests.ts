@@ -10,7 +10,7 @@ function testArrayChaining(): void {
         .push(4, 5)           // Returns new length
         .toString();          // Convert to string
     
-    console.log("Array chaining result:", result);
+    _print("Array chaining result:", result);
 }
 
 // Test 2: Generic array with different element types
@@ -44,20 +44,20 @@ function testArrayMethodsWithFunctions(): void {
     
     // Test forEach
     numbers.forEach((num) => {
-        console.log("Number:", num);
+        _print("Number:", num);
     });
     
     // Test map
     let doubled: Array<number> = numbers.map((num) => num * 2);
-    console.log("Doubled:", doubled);
+    _print("Doubled:", doubled);
     
     // Test filter
     let evens: Array<number> = numbers.filter((num) => num % 2 === 0);
-    console.log("Even numbers:", evens);
+    _print("Even numbers:", evens);
     
     // Test reduce
     let sum: number = numbers.reduce((acc, num) => acc + num, 0);
-    console.log("Sum:", sum);
+    _print("Sum:", sum);
 }
 
 // Test 4: Array methods with complex generic types
@@ -79,9 +79,9 @@ function testComplexGenericArrays(): void {
     let userNames: Array<string> = users.map(user => user.name);
     let totalUsers: number = users.reduce((count, user) => count + 1, 0);
     
-    console.log("Active users count:", activeUsers.length);
-    console.log("User names:", userNames);
-    console.log("Total users:", totalUsers);
+    _print("Active users count:", activeUsers.length);
+    _print("User names:", userNames);
+    _print("Total users:", totalUsers);
 }
 
 // Test 5: Array methods with type parameters
@@ -96,8 +96,8 @@ function testGenericArrayProcessing(): void {
     let processedNumbers = processArray(numbers, (n) => n * 2);
     let processedStrings = processArray(strings, (s) => s.toUpperCase());
     
-    console.log("Processed numbers:", processedNumbers);
-    console.log("Processed strings:", processedStrings);
+    _print("Processed numbers:", processedNumbers);
+    _print("Processed strings:", processedStrings);
 }
 
 // Test 6: Array method error handling
@@ -109,9 +109,9 @@ function testArrayMethodErrors(): void {
     let popped = numbers.pop();   // Should be undefined
     let shifted = numbers.shift(); // Should be undefined
     
-    console.log("Empty array length:", length);
-    console.log("Popped from empty:", popped);
-    console.log("Shifted from empty:", shifted);
+    _print("Empty array length:", length);
+    _print("Popped from empty:", popped);
+    _print("Shifted from empty:", shifted);
 }
 
 // Test 7: Array methods with different array sizes
@@ -129,21 +129,21 @@ function testDifferentArraySizes(): void {
     let largeLength = large.length;
     let largeSlice = large.slice(0, 10);
     
-    console.log("Small array operations completed");
-    console.log("Large array operations completed");
+    _print("Small array operations completed");
+    _print("Large array operations completed");
 }
 
 // Run all tests
 function runIntegrationTests(): void {
-    console.log("Running array method integration tests...");
+    _print("Running array method integration tests...");
     
     testArrayChaining();
     
     let numberContainer = new GenericArrayContainer<number>([1, 2, 3]);
     let stringContainer = new GenericArrayContainer<string>(["a", "b", "c"]);
     
-    console.log("Number container length:", numberContainer.getLength());
-    console.log("String container length:", stringContainer.getLength());
+    _print("Number container length:", numberContainer.getLength());
+    _print("String container length:", stringContainer.getLength());
     
     testArrayMethodsWithFunctions();
     testComplexGenericArrays();
@@ -151,7 +151,7 @@ function runIntegrationTests(): void {
     testArrayMethodErrors();
     testDifferentArraySizes();
     
-    console.log("All integration tests completed successfully!");
+    _print("All integration tests completed successfully!");
 }
 
 // Execute tests

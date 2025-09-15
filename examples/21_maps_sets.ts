@@ -11,9 +11,9 @@ userRoles.set("alice", "admin");
 userRoles.set("bob", "user");
 userRoles.set("charlie", "moderator");
 
-console.log(userRoles.get("alice")); // "admin"
-console.log(userRoles.has("bob"));   // true
-console.log(userRoles.size);         // 3
+_print(userRoles.get("alice")); // "admin"
+_print(userRoles.has("bob"));   // true
+_print(userRoles.size);         // 3
 
 // Map with different key/value types
 const userAges = new Map<string, number>();
@@ -49,28 +49,28 @@ userProfiles.set("alice", {
 });
 
 // Map iteration
-console.log("User Roles:");
+_print("User Roles:");
 for (const [user, role] of userRoles) {
-  console.log(`${user}: ${role}`);
+  _print(`${user}: ${role}`);
 }
 
 // Map with forEach
 userRoles.forEach((role, user) => {
-  console.log(`${user} has role: ${role}`);
+  _print(`${user} has role: ${role}`);
 });
 
 // Map methods
-console.log("Map entries:", Array.from(userRoles.entries()));
-console.log("Map keys:", Array.from(userRoles.keys()));
-console.log("Map values:", Array.from(userRoles.values()));
+_print("Map entries:", Array.from(userRoles.entries()));
+_print("Map keys:", Array.from(userRoles.keys()));
+_print("Map values:", Array.from(userRoles.values()));
 
 // Map deletion
 userRoles.delete("charlie");
-console.log("After deletion:", userRoles.size); // 2
+_print("After deletion:", userRoles.size); // 2
 
 // Map clearing
 userRoles.clear();
-console.log("After clear:", userRoles.size); // 0
+_print("After clear:", userRoles.size); // 0
 
 // Sets - Unique Value Collections
 // Set<T> where T is the element type
@@ -83,8 +83,8 @@ uniqueNumbers.add(2);
 uniqueNumbers.add(3);
 uniqueNumbers.add(2); // duplicates ignored
 
-console.log(uniqueNumbers.has(1)); // true
-console.log(uniqueNumbers.size);   // 3
+_print(uniqueNumbers.has(1)); // true
+_print(uniqueNumbers.size);   // 3
 
 // Set with string values
 const uniqueNames = new Set<string>();
@@ -100,20 +100,20 @@ uniqueUsers.add({ id: 2, name: "Bob" });
 uniqueUsers.add({ id: 1, name: "Alice" }); // different object, so added
 
 // Set iteration
-console.log("Unique numbers:");
+_print("Unique numbers:");
 for (const num of uniqueNumbers) {
-  console.log(num);
+  _print(num);
 }
 
 // Set with forEach
 uniqueNames.forEach(name => {
-  console.log(`Name: ${name}`);
+  _print(`Name: ${name}`);
 });
 
 // Set methods
-console.log("Set values:", Array.from(uniqueNumbers));
-console.log("Set has 1:", uniqueNumbers.has(1));
-console.log("Set has 5:", uniqueNumbers.has(5));
+_print("Set values:", Array.from(uniqueNumbers));
+_print("Set has 1:", uniqueNumbers.has(1));
+_print("Set has 5:", uniqueNumbers.has(5));
 
 // Set operations
 const set1 = new Set<number>([1, 2, 3, 4]);
@@ -121,23 +121,23 @@ const set2 = new Set<number>([3, 4, 5, 6]);
 
 // Union
 const union = new Set<number>([...set1, ...set2]);
-console.log("Union:", Array.from(union)); // [1, 2, 3, 4, 5, 6]
+_print("Union:", Array.from(union)); // [1, 2, 3, 4, 5, 6]
 
 // Intersection
 const intersection = new Set<number>([...set1].filter(x => set2.has(x)));
-console.log("Intersection:", Array.from(intersection)); // [3, 4]
+_print("Intersection:", Array.from(intersection)); // [3, 4]
 
 // Difference
 const difference = new Set<number>([...set1].filter(x => !set2.has(x)));
-console.log("Difference:", Array.from(difference)); // [1, 2]
+_print("Difference:", Array.from(difference)); // [1, 2]
 
 // Set deletion
 uniqueNumbers.delete(1);
-console.log("After deletion:", uniqueNumbers.size); // 2
+_print("After deletion:", uniqueNumbers.size); // 2
 
 // Set clearing
 uniqueNumbers.clear();
-console.log("After clear:", uniqueNumbers.size); // 0
+_print("After clear:", uniqueNumbers.size); // 0
 
 // WeakMap - Garbage collected keys
 // WeakMap<K, V> where K must be object type
@@ -149,8 +149,8 @@ const user2: User = { id: 2, name: "Bob" };
 weakUserData.set(user1, "private_data_1");
 weakUserData.set(user2, "private_data_2");
 
-console.log(weakUserData.get(user1)); // "private_data_1"
-console.log(weakUserData.has(user2)); // true
+_print(weakUserData.get(user1)); // "private_data_1"
+_print(weakUserData.has(user2)); // true
 
 // WeakSet - Garbage collected values
 // WeakSet<T> where T must be object type
@@ -159,8 +159,8 @@ const weakUserSet = new WeakSet<User>();
 weakUserSet.add(user1);
 weakUserSet.add(user2);
 
-console.log(weakUserSet.has(user1)); // true
-console.log(weakUserSet.has(user2)); // true
+_print(weakUserSet.has(user1)); // true
+_print(weakUserSet.has(user2)); // true
 
 // Practical examples
 
@@ -201,7 +201,7 @@ class Cache<K, V> {
 const stringCache = new Cache<string, string>(5);
 stringCache.set("key1", "value1");
 stringCache.set("key2", "value2");
-console.log("Cache size:", stringCache.size());
+_print("Cache size:", stringCache.size());
 
 // 2. Unique collection manager
 class UniqueCollection<T> {
@@ -240,7 +240,7 @@ const uniqueStrings = new UniqueCollection<string>();
 uniqueStrings.add("hello");
 uniqueStrings.add("world");
 uniqueStrings.add("hello"); // duplicate, returns false
-console.log("Unique strings:", uniqueStrings.getAll());
+_print("Unique strings:", uniqueStrings.getAll());
 
 // 3. Event system with Map
 class EventEmitter {
@@ -267,7 +267,7 @@ class EventEmitter {
         try {
           listener(...args);
         } catch (error) {
-          console.error("Error in event listener:", error);
+          _print("Error in event listener:", error);
         }
       });
     }
@@ -284,11 +284,11 @@ class EventEmitter {
 
 const emitter = new EventEmitter();
 emitter.on("user.created", (user: User) => {
-  console.log("User created:", user.name);
+  _print("User created:", user.name);
 });
 
 emitter.on("user.updated", (user: User) => {
-  console.log("User updated:", user.name);
+  _print("User updated:", user.name);
 });
 
 emitter.emit("user.created", { id: 1, name: "Alice" });
@@ -332,8 +332,8 @@ config.set("database.host", "localhost");
 config.set("database.port", 5432);
 config.set("api.timeout", 5000);
 
-console.log("Database host:", config.get<string>("database.host"));
-console.log("Database port:", config.get<number>("database.port"));
-console.log("All config:", config.getAll());
+_print("Database host:", config.get<string>("database.host"));
+_print("Database port:", config.get<number>("database.port"));
+_print("All config:", config.getAll());
 
 // This example demonstrates comprehensive Map and Set functionality

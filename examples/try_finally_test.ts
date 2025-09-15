@@ -3,6 +3,6 @@ function testTryFinally() {
         let result = 42;
         return result;
     } finally {
-        console.log("Always executed");
+        _print("Always executed");
     }
 }

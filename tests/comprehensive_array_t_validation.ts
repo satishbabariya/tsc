@@ -109,51 +109,51 @@ class NestedGenericContainer<T, U> {
 }
 
 // Test execution
-console.log("=== Array<T> vs T[] Comprehensive Validation ===");
+_print("=== Array<T> vs T[] Comprehensive Validation ===");
 
 // Test basic functionality
 let container1 = new GenericArrayContainer<number>();
 container1.addItem(42);
-console.log("Array<T> number container length:", container1.getLength());
+_print("Array<T> number container length:", container1.getLength());
 
 let container2 = new GenericArrayContainer2<string>();
 container2.addItem("hello");
-console.log("T[] string container length:", container2.getLength());
+_print("T[] string container length:", container2.getLength());
 
 // Test mixed container
 let mixedContainer = new MixedArrayContainer<number>();
 mixedContainer.addToArrayT(10);
 mixedContainer.addToArrayBracket(20);
-console.log("Mixed Array<T> length:", mixedContainer.getArrayTLength());
-console.log("Mixed T[] length:", mixedContainer.getArrayBracketLength());
+_print("Mixed Array<T> length:", mixedContainer.getArrayTLength());
+_print("Mixed T[] length:", mixedContainer.getArrayBracketLength());
 
 // Test function parameters
 let testArrayT: Array<number> = [];
 testArrayT.push(1);
 testArrayT.push(2);
-console.log("Function with Array<T> parameter:", processArrayT(testArrayT));
+_print("Function with Array<T> parameter:", processArrayT(testArrayT));
 
 let testArrayBracket: number[] = [];
 testArrayBracket.push(3);
 testArrayBracket.push(4);
 testArrayBracket.push(5);
-console.log("Function with T[] parameter:", processArrayBracket(testArrayBracket));
+_print("Function with T[] parameter:", processArrayBracket(testArrayBracket));
 
 // Test return types
 let returnedArrayT = createArrayT<number>();
 returnedArrayT.push(100);
-console.log("Returned Array<T> length:", returnedArrayT.length);
+_print("Returned Array<T> length:", returnedArrayT.length);
 
 let returnedArrayBracket = createArrayBracket<string>();
 returnedArrayBracket.push("world");
-console.log("Returned T[] length:", returnedArrayBracket.length);
+_print("Returned T[] length:", returnedArrayBracket.length);
 
 // Test nested generics
 let nestedContainer = new NestedGenericContainer<number, string>();
 nestedContainer.addT(42);
 nestedContainer.addT(84);
 nestedContainer.addU("nested");
-console.log("Nested T array length:", nestedContainer.arrayT.length);
-console.log("Nested U array length:", nestedContainer.arrayU.length);
+_print("Nested T array length:", nestedContainer.arrayT.length);
+_print("Nested U array length:", nestedContainer.arrayU.length);
 
-console.log("=== All Array<T> vs T[] tests completed successfully ===");
+_print("=== All Array<T> vs T[] tests completed successfully ===");

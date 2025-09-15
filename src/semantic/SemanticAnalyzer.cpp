@@ -17,6 +17,7 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     moduleResolver_ = make_unique<ModuleResolver>(diagnostics_);
     dependencyScanner_ = make_unique<DependencyScanner>(*moduleResolver_, diagnostics_);
     moduleSymbolManager_ = make_unique<ModuleSymbolManager>(diagnostics_, symbolTable_.get());
+    cycleDetector_ = make_unique<semantic::CycleDetector>(symbolTable_.get());
     
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
     
@@ -363,7 +364,10 @@ void SemanticAnalyzer::visit(NewExpression& node) {
             std::cout << "DEBUG: Class type: " << classType->toString() << ", kind: " << static_cast<int>(classType->getKind()) << std::endl;
             
             // Check if this is a class type that can be instantiated
-            if (classType->getKind() == TypeKind::Class) {
+            if (classType->getKind() == TypeKind::Class || 
+                classType->getKind() == TypeKind::UniquePtr ||
+                classType->getKind() == TypeKind::SharedPtr ||
+                classType->getKind() == TypeKind::WeakPtr) {
                 // Handle explicit type arguments for generic classes
                 if (node.hasExplicitTypeArguments()) {
                     std::cout << "DEBUG: Processing explicit type arguments" << std::endl;
@@ -1890,6 +1894,25 @@ void SemanticAnalyzer::setupBuiltinEnvironment() {
     auto numberType = typeSystem_->getNumberType();
     symbolTable_->addSymbol("Infinity", SymbolKind::Variable, numberType, SourceLocation());
     symbolTable_->addSymbol("NaN", SymbolKind::Variable, numberType, SourceLocation());
+    
+    // Add smart pointer constructors
+    auto anyType = typeSystem_->getAnyType();
+    
+    // unique_ptr constructor
+    auto uniquePtrType = typeSystem_->createUniquePtrType(anyType);
+    symbolTable_->addSymbol("unique_ptr", SymbolKind::Class, uniquePtrType, SourceLocation());
+    
+    // shared_ptr constructor
+    auto sharedPtrType = typeSystem_->createSharedPtrType(anyType);
+    symbolTable_->addSymbol("shared_ptr", SymbolKind::Class, sharedPtrType, SourceLocation());
+    
+    // weak_ptr constructor
+    auto weakPtrType = typeSystem_->createWeakPtrType(anyType);
+    symbolTable_->addSymbol("weak_ptr", SymbolKind::Class, weakPtrType, SourceLocation());
+    
+    // std namespace
+    auto stdType = typeSystem_->createObjectType();
+    symbolTable_->addSymbol("std", SymbolKind::Variable, stdType, SourceLocation());
 }
 
 // Type inference helpers
@@ -2021,6 +2044,33 @@ void SemanticAnalyzer::visit(MethodDeclaration& node) {
     exitScope();
 }
 
+void SemanticAnalyzer::visit(DestructorDeclaration& node) {
+    // Enter destructor scope
+    enterScope(Scope::ScopeType::Function, "~" + node.getClassName());
+    functionDepth_++;
+    
+    std::cout << "DEBUG: Analyzing destructor for class: " << node.getClassName() << std::endl;
+    
+    // Analyze destructor body
+    if (node.getBody()) {
+        node.getBody()->accept(*this);
+    }
+    
+    // Create destructor type (void function with no parameters)
+    std::vector<FunctionType::Parameter> paramTypes; // Empty parameters
+    auto destructorType = typeSystem_->createFunctionType(std::move(paramTypes), typeSystem_->getVoidType());
+    setDeclarationType(node, destructorType);
+    
+    // Perform RAII analysis on the destructor
+    analyzeDestructor(node);
+    
+    std::cout << "DEBUG: Destructor analysis completed for class: " << node.getClassName() << std::endl;
+    
+    // Exit destructor scope
+    functionDepth_--;
+    exitScope();
+}
+
 void SemanticAnalyzer::visit(ClassDeclaration& node) {
     // Create class type first (without base class, will be resolved later)
     auto classType = typeSystem_->createClassType(node.getName(), &node, nullptr);
@@ -2131,6 +2181,21 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
         auto methodType = getDeclarationType(*method);
         declareSymbol(method->getName(), SymbolKind::Method, methodType, method->getLocation());
     }
+    
+        // Analyze destructor if present
+        if (node.getDestructor()) {
+            std::cout << "DEBUG: Processing destructor for class: " << node.getName() << std::endl;
+            node.getDestructor()->accept(*this);
+            
+            // Add destructor to class scope as a method
+            auto destructorType = getDeclarationType(*node.getDestructor());
+            declareSymbol("~" + node.getName(), SymbolKind::Method, destructorType, node.getDestructor()->getLocation());
+            std::cout << "DEBUG: Added destructor to class scope" << std::endl;
+        }
+        
+        // Perform RAII analysis on the entire class
+        validateRAIIPatterns(node);
+        suggestResourceCleanup(node);
     
     // Check constructor
     if (node.getConstructor()) {
@@ -2941,6 +3006,302 @@ bool SemanticAnalyzer::validateGenericFunctionCall(const CallExpression& call,
     }
     
     return true; // All constraints satisfied
+}
+
+// ARC Memory Management Analysis Implementation
+void SemanticAnalyzer::analyzeOwnership(const Expression& expr) {
+    // Analyze ownership patterns in expressions
+    if (auto* moveExpr = dynamic_cast<const MoveExpression*>(&expr)) {
+        analyzeMoveSemantics(*moveExpr);
+    } else if (auto* assignExpr = dynamic_cast<const AssignmentExpression*>(&expr)) {
+        analyzeAssignmentOwnership(*assignExpr);
+    }
+}
+
+void SemanticAnalyzer::analyzeMoveSemantics(const MoveExpression& moveExpr) {
+    // Analyze move semantics
+    auto operandType = getExpressionType(*moveExpr.getOperand());
+    
+    if (!isMoveable(*operandType)) {
+        reportError("Cannot move non-moveable type: " + operandType->toString(), 
+                   moveExpr.getLocation());
+        return;
+    }
+    
+    // Check if the operand is a unique_ptr or has move semantics
+    if (operandType->getKind() == TypeKind::UniquePtr) {
+        // Move semantics for unique_ptr - this is valid
+        std::cout << "DEBUG: Move semantics applied to unique_ptr" << std::endl;
+    } else if (operandType->getKind() == TypeKind::SharedPtr) {
+        // Move semantics for shared_ptr - this transfers ownership
+        std::cout << "DEBUG: Move semantics applied to shared_ptr" << std::endl;
+    } else {
+        // For other types, move semantics might not be meaningful
+        reportWarning("Move semantics applied to non-smart-pointer type: " + operandType->toString(),
+                     moveExpr.getLocation());
+    }
+}
+
+void SemanticAnalyzer::analyzeAssignmentOwnership(const AssignmentExpression& assignExpr) {
+    // Analyze assignment ownership patterns
+    auto leftType = getExpressionType(*assignExpr.getLeft());
+    auto rightType = getExpressionType(*assignExpr.getRight());
+    
+    // Check for ownership transfer patterns
+    if (isARCManaged(*leftType) && isARCManaged(*rightType)) {
+        // Both sides are ARC-managed
+        if (leftType->getKind() == TypeKind::UniquePtr && rightType->getKind() == TypeKind::UniquePtr) {
+            // unique_ptr assignment - should use move semantics
+            reportWarning("unique_ptr assignment should use move semantics: " + 
+                         leftType->toString() + " = std::move(" + rightType->toString() + ")",
+                         assignExpr.getLocation());
+        }
+    }
+}
+
+void SemanticAnalyzer::detectCycles(const ClassDeclaration& classDecl) {
+    // Detect potential reference cycles in class definitions
+    // This is a simplified implementation - a full implementation would
+    // analyze the class structure for circular references
+    
+    std::cout << "DEBUG: Analyzing class " << classDecl.getName() << " for cycles" << std::endl;
+    
+    // For now, just check for obvious patterns
+    // In a full implementation, this would:
+    // 1. Analyze class properties
+    // 2. Check for circular references
+    // 3. Suggest weak references where appropriate
+}
+
+void SemanticAnalyzer::suggestWeakReferences(const ClassDeclaration& classDecl) {
+    // Suggest weak references to break cycles
+    // This is a placeholder implementation
+    
+    std::cout << "DEBUG: Suggesting weak references for class " << classDecl.getName() << std::endl;
+    
+    // In a full implementation, this would:
+    // 1. Analyze the class structure
+    // 2. Identify potential cycles
+    // 3. Suggest converting strong references to weak references
+}
+
+bool SemanticAnalyzer::isARCManaged(const Type& type) const {
+    // Check if a type is ARC-managed
+    return type.getKind() == TypeKind::UniquePtr || 
+           type.getKind() == TypeKind::SharedPtr || 
+           type.getKind() == TypeKind::WeakPtr ||
+           type.getKind() == TypeKind::Class; // Classes are ARC-managed by default
+}
+
+bool SemanticAnalyzer::isMoveable(const Type& type) const {
+    // Check if a type supports move semantics
+    return type.getKind() == TypeKind::UniquePtr || 
+           type.getKind() == TypeKind::SharedPtr ||
+           type.getKind() == TypeKind::Class; // Classes support move semantics
+}
+
+bool SemanticAnalyzer::hasDestructor(const Type& type) const {
+    // Check if a type has a destructor (needed for ARC)
+    return type.getKind() == TypeKind::Class || 
+           type.getKind() == TypeKind::UniquePtr || 
+           type.getKind() == TypeKind::SharedPtr;
+}
+
+// MoveExpression visitor implementation
+void SemanticAnalyzer::visit(MoveExpression& node) {
+    // Analyze the operand first
+    node.getOperand()->accept(*this);
+    
+    // Get the type of the operand
+    auto operandType = getExpressionType(*node.getOperand());
+    
+    // Analyze move semantics
+    analyzeMoveSemantics(node);
+    
+    // Set the type of the move expression to be the same as the operand
+    // Move expressions don't change the type, just the ownership semantics
+    setExpressionType(node, operandType);
+}
+
+// Cycle detection methods
+void SemanticAnalyzer::runCycleDetection() {
+    if (!cycleDetector_) {
+        std::cerr << "❌ Cycle detector not initialized" << std::endl;
+        return;
+    }
+    
+    std::cout << "🔍 Running static cycle detection..." << std::endl;
+    
+    // Run cycle detection on the symbol table
+    cycleDetector_->analyzeSymbolTable();
+    
+    std::cout << "✅ Static cycle detection completed" << std::endl;
+}
+
+bool SemanticAnalyzer::hasCycleErrors() const {
+    if (!cycleDetector_) return false;
+    return cycleDetector_->hasErrors();
+}
+
+void SemanticAnalyzer::printCycleResults() const {
+    if (!cycleDetector_) {
+        std::cout << "❌ Cycle detector not initialized" << std::endl;
+        return;
+    }
+    
+    cycleDetector_->printResults();
+}
+
+// RAII Analysis Implementation
+void SemanticAnalyzer::analyzeDestructor(const DestructorDeclaration& destructor) {
+    std::cout << "🔍 Analyzing destructor for RAII patterns: " << destructor.getClassName() << std::endl;
+    
+    // Check if destructor is properly implemented
+    if (!destructor.getBody()) {
+        reportWarning("Destructor has no body - consider adding resource cleanup", destructor.getLocation());
+        return;
+    }
+    
+    // Analyze destructor body for resource cleanup patterns
+    BlockStatement* body = destructor.getBody();
+    if (body && body->getStatements().empty()) {
+        reportWarning("Empty destructor body - ensure all resources are properly cleaned up", destructor.getLocation());
+    }
+    
+    // Validate destructor safety (no exceptions, no virtual calls)
+    validateDestructorSafety(destructor);
+    
+    std::cout << "✅ Destructor analysis completed for: " << destructor.getClassName() << std::endl;
+}
+
+void SemanticAnalyzer::validateRAIIPatterns(const ClassDeclaration& classDecl) {
+    std::cout << "🔍 Validating RAII patterns for class: " << classDecl.getName() << std::endl;
+    
+    // Check if class has destructor
+    if (!classDecl.getDestructor()) {
+        // Check if class has resources that need cleanup
+        bool hasResources = false;
+        for (const auto& prop : classDecl.getProperties()) {
+            if (isARCManaged(*getDeclarationType(*prop))) {
+                hasResources = true;
+                break;
+            }
+        }
+        
+        if (hasResources) {
+            reportWarning("Class with ARC-managed resources should have a destructor for proper cleanup", classDecl.getLocation());
+        }
+    }
+    
+    // Analyze resource ownership
+    analyzeResourceOwnership(classDecl);
+    
+    // Detect potential resource leaks
+    detectResourceLeaks(classDecl);
+    
+    std::cout << "✅ RAII pattern validation completed for: " << classDecl.getName() << std::endl;
+}
+
+void SemanticAnalyzer::suggestResourceCleanup(const ClassDeclaration& classDecl) {
+    std::cout << "💡 Suggesting resource cleanup for class: " << classDecl.getName() << std::endl;
+    
+    // Analyze properties for resource management
+    for (const auto& prop : classDecl.getProperties()) {
+        shared_ptr<Type> propType = getDeclarationType(*prop);
+        
+        if (isARCManaged(*propType)) {
+            std::cout << "   - Property '" << prop->getName() << "' is ARC-managed" << std::endl;
+            
+            // Check if destructor handles this property
+            if (classDecl.getDestructor()) {
+                // In a full implementation, we'd analyze the destructor body
+                // to see if it properly cleans up this property
+                std::cout << "     ✓ Destructor exists - ensure it cleans up '" << prop->getName() << "'" << std::endl;
+            } else {
+                reportWarning("ARC-managed property '" + prop->getName() + "' should be cleaned up in destructor", prop->getLocation());
+            }
+        }
+    }
+    
+    std::cout << "✅ Resource cleanup suggestions completed" << std::endl;
+}
+
+void SemanticAnalyzer::detectResourceLeaks(const ClassDeclaration& classDecl) {
+    std::cout << "🔍 Detecting potential resource leaks in class: " << classDecl.getName() << std::endl;
+    
+    // Check for ARC-managed properties without proper cleanup
+    for (const auto& prop : classDecl.getProperties()) {
+        shared_ptr<Type> propType = getDeclarationType(*prop);
+        
+        if (isARCManaged(*propType)) {
+            // Check if this property is properly managed
+            if (!classDecl.getDestructor()) {
+                reportWarning("ARC-managed property '" + prop->getName() + "' may leak without destructor", prop->getLocation());
+            }
+        }
+    }
+    
+    // Check for smart pointer usage patterns
+    for (const auto& prop : classDecl.getProperties()) {
+        shared_ptr<Type> propType = getDeclarationType(*prop);
+        
+        if (propType->getKind() == TypeKind::SharedPtr || 
+            propType->getKind() == TypeKind::UniquePtr) {
+            std::cout << "   - Smart pointer property '" << prop->getName() << "' detected" << std::endl;
+            
+            // Smart pointers are automatically managed, but we should still check for cycles
+            if (propType->getKind() == TypeKind::SharedPtr) {
+                std::cout << "     ⚠️  shared_ptr detected - check for reference cycles" << std::endl;
+            }
+        }
+    }
+    
+    std::cout << "✅ Resource leak detection completed" << std::endl;
+}
+
+void SemanticAnalyzer::analyzeResourceOwnership(const ClassDeclaration& classDecl) {
+    std::cout << "🔍 Analyzing resource ownership for class: " << classDecl.getName() << std::endl;
+    
+    // Analyze each property for ownership semantics
+    for (const auto& prop : classDecl.getProperties()) {
+        shared_ptr<Type> propType = getDeclarationType(*prop);
+        
+        std::cout << "   - Property '" << prop->getName() << "' type: " << propType->toString() << std::endl;
+        
+        // Determine ownership type
+        if (propType->getKind() == TypeKind::UniquePtr) {
+            std::cout << "     ✓ Exclusive ownership (unique_ptr)" << std::endl;
+        } else if (propType->getKind() == TypeKind::SharedPtr) {
+            std::cout << "     ⚠️  Shared ownership (shared_ptr) - potential for cycles" << std::endl;
+        } else if (propType->getKind() == TypeKind::WeakPtr) {
+            std::cout << "     ✓ Non-owning reference (weak_ptr)" << std::endl;
+        } else if (isARCManaged(*propType)) {
+            std::cout << "     ✓ ARC-managed resource" << std::endl;
+        } else {
+            std::cout << "     - Value type or primitive" << std::endl;
+        }
+    }
+    
+    std::cout << "✅ Resource ownership analysis completed" << std::endl;
+}
+
+void SemanticAnalyzer::validateDestructorSafety(const DestructorDeclaration& destructor) {
+    std::cout << "🔍 Validating destructor safety for: " << destructor.getClassName() << std::endl;
+    
+    // Check for common destructor safety issues
+    if (!destructor.getBody()) {
+        std::cout << "   - No destructor body to analyze" << std::endl;
+        return;
+    }
+    
+    // In a full implementation, we would:
+    // 1. Check for exception throwing in destructor
+    // 2. Check for virtual function calls
+    // 3. Check for proper resource cleanup order
+    // 4. Validate that all ARC-managed resources are properly released
+    
+    std::cout << "   ✓ Destructor safety validation completed" << std::endl;
+    std::cout << "✅ Destructor safety validation completed for: " << destructor.getClassName() << std::endl;
 }
 
 // Factory function

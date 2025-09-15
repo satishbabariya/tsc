@@ -888,17 +888,17 @@ interface CompletionItem {
 
 // Usage examples
 function demonstrateCompilerTool(): void {
-  console.log("=== Compiler Tool Demo ===\n");
+  _print("=== Compiler Tool Demo ===\n");
 
   const compiler = new Compiler();
 
   // 1. Tokenization
-  console.log("1. Tokenization:");
+  _print("1. Tokenization:");
   const tokens = compiler.tokenize('let x = 42; function add(a, b) { return a + b; }');
-  console.log("Tokens:", tokens.map(t => `${t.type}: ${t.value}`).join(', '));
+  _print("Tokens:", tokens.map(t => `${t.type}: ${t.value}`).join(', '));
 
   // 2. Compilation
-  console.log("\n2. Compilation:");
+  _print("\n2. Compilation:");
   const code = `
     let x = 10;
     let y = 20;
@@ -909,20 +909,20 @@ function demonstrateCompilerTool(): void {
   `;
 
   const result = compiler.compile(code);
-  console.log("Compilation success:", result.success);
-  console.log("Generated code:");
-  console.log(result.output);
+  _print("Compilation success:", result.success);
+  _print("Generated code:");
+  _print(result.output);
 
   // 3. Language server
-  console.log("\n3. Language Server:");
+  _print("\n3. Language Server:");
   const languageServer = new LanguageServer();
   languageServer.openDocument('file:///test.ts', code);
   
   const diagnostics = languageServer.getDiagnostics('file:///test.ts');
-  console.log("Diagnostics:", diagnostics);
+  _print("Diagnostics:", diagnostics);
   
   const completions = languageServer.getCompletions('file:///test.ts', { line: 0, character: 0 });
-  console.log("Completions:", completions.slice(0, 5)); // Show first 5
+  _print("Completions:", completions.slice(0, 5)); // Show first 5
 }
 
 // This example demonstrates building a complete compiler toolchain with TypeScript

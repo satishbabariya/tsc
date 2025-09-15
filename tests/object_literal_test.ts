@@ -5,4 +5,4 @@ let person = {
     isActive: true
 };
 
-console.log("Object literal test completed");
+_print("Object literal test completed");

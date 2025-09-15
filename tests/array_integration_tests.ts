@@ -7,27 +7,27 @@ class ArrayConsoleIntegrationTest {
 
     constructor() {
         this.items = [];
-        console.log("ArrayConsoleIntegrationTest constructor called");
+        _print("ArrayConsoleIntegrationTest constructor called");
     }
 
     addItem(item: number): void {
         this.items.push(item);
-        console.log("Added item:", item);
+        _print("Added item:", item);
     }
 
     getLength(): number {
         let length = this.items.length;
-        console.log("Current array length:", length);
+        _print("Current array length:", length);
         return length;
     }
 
     processItems(): void {
-        console.log("Processing items...");
+        _print("Processing items...");
         let count = 0;
         // Simulate processing by adding items
         this.items.push(count++);
         this.items.push(count++);
-        console.log("Processing complete. Final length:", this.items.length);
+        _print("Processing complete. Final length:", this.items.length);
     }
 }
 
@@ -263,7 +263,7 @@ class PerformanceArrayTest {
 }
 
 // Execute Integration Tests
-console.log("=== Starting Integration Tests ===");
+_print("=== Starting Integration Tests ===");
 
 // Test 1: Array Console Integration
 let consoleTest = new ArrayConsoleIntegrationTest();
@@ -275,25 +275,25 @@ consoleTest.processItems();
 let dataManager = new DataManager();
 dataManager.processValidData(10);
 dataManager.processValidData(20);
-console.log("Data manager total count:", dataManager.getTotalDataCount());
+_print("Data manager total count:", dataManager.getTotalDataCount());
 
 // Test 3: Inheritance Integration
 let extendedHandler = new ExtendedArrayHandler();
 extendedHandler.addMultiple([1, 2, 3]);
-console.log("Extended handler length:", extendedHandler.getExtendedLength());
+_print("Extended handler length:", extendedHandler.getExtendedLength());
 
 // Test 4: Generic Constraints Integration
 let numberContainer = new NumberDataContainer();
 numberContainer.addPositiveOnly(5);
 numberContainer.addPositiveOnly(-1); // Should not be added
-console.log("Number container count:", numberContainer.getItemCount());
+_print("Number container count:", numberContainer.getItemCount());
 
 // Test 5: Interface Implementation Integration
 let arrayManager = new ArrayManagerImpl();
 arrayManager.addItem(100);
 arrayManager.addItem(200);
-console.log("Array manager count:", arrayManager.getItemCount());
-console.log("Array manager is empty:", arrayManager.isEmpty());
+_print("Array manager count:", arrayManager.getItemCount());
+_print("Array manager is empty:", arrayManager.isEmpty());
 
 // Test 6: Complex Workflow Integration
 let workflowManager = new WorkflowArrayManager();
@@ -301,25 +301,25 @@ workflowManager.addInput(1);
 workflowManager.addInput(2);
 workflowManager.processInputs();
 workflowManager.generateOutputs();
-console.log("Workflow input count:", workflowManager.getInputCount());
-console.log("Workflow processed count:", workflowManager.getProcessedCount());
-console.log("Workflow output count:", workflowManager.getOutputCount());
-console.log("Workflow complete:", workflowManager.isWorkflowComplete());
+_print("Workflow input count:", workflowManager.getInputCount());
+_print("Workflow processed count:", workflowManager.getProcessedCount());
+_print("Workflow output count:", workflowManager.getOutputCount());
+_print("Workflow complete:", workflowManager.isWorkflowComplete());
 
 // Test 7: Error Handling Integration
 let errorTest = new ErrorHandlingArrayTest();
 let success1 = errorTest.addItem(5);
 let success2 = errorTest.addItem(-1);
-console.log("Error test - add 5 success:", success1);
-console.log("Error test - add -1 success:", success2);
-console.log("Error test item count:", errorTest.getItemCount());
-console.log("Error test has valid items:", errorTest.hasValidItems());
+_print("Error test - add 5 success:", success1);
+_print("Error test - add -1 success:", success2);
+_print("Error test item count:", errorTest.getItemCount());
+_print("Error test has valid items:", errorTest.hasValidItems());
 
 // Test 8: Performance Integration
 let performanceTest = new PerformanceArrayTest();
 performanceTest.addBulkItems(5);
-console.log("Performance test item count:", performanceTest.getItemCount());
+_print("Performance test item count:", performanceTest.getItemCount());
 performanceTest.clearItems();
-console.log("Performance test after clear:", performanceTest.getItemCount());
+_print("Performance test after clear:", performanceTest.getItemCount());
 
-console.log("=== All Integration Tests Completed ===");
+_print("=== All Integration Tests Completed ===");

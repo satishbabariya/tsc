@@ -56,6 +56,11 @@ public:
     void exitFunction();
     llvm::Function* getCurrentFunction() const;
     
+    // Class context
+    void enterClass(const String& className);
+    void exitClass();
+    String getCurrentClassName() const;
+    
     // Block context for break/continue
     void enterLoop(llvm::BasicBlock* continueBlock, llvm::BasicBlock* breakBlock);
     void exitLoop();
@@ -65,6 +70,10 @@ public:
     // Scope management
     void enterScope();
     void exitScope();
+    
+    // ARC object tracking
+    void addARCManagedObject(const String& name, llvm::Value* object, const String& className);
+    void generateScopeCleanup(class LLVMCodeGen* codeGen);
     
     // Error handling
     void reportError(const String& message, const SourceLocation& location);
@@ -82,12 +91,23 @@ private:
     // Function context stack
     std::stack<llvm::Function*> functionStack_;
     
+    // Class context stack
+    std::stack<String> classStack_;
+    
     // Loop context for break/continue
     struct LoopContext {
         llvm::BasicBlock* continueBlock;
         llvm::BasicBlock* breakBlock;
     };
     std::stack<LoopContext> loopStack_;
+    
+    // ARC object tracking
+    struct ARCManagedObject {
+        String name;
+        llvm::Value* object;
+        String className;
+    };
+    std::vector<std::vector<ARCManagedObject>> arcObjectStack_;
     
     size_t errorCount_ = 0;
 };
@@ -344,6 +364,7 @@ public:
     void runFunctionOptimizations();
     void runModuleOptimizations();
     void runMemoryOptimizations();
+    void runARCOptimizations();
     
     // Memory management
     void reportMemoryUsage() const;
@@ -397,6 +418,7 @@ public:
     void visit(PropertyAccess& node) override;
     void visit(ArrowFunction& node) override;
     void visit(FunctionExpression& node) override;
+    void visit(MoveExpression& node) override;
     void visit(ForOfStatement& node) override;
     
     void visit(ExpressionStatement& node) override;
@@ -420,6 +442,7 @@ public:
     // Class-related declarations
     void visit(PropertyDeclaration& node) override;
     void visit(MethodDeclaration& node) override;
+    void visit(DestructorDeclaration& node) override;
     void visit(ClassDeclaration& node) override;
     void visit(InterfaceDeclaration& node) override;
     void visit(EnumMember& node) override;
@@ -510,6 +533,17 @@ private:
     llvm::Function* getOrCreateMallocFunction();
     llvm::Function* getOrCreateFreeFunction();
     
+    // ARC Runtime functions
+    llvm::Function* getOrCreateARCRetainFunction();
+public:
+    llvm::Function* getOrCreateARCReleaseFunction();
+    llvm::Function* getOrCreatePointerToStringFunction();
+    llvm::Function* getOrCreateARCAllocFunction();
+    
+    // ARC helper functions
+    bool isARCManagedType(shared_ptr<Type> type) const;
+    void generateAutomaticCleanup(const String& className);
+    
     // Type conversion
     llvm::Type* convertTypeToLLVM(shared_ptr<Type> type);
     
@@ -531,7 +565,7 @@ private:
     llvm::Value* createBooleanLiteral(bool value);
     llvm::Value* createNullValue(llvm::Type* type);
     llvm::Value* createDefaultValue(llvm::Type* type);
-    llvm::Function* getOrCreateConsoleLogFunction();
+    llvm::Function* getOrCreatePrintFunction();
     
     // Type conversions
     llvm::Value* convertToNumber(llvm::Value* value, llvm::Type* fromType);
@@ -554,6 +588,7 @@ private:
     llvm::Function* generateFunctionDeclaration(const FunctionDeclaration& funcDecl);
     void generateFunctionBody(llvm::Function* function, const FunctionDeclaration& funcDecl);
     bool hasReturnStatements(const FunctionDeclaration& funcDecl);
+    bool hasReturnStatementsWithValues(const FunctionDeclaration& funcDecl);
     
     // Unreachable block handling
     void ensureBlockTerminators(llvm::Function* function);
