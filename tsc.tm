@@ -1492,6 +1492,13 @@ Decorator<Yield, Await> -> Decorator /* interface */:
   | '@' 'manual_memory'           -> ManualMemoryDecorator
   | '@' 'stack_allocated'          -> StackAllocatedDecorator
   | '@' 'immutable'                -> ImmutableDecorator
+  | '@' 'cycle_safe'               -> CycleSafeDecorator
+  | '@' 'cycle_unsafe'             -> CycleUnsafeDecorator
+  | '@' 'ownership_hierarchy'      -> OwnershipHierarchyDecorator
+  | '@' 'observer_pattern'         -> ObserverPatternDecorator
+  | '@' 'resource_manager'        -> ResourceManagerDecorator
+  | '@' 'cache_pattern'            -> CachePatternDecorator
+  | '@' 'factory_pattern'          -> FactoryPatternDecorator
 ;
 
 DecoratorMemberExpression<Yield, Await>:

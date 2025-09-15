@@ -4,6 +4,7 @@
 #include "tsc/AST.h"
 #include "tsc/semantic/SymbolTable.h"
 #include "tsc/semantic/TypeSystem.h"
+#include "tsc/semantic/CycleDetector.h"
 #include "tsc/utils/DiagnosticEngine.h"
 
 namespace tsc {
@@ -61,6 +62,11 @@ public:
     // Analysis results
     SymbolTable& getSymbolTable() { return *symbolTable_; }
     const TypeSystem& getTypeSystem() const { return *typeSystem_; }
+    
+    // Cycle detection
+    void runCycleDetection();
+    bool hasCycleErrors() const;
+    void printCycleResults() const;
     
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;
@@ -129,6 +135,7 @@ private:
     unique_ptr<TypeSystem> typeSystem_;
     unique_ptr<SemanticContext> context_;
     unique_ptr<GenericConstraintChecker> constraintChecker_;
+    unique_ptr<semantic::CycleDetector> cycleDetector_;
     
     // Function context tracking
     int functionDepth_ = 0;

@@ -10,6 +10,7 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     typeSystem_ = make_unique<TypeSystem>();
     context_ = make_unique<SemanticContext>(*symbolTable_, *typeSystem_, diagnostics_);
     constraintChecker_ = make_unique<GenericConstraintChecker>(diagnostics_, *typeSystem_);
+    cycleDetector_ = make_unique<semantic::CycleDetector>(symbolTable_.get());
     
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
     
@@ -2689,6 +2690,35 @@ void SemanticAnalyzer::visit(MoveExpression& node) {
     // Set the type of the move expression to be the same as the operand
     // Move expressions don't change the type, just the ownership semantics
     setExpressionType(node, operandType);
+}
+
+// Cycle detection methods
+void SemanticAnalyzer::runCycleDetection() {
+    if (!cycleDetector_) {
+        std::cerr << "❌ Cycle detector not initialized" << std::endl;
+        return;
+    }
+    
+    std::cout << "🔍 Running static cycle detection..." << std::endl;
+    
+    // Run cycle detection on the symbol table
+    cycleDetector_->analyzeSymbolTable();
+    
+    std::cout << "✅ Static cycle detection completed" << std::endl;
+}
+
+bool SemanticAnalyzer::hasCycleErrors() const {
+    if (!cycleDetector_) return false;
+    return cycleDetector_->hasErrors();
+}
+
+void SemanticAnalyzer::printCycleResults() const {
+    if (!cycleDetector_) {
+        std::cout << "❌ Cycle detector not initialized" << std::endl;
+        return;
+    }
+    
+    cycleDetector_->printResults();
 }
 
 // Factory function
