@@ -1342,7 +1342,7 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
     // First pass: collect function signatures and class declarations, don't process bodies
     // Debug: Check how many statements we're processing
     const auto& statements = module.getStatements();
-    // std::cout << "DEBUG: collectFunctionDeclarations found " << statements.size() << " statements" << std::endl;
+    std::cout << "DEBUG: collectFunctionDeclarations found " << statements.size() << " statements" << std::endl;
     
     for (const auto& stmt : statements) {
         if (auto classDecl = dynamic_cast<ClassDeclaration*>(stmt.get())) {
@@ -1388,7 +1388,7 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
                 }
             }
         } else if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
-            // std::cout << "DEBUG: Found function declaration: " << funcDecl->getName() << std::endl;
+            std::cout << "DEBUG: Found function declaration: " << funcDecl->getName() << std::endl;
             // Create function type
             std::vector<FunctionType::Parameter> paramTypes;
             for (const auto& param : funcDecl->getParameters()) {
