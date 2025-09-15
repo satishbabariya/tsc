@@ -4,11 +4,11 @@ class FirstClass {
     
     constructor(id: number) {
         this.id = id;
-        console.log("FirstClass constructor - id:", this.id);
+        _print("FirstClass constructor - id:", this.id);
     }
     
     ~FirstClass() {
-        console.log("FirstClass destructor - id:", this.id);
+        _print("FirstClass destructor - id:", this.id);
     }
 }
 
@@ -17,22 +17,22 @@ class SecondClass {
     
     constructor(name: string) {
         this.name = name;
-        console.log("SecondClass constructor - name:", this.name);
+        _print("SecondClass constructor - name:", this.name);
     }
     
     ~SecondClass() {
-        console.log("SecondClass destructor - name:", this.name);
+        _print("SecondClass destructor - name:", this.name);
     }
 }
 
 function testDestructorOrder() {
-    console.log("=== Testing Destructor Order ===");
+    _print("=== Testing Destructor Order ===");
     
     // Create objects in specific order
     let first = new FirstClass(1);
     let second = new SecondClass("test");
     
-    console.log("Both objects created");
+    _print("Both objects created");
     // Destructors should be called in reverse order: second, first
 }
 

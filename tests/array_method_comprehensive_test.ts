@@ -1,36 +1,36 @@
 // Comprehensive test for all array method functionality
 // This test combines unit tests, integration tests, system tests, and regression tests
 
-console.log("=== COMPREHENSIVE ARRAY METHOD TEST SUITE ===");
-console.log("Testing all array method support in PropertyAccess::visit()");
+_print("=== COMPREHENSIVE ARRAY METHOD TEST SUITE ===");
+_print("Testing all array method support in PropertyAccess::visit()");
 
 // ============================================================================
 // UNIT TESTS - Basic array method identification and FunctionType creation
 // ============================================================================
-console.log("\n--- UNIT TESTS ---");
+_print("\n--- UNIT TESTS ---");
 
 // Test basic array method identification
 let unitTestArray: Array<number> = [1, 2, 3];
 
 // Test length property
 let unitLength = unitTestArray.length;
-console.log("✓ Length property test passed:", typeof unitLength === "number");
+_print("✓ Length property test passed:", typeof unitLength === "number");
 
 // Test push method
 let unitPushResult = unitTestArray.push(4, 5);
-console.log("✓ Push method test passed:", typeof unitPushResult === "number");
+_print("✓ Push method test passed:", typeof unitPushResult === "number");
 
 // Test pop method
 let unitPopResult = unitTestArray.pop();
-console.log("✓ Pop method test passed:", typeof unitPopResult === "number");
+_print("✓ Pop method test passed:", typeof unitPopResult === "number");
 
 // Test shift method
 let unitShiftResult = unitTestArray.shift();
-console.log("✓ Shift method test passed:", typeof unitShiftResult === "number");
+_print("✓ Shift method test passed:", typeof unitShiftResult === "number");
 
 // Test unshift method
 let unitUnshiftResult = unitTestArray.unshift(0);
-console.log("✓ Unshift method test passed:", typeof unitUnshiftResult === "number");
+_print("✓ Unshift method test passed:", typeof unitUnshiftResult === "number");
 
 // Test other array methods
 let unitConcatResult = unitTestArray.concat([6, 7]);
@@ -38,26 +38,26 @@ let unitSliceResult = unitTestArray.slice(1, 3);
 let unitSpliceResult = unitTestArray.splice(1, 1);
 let unitIndexOfResult = unitTestArray.indexOf(2);
 
-console.log("✓ Concat method test passed:", unitConcatResult.length > 0);
-console.log("✓ Slice method test passed:", unitSliceResult.length >= 0);
-console.log("✓ Splice method test passed:", Array.isArray(unitSpliceResult));
-console.log("✓ IndexOf method test passed:", typeof unitIndexOfResult === "number");
+_print("✓ Concat method test passed:", unitConcatResult.length > 0);
+_print("✓ Slice method test passed:", unitSliceResult.length >= 0);
+_print("✓ Splice method test passed:", Array.isArray(unitSpliceResult));
+_print("✓ IndexOf method test passed:", typeof unitIndexOfResult === "number");
 
 // Test higher-order methods
-let unitForEachResult = unitTestArray.forEach((item) => console.log("Item:", item));
+let unitForEachResult = unitTestArray.forEach((item) => _print("Item:", item));
 let unitMapResult = unitTestArray.map((item) => item * 2);
 let unitFilterResult = unitTestArray.filter((item) => item > 1);
 let unitReduceResult = unitTestArray.reduce((acc, item) => acc + item, 0);
 
-console.log("✓ ForEach method test passed:", unitForEachResult === undefined);
-console.log("✓ Map method test passed:", Array.isArray(unitMapResult));
-console.log("✓ Filter method test passed:", Array.isArray(unitFilterResult));
-console.log("✓ Reduce method test passed:", typeof unitReduceResult === "number");
+_print("✓ ForEach method test passed:", unitForEachResult === undefined);
+_print("✓ Map method test passed:", Array.isArray(unitMapResult));
+_print("✓ Filter method test passed:", Array.isArray(unitFilterResult));
+_print("✓ Reduce method test passed:", typeof unitReduceResult === "number");
 
 // ============================================================================
 // INTEGRATION TESTS - Complex scenarios with multiple array methods
 // ============================================================================
-console.log("\n--- INTEGRATION TESTS ---");
+_print("\n--- INTEGRATION TESTS ---");
 
 // Test array method chaining
 function testArrayMethodChaining(): void {
@@ -68,7 +68,7 @@ function testArrayMethodChaining(): void {
         .push(4, 5)           // Add elements
         .toString();          // Convert to string
     
-    console.log("✓ Array method chaining test passed:", typeof result === "string");
+    _print("✓ Array method chaining test passed:", typeof result === "string");
 }
 
 testArrayMethodChaining();
@@ -104,7 +104,7 @@ let stringTester = new GenericArrayTester<string>(["a", "b", "c"]);
 let numberLength = numberTester.getLength();
 let stringLength = stringTester.getLength();
 
-console.log("✓ Generic array tester test passed:", numberLength === 3 && stringLength === 3);
+_print("✓ Generic array tester test passed:", numberLength === 3 && stringLength === 3);
 
 // Test array methods with function parameters
 function testArrayMethodsWithFunctions(): void {
@@ -125,7 +125,7 @@ function testArrayMethodsWithFunctions(): void {
     // Test reduce
     let sum = numbers.reduce((acc, num) => acc + num, 0);
     
-    console.log("✓ Array methods with functions test passed:", 
+    _print("✓ Array methods with functions test passed:", 
                 forEachCalled && doubled.length === 5 && evens.length === 2 && sum === 15);
 }
 
@@ -134,7 +134,7 @@ testArrayMethodsWithFunctions();
 // ============================================================================
 // SYSTEM TESTS - End-to-end scenarios
 // ============================================================================
-console.log("\n--- SYSTEM TESTS ---");
+_print("\n--- SYSTEM TESTS ---");
 
 // Test complete array manipulation workflow
 class ArrayWorkflow {
@@ -212,7 +212,7 @@ let sliced = workflow.sliceData(1, 4);
 let spliced = workflow.spliceData(2, 1, 99, 100);
 let processed = workflow.processData();
 
-console.log("✓ Array workflow test passed:", 
+_print("✓ Array workflow test passed:", 
             initialLength === 5 && 
             newLength === 7 && 
             removed === 7 && 
@@ -230,12 +230,12 @@ console.log("✓ Array workflow test passed:",
 // ============================================================================
 // REGRESSION TESTS - Ensure existing functionality still works
 // ============================================================================
-console.log("\n--- REGRESSION TESTS ---");
+_print("\n--- REGRESSION TESTS ---");
 
 // Test existing array length property
 let regressionArray: Array<number> = [1, 2, 3, 4, 5];
 let regressionLength = regressionArray.length;
-console.log("✓ Existing array length property test passed:", regressionLength === 5);
+_print("✓ Existing array length property test passed:", regressionLength === 5);
 
 // Test existing array element access
 let firstElement = regressionArray[0];
@@ -243,7 +243,7 @@ let lastElement = regressionArray[regressionArray.length - 1];
 regressionArray[1] = 99;
 let modifiedElement = regressionArray[1];
 
-console.log("✓ Existing array element access test passed:", 
+_print("✓ Existing array element access test passed:", 
             firstElement === 1 && 
             lastElement === 5 && 
             modifiedElement === 99);
@@ -253,7 +253,7 @@ let emptyArray: Array<number> = [];
 let withElements: Array<string> = ["a", "b", "c"];
 let mixedArray: Array<any> = [1, "hello", true];
 
-console.log("✓ Existing array literal syntax test passed:", 
+_print("✓ Existing array literal syntax test passed:", 
             emptyArray.length === 0 && 
             withElements.length === 3 && 
             mixedArray.length === 3);
@@ -264,7 +264,7 @@ function testArrayFunctionParams(arr: Array<number>): number {
 }
 
 let functionTestResult = testArrayFunctionParams([1, 2, 3, 4, 5]);
-console.log("✓ Existing array function parameters test passed:", functionTestResult === 5);
+_print("✓ Existing array function parameters test passed:", functionTestResult === 5);
 
 // Test existing array return types
 function createTestArray(): Array<number> {
@@ -272,12 +272,12 @@ function createTestArray(): Array<number> {
 }
 
 let returnedArray = createTestArray();
-console.log("✓ Existing array return types test passed:", returnedArray.length === 5);
+_print("✓ Existing array return types test passed:", returnedArray.length === 5);
 
 // ============================================================================
 // TYPE SAFETY TESTS - Verify correct type inference and checking
 // ============================================================================
-console.log("\n--- TYPE SAFETY TESTS ---");
+_print("\n--- TYPE SAFETY TESTS ---");
 
 // Test type safety for different array element types
 let numberArray: Array<number> = [1, 2, 3];
@@ -297,7 +297,7 @@ let numberPop = numberArray.pop();
 let stringPop = stringArray.pop();
 let booleanPop = booleanArray.pop();
 
-console.log("✓ Type safety test passed:", 
+_print("✓ Type safety test passed:", 
             typeof numberLength === "number" &&
             typeof stringLength === "number" &&
             typeof booleanLength === "number" &&
@@ -311,7 +311,7 @@ console.log("✓ Type safety test passed:",
 // ============================================================================
 // EDGE CASE TESTS - Test boundary conditions and error cases
 // ============================================================================
-console.log("\n--- EDGE CASE TESTS ---");
+_print("\n--- EDGE CASE TESTS ---");
 
 // Test empty array operations
 let emptyArray: Array<number> = [];
@@ -319,7 +319,7 @@ let emptyLength = emptyArray.length;
 let emptyPop = emptyArray.pop();
 let emptyShift = emptyArray.shift();
 
-console.log("✓ Empty array edge case test passed:", 
+_print("✓ Empty array edge case test passed:", 
             emptyLength === 0 && 
             emptyPop === undefined && 
             emptyShift === undefined);
@@ -330,7 +330,7 @@ let singleLength = singleArray.length;
 let singlePop = singleArray.pop();
 let singleShift = singleArray.shift();
 
-console.log("✓ Single element edge case test passed:", 
+_print("✓ Single element edge case test passed:", 
             singleLength === 1 && 
             singlePop === 42 && 
             singleShift === undefined);
@@ -341,25 +341,25 @@ let chainResult = chainArray
     .push(4, 5)
     .toString();
 
-console.log("✓ Array method chaining edge case test passed:", typeof chainResult === "string");
+_print("✓ Array method chaining edge case test passed:", typeof chainResult === "string");
 
 // ============================================================================
 // FINAL SUMMARY
 // ============================================================================
-console.log("\n=== TEST SUMMARY ===");
-console.log("✅ All unit tests passed - Array method identification and FunctionType creation working correctly");
-console.log("✅ All integration tests passed - Complex array method scenarios working correctly");
-console.log("✅ All system tests passed - End-to-end array method workflows working correctly");
-console.log("✅ All regression tests passed - Existing array functionality preserved");
-console.log("✅ All type safety tests passed - Correct type inference and checking");
-console.log("✅ All edge case tests passed - Boundary conditions handled correctly");
+_print("\n=== TEST SUMMARY ===");
+_print("✅ All unit tests passed - Array method identification and FunctionType creation working correctly");
+_print("✅ All integration tests passed - Complex array method scenarios working correctly");
+_print("✅ All system tests passed - End-to-end array method workflows working correctly");
+_print("✅ All regression tests passed - Existing array functionality preserved");
+_print("✅ All type safety tests passed - Correct type inference and checking");
+_print("✅ All edge case tests passed - Boundary conditions handled correctly");
 
-console.log("\n🎉 COMPREHENSIVE ARRAY METHOD TEST SUITE COMPLETED SUCCESSFULLY!");
-console.log("The PropertyAccess::visit() method correctly supports all array methods:");
-console.log("  - length (property)");
-console.log("  - push, pop, shift, unshift (modification methods)");
-console.log("  - concat, slice, splice, indexOf (utility methods)");
-console.log("  - forEach, map, filter, reduce (higher-order methods)");
-console.log("  - All methods work with generic types Array<T>");
-console.log("  - All methods maintain type safety and return correct types");
-console.log("  - No regressions detected in existing functionality");
+_print("\n🎉 COMPREHENSIVE ARRAY METHOD TEST SUITE COMPLETED SUCCESSFULLY!");
+_print("The PropertyAccess::visit() method correctly supports all array methods:");
+_print("  - length (property)");
+_print("  - push, pop, shift, unshift (modification methods)");
+_print("  - concat, slice, splice, indexOf (utility methods)");
+_print("  - forEach, map, filter, reduce (higher-order methods)");
+_print("  - All methods work with generic types Array<T>");
+_print("  - All methods maintain type safety and return correct types");
+_print("  - No regressions detected in existing functionality");

@@ -3,21 +3,21 @@ class TestClass {
     
     constructor(id: number) {
         this.id = id;
-        console.log("TestClass constructor");
+        _print("TestClass constructor");
     }
     
     ~TestClass() {
-        console.log("TestClass destructor");
+        _print("TestClass destructor");
         // This should trigger the GEP error
         let idStr = this.id.toString();
-        console.log("ID:", idStr);
+        _print("ID:", idStr);
     }
 }
 
 function testMinimalGEPError() {
-    console.log("Creating TestClass instance");
+    _print("Creating TestClass instance");
     let obj = new TestClass(42);
-    console.log("TestClass instance created");
+    _print("TestClass instance created");
 }
 
 testMinimalGEPError();

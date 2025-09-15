@@ -425,7 +425,7 @@ class QueryEngine {
   }
 
   private executeInsert(node: InsertNode): QueryResult {
-    console.log(`Inserting into ${node.table}:`, node.values);
+    _print(`Inserting into ${node.table}:`, node.values);
     return {
       success: true,
       data: [],
@@ -593,47 +593,47 @@ class DatabaseEngine {
 
 // Usage examples
 async function demonstrateDatabaseEngine(): Promise<void> {
-  console.log("=== Database Engine Demo ===\n");
+  _print("=== Database Engine Demo ===\n");
 
   const db = new DatabaseEngine();
 
   // 1. Basic queries
-  console.log("1. Basic Queries:");
+  _print("1. Basic Queries:");
   const selectResult = db.executeQuery("SELECT * FROM users");
-  console.log("SELECT result:", selectResult);
+  _print("SELECT result:", selectResult);
 
   const selectWhereResult = db.executeQuery("SELECT name, age FROM users WHERE age = 30");
-  console.log("SELECT WHERE result:", selectWhereResult);
+  _print("SELECT WHERE result:", selectWhereResult);
 
   // 2. Insert operations
-  console.log("\n2. Insert Operations:");
+  _print("\n2. Insert Operations:");
   const insertResult = db.executeQuery("INSERT INTO users VALUES ('David', 28)");
-  console.log("INSERT result:", insertResult);
+  _print("INSERT result:", insertResult);
 
   // 3. Transactions
-  console.log("\n3. Transactions:");
+  _print("\n3. Transactions:");
   const tx1 = db.beginTransaction();
   const tx2 = db.beginTransaction();
   
-  console.log("Active transactions:", db.getActiveTransactions());
+  _print("Active transactions:", db.getActiveTransactions());
   
   db.commitTransaction(tx1);
   db.rollbackTransaction(tx2);
   
-  console.log("After commit/rollback:", db.getActiveTransactions());
+  _print("After commit/rollback:", db.getActiveTransactions());
 
   // 4. Storage statistics
-  console.log("\n4. Storage Statistics:");
+  _print("\n4. Storage Statistics:");
   const stats = db.getStorageStats();
-  console.log("Storage stats:", stats);
+  _print("Storage stats:", stats);
 
   // 5. Index operations
-  console.log("\n5. Index Operations:");
+  _print("\n5. Index Operations:");
   db.queryEngine.insertIntoIndex('users_name', 'Alice', { id: 1, age: 25 });
   db.queryEngine.insertIntoIndex('users_name', 'Bob', { id: 2, age: 30 });
   
   const searchResult = db.queryEngine.searchIndex('users_name', 'Alice');
-  console.log("Index search result:", searchResult);
+  _print("Index search result:", searchResult);
 }
 
 // This example demonstrates building a complete database engine with TypeScript

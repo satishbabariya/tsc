@@ -11,12 +11,12 @@ class FileHandle {
         this.filename = filename;
         this.isOpen = true;
         this.fileSize = 0;
-        console.log(`File '${filename}' opened`);
+        _print(`File '${filename}' opened`);
     }
     
     ~FileHandle() {
         if (this.isOpen) {
-            console.log(`Closing file '${this.filename}' (size: ${this.fileSize} bytes)`);
+            _print(`Closing file '${this.filename}' (size: ${this.fileSize} bytes)`);
             this.isOpen = false;
         }
     }
@@ -48,13 +48,13 @@ class DatabaseConnection {
         this.connectionString = connectionString;
         this.isConnected = true;
         this.transactionCount = 0;
-        console.log(`Database connection established: ${connectionString}`);
+        _print(`Database connection established: ${connectionString}`);
     }
     
     ~DatabaseConnection() {
         if (this.isConnected) {
-            console.log(`Closing database connection: ${this.connectionString}`);
-            console.log(`Final transaction count: ${this.transactionCount}`);
+            _print(`Closing database connection: ${this.connectionString}`);
+            _print(`Final transaction count: ${this.transactionCount}`);
             this.isConnected = false;
         }
     }
@@ -70,13 +70,13 @@ class DatabaseConnection {
     beginTransaction(): void {
         if (this.isConnected) {
             this.transactionCount++;
-            console.log(`Transaction ${this.transactionCount} begun`);
+            _print(`Transaction ${this.transactionCount} begun`);
         }
     }
     
     commitTransaction(): void {
         if (this.isConnected && this.transactionCount > 0) {
-            console.log(`Transaction ${this.transactionCount} committed`);
+            _print(`Transaction ${this.transactionCount} committed`);
             this.transactionCount--;
         }
     }
@@ -94,13 +94,13 @@ class NetworkSocket {
         this.port = port;
         this.isConnected = true;
         this.bytesTransferred = 0;
-        console.log(`Socket connected to ${host}:${port}`);
+        _print(`Socket connected to ${host}:${port}`);
     }
     
     ~NetworkSocket() {
         if (this.isConnected) {
-            console.log(`Closing socket to ${this.host}:${this.port}`);
-            console.log(`Total bytes transferred: ${this.bytesTransferred}`);
+            _print(`Closing socket to ${this.host}:${this.port}`);
+            _print(`Total bytes transferred: ${this.bytesTransferred}`);
             this.isConnected = false;
         }
     }
@@ -120,7 +120,7 @@ class NetworkSocket {
     transferData(bytes: number): void {
         if (this.isConnected) {
             this.bytesTransferred += bytes;
-            console.log(`Transferred ${bytes} bytes (total: ${this.bytesTransferred})`);
+            _print(`Transferred ${bytes} bytes (total: ${this.bytesTransferred})`);
         }
     }
 }
@@ -137,14 +137,14 @@ class MemoryPool {
         this.poolSize = poolSize;
         this.allocatedBlocks = 0;
         this.freeBlocks = poolSize;
-        console.log(`Memory pool '${name}' created with ${poolSize} blocks`);
+        _print(`Memory pool '${name}' created with ${poolSize} blocks`);
     }
     
     ~MemoryPool() {
-        console.log(`Destroying memory pool '${this.name}'`);
-        console.log(`Final state: ${this.allocatedBlocks} allocated, ${this.freeBlocks} free`);
+        _print(`Destroying memory pool '${this.name}'`);
+        _print(`Final state: ${this.allocatedBlocks} allocated, ${this.freeBlocks} free`);
         if (this.allocatedBlocks > 0) {
-            console.log("WARNING: Memory pool destroyed with allocated blocks!");
+            _print("WARNING: Memory pool destroyed with allocated blocks!");
         }
     }
     
@@ -168,7 +168,7 @@ class MemoryPool {
         if (this.freeBlocks > 0) {
             this.freeBlocks--;
             this.allocatedBlocks++;
-            console.log(`Block allocated from pool '${this.name}' (${this.allocatedBlocks}/${this.poolSize})`);
+            _print(`Block allocated from pool '${this.name}' (${this.allocatedBlocks}/${this.poolSize})`);
             return true;
         }
         return false;
@@ -178,7 +178,7 @@ class MemoryPool {
         if (this.allocatedBlocks > 0) {
             this.allocatedBlocks--;
             this.freeBlocks++;
-            console.log(`Block deallocated from pool '${this.name}' (${this.allocatedBlocks}/${this.poolSize})`);
+            _print(`Block deallocated from pool '${this.name}' (${this.allocatedBlocks}/${this.poolSize})`);
             return true;
         }
         return false;
@@ -199,13 +199,13 @@ class CacheManager {
         this.currentSize = 0;
         this.hitCount = 0;
         this.missCount = 0;
-        console.log(`Cache '${name}' created with size ${cacheSize}`);
+        _print(`Cache '${name}' created with size ${cacheSize}`);
     }
     
     ~CacheManager() {
-        console.log(`Destroying cache '${this.name}'`);
-        console.log(`Final stats: ${this.hitCount} hits, ${this.missCount} misses`);
-        console.log(`Hit rate: ${this.hitCount / (this.hitCount + this.missCount) * 100}%`);
+        _print(`Destroying cache '${this.name}'`);
+        _print(`Final stats: ${this.hitCount} hits, ${this.missCount} misses`);
+        _print(`Hit rate: ${this.hitCount / (this.hitCount + this.missCount) * 100}%`);
     }
     
     getName(): string {
@@ -231,7 +231,7 @@ class CacheManager {
     addItem(key: string, size: number): boolean {
         if (this.currentSize + size <= this.cacheSize) {
             this.currentSize += size;
-            console.log(`Item '${key}' added to cache '${this.name}' (size: ${size})`);
+            _print(`Item '${key}' added to cache '${this.name}' (size: ${size})`);
             return true;
         }
         return false;
@@ -239,18 +239,18 @@ class CacheManager {
     
     removeItem(key: string, size: number): void {
         this.currentSize -= size;
-        console.log(`Item '${key}' removed from cache '${this.name}' (size: ${size})`);
+        _print(`Item '${key}' removed from cache '${this.name}' (size: ${size})`);
     }
     
     getItem(key: string): boolean {
         // Simulate cache hit/miss
         if (Math.random() > 0.5) {
             this.hitCount++;
-            console.log(`Cache hit for '${key}' in '${this.name}'`);
+            _print(`Cache hit for '${key}' in '${this.name}'`);
             return true;
         } else {
             this.missCount++;
-            console.log(`Cache miss for '${key}' in '${this.name}'`);
+            _print(`Cache miss for '${key}' in '${this.name}'`);
             return false;
         }
     }
@@ -268,14 +268,14 @@ class ThreadPool {
         this.poolSize = poolSize;
         this.activeThreads = 0;
         this.completedTasks = 0;
-        console.log(`Thread pool '${name}' created with ${poolSize} threads`);
+        _print(`Thread pool '${name}' created with ${poolSize} threads`);
     }
     
     ~ThreadPool() {
-        console.log(`Destroying thread pool '${this.name}'`);
-        console.log(`Final stats: ${this.activeThreads} active threads, ${this.completedTasks} completed tasks`);
+        _print(`Destroying thread pool '${this.name}'`);
+        _print(`Final stats: ${this.activeThreads} active threads, ${this.completedTasks} completed tasks`);
         if (this.activeThreads > 0) {
-            console.log("WARNING: Thread pool destroyed with active threads!");
+            _print("WARNING: Thread pool destroyed with active threads!");
         }
     }
     
@@ -298,7 +298,7 @@ class ThreadPool {
     submitTask(taskName: string): boolean {
         if (this.activeThreads < this.poolSize) {
             this.activeThreads++;
-            console.log(`Task '${taskName}' submitted to thread pool '${this.name}'`);
+            _print(`Task '${taskName}' submitted to thread pool '${this.name}'`);
             return true;
         }
         return false;
@@ -308,7 +308,7 @@ class ThreadPool {
         if (this.activeThreads > 0) {
             this.activeThreads--;
             this.completedTasks++;
-            console.log(`Task '${taskName}' completed in thread pool '${this.name}'`);
+            _print(`Task '${taskName}' completed in thread pool '${this.name}'`);
         }
     }
 }
@@ -325,11 +325,11 @@ class ObjectGraphNode {
         this.data = data;
         this.children = [];
         this.parent = null;
-        console.log(`Object graph node '${id}' created`);
+        _print(`Object graph node '${id}' created`);
     }
     
     ~ObjectGraphNode() {
-        console.log(`Destroying object graph node '${this.id}'`);
+        _print(`Destroying object graph node '${this.id}'`);
         // Clean up children
         for (let child of this.children) {
             child.setParent(null);
@@ -365,14 +365,14 @@ class ObjectGraphNode {
     addChild(child: ObjectGraphNode): void {
         this.children.push(child);
         child.setParent(this);
-        console.log(`Added child '${child.getId()}' to '${this.id}'`);
+        _print(`Added child '${child.getId()}' to '${this.id}'`);
     }
     
     removeChild(child: ObjectGraphNode): void {
         let index = this.children.indexOf(child);
         if (index > -1) {
             this.children.splice(index, 1);
-            console.log(`Removed child '${child.getId()}' from '${this.id}'`);
+            _print(`Removed child '${child.getId()}' from '${this.id}'`);
         }
     }
 }
@@ -387,16 +387,16 @@ class ResourceManager {
         this.name = name;
         this.resources = new Map();
         this.resourceCount = 0;
-        console.log(`Resource manager '${name}' created`);
+        _print(`Resource manager '${name}' created`);
     }
     
     ~ResourceManager() {
-        console.log(`Destroying resource manager '${this.name}'`);
-        console.log(`Final resource count: ${this.resourceCount}`);
+        _print(`Destroying resource manager '${this.name}'`);
+        _print(`Final resource count: ${this.resourceCount}`);
         
         // Clean up all resources
         for (let [key, resource] of this.resources) {
-            console.log(`Cleaning up resource '${key}'`);
+            _print(`Cleaning up resource '${key}'`);
         }
         this.resources.clear();
     }
@@ -412,14 +412,14 @@ class ResourceManager {
     addResource(key: string, resource: any): void {
         this.resources.set(key, resource);
         this.resourceCount++;
-        console.log(`Resource '${key}' added to manager '${this.name}'`);
+        _print(`Resource '${key}' added to manager '${this.name}'`);
     }
     
     removeResource(key: string): void {
         if (this.resources.has(key)) {
             this.resources.delete(key);
             this.resourceCount--;
-            console.log(`Resource '${key}' removed from manager '${this.name}'`);
+            _print(`Resource '${key}' removed from manager '${this.name}'`);
         }
     }
     
@@ -430,19 +430,19 @@ class ResourceManager {
 
 // System test functions
 function testFileSystemManagement(): void {
-    console.log("=== Testing File System Management ===");
+    _print("=== Testing File System Management ===");
     let file1 = new FileHandle("document.txt");
     let file2 = new FileHandle("image.jpg");
     
     file1.setFileSize(1024);
     file2.setFileSize(2048);
     
-    console.log(`File1: ${file1.getFilename()}, size: ${file1.getFileSize()}`);
-    console.log(`File2: ${file2.getFilename()}, size: ${file2.getFileSize()}`);
+    _print(`File1: ${file1.getFilename()}, size: ${file1.getFileSize()}`);
+    _print(`File2: ${file2.getFilename()}, size: ${file2.getFileSize()}`);
 }
 
 function testDatabaseManagement(): void {
-    console.log("=== Testing Database Management ===");
+    _print("=== Testing Database Management ===");
     let db = new DatabaseConnection("postgresql://localhost:5432/mydb");
     
     db.beginTransaction();
@@ -450,33 +450,33 @@ function testDatabaseManagement(): void {
     db.commitTransaction();
     db.commitTransaction();
     
-    console.log(`Database: ${db.getConnectionString()}`);
+    _print(`Database: ${db.getConnectionString()}`);
 }
 
 function testNetworkManagement(): void {
-    console.log("=== Testing Network Management ===");
+    _print("=== Testing Network Management ===");
     let socket = new NetworkSocket("localhost", 8080);
     
     socket.transferData(512);
     socket.transferData(1024);
     
-    console.log(`Socket: ${socket.getHost()}:${socket.getPort()}`);
+    _print(`Socket: ${socket.getHost()}:${socket.getPort()}`);
 }
 
 function testMemoryPoolManagement(): void {
-    console.log("=== Testing Memory Pool Management ===");
+    _print("=== Testing Memory Pool Management ===");
     let pool = new MemoryPool("main-pool", 100);
     
     pool.allocateBlock();
     pool.allocateBlock();
     pool.deallocateBlock();
     
-    console.log(`Pool: ${pool.getName()}, size: ${pool.getPoolSize()}`);
-    console.log(`Allocated: ${pool.getAllocatedBlocks()}, Free: ${pool.getFreeBlocks()}`);
+    _print(`Pool: ${pool.getName()}, size: ${pool.getPoolSize()}`);
+    _print(`Allocated: ${pool.getAllocatedBlocks()}, Free: ${pool.getFreeBlocks()}`);
 }
 
 function testCacheManagement(): void {
-    console.log("=== Testing Cache Management ===");
+    _print("=== Testing Cache Management ===");
     let cache = new CacheManager("lru-cache", 1000);
     
     cache.addItem("item1", 100);
@@ -485,12 +485,12 @@ function testCacheManagement(): void {
     cache.getItem("item2");
     cache.removeItem("item1", 100);
     
-    console.log(`Cache: ${cache.getName()}, size: ${cache.getCacheSize()}`);
-    console.log(`Current size: ${cache.getCurrentSize()}`);
+    _print(`Cache: ${cache.getName()}, size: ${cache.getCacheSize()}`);
+    _print(`Current size: ${cache.getCurrentSize()}`);
 }
 
 function testThreadPoolManagement(): void {
-    console.log("=== Testing Thread Pool Management ===");
+    _print("=== Testing Thread Pool Management ===");
     let pool = new ThreadPool("worker-pool", 4);
     
     pool.submitTask("task1");
@@ -498,12 +498,12 @@ function testThreadPoolManagement(): void {
     pool.completeTask("task1");
     pool.completeTask("task2");
     
-    console.log(`Thread pool: ${pool.getName()}, size: ${pool.getPoolSize()}`);
-    console.log(`Active threads: ${pool.getActiveThreads()}`);
+    _print(`Thread pool: ${pool.getName()}, size: ${pool.getPoolSize()}`);
+    _print(`Active threads: ${pool.getActiveThreads()}`);
 }
 
 function testObjectGraphManagement(): void {
-    console.log("=== Testing Object Graph Management ===");
+    _print("=== Testing Object Graph Management ===");
     let root = new ObjectGraphNode("root", "root-data");
     let child1 = new ObjectGraphNode("child1", "child1-data");
     let child2 = new ObjectGraphNode("child2", "child2-data");
@@ -513,12 +513,12 @@ function testObjectGraphManagement(): void {
     root.addChild(child2);
     child1.addChild(grandchild);
     
-    console.log(`Root: ${root.getId()}, children: ${root.getChildren().length}`);
-    console.log(`Child1: ${child1.getId()}, children: ${child1.getChildren().length}`);
+    _print(`Root: ${root.getId()}, children: ${root.getChildren().length}`);
+    _print(`Child1: ${child1.getId()}, children: ${child1.getChildren().length}`);
 }
 
 function testResourceManagerManagement(): void {
-    console.log("=== Testing Resource Manager Management ===");
+    _print("=== Testing Resource Manager Management ===");
     let manager = new ResourceManager("main-manager");
     
     let file = new FileHandle("managed-file.txt");
@@ -527,13 +527,13 @@ function testResourceManagerManagement(): void {
     manager.addResource("file", file);
     manager.addResource("socket", socket);
     
-    console.log(`Manager: ${manager.getName()}, resources: ${manager.getResourceCount()}`);
+    _print(`Manager: ${manager.getName()}, resources: ${manager.getResourceCount()}`);
 }
 
 // Run all system tests
 function runAllSystemTests(): void {
-    console.log("🚀 Starting RAII System Tests");
-    console.log("===============================");
+    _print("🚀 Starting RAII System Tests");
+    _print("===============================");
     
     testFileSystemManagement();
     testDatabaseManagement();
@@ -544,8 +544,8 @@ function runAllSystemTests(): void {
     testObjectGraphManagement();
     testResourceManagerManagement();
     
-    console.log("===============================");
-    console.log("✅ All RAII System Tests Completed");
+    _print("===============================");
+    _print("✅ All RAII System Tests Completed");
 }
 
 // Export for testing

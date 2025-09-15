@@ -8,11 +8,11 @@ class Resource {
     constructor(id: number, name: string) {
         this.id = id;
         this.name = name;
-        console.log(`Resource ${id} (${name}) created`);
+        _print(`Resource ${id} (${name}) created`);
     }
     
     ~Resource() {
-        console.log(`Resource ${this.id} (${this.name}) destroyed`);
+        _print(`Resource ${this.id} (${this.name}) destroyed`);
     }
 }
 
@@ -23,34 +23,34 @@ class Container {
     constructor(name: string) {
         this.name = name;
         this.resources = [];
-        console.log(`Container ${name} created`);
+        _print(`Container ${name} created`);
     }
     
     ~Container() {
-        console.log(`Container ${this.name} destroyed with ${this.resources.length} resources`);
+        _print(`Container ${this.name} destroyed with ${this.resources.length} resources`);
         // Resources will be automatically destroyed when container is destroyed
     }
     
     addResource(resource: Resource) {
         this.resources.push(resource);
-        console.log(`Added resource ${resource.id} to container ${this.name}`);
+        _print(`Added resource ${resource.id} to container ${this.name}`);
     }
 }
 
 // Test 1: Basic ARC functionality
 function testBasicARC() {
-    console.log("=== Test 1: Basic ARC Functionality ===");
+    _print("=== Test 1: Basic ARC Functionality ===");
     
     let resource1 = new Resource(1, "Test Resource 1");
     let resource2 = new Resource(2, "Test Resource 2");
     
-    console.log("Resources created, going out of scope...");
+    _print("Resources created, going out of scope...");
     // Resources should be automatically destroyed when going out of scope
 }
 
 // Test 2: RAII with nested objects
 function testRAIINested() {
-    console.log("=== Test 2: RAII with Nested Objects ===");
+    _print("=== Test 2: RAII with Nested Objects ===");
     
     let container = new Container("Test Container");
     let resource1 = new Resource(10, "Nested Resource 1");
@@ -59,13 +59,13 @@ function testRAIINested() {
     container.addResource(resource1);
     container.addResource(resource2);
     
-    console.log("Container with resources created, going out of scope...");
+    _print("Container with resources created, going out of scope...");
     // Container and all its resources should be destroyed
 }
 
 // Test 3: Multiple references to same object
 function testMultipleReferences() {
-    console.log("=== Test 3: Multiple References ===");
+    _print("=== Test 3: Multiple References ===");
     
     let resource = new Resource(100, "Shared Resource");
     let container1 = new Container("Container 1");
@@ -74,29 +74,29 @@ function testMultipleReferences() {
     container1.addResource(resource);
     container2.addResource(resource);
     
-    console.log("Multiple references created, going out of scope...");
+    _print("Multiple references created, going out of scope...");
     // Resource should be destroyed only once when all references are gone
 }
 
 // Test 4: Early return scenarios
 function testEarlyReturn() {
-    console.log("=== Test 4: Early Return Scenarios ===");
+    _print("=== Test 4: Early Return Scenarios ===");
     
     let resource1 = new Resource(200, "Early Return Resource 1");
     
     if (true) {
         let resource2 = new Resource(201, "Early Return Resource 2");
-        console.log("Early return scenario - resources should be cleaned up");
+        _print("Early return scenario - resources should be cleaned up");
         return; // Early return
     }
     
     let resource3 = new Resource(202, "Early Return Resource 3");
-    console.log("This should not be reached");
+    _print("This should not be reached");
 }
 
 // Test 5: Stress test with many objects
 function testStressTest() {
-    console.log("=== Test 5: Stress Test ===");
+    _print("=== Test 5: Stress Test ===");
     
     let container1 = new Container("Stress Container 1");
     let resource1 = new Resource(1001, "Stress Resource 1-1");
@@ -124,32 +124,32 @@ function testStressTest() {
     container2.addResource(resource9);
     container2.addResource(resource10);
     
-    console.log("Created multiple containers with resources, going out of scope...");
+    _print("Created multiple containers with resources, going out of scope...");
     // All objects should be destroyed
 }
 
 // Main test runner
 function runMemoryLeakTests() {
-    console.log("Starting Simple Memory Leak Analysis Tests");
-    console.log("==========================================");
+    _print("Starting Simple Memory Leak Analysis Tests");
+    _print("==========================================");
     
     testBasicARC();
-    console.log("");
+    _print("");
     
     testRAIINested();
-    console.log("");
+    _print("");
     
     testMultipleReferences();
-    console.log("");
+    _print("");
     
     testEarlyReturn();
-    console.log("");
+    _print("");
     
     testStressTest();
-    console.log("");
+    _print("");
     
-    console.log("All memory leak analysis tests completed");
-    console.log("========================================");
+    _print("All memory leak analysis tests completed");
+    _print("========================================");
 }
 
 // Run the tests

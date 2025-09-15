@@ -334,74 +334,74 @@ function test_circular_references_weak_ptr() {
 // ============================================================================
 
 function runAllArcTests() {
-    console.log("Running ARC Regression Test Suite...");
+    _print("Running ARC Regression Test Suite...");
     
     try {
         test_unique_ptr_basic_lifecycle();
-        console.log("✓ Test 1: unique_ptr basic lifecycle - PASSED");
+        _print("✓ Test 1: unique_ptr basic lifecycle - PASSED");
         
         test_unique_ptr_move_semantics();
-        console.log("✓ Test 2: unique_ptr move semantics - PASSED");
+        _print("✓ Test 2: unique_ptr move semantics - PASSED");
         
         test_shared_ptr_reference_counting();
-        console.log("✓ Test 3: shared_ptr reference counting - PASSED");
+        _print("✓ Test 3: shared_ptr reference counting - PASSED");
         
         test_shared_ptr_multiple_references();
-        console.log("✓ Test 4: shared_ptr multiple references - PASSED");
+        _print("✓ Test 4: shared_ptr multiple references - PASSED");
         
         test_weak_ptr_basic_functionality();
-        console.log("✓ Test 5: weak_ptr basic functionality - PASSED");
+        _print("✓ Test 5: weak_ptr basic functionality - PASSED");
         
         test_weak_ptr_expiration();
-        console.log("✓ Test 6: weak_ptr expiration - PASSED");
+        _print("✓ Test 6: weak_ptr expiration - PASSED");
         
         test_cycle_detection();
-        console.log("✓ Test 7: cycle detection - PASSED");
+        _print("✓ Test 7: cycle detection - PASSED");
         
         test_exception_safety_during_destruction();
-        console.log("✓ Test 8: exception safety during destruction - PASSED");
+        _print("✓ Test 8: exception safety during destruction - PASSED");
         
         test_nested_smart_pointer_types();
-        console.log("✓ Test 9: nested smart pointer types - PASSED");
+        _print("✓ Test 9: nested smart pointer types - PASSED");
         
         test_smart_pointers_in_data_structures();
-        console.log("✓ Test 10: smart pointers in data structures - PASSED");
+        _print("✓ Test 10: smart pointers in data structures - PASSED");
         
         test_move_semantics_complex_types();
-        console.log("✓ Test 11: move semantics with complex types - PASSED");
+        _print("✓ Test 11: move semantics with complex types - PASSED");
         
         test_smart_pointer_assignment();
-        console.log("✓ Test 12: smart pointer assignment - PASSED");
+        _print("✓ Test 12: smart pointer assignment - PASSED");
         
         test_reset_functionality();
-        console.log("✓ Test 13: reset functionality - PASSED");
+        _print("✓ Test 13: reset functionality - PASSED");
         
         test_type_system_integration();
-        console.log("✓ Test 14: type system integration - PASSED");
+        _print("✓ Test 14: type system integration - PASSED");
         
         test_performance_regression();
-        console.log("✓ Test 15: performance regression - PASSED");
+        _print("✓ Test 15: performance regression - PASSED");
         
         test_memory_leak_detection();
-        console.log("✓ Test 16: memory leak detection - PASSED");
+        _print("✓ Test 16: memory leak detection - PASSED");
         
         test_thread_safety_basic();
-        console.log("✓ Test 17: thread safety (basic) - PASSED");
+        _print("✓ Test 17: thread safety (basic) - PASSED");
         
         test_null_pointer_handling();
-        console.log("✓ Test 18: null pointer handling - PASSED");
+        _print("✓ Test 18: null pointer handling - PASSED");
         
         test_self_assignment();
-        console.log("✓ Test 19: self-assignment - PASSED");
+        _print("✓ Test 19: self-assignment - PASSED");
         
         test_circular_references_weak_ptr();
-        console.log("✓ Test 20: circular references with weak_ptr - PASSED");
+        _print("✓ Test 20: circular references with weak_ptr - PASSED");
         
-        console.log("\n🎉 All ARC regression tests PASSED!");
+        _print("\n🎉 All ARC regression tests PASSED!");
         return true;
         
     } catch (error) {
-        console.error("❌ ARC regression test FAILED:", error);
+        _print("❌ ARC regression test FAILED:", error);
         return false;
     }
 }

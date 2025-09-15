@@ -3,7 +3,7 @@
 
 // Test 1: Basic Smart Pointer Lifecycle
 function testBasicLifecycle(): void {
-    console.log("=== Test 1: Basic Smart Pointer Lifecycle ===");
+    _print("=== Test 1: Basic Smart Pointer Lifecycle ===");
     
     // Test unique_ptr lifecycle
     let uniquePtr: unique_ptr<number> = new unique_ptr<number>(42);
@@ -17,12 +17,12 @@ function testBasicLifecycle(): void {
     let weakPtr: weak_ptr<string> = new weak_ptr<string>(sharedPtr);
     assert(weakPtr.get() === "Hello", "weak_ptr should contain 'Hello'");
     
-    console.log("✓ Basic lifecycle tests passed");
+    _print("✓ Basic lifecycle tests passed");
 }
 
 // Test 2: Reference Counting Accuracy
 function testReferenceCounting(): void {
-    console.log("=== Test 2: Reference Counting Accuracy ===");
+    _print("=== Test 2: Reference Counting Accuracy ===");
     
     let ptr1: shared_ptr<number> = new shared_ptr<number>(100);
     let ptr2: shared_ptr<number> = ptr1;
@@ -45,12 +45,12 @@ function testReferenceCounting(): void {
     // Clear last reference
     ptr3 = null;
     
-    console.log("✓ Reference counting tests passed");
+    _print("✓ Reference counting tests passed");
 }
 
 // Test 3: Move Semantics Correctness
 function testMoveSemantics(): void {
-    console.log("=== Test 3: Move Semantics Correctness ===");
+    _print("=== Test 3: Move Semantics Correctness ===");
     
     // Test unique_ptr move
     let source: unique_ptr<number> = new unique_ptr<number>(42);
@@ -66,12 +66,12 @@ function testMoveSemantics(): void {
     assert(sharedSource.get() === null, "Shared source should be null after move");
     assert(sharedDest.get() === "Move me", "Shared destination should contain 'Move me'");
     
-    console.log("✓ Move semantics tests passed");
+    _print("✓ Move semantics tests passed");
 }
 
 // Test 4: Weak Reference Behavior
 function testWeakReferences(): void {
-    console.log("=== Test 4: Weak Reference Behavior ===");
+    _print("=== Test 4: Weak Reference Behavior ===");
     
     let strong: shared_ptr<number> = new shared_ptr<number>(200);
     let weak: weak_ptr<number> = new weak_ptr<number>(strong);
@@ -85,12 +85,12 @@ function testWeakReferences(): void {
     // Weak reference should now be null
     assert(weak.get() === null, "Weak reference should be null after strong reference cleared");
     
-    console.log("✓ Weak reference tests passed");
+    _print("✓ Weak reference tests passed");
 }
 
 // Test 5: Complex Object Graphs
 function testComplexObjectGraphs(): void {
-    console.log("=== Test 5: Complex Object Graphs ===");
+    _print("=== Test 5: Complex Object Graphs ===");
     
     class Node {
         private value: number;
@@ -129,12 +129,12 @@ function testComplexObjectGraphs(): void {
     assert(root.get().getChildren().length === 2, "Root should have 2 children");
     assert(child1.get().getChildren().length === 1, "Child1 should have 1 child");
     
-    console.log("✓ Complex object graph tests passed");
+    _print("✓ Complex object graph tests passed");
 }
 
 // Test 6: Cycle Detection and Breaking
 function testCycleDetection(): void {
-    console.log("=== Test 6: Cycle Detection and Breaking ===");
+    _print("=== Test 6: Cycle Detection and Breaking ===");
     
     class CyclicNode {
         private value: number;
@@ -171,12 +171,12 @@ function testCycleDetection(): void {
     assert(node2.get().getNext() !== null, "Node2 should have next");
     assert(node3.get().getNext() !== null, "Node3 should have next");
     
-    console.log("✓ Cycle detection tests passed");
+    _print("✓ Cycle detection tests passed");
 }
 
 // Test 7: Memory Management Annotations
 function testMemoryAnnotations(): void {
-    console.log("=== Test 7: Memory Management Annotations ===");
+    _print("=== Test 7: Memory Management Annotations ===");
     
     @manual_memory
     class ManualClass {
@@ -234,12 +234,12 @@ function testMemoryAnnotations(): void {
     
     manual.destroy();
     
-    console.log("✓ Memory annotation tests passed");
+    _print("✓ Memory annotation tests passed");
 }
 
 // Test 8: Exception Handling with ARC
 function testExceptionHandling(): void {
-    console.log("=== Test 8: Exception Handling with ARC ===");
+    _print("=== Test 8: Exception Handling with ARC ===");
     
     function riskyOperation(): shared_ptr<number> {
         let ptr: shared_ptr<number> = new shared_ptr<number>(42);
@@ -262,15 +262,15 @@ function testExceptionHandling(): void {
         assert(result.get() === 42, "Result should contain 42");
     } catch (error) {
         // Exception should be handled gracefully
-        console.log("Exception handled:", error.message);
+        _print("Exception handled:", error.message);
     }
     
-    console.log("✓ Exception handling tests passed");
+    _print("✓ Exception handling tests passed");
 }
 
 // Test 9: Function Parameters and Return Values
 function testFunctionParameters(): void {
-    console.log("=== Test 9: Function Parameters and Return Values ===");
+    _print("=== Test 9: Function Parameters and Return Values ===");
     
     function processPtr(ptr: shared_ptr<number>): shared_ptr<string> {
         let value = ptr.get();
@@ -287,12 +287,12 @@ function testFunctionParameters(): void {
     assert(input.get() === 100, "Input should contain 100");
     assert(output.get() === "Processed: 100", "Output should contain 'Processed: 100'");
     
-    console.log("✓ Function parameter tests passed");
+    _print("✓ Function parameter tests passed");
 }
 
 // Test 10: Array and Collection Handling
 function testArrayHandling(): void {
-    console.log("=== Test 10: Array and Collection Handling ===");
+    _print("=== Test 10: Array and Collection Handling ===");
     
     let numbers: shared_ptr<number>[] = [];
     
@@ -314,12 +314,12 @@ function testArrayHandling(): void {
     
     assert(sum === 450, "Sum should be 450"); // 0+10+20+...+90 = 450
     
-    console.log("✓ Array handling tests passed");
+    _print("✓ Array handling tests passed");
 }
 
 // Test 11: Inheritance and Polymorphism
 function testInheritance(): void {
-    console.log("=== Test 11: Inheritance and Polymorphism ===");
+    _print("=== Test 11: Inheritance and Polymorphism ===");
     
     class BaseClass {
         protected value: number;
@@ -353,12 +353,12 @@ function testInheritance(): void {
     assert(derived.get().getValue() === 10, "Derived class should have value 10");
     assert(derived.get().getMultipliedValue() === 20, "Derived class should have multiplied value 20");
     
-    console.log("✓ Inheritance tests passed");
+    _print("✓ Inheritance tests passed");
 }
 
 // Test 12: Performance Characteristics
 function testPerformance(): void {
-    console.log("=== Test 12: Performance Characteristics ===");
+    _print("=== Test 12: Performance Characteristics ===");
     
     const startTime = Date.now();
     
@@ -380,12 +380,12 @@ function testPerformance(): void {
     assert(sum === 499500, "Sum should be 499500"); // 0+1+2+...+999
     assert(duration < 1000, "Operation should complete in less than 1000ms");
     
-    console.log(`✓ Performance test passed (${duration}ms for 1000 objects)`);
+    _print(`✓ Performance test passed (${duration}ms for 1000 objects)`);
 }
 
 // Test 13: Edge Cases
 function testEdgeCases(): void {
-    console.log("=== Test 13: Edge Cases ===");
+    _print("=== Test 13: Edge Cases ===");
     
     // Test null handling
     let nullPtr: shared_ptr<number> | null = null;
@@ -399,12 +399,12 @@ function testEdgeCases(): void {
     let largeArray: shared_ptr<number[]> = new shared_ptr<number[]>(new Array<number>(10000));
     assert(largeArray.get().length === 10000, "Large array should have 10000 elements");
     
-    console.log("✓ Edge case tests passed");
+    _print("✓ Edge case tests passed");
 }
 
 // Test 14: Memory Leak Detection
 function testMemoryLeakDetection(): void {
-    console.log("=== Test 14: Memory Leak Detection ===");
+    _print("=== Test 14: Memory Leak Detection ===");
     
     // Create objects that should be automatically cleaned up
     for (let i = 0; i < 100; i++) {
@@ -418,12 +418,12 @@ function testMemoryLeakDetection(): void {
         gc();
     }
     
-    console.log("✓ Memory leak detection test passed");
+    _print("✓ Memory leak detection test passed");
 }
 
 // Test 15: Concurrent Access (Simplified)
 function testConcurrentAccess(): void {
-    console.log("=== Test 15: Concurrent Access ===");
+    _print("=== Test 15: Concurrent Access ===");
     
     let shared: shared_ptr<number> = new shared_ptr<number>(42);
     
@@ -442,7 +442,7 @@ function testConcurrentAccess(): void {
     ptr2 = null;
     ptr3 = null;
     
-    console.log("✓ Concurrent access tests passed");
+    _print("✓ Concurrent access tests passed");
 }
 
 // Helper function for assertions
@@ -454,8 +454,8 @@ function assert(condition: boolean, message: string): void {
 
 // Main test runner
 function runComprehensiveTests(): void {
-    console.log("TSC ARC Comprehensive System Tests");
-    console.log("===================================");
+    _print("TSC ARC Comprehensive System Tests");
+    _print("===================================");
     
     let tests = [
         testBasicLifecycle,
@@ -483,20 +483,20 @@ function runComprehensiveTests(): void {
             test();
             passed++;
         } catch (error) {
-            console.error(`❌ Test failed: ${error.message}`);
+            _print(`❌ Test failed: ${error.message}`);
             failed++;
         }
     }
     
-    console.log("\n=== Test Results ===");
-    console.log(`Passed: ${passed}`);
-    console.log(`Failed: ${failed}`);
-    console.log(`Total: ${passed + failed}`);
+    _print("\n=== Test Results ===");
+    _print(`Passed: ${passed}`);
+    _print(`Failed: ${failed}`);
+    _print(`Total: ${passed + failed}`);
     
     if (failed === 0) {
-        console.log("🎉 All tests passed!");
+        _print("🎉 All tests passed!");
     } else {
-        console.log("⚠️ Some tests failed!");
+        _print("⚠️ Some tests failed!");
     }
 }
 

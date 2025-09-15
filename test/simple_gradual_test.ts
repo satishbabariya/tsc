@@ -2,24 +2,24 @@
 
 class SimpleResource {
     constructor() {
-        console.log("SimpleResource constructor");
+        _print("SimpleResource constructor");
     }
     
     ~SimpleResource() {
-        console.log("SimpleResource destructor");
+        _print("SimpleResource destructor");
     }
 }
 
 function testSimpleResource() {
-    console.log("=== Testing Simple Resource ===");
+    _print("=== Testing Simple Resource ===");
     let resource = new SimpleResource();
-    console.log("Simple resource created");
+    _print("Simple resource created");
 }
 
 function runSimpleTest() {
-    console.log("Starting simple test...");
+    _print("Starting simple test...");
     testSimpleResource();
-    console.log("Simple test completed");
+    _print("Simple test completed");
 }
 
 runSimpleTest();

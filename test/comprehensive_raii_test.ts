@@ -5,11 +5,11 @@ class ResourceA {
     
     constructor(name: string) {
         this.name = name;
-        console.log("ResourceA constructor: " + name);
+        _print("ResourceA constructor: " + name);
     }
     
     ~ResourceA() {
-        console.log("ResourceA destructor: " + this.name);
+        _print("ResourceA destructor: " + this.name);
     }
 }
 
@@ -18,62 +18,62 @@ class ResourceB {
     
     constructor(id: number) {
         this.id = id;
-        console.log("ResourceB constructor: " + id.toString());
+        _print("ResourceB constructor: " + id.toString());
     }
     
     ~ResourceB() {
-        console.log("ResourceB destructor: " + this.id.toString());
+        _print("ResourceB destructor: " + this.id.toString());
     }
 }
 
 function testNestedScopes() {
-    console.log("=== Testing Nested Scopes ===");
+    _print("=== Testing Nested Scopes ===");
     let outer = new ResourceA("outer");
     
     if (true) {
         let inner = new ResourceB(42);
-        console.log("Inside nested scope");
+        _print("Inside nested scope");
         // inner should be destroyed here
     }
     
-    console.log("Back in outer scope");
+    _print("Back in outer scope");
     // outer should be destroyed here
 }
 
 function testMultipleObjects() {
-    console.log("=== Testing Multiple Objects ===");
+    _print("=== Testing Multiple Objects ===");
     let res1 = new ResourceA("first");
     let res2 = new ResourceB(100);
     let res3 = new ResourceA("second");
-    console.log("All objects created");
+    _print("All objects created");
     // All objects should be destroyed in reverse order: res3, res2, res1
 }
 
 function testEarlyReturn() {
-    console.log("=== Testing Early Return ===");
+    _print("=== Testing Early Return ===");
     let resource = new ResourceA("early_return");
     
     if (true) {
-        console.log("Taking early return path");
+        _print("Taking early return path");
         return; // resource should still be destroyed
     }
     
-    console.log("This should not be printed");
+    _print("This should not be printed");
 }
 
 function runComprehensiveRAIITests() {
-    console.log("Starting comprehensive RAII tests...");
+    _print("Starting comprehensive RAII tests...");
     
     testNestedScopes();
-    console.log("");
+    _print("");
     
     testMultipleObjects();
-    console.log("");
+    _print("");
     
     testEarlyReturn();
-    console.log("");
+    _print("");
     
-    console.log("Comprehensive RAII tests completed");
+    _print("Comprehensive RAII tests completed");
 }
 
 runComprehensiveRAIITests();

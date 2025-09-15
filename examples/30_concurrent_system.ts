@@ -15,7 +15,7 @@ class WorkerThread {
 
   async start(): Promise<void> {
     this.isRunning = true;
-    console.log(`Worker thread ${this.id} started`);
+    _print(`Worker thread ${this.id} started`);
     
     while (this.isRunning) {
       if (this.taskQueue.length > 0) {
@@ -27,7 +27,7 @@ class WorkerThread {
       }
     }
     
-    console.log(`Worker thread ${this.id} stopped`);
+    _print(`Worker thread ${this.id} stopped`);
   }
 
   stop(): void {
@@ -40,16 +40,16 @@ class WorkerThread {
 
   private async executeTask(task: Task): Promise<void> {
     try {
-      console.log(`Worker ${this.id} executing task: ${task.name}`);
+      _print(`Worker ${this.id} executing task: ${task.name}`);
       const result = await task.execute();
       
       if (this.onTaskComplete) {
         this.onTaskComplete(result);
       }
       
-      console.log(`Worker ${this.id} completed task: ${task.name}`);
+      _print(`Worker ${this.id} completed task: ${task.name}`);
     } catch (error) {
-      console.error(`Worker ${this.id} error in task ${task.name}:`, error);
+      _print(`Worker ${this.id} error in task ${task.name}:`, error);
     }
   }
 
@@ -96,7 +96,7 @@ class ThreadPool {
 
   async start(): Promise<void> {
     this.isRunning = true;
-    console.log(`Starting thread pool with ${this.workers.length} workers`);
+    _print(`Starting thread pool with ${this.workers.length} workers`);
     
     // Start all workers
     const workerPromises = this.workers.map(worker => worker.start());
@@ -106,7 +106,7 @@ class ThreadPool {
   stop(): void {
     this.isRunning = false;
     this.workers.forEach(worker => worker.stop());
-    console.log('Thread pool stopped');
+    _print('Thread pool stopped');
   }
 
   submitTask(task: Task): void {
@@ -362,50 +362,50 @@ class ProducerConsumer<T> {
     this.producers++;
     this.isRunning = true;
     
-    console.log(`Producer ${producerId} started`);
+    _print(`Producer ${producerId} started`);
     
     while (this.isRunning) {
       try {
         const item = produce();
         await this.queue.enqueue(item);
-        console.log(`Producer ${producerId} produced: ${item}`);
+        _print(`Producer ${producerId} produced: ${item}`);
         
         // Simulate production time
         await this.sleep(Math.random() * 1000);
       } catch (error) {
-        console.error(`Producer ${producerId} error:`, error);
+        _print(`Producer ${producerId} error:`, error);
       }
     }
     
-    console.log(`Producer ${producerId} stopped`);
+    _print(`Producer ${producerId} stopped`);
   }
 
   async startConsumer(consumerId: number, consume: (item: T) => void): Promise<void> {
     this.consumers++;
     
-    console.log(`Consumer ${consumerId} started`);
+    _print(`Consumer ${consumerId} started`);
     
     while (this.isRunning) {
       try {
         const item = await this.queue.dequeue();
         if (item !== null) {
           consume(item);
-          console.log(`Consumer ${consumerId} consumed: ${item}`);
+          _print(`Consumer ${consumerId} consumed: ${item}`);
         }
         
         // Simulate consumption time
         await this.sleep(Math.random() * 500);
       } catch (error) {
-        console.error(`Consumer ${consumerId} error:`, error);
+        _print(`Consumer ${consumerId} error:`, error);
       }
     }
     
-    console.log(`Consumer ${consumerId} stopped`);
+    _print(`Consumer ${consumerId} stopped`);
   }
 
   stop(): void {
     this.isRunning = false;
-    console.log('Producer-Consumer system stopped');
+    _print('Producer-Consumer system stopped');
   }
 
   async getQueueSize(): Promise<number> {
@@ -460,7 +460,7 @@ class ParallelProcessor {
         results[index] = result;
       }
       
-      console.log(`Batch ${batchIndex} completed: ${batchResults.length} items`);
+      _print(`Batch ${batchIndex} completed: ${batchResults.length} items`);
       return batchResults;
     });
     
@@ -503,14 +503,14 @@ class ParallelProcessor {
 
 // Usage examples
 async function demonstrateConcurrentSystem(): Promise<void> {
-  console.log("=== Concurrent System Demo ===\n");
+  _print("=== Concurrent System Demo ===\n");
 
   // 1. Thread pool
-  console.log("1. Thread Pool:");
+  _print("1. Thread Pool:");
   const threadPool = new ThreadPool(3);
   
   // Start thread pool
-  threadPool.start().catch(console.error);
+  threadPool.start().catch(_print);
   
   // Submit some tasks
   for (let i = 0; i < 5; i++) {
@@ -526,12 +526,12 @@ async function demonstrateConcurrentSystem(): Promise<void> {
   // Wait a bit and check stats
   await new Promise(resolve => setTimeout(resolve, 2000));
   const stats = threadPool.getStats();
-  console.log('Thread pool stats:', stats);
+  _print('Thread pool stats:', stats);
   
   threadPool.stop();
 
   // 2. Concurrent data structures
-  console.log("\n2. Concurrent Data Structures:");
+  _print("\n2. Concurrent Data Structures:");
   const concurrentQueue = new ConcurrentQueue<string>();
   const concurrentMap = new ConcurrentMap<string, number>();
   
@@ -540,31 +540,31 @@ async function demonstrateConcurrentSystem(): Promise<void> {
   await concurrentQueue.enqueue('item2');
   await concurrentQueue.enqueue('item3');
   
-  console.log('Queue size:', await concurrentQueue.size());
-  console.log('Dequeued:', await concurrentQueue.dequeue());
-  console.log('Queue size after dequeue:', await concurrentQueue.size());
+  _print('Queue size:', await concurrentQueue.size());
+  _print('Dequeued:', await concurrentQueue.dequeue());
+  _print('Queue size after dequeue:', await concurrentQueue.size());
   
   // Test concurrent map
   await concurrentMap.set('key1', 100);
   await concurrentMap.set('key2', 200);
   
-  console.log('Map has key1:', await concurrentMap.has('key1'));
-  console.log('Map get key2:', await concurrentMap.get('key2'));
-  console.log('Map size:', await concurrentMap.size());
+  _print('Map has key1:', await concurrentMap.has('key1'));
+  _print('Map get key2:', await concurrentMap.get('key2'));
+  _print('Map size:', await concurrentMap.size());
 
   // 3. Semaphore
-  console.log("\n3. Semaphore:");
+  _print("\n3. Semaphore:");
   const semaphore = new Semaphore(2);
   
   const semaphoreTask = async (id: number) => {
-    console.log(`Task ${id} waiting for semaphore`);
+    _print(`Task ${id} waiting for semaphore`);
     await semaphore.acquire();
-    console.log(`Task ${id} acquired semaphore`);
+    _print(`Task ${id} acquired semaphore`);
     
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     semaphore.release();
-    console.log(`Task ${id} released semaphore`);
+    _print(`Task ${id} released semaphore`);
   };
   
   // Run multiple tasks concurrently
@@ -578,13 +578,13 @@ async function demonstrateConcurrentSystem(): Promise<void> {
   await Promise.all(semaphoreTasks);
 
   // 4. Barrier
-  console.log("\n4. Barrier:");
+  _print("\n4. Barrier:");
   const barrier = new Barrier(3);
   
   const barrierTask = async (id: number) => {
-    console.log(`Task ${id} reached barrier`);
+    _print(`Task ${id} reached barrier`);
     await barrier.await();
-    console.log(`Task ${id} passed barrier`);
+    _print(`Task ${id} passed barrier`);
   };
   
   // Run tasks that will synchronize at barrier
@@ -597,7 +597,7 @@ async function demonstrateConcurrentSystem(): Promise<void> {
   await Promise.all(barrierTasks);
 
   // 5. Producer-Consumer
-  console.log("\n5. Producer-Consumer:");
+  _print("\n5. Producer-Consumer:");
   const producerConsumer = new ProducerConsumer<number>();
   
   // Start producers
@@ -606,20 +606,20 @@ async function demonstrateConcurrentSystem(): Promise<void> {
   
   // Start consumers
   const consumer1 = producerConsumer.startConsumer(1, (item) => {
-    console.log(`Consumer 1 processed: ${item * 2}`);
+    _print(`Consumer 1 processed: ${item * 2}`);
   });
   const consumer2 = producerConsumer.startConsumer(2, (item) => {
-    console.log(`Consumer 2 processed: ${item * 3}`);
+    _print(`Consumer 2 processed: ${item * 3}`);
   });
   
   // Let it run for a bit
   await new Promise(resolve => setTimeout(resolve, 3000));
   
-  console.log('Queue size:', await producerConsumer.getQueueSize());
+  _print('Queue size:', await producerConsumer.getQueueSize());
   producerConsumer.stop();
 
   // 6. Parallel processing
-  console.log("\n6. Parallel Processing:");
+  _print("\n6. Parallel Processing:");
   const parallelProcessor = new ParallelProcessor(2);
   await parallelProcessor.start();
   
@@ -635,7 +635,7 @@ async function demonstrateConcurrentSystem(): Promise<void> {
     5
   );
   
-  console.log('Parallel processing results:', results.slice(0, 10));
+  _print('Parallel processing results:', results.slice(0, 10));
   
   // Map-reduce example
   const words = ['hello', 'world', 'hello', 'typescript', 'world', 'hello'];
@@ -652,7 +652,7 @@ async function demonstrateConcurrentSystem(): Promise<void> {
     }
   );
   
-  console.log('Word counts:', Object.fromEntries(wordCounts));
+  _print('Word counts:', Object.fromEntries(wordCounts));
   
   await parallelProcessor.stop();
 }

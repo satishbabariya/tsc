@@ -13,4 +13,4 @@ class BasicArrayOperations<T> {
 
 // Test constructor initialization
 let testArray = new BasicArrayOperations<number>();
-console.log("Constructor test - array length:", testArray.getLength());
+_print("Constructor test - array length:", testArray.getLength());

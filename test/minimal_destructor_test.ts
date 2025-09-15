@@ -1,18 +1,18 @@
 // Minimal Destructor Test - Isolate the core issue
 class TestClass {
     constructor() {
-        console.log("TestClass constructor");
+        _print("TestClass constructor");
     }
 
     ~TestClass() {
-        console.log("TestClass destructor");
+        _print("TestClass destructor");
     }
 }
 
 function testMinimalDestructor() {
-    console.log("Entering testMinimalDestructor");
+    _print("Entering testMinimalDestructor");
     let obj = new TestClass();
-    console.log("Exiting testMinimalDestructor");
+    _print("Exiting testMinimalDestructor");
 }
 
 testMinimalDestructor();

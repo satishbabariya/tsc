@@ -8,9 +8,9 @@ arrayT.push(2);
 arrayBracket.push(3);
 arrayBracket.push(4);
 
-console.log("Array<T> length:", arrayT.length);
-console.log("T[] length:", arrayBracket.length);
+_print("Array<T> length:", arrayT.length);
+_print("T[] length:", arrayBracket.length);
 
 // Test element access
-console.log("Array<T> first element:", arrayT[0]);
-console.log("T[] first element:", arrayBracket[0]);
+_print("Array<T> first element:", arrayT[0]);
+_print("T[] first element:", arrayBracket[0]);

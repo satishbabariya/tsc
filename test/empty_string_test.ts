@@ -1,7 +1,7 @@
 function testEmptyString() {
-    console.log("");
-    console.log("test");
-    console.log("");
+    _print("");
+    _print("test");
+    _print("");
 }
 
 testEmptyString();

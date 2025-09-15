@@ -72,4 +72,4 @@ class GenericItem<T> {
 let genericItemArray: Array<GenericItem<number>> = [];
 let genericItemArray2: GenericItem<number>[] = [];
 
-console.log("Generic Array Type Test - All declarations compiled successfully");
+_print("Generic Array Type Test - All declarations compiled successfully");

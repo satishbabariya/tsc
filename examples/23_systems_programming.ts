@@ -69,14 +69,14 @@ class CLIApplication {
   }
 
   private showHelp(): void {
-    console.log("Available commands:");
+    _print("Available commands:");
     for (const [name, cmd] of this.commands) {
-      console.log(`  ${name}: ${cmd.description}`);
+      _print(`  ${name}: ${cmd.description}`);
     }
     
-    console.log("\nAvailable options:");
+    _print("\nAvailable options:");
     for (const [short, opt] of this.options) {
-      console.log(`  -${short}, --${opt.long}: ${opt.description}`);
+      _print(`  -${short}, --${opt.long}: ${opt.description}`);
     }
   }
 }
@@ -148,7 +148,7 @@ class HTTPServer {
   }
 
   listen(port: number, callback?: () => void): void {
-    console.log(`Server listening on port ${port}`);
+    _print(`Server listening on port ${port}`);
     if (callback) callback();
   }
 }
@@ -175,7 +175,7 @@ class Database {
   private connection: Connection | null = null;
 
   async connect(connectionString: string): Promise<void> {
-    console.log(`Connecting to database: ${connectionString}`);
+    _print(`Connecting to database: ${connectionString}`);
     this.connection = new Connection(connectionString);
   }
 
@@ -207,21 +207,21 @@ class Connection {
   constructor(private connectionString: string) {}
 
   async execute<T>(sql: string, params: any[]): Promise<T[]> {
-    console.log(`Executing SQL: ${sql} with params:`, params);
+    _print(`Executing SQL: ${sql} with params:`, params);
     // Simulate database execution
     return [] as T[];
   }
 
   async beginTransaction(): Promise<void> {
-    console.log("Beginning transaction");
+    _print("Beginning transaction");
   }
 
   async commit(): Promise<void> {
-    console.log("Committing transaction");
+    _print("Committing transaction");
   }
 
   async rollback(): Promise<void> {
-    console.log("Rolling back transaction");
+    _print("Rolling back transaction");
   }
 }
 
@@ -243,7 +243,7 @@ class ConfigManager {
   }
 
   loadFromFile(filename: string): void {
-    console.log(`Loading config from ${filename}`);
+    _print(`Loading config from ${filename}`);
     // Simulate file loading
     this.config.set("app.name", "TypeScript Server");
     this.config.set("app.version", "1.0.0");
@@ -305,36 +305,36 @@ class Logger {
 
   private log(level: string, message: string, ...args: any[]): void {
     const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [${level}] [${this.context}] ${message}`, ...args);
+    _print(`[${timestamp}] [${level}] [${this.context}] ${message}`, ...args);
   }
 }
 
 // 6. File System Operations
 class FileSystem {
   async readFile(filename: string): Promise<string> {
-    console.log(`Reading file: ${filename}`);
+    _print(`Reading file: ${filename}`);
     // Simulate file reading
     return `Content of ${filename}`;
   }
 
   async writeFile(filename: string, content: string): Promise<void> {
-    console.log(`Writing file: ${filename}`);
+    _print(`Writing file: ${filename}`);
     // Simulate file writing
   }
 
   async exists(filename: string): Promise<boolean> {
-    console.log(`Checking if file exists: ${filename}`);
+    _print(`Checking if file exists: ${filename}`);
     // Simulate file existence check
     return true;
   }
 
   async mkdir(path: string, recursive: boolean = false): Promise<void> {
-    console.log(`Creating directory: ${path} (recursive: ${recursive})`);
+    _print(`Creating directory: ${path} (recursive: ${recursive})`);
     // Simulate directory creation
   }
 
   async readdir(path: string): Promise<string[]> {
-    console.log(`Reading directory: ${path}`);
+    _print(`Reading directory: ${path}`);
     // Simulate directory reading
     return ["file1.txt", "file2.txt", "subdir"];
   }
@@ -349,7 +349,7 @@ class ProcessManager {
     const process = new Process(pid, command, args, options);
     this.processes.set(pid, process);
     
-    console.log(`Spawned process ${pid}: ${command} ${args.join(" ")}`);
+    _print(`Spawned process ${pid}: ${command} ${args.join(" ")}`);
     return process;
   }
 
@@ -379,11 +379,11 @@ class Process {
   ) {}
 
   async kill(signal: string): Promise<void> {
-    console.log(`Killing process ${this.pid} with signal ${signal}`);
+    _print(`Killing process ${this.pid} with signal ${signal}`);
   }
 
   async wait(): Promise<number> {
-    console.log(`Waiting for process ${this.pid} to exit`);
+    _print(`Waiting for process ${this.pid} to exit`);
     return 0; // Simulate exit code
   }
 }
@@ -409,14 +409,14 @@ class MemoryManager {
     };
     
     this.allocations.set(id, allocation);
-    console.log(`Allocated ${size} bytes at address 0x${allocation.address.toString(16)}`);
+    _print(`Allocated ${size} bytes at address 0x${allocation.address.toString(16)}`);
     return id;
   }
 
   deallocate(id: number): void {
     const allocation = this.allocations.get(id);
     if (allocation) {
-      console.log(`Deallocated ${allocation.size} bytes at address 0x${allocation.address.toString(16)}`);
+      _print(`Deallocated ${allocation.size} bytes at address 0x${allocation.address.toString(16)}`);
       this.allocations.delete(id);
     }
   }
@@ -454,17 +454,17 @@ interface MemoryStats {
 // 9. Network Operations
 class NetworkManager {
   async tcpConnect(host: string, port: number): Promise<TCPSocket> {
-    console.log(`Connecting to ${host}:${port}`);
+    _print(`Connecting to ${host}:${port}`);
     return new TCPSocket(host, port);
   }
 
   async udpBind(port: number): Promise<UDPSocket> {
-    console.log(`Binding UDP socket to port ${port}`);
+    _print(`Binding UDP socket to port ${port}`);
     return new UDPSocket(port);
   }
 
   async resolveHostname(hostname: string): Promise<string[]> {
-    console.log(`Resolving hostname: ${hostname}`);
+    _print(`Resolving hostname: ${hostname}`);
     // Simulate DNS resolution
     return ["127.0.0.1", "::1"];
   }
@@ -474,16 +474,16 @@ class TCPSocket {
   constructor(private host: string, private port: number) {}
 
   async send(data: string): Promise<void> {
-    console.log(`Sending data to ${this.host}:${this.port}: ${data}`);
+    _print(`Sending data to ${this.host}:${this.port}: ${data}`);
   }
 
   async receive(): Promise<string> {
-    console.log(`Receiving data from ${this.host}:${this.port}`);
+    _print(`Receiving data from ${this.host}:${this.port}`);
     return "Received data";
   }
 
   async close(): Promise<void> {
-    console.log(`Closing connection to ${this.host}:${this.port}`);
+    _print(`Closing connection to ${this.host}:${this.port}`);
   }
 }
 
@@ -491,16 +491,16 @@ class UDPSocket {
   constructor(private port: number) {}
 
   async send(data: string, host: string, port: number): Promise<void> {
-    console.log(`Sending UDP data to ${host}:${port}: ${data}`);
+    _print(`Sending UDP data to ${host}:${port}: ${data}`);
   }
 
   async receive(): Promise<{ data: string; from: { host: string; port: number } }> {
-    console.log(`Receiving UDP data on port ${this.port}`);
+    _print(`Receiving UDP data on port ${this.port}`);
     return { data: "Received data", from: { host: "127.0.0.1", port: 12345 } };
   }
 
   async close(): Promise<void> {
-    console.log(`Closing UDP socket on port ${this.port}`);
+    _print(`Closing UDP socket on port ${this.port}`);
   }
 }
 
@@ -559,16 +559,16 @@ interface DiskInfo {
 
 // Usage Examples
 async function demonstrateSystemsProgramming(): Promise<void> {
-  console.log("=== TypeScript Systems Programming Demo ===\n");
+  _print("=== TypeScript Systems Programming Demo ===\n");
 
   // 1. CLI Application
-  console.log("1. CLI Application:");
+  _print("1. CLI Application:");
   const cli = new CLIApplication();
   cli.addCommand("serve", "Start the server", (args) => {
-    console.log("Starting server with args:", args);
+    _print("Starting server with args:", args);
   });
   cli.addCommand("build", "Build the project", (args) => {
-    console.log("Building project with args:", args);
+    _print("Building project with args:", args);
   });
   cli.addOption("p", "port", "Port number", true);
   cli.addOption("h", "help", "Show help");
@@ -576,7 +576,7 @@ async function demonstrateSystemsProgramming(): Promise<void> {
   cli.run(["serve", "--port", "3000", "arg1", "arg2"]);
 
   // 2. HTTP Server
-  console.log("\n2. HTTP Server:");
+  _print("\n2. HTTP Server:");
   const server = new HTTPServer();
   
   server.get("/api/users", async (req) => ({
@@ -592,7 +592,7 @@ async function demonstrateSystemsProgramming(): Promise<void> {
   }));
 
   server.use(async (req) => {
-    console.log(`Middleware: ${req.method} ${req.path}`);
+    _print(`Middleware: ${req.method} ${req.path}`);
     return null; // Continue to next middleware/handler
   });
 
@@ -607,7 +607,7 @@ async function demonstrateSystemsProgramming(): Promise<void> {
   server.listen(3000);
 
   // 3. Database Operations
-  console.log("\n3. Database Operations:");
+  _print("\n3. Database Operations:");
   const db = new Database();
   await db.connect("postgresql://localhost:5432/mydb");
   
@@ -617,16 +617,16 @@ async function demonstrateSystemsProgramming(): Promise<void> {
   });
 
   // 4. Configuration Management
-  console.log("\n4. Configuration Management:");
+  _print("\n4. Configuration Management:");
   const config = new ConfigManager("APP_");
   config.loadFromEnv();
   config.loadFromFile("config.json");
   
-  console.log("Database host:", config.get("database.host"));
-  console.log("Server port:", config.get("server.port"));
+  _print("Database host:", config.get("database.host"));
+  _print("Server port:", config.get("server.port"));
 
   // 5. Logging
-  console.log("\n5. Logging System:");
+  _print("\n5. Logging System:");
   const logger = new Logger("server", LogLevel.DEBUG);
   logger.debug("Debug message");
   logger.info("Info message");
@@ -634,32 +634,32 @@ async function demonstrateSystemsProgramming(): Promise<void> {
   logger.error("Error message");
 
   // 6. File System
-  console.log("\n6. File System Operations:");
+  _print("\n6. File System Operations:");
   const fs = new FileSystem();
   await fs.writeFile("output.txt", "Hello, World!");
   const content = await fs.readFile("output.txt");
-  console.log("File content:", content);
+  _print("File content:", content);
 
   // 7. Process Management
-  console.log("\n7. Process Management:");
+  _print("\n7. Process Management:");
   const processManager = new ProcessManager();
   const process = await processManager.spawn("ls", ["-la"], { cwd: "/tmp" });
   await processManager.kill(process.pid);
 
   // 8. Memory Management
-  console.log("\n8. Memory Management:");
+  _print("\n8. Memory Management:");
   const memoryManager = new MemoryManager();
   const alloc1 = memoryManager.allocate(1024);
   const alloc2 = memoryManager.allocate(2048);
   
   const stats = memoryManager.getStats();
-  console.log("Memory stats:", stats);
+  _print("Memory stats:", stats);
   
   memoryManager.deallocate(alloc1);
   memoryManager.deallocate(alloc2);
 
   // 9. Network Operations
-  console.log("\n9. Network Operations:");
+  _print("\n9. Network Operations:");
   const networkManager = new NetworkManager();
   const tcpSocket = await networkManager.tcpConnect("localhost", 8080);
   await tcpSocket.send("Hello, Server!");
@@ -670,15 +670,15 @@ async function demonstrateSystemsProgramming(): Promise<void> {
   await udpSocket.close();
 
   // 10. System Information
-  console.log("\n10. System Information:");
+  _print("\n10. System Information:");
   const systemInfo = new SystemInfo();
   const cpuInfo = await systemInfo.getCPUInfo();
   const memoryInfo = await systemInfo.getMemoryInfo();
   const diskInfo = await systemInfo.getDiskInfo();
   
-  console.log("CPU:", cpuInfo);
-  console.log("Memory:", memoryInfo);
-  console.log("Disk:", diskInfo);
+  _print("CPU:", cpuInfo);
+  _print("Memory:", memoryInfo);
+  _print("Disk:", diskInfo);
 }
 
 // This example demonstrates TypeScript as a systems programming language

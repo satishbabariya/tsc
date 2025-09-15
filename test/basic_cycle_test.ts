@@ -15,12 +15,12 @@ class Child {
 
 // Test function
 function testCycleDetection() {
-    console.log("Testing cycle detection...");
+    _print("Testing cycle detection...");
     
     let parent = new shared_ptr<Parent>(new Parent());
     let child = new shared_ptr<Child>(new Child());
     
-    console.log("Cycle test completed");
+    _print("Cycle test completed");
 }
 
 testCycleDetection();

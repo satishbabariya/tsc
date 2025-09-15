@@ -1,12 +1,12 @@
 class TestClass {
     constructor() {
-        console.log("Constructor called");
+        _print("Constructor called");
     }
     
     ~TestClass() {
-        console.log("Destructor called");
+        _print("Destructor called");
     }
 }
 
 let obj = new TestClass();
-console.log("Object created");
+_print("Object created");

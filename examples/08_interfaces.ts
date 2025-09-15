@@ -121,11 +121,11 @@ class Rectangle implements Drawable {
 // Class implementing interface with optional methods
 class ConsoleLogger implements Logger {
     log(message: string): void {
-        console.log(message);
+        _print(message);
     }
 
     error(message: string): void {
-        console.error(message);
+        _print(message);
     }
 
     warn(message: string): void {

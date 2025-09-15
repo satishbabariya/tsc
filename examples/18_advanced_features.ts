@@ -118,7 +118,7 @@ type FunctionLike<T> = T extends (...args: any[]) => any ? T : never;
 
 // Multiple constraints
 function processEntity<T extends object & { id: number } & { name: string }>(item: T): T {
-  console.log(`Processing ${item.name} with ID ${item.id}`);
+  _print(`Processing ${item.name} with ID ${item.id}`);
   return item;
 }
 
@@ -208,7 +208,7 @@ class TypedEventEmitter {
         try {
           handler(data);
         } catch (error) {
-          console.error("Error in event handler:", error);
+          _print("Error in event handler:", error);
         }
       });
     }
@@ -220,11 +220,11 @@ let eventEmitter = new TypedEventEmitter();
 
 // Type-safe event handling
 eventEmitter.on('user.created', (user) => {
-  console.log(`User created: ${user.name} (${user.email})`);
+  _print(`User created: ${user.name} (${user.email})`);
 });
 
 eventEmitter.on('order.created', (order) => {
-  console.log(`Order created: ${order.id} for user ${order.userId}`);
+  _print(`Order created: ${order.id} for user ${order.userId}`);
 });
 
 // Type-safe event emission

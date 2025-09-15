@@ -14,4 +14,4 @@ class TestArray<T> {
 
 // Test constructor initialization
 let testArray = new TestArray<number>();
-console.log("Array length after constructor:", testArray.getLength());
+_print("Array length after constructor:", testArray.getLength());

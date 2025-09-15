@@ -3,18 +3,18 @@ class TestClass {
     
     constructor(id: number) {
         this.id = id;
-        console.log("Constructor: Stored id =", id);
+        _print("Constructor: Stored id =", id);
     }
     
     ~TestClass() {
-        console.log("Destructor: Reading id =", this.id);
+        _print("Destructor: Reading id =", this.id);
     }
 }
 
 function testMemoryLayout() {
-    console.log("Creating TestClass with id = 42");
+    _print("Creating TestClass with id = 42");
     let obj = new TestClass(42);
-    console.log("Object created successfully");
+    _print("Object created successfully");
 }
 
 testMemoryLayout();

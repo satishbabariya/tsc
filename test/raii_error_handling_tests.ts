@@ -9,16 +9,16 @@ class ExceptionDestructor {
     constructor(name: string, shouldThrow: boolean = false) {
         this.name = name;
         this.shouldThrow = shouldThrow;
-        console.log(`ExceptionDestructor '${name}' created`);
+        _print(`ExceptionDestructor '${name}' created`);
     }
     
     ~ExceptionDestructor() {
-        console.log(`ExceptionDestructor '${this.name}' being destroyed`);
+        _print(`ExceptionDestructor '${this.name}' being destroyed`);
         if (this.shouldThrow) {
-            console.log("ERROR: Destructor throwing exception!");
+            _print("ERROR: Destructor throwing exception!");
             throw new Error(`Destructor exception for ${this.name}`);
         }
-        console.log(`ExceptionDestructor '${this.name}' destroyed successfully`);
+        _print(`ExceptionDestructor '${this.name}' destroyed successfully`);
     }
     
     getName(): string {
@@ -34,13 +34,13 @@ class CircularRAIIA {
     constructor(name: string) {
         this.name = name;
         this.b = null;
-        console.log(`CircularRAIIA '${name}' created`);
+        _print(`CircularRAIIA '${name}' created`);
     }
     
     ~CircularRAIIA() {
-        console.log(`CircularRAIIA '${this.name}' being destroyed`);
+        _print(`CircularRAIIA '${this.name}' being destroyed`);
         this.b = null;
-        console.log(`CircularRAIIA '${this.name}' destroyed`);
+        _print(`CircularRAIIA '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -59,13 +59,13 @@ class CircularRAIIB {
     constructor(name: string) {
         this.name = name;
         this.a = null;
-        console.log(`CircularRAIIB '${name}' created`);
+        _print(`CircularRAIIB '${name}' created`);
     }
     
     ~CircularRAIIB() {
-        console.log(`CircularRAIIB '${this.name}' being destroyed`);
+        _print(`CircularRAIIB '${this.name}' being destroyed`);
         this.a = null;
-        console.log(`CircularRAIIB '${this.name}' destroyed`);
+        _print(`CircularRAIIB '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -85,16 +85,16 @@ class DoubleDestruction {
     constructor(name: string) {
         this.name = name;
         this.destroyed = false;
-        console.log(`DoubleDestruction '${name}' created`);
+        _print(`DoubleDestruction '${name}' created`);
     }
     
     ~DoubleDestruction() {
         if (this.destroyed) {
-            console.log("ERROR: Attempting to destroy already destroyed object!");
+            _print("ERROR: Attempting to destroy already destroyed object!");
             throw new Error("Double destruction attempt");
         }
         this.destroyed = true;
-        console.log(`DoubleDestruction '${this.name}' destroyed`);
+        _print(`DoubleDestruction '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -116,17 +116,17 @@ class ResourceLeak {
         this.name = name;
         this.resources = ["resource1", "resource2", "resource3"];
         this.cleaned = false;
-        console.log(`ResourceLeak '${name}' created with ${this.resources.length} resources`);
+        _print(`ResourceLeak '${name}' created with ${this.resources.length} resources`);
     }
     
     ~ResourceLeak() {
-        console.log(`ResourceLeak '${this.name}' being destroyed`);
+        _print(`ResourceLeak '${this.name}' being destroyed`);
         if (!this.cleaned) {
-            console.log("WARNING: Resources not properly cleaned up!");
-            console.log(`Leaked resources: ${this.resources.join(", ")}`);
+            _print("WARNING: Resources not properly cleaned up!");
+            _print(`Leaked resources: ${this.resources.join(", ")}`);
         }
         this.cleaned = true;
-        console.log(`ResourceLeak '${this.name}' destroyed`);
+        _print(`ResourceLeak '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -139,7 +139,7 @@ class ResourceLeak {
     
     cleanup(): void {
         if (!this.cleaned) {
-            console.log(`Cleaning up resources for '${this.name}'`);
+            _print(`Cleaning up resources for '${this.name}'`);
             this.resources = [];
             this.cleaned = true;
         }
@@ -156,18 +156,18 @@ class InvalidAccess {
         this.name = name;
         this.data = data;
         this.destroyed = false;
-        console.log(`InvalidAccess '${name}' created`);
+        _print(`InvalidAccess '${name}' created`);
     }
     
     ~InvalidAccess() {
-        console.log(`InvalidAccess '${this.name}' being destroyed`);
+        _print(`InvalidAccess '${this.name}' being destroyed`);
         this.destroyed = true;
-        console.log(`InvalidAccess '${this.name}' destroyed`);
+        _print(`InvalidAccess '${this.name}' destroyed`);
     }
     
     getName(): string {
         if (this.destroyed) {
-            console.log("ERROR: Accessing destroyed object!");
+            _print("ERROR: Accessing destroyed object!");
             throw new Error("Access to destroyed object");
         }
         return this.name;
@@ -175,7 +175,7 @@ class InvalidAccess {
     
     getData(): string {
         if (this.destroyed) {
-            console.log("ERROR: Accessing destroyed object!");
+            _print("ERROR: Accessing destroyed object!");
             throw new Error("Access to destroyed object");
         }
         return this.data;
@@ -196,16 +196,16 @@ class MemoryCorruption {
         this.name = name;
         this.buffer = new Array(size);
         this.corrupted = false;
-        console.log(`MemoryCorruption '${name}' created with buffer size ${size}`);
+        _print(`MemoryCorruption '${name}' created with buffer size ${size}`);
     }
     
     ~MemoryCorruption() {
-        console.log(`MemoryCorruption '${this.name}' being destroyed`);
+        _print(`MemoryCorruption '${this.name}' being destroyed`);
         if (this.corrupted) {
-            console.log("ERROR: Memory corruption detected!");
+            _print("ERROR: Memory corruption detected!");
             throw new Error("Memory corruption detected");
         }
-        console.log(`MemoryCorruption '${this.name}' destroyed`);
+        _print(`MemoryCorruption '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -218,7 +218,7 @@ class MemoryCorruption {
     
     corruptMemory(): void {
         this.corrupted = true;
-        console.log("WARNING: Memory corruption simulated!");
+        _print("WARNING: Memory corruption simulated!");
     }
     
     isCorrupted(): boolean {
@@ -236,17 +236,17 @@ class ResourceExhaustion {
         this.name = name;
         this.maxResources = maxResources;
         this.resources = [];
-        console.log(`ResourceExhaustion '${name}' created with max ${maxResources} resources`);
+        _print(`ResourceExhaustion '${name}' created with max ${maxResources} resources`);
     }
     
     ~ResourceExhaustion() {
-        console.log(`ResourceExhaustion '${this.name}' being destroyed`);
-        console.log(`Final resource count: ${this.resources.length}/${this.maxResources}`);
+        _print(`ResourceExhaustion '${this.name}' being destroyed`);
+        _print(`Final resource count: ${this.resources.length}/${this.maxResources}`);
         if (this.resources.length > this.maxResources) {
-            console.log("ERROR: Resource exhaustion detected!");
+            _print("ERROR: Resource exhaustion detected!");
             throw new Error("Resource exhaustion");
         }
-        console.log(`ResourceExhaustion '${this.name}' destroyed`);
+        _print(`ResourceExhaustion '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -263,11 +263,11 @@ class ResourceExhaustion {
     
     addResource(resource: string): boolean {
         if (this.resources.length >= this.maxResources) {
-            console.log("ERROR: Cannot add resource, limit exceeded!");
+            _print("ERROR: Cannot add resource, limit exceeded!");
             return false;
         }
         this.resources.push(resource);
-        console.log(`Resource '${resource}' added (${this.resources.length}/${this.maxResources})`);
+        _print(`Resource '${resource}' added (${this.resources.length}/${this.maxResources})`);
         return true;
     }
     
@@ -275,7 +275,7 @@ class ResourceExhaustion {
         let index = this.resources.indexOf(resource);
         if (index > -1) {
             this.resources.splice(index, 1);
-            console.log(`Resource '${resource}' removed (${this.resources.length}/${this.maxResources})`);
+            _print(`Resource '${resource}' removed (${this.resources.length}/${this.maxResources})`);
             return true;
         }
         return false;
@@ -292,13 +292,13 @@ class ThreadSafety {
         this.name = name;
         this.counter = 0;
         this.destroyed = false;
-        console.log(`ThreadSafety '${name}' created`);
+        _print(`ThreadSafety '${name}' created`);
     }
     
     ~ThreadSafety() {
-        console.log(`ThreadSafety '${this.name}' being destroyed`);
+        _print(`ThreadSafety '${this.name}' being destroyed`);
         this.destroyed = true;
-        console.log(`ThreadSafety '${this.name}' destroyed`);
+        _print(`ThreadSafety '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -307,7 +307,7 @@ class ThreadSafety {
     
     getCounter(): number {
         if (this.destroyed) {
-            console.log("ERROR: Accessing destroyed object from thread!");
+            _print("ERROR: Accessing destroyed object from thread!");
             throw new Error("Thread safety violation");
         }
         return this.counter;
@@ -315,11 +315,11 @@ class ThreadSafety {
     
     incrementCounter(): void {
         if (this.destroyed) {
-            console.log("ERROR: Modifying destroyed object from thread!");
+            _print("ERROR: Modifying destroyed object from thread!");
             throw new Error("Thread safety violation");
         }
         this.counter++;
-        console.log(`Counter incremented to ${this.counter}`);
+        _print(`Counter incremented to ${this.counter}`);
     }
     
     isDestroyed(): boolean {
@@ -337,17 +337,17 @@ class InvalidState {
         this.name = name;
         this.state = "initialized";
         this.validStates = ["initialized", "active", "inactive", "destroyed"];
-        console.log(`InvalidState '${name}' created in state '${this.state}'`);
+        _print(`InvalidState '${name}' created in state '${this.state}'`);
     }
     
     ~InvalidState() {
-        console.log(`InvalidState '${this.name}' being destroyed`);
+        _print(`InvalidState '${this.name}' being destroyed`);
         if (this.state === "destroyed") {
-            console.log("ERROR: Invalid state transition to destroyed!");
+            _print("ERROR: Invalid state transition to destroyed!");
             throw new Error("Invalid state transition");
         }
         this.state = "destroyed";
-        console.log(`InvalidState '${this.name}' destroyed`);
+        _print(`InvalidState '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -360,15 +360,15 @@ class InvalidState {
     
     setState(newState: string): boolean {
         if (this.state === "destroyed") {
-            console.log("ERROR: Cannot change state of destroyed object!");
+            _print("ERROR: Cannot change state of destroyed object!");
             return false;
         }
         if (this.validStates.indexOf(newState) === -1) {
-            console.log(`ERROR: Invalid state '${newState}'!`);
+            _print(`ERROR: Invalid state '${newState}'!`);
             return false;
         }
         this.state = newState;
-        console.log(`State changed to '${newState}'`);
+        _print(`State changed to '${newState}'`);
         return true;
     }
 }
@@ -383,17 +383,17 @@ class ResourceDependency {
         this.name = name;
         this.dependencies = dependencies;
         this.satisfied = false;
-        console.log(`ResourceDependency '${name}' created with dependencies: ${dependencies.join(", ")}`);
+        _print(`ResourceDependency '${name}' created with dependencies: ${dependencies.join(", ")}`);
     }
     
     ~ResourceDependency() {
-        console.log(`ResourceDependency '${this.name}' being destroyed`);
+        _print(`ResourceDependency '${this.name}' being destroyed`);
         if (!this.satisfied) {
-            console.log("ERROR: Resource dependencies not satisfied!");
-            console.log(`Unsatisfied dependencies: ${this.dependencies.join(", ")}`);
+            _print("ERROR: Resource dependencies not satisfied!");
+            _print(`Unsatisfied dependencies: ${this.dependencies.join(", ")}`);
             throw new Error("Resource dependency failure");
         }
-        console.log(`ResourceDependency '${this.name}' destroyed`);
+        _print(`ResourceDependency '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -412,10 +412,10 @@ class ResourceDependency {
         let index = this.dependencies.indexOf(dependency);
         if (index > -1) {
             this.dependencies.splice(index, 1);
-            console.log(`Dependency '${dependency}' satisfied`);
+            _print(`Dependency '${dependency}' satisfied`);
             if (this.dependencies.length === 0) {
                 this.satisfied = true;
-                console.log("All dependencies satisfied");
+                _print("All dependencies satisfied");
             }
             return true;
         }
@@ -425,122 +425,122 @@ class ResourceDependency {
 
 // Error handling test functions
 function testExceptionDestructor(): void {
-    console.log("=== Testing Exception Destructor ===");
+    _print("=== Testing Exception Destructor ===");
     try {
         let resource = new ExceptionDestructor("exception-test", true);
-        console.log(`Resource name: ${resource.getName()}`);
+        _print(`Resource name: ${resource.getName()}`);
     } catch (e) {
-        console.log("Caught exception in destructor");
+        _print("Caught exception in destructor");
     }
 }
 
 function testCircularDependencies(): void {
-    console.log("=== Testing Circular Dependencies ===");
+    _print("=== Testing Circular Dependencies ===");
     let a = new CircularRAIIA("A");
     let b = new CircularRAIIB("B");
     a.setB(b);
     b.setA(a);
-    console.log(`CircularA: ${a.getName()}`);
-    console.log(`CircularB: ${b.getName()}`);
+    _print(`CircularA: ${a.getName()}`);
+    _print(`CircularB: ${b.getName()}`);
 }
 
 function testDoubleDestruction(): void {
-    console.log("=== Testing Double Destruction ===");
+    _print("=== Testing Double Destruction ===");
     try {
         let resource = new DoubleDestruction("double-test");
-        console.log(`Resource name: ${resource.getName()}`);
+        _print(`Resource name: ${resource.getName()}`);
         // Attempt to destroy again (should fail)
         resource = null;
     } catch (e) {
-        console.log("Caught double destruction error");
+        _print("Caught double destruction error");
     }
 }
 
 function testResourceLeak(): void {
-    console.log("=== Testing Resource Leak Detection ===");
+    _print("=== Testing Resource Leak Detection ===");
     let resource = new ResourceLeak("leak-test");
-    console.log(`Resource name: ${resource.getName()}`);
-    console.log(`Resources: ${resource.getResources().join(", ")}`);
+    _print(`Resource name: ${resource.getName()}`);
+    _print(`Resources: ${resource.getResources().join(", ")}`);
     // Don't call cleanup() to trigger leak detection
 }
 
 function testInvalidAccess(): void {
-    console.log("=== Testing Invalid Access ===");
+    _print("=== Testing Invalid Access ===");
     try {
         let resource = new InvalidAccess("access-test", "test-data");
-        console.log(`Resource name: ${resource.getName()}`);
-        console.log(`Resource data: ${resource.getData()}`);
+        _print(`Resource name: ${resource.getName()}`);
+        _print(`Resource data: ${resource.getData()}`);
     } catch (e) {
-        console.log("Caught invalid access error");
+        _print("Caught invalid access error");
     }
 }
 
 function testMemoryCorruption(): void {
-    console.log("=== Testing Memory Corruption ===");
+    _print("=== Testing Memory Corruption ===");
     try {
         let resource = new MemoryCorruption("corruption-test", 100);
-        console.log(`Resource name: ${resource.getName()}`);
+        _print(`Resource name: ${resource.getName()}`);
         resource.corruptMemory();
-        console.log(`Corrupted: ${resource.isCorrupted()}`);
+        _print(`Corrupted: ${resource.isCorrupted()}`);
     } catch (e) {
-        console.log("Caught memory corruption error");
+        _print("Caught memory corruption error");
     }
 }
 
 function testResourceExhaustion(): void {
-    console.log("=== Testing Resource Exhaustion ===");
+    _print("=== Testing Resource Exhaustion ===");
     try {
         let resource = new ResourceExhaustion("exhaustion-test", 3);
-        console.log(`Resource name: ${resource.getName()}`);
+        _print(`Resource name: ${resource.getName()}`);
         resource.addResource("res1");
         resource.addResource("res2");
         resource.addResource("res3");
         resource.addResource("res4"); // Should fail
     } catch (e) {
-        console.log("Caught resource exhaustion error");
+        _print("Caught resource exhaustion error");
     }
 }
 
 function testThreadSafety(): void {
-    console.log("=== Testing Thread Safety ===");
+    _print("=== Testing Thread Safety ===");
     try {
         let resource = new ThreadSafety("thread-test");
-        console.log(`Resource name: ${resource.getName()}`);
+        _print(`Resource name: ${resource.getName()}`);
         resource.incrementCounter();
-        console.log(`Counter: ${resource.getCounter()}`);
+        _print(`Counter: ${resource.getCounter()}`);
     } catch (e) {
-        console.log("Caught thread safety error");
+        _print("Caught thread safety error");
     }
 }
 
 function testInvalidState(): void {
-    console.log("=== Testing Invalid State ===");
+    _print("=== Testing Invalid State ===");
     try {
         let resource = new InvalidState("state-test");
-        console.log(`Resource name: ${resource.getName()}`);
+        _print(`Resource name: ${resource.getName()}`);
         resource.setState("active");
         resource.setState("invalid-state"); // Should fail
     } catch (e) {
-        console.log("Caught invalid state error");
+        _print("Caught invalid state error");
     }
 }
 
 function testResourceDependency(): void {
-    console.log("=== Testing Resource Dependency ===");
+    _print("=== Testing Resource Dependency ===");
     try {
         let resource = new ResourceDependency("dependency-test", ["dep1", "dep2"]);
-        console.log(`Resource name: ${resource.getName()}`);
+        _print(`Resource name: ${resource.getName()}`);
         resource.satisfyDependency("dep1");
         // Don't satisfy dep2 to trigger dependency failure
     } catch (e) {
-        console.log("Caught resource dependency error");
+        _print("Caught resource dependency error");
     }
 }
 
 // Run all error handling tests
 function runAllErrorHandlingTests(): void {
-    console.log("🚀 Starting RAII Error Handling Tests");
-    console.log("=======================================");
+    _print("🚀 Starting RAII Error Handling Tests");
+    _print("=======================================");
     
     testExceptionDestructor();
     testCircularDependencies();
@@ -553,8 +553,8 @@ function runAllErrorHandlingTests(): void {
     testInvalidState();
     testResourceDependency();
     
-    console.log("=======================================");
-    console.log("✅ All RAII Error Handling Tests Completed");
+    _print("=======================================");
+    _print("✅ All RAII Error Handling Tests Completed");
 }
 
 // Export for testing

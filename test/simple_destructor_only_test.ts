@@ -6,14 +6,14 @@ class TestClass {
     }
     
     ~TestClass() {
-        console.log("Destructor called");
+        _print("Destructor called");
     }
 }
 
 function testSimpleDestructor() {
-    console.log("Creating TestClass instance");
+    _print("Creating TestClass instance");
     let obj = new TestClass(42);
-    console.log("TestClass instance created");
+    _print("TestClass instance created");
 }
 
 testSimpleDestructor();

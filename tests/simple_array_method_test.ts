@@ -6,4 +6,4 @@ let length = testArray.length;
 let pushResult = testArray.push(4);
 let popResult = testArray.pop();
 
-console.log("Array method test completed successfully");
+_print("Array method test completed successfully");

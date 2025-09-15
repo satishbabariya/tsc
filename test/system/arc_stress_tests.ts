@@ -3,7 +3,7 @@
 
 // Test 1: Massive Object Creation
 function testMassiveObjectCreation(): void {
-    console.log("=== Test 1: Massive Object Creation ===");
+    _print("=== Test 1: Massive Object Creation ===");
     
     const objectCount = 10000;
     let objects: shared_ptr<number>[] = [];
@@ -26,13 +26,13 @@ function testMassiveObjectCreation(): void {
     const expectedSum = (objectCount - 1) * objectCount / 2; // Sum of 0 to 9999
     assert(sum === expectedSum, `Sum should be ${expectedSum}, got ${sum}`);
     
-    console.log(`✓ Created ${objectCount} objects in ${creationTime}ms`);
-    console.log(`✓ Average creation time: ${creationTime / objectCount}ms per object`);
+    _print(`✓ Created ${objectCount} objects in ${creationTime}ms`);
+    _print(`✓ Average creation time: ${creationTime / objectCount}ms per object`);
 }
 
 // Test 2: Rapid Reference Counting
 function testRapidReferenceCounting(): void {
-    console.log("=== Test 2: Rapid Reference Counting ===");
+    _print("=== Test 2: Rapid Reference Counting ===");
     
     const iterations = 1000;
     let ptr: shared_ptr<number> = new shared_ptr<number>(42);
@@ -57,13 +57,13 @@ function testRapidReferenceCounting(): void {
     // Original pointer should still be valid
     assert(ptr.get() === 42, "Original pointer should still contain 42");
     
-    console.log(`✓ Performed ${iterations} rapid reference operations in ${duration}ms`);
-    console.log(`✓ Average time per operation: ${duration / iterations}ms`);
+    _print(`✓ Performed ${iterations} rapid reference operations in ${duration}ms`);
+    _print(`✓ Average time per operation: ${duration / iterations}ms`);
 }
 
 // Test 3: Deep Object Graphs
 function testDeepObjectGraphs(): void {
-    console.log("=== Test 3: Deep Object Graphs ===");
+    _print("=== Test 3: Deep Object Graphs ===");
     
     class DeepNode {
         private value: number;
@@ -108,12 +108,12 @@ function testDeepObjectGraphs(): void {
     
     assert(count === depth, `Should have traversed ${depth} nodes, got ${count}`);
     
-    console.log(`✓ Created and traversed deep graph of ${depth} nodes`);
+    _print(`✓ Created and traversed deep graph of ${depth} nodes`);
 }
 
 // Test 4: Complex Cycle Detection
 function testComplexCycleDetection(): void {
-    console.log("=== Test 4: Complex Cycle Detection ===");
+    _print("=== Test 4: Complex Cycle Detection ===");
     
     class CycleNode {
         private value: number;
@@ -171,12 +171,12 @@ function testComplexCycleDetection(): void {
     
     assert(totalConnections === nodeCount * 3, `Should have ${nodeCount * 3} total connections, got ${totalConnections}`);
     
-    console.log(`✓ Created complex cycle with ${nodeCount} nodes and ${totalConnections} connections`);
+    _print(`✓ Created complex cycle with ${nodeCount} nodes and ${totalConnections} connections`);
 }
 
 // Test 5: Memory Pressure Test
 function testMemoryPressure(): void {
-    console.log("=== Test 5: Memory Pressure Test ===");
+    _print("=== Test 5: Memory Pressure Test ===");
     
     const cycles = 10;
     const objectsPerCycle = 1000;
@@ -198,15 +198,15 @@ function testMemoryPressure(): void {
         // Clear objects (should trigger cleanup)
         objects = [];
         
-        console.log(`Cycle ${cycle + 1}/${cycles} completed`);
+        _print(`Cycle ${cycle + 1}/${cycles} completed`);
     }
     
-    console.log(`✓ Completed ${cycles} memory pressure cycles`);
+    _print(`✓ Completed ${cycles} memory pressure cycles`);
 }
 
 // Test 6: Move Semantics Stress Test
 function testMoveSemanticsStress(): void {
-    console.log("=== Test 6: Move Semantics Stress Test ===");
+    _print("=== Test 6: Move Semantics Stress Test ===");
     
     const iterations = 1000;
     let current: unique_ptr<number> = new unique_ptr<number>(0);
@@ -224,13 +224,13 @@ function testMoveSemanticsStress(): void {
     
     assert(current.get() === iterations - 1, `Final value should be ${iterations - 1}, got ${current.get()}`);
     
-    console.log(`✓ Performed ${iterations} move operations in ${duration}ms`);
-    console.log(`✓ Average time per move: ${duration / iterations}ms`);
+    _print(`✓ Performed ${iterations} move operations in ${duration}ms`);
+    _print(`✓ Average time per move: ${duration / iterations}ms`);
 }
 
 // Test 7: Weak Reference Stress Test
 function testWeakReferenceStress(): void {
-    console.log("=== Test 7: Weak Reference Stress Test ===");
+    _print("=== Test 7: Weak Reference Stress Test ===");
     
     const iterations = 1000;
     let weakRefs: weak_ptr<number>[] = [];
@@ -260,12 +260,12 @@ function testWeakReferenceStress(): void {
     
     assert(validCount === 0, `All weak references should be null, ${validCount} are still valid`);
     
-    console.log(`✓ Created and destroyed ${iterations} weak references in ${duration}ms`);
+    _print(`✓ Created and destroyed ${iterations} weak references in ${duration}ms`);
 }
 
 // Test 8: Exception Handling Stress Test
 function testExceptionHandlingStress(): void {
-    console.log("=== Test 8: Exception Handling Stress Test ===");
+    _print("=== Test 8: Exception Handling Stress Test ===");
     
     const iterations = 100;
     let successCount = 0;
@@ -289,12 +289,12 @@ function testExceptionHandlingStress(): void {
         }
     }
     
-    console.log(`✓ Handled ${iterations} operations: ${successCount} success, ${exceptionCount} exceptions`);
+    _print(`✓ Handled ${iterations} operations: ${successCount} success, ${exceptionCount} exceptions`);
 }
 
 // Test 9: Concurrent Access Simulation
 function testConcurrentAccessSimulation(): void {
-    console.log("=== Test 9: Concurrent Access Simulation ===");
+    _print("=== Test 9: Concurrent Access Simulation ===");
     
     const iterations = 1000;
     let shared: shared_ptr<number> = new shared_ptr<number>(42);
@@ -324,12 +324,12 @@ function testConcurrentAccessSimulation(): void {
     // Original should still be valid
     assert(shared.get() === 42, "Original shared pointer should still contain 42");
     
-    console.log(`✓ Simulated ${iterations} concurrent access operations in ${duration}ms`);
+    _print(`✓ Simulated ${iterations} concurrent access operations in ${duration}ms`);
 }
 
 // Test 10: Memory Fragmentation Test
 function testMemoryFragmentation(): void {
-    console.log("=== Test 10: Memory Fragmentation Test ===");
+    _print("=== Test 10: Memory Fragmentation Test ===");
     
     const cycles = 50;
     const smallObjects = 100;
@@ -364,11 +364,11 @@ function testMemoryFragmentation(): void {
         large = [];
         
         if (cycle % 10 === 0) {
-            console.log(`Fragmentation cycle ${cycle + 1}/${cycles} completed`);
+            _print(`Fragmentation cycle ${cycle + 1}/${cycles} completed`);
         }
     }
     
-    console.log(`✓ Completed ${cycles} memory fragmentation cycles`);
+    _print(`✓ Completed ${cycles} memory fragmentation cycles`);
 }
 
 // Helper function for assertions
@@ -380,8 +380,8 @@ function assert(condition: boolean, message: string): void {
 
 // Main stress test runner
 function runStressTests(): void {
-    console.log("TSC ARC Stress Tests");
-    console.log("===================");
+    _print("TSC ARC Stress Tests");
+    _print("===================");
     
     let tests = [
         testMassiveObjectCreation,
@@ -405,23 +405,23 @@ function runStressTests(): void {
             test();
             passed++;
         } catch (error) {
-            console.error(`❌ Stress test failed: ${error.message}`);
+            _print(`❌ Stress test failed: ${error.message}`);
             failed++;
         }
     }
     
     let totalTime = Date.now() - startTime;
     
-    console.log("\n=== Stress Test Results ===");
-    console.log(`Passed: ${passed}`);
-    console.log(`Failed: ${failed}`);
-    console.log(`Total: ${passed + failed}`);
-    console.log(`Total time: ${totalTime}ms`);
+    _print("\n=== Stress Test Results ===");
+    _print(`Passed: ${passed}`);
+    _print(`Failed: ${failed}`);
+    _print(`Total: ${passed + failed}`);
+    _print(`Total time: ${totalTime}ms`);
     
     if (failed === 0) {
-        console.log("🎉 All stress tests passed!");
+        _print("🎉 All stress tests passed!");
     } else {
-        console.log("⚠️ Some stress tests failed!");
+        _print("⚠️ Some stress tests failed!");
     }
 }
 

@@ -8,11 +8,11 @@ class CyclicNode {
     constructor(id: number) {
         this.id = id;
         this.next = null;
-        console.log(`CyclicNode ${id} created`);
+        _print(`CyclicNode ${id} created`);
     }
     
     ~CyclicNode() {
-        console.log(`CyclicNode ${this.id} destroyed`);
+        _print(`CyclicNode ${this.id} destroyed`);
     }
     
     setNext(node: CyclicNode) {
@@ -21,7 +21,7 @@ class CyclicNode {
 }
 
 function testCycleDetection() {
-    console.log("=== Cycle Detection Test ===");
+    _print("=== Cycle Detection Test ===");
     
     let node1 = new CyclicNode(1);
     let node2 = new CyclicNode(2);
@@ -32,8 +32,8 @@ function testCycleDetection() {
     node2.setNext(node3);
     node3.setNext(node1);
     
-    console.log("Cycle created: 1 -> 2 -> 3 -> 1");
-    console.log("Going out of scope - cycle should be detected and broken");
+    _print("Cycle created: 1 -> 2 -> 3 -> 1");
+    _print("Going out of scope - cycle should be detected and broken");
 }
 
 testCycleDetection();

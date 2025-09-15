@@ -61,8 +61,8 @@ class RAIITestRunner {
     
     // Run a test suite
     private runTestSuite(suiteName: string, tests: Array<{name: string, test: () => void}>): TestSuite {
-        console.log(`\n🧪 Running Test Suite: ${suiteName}`);
-        console.log("=" + "=".repeat(suiteName.length + 20));
+        _print(`\n🧪 Running Test Suite: ${suiteName}`);
+        _print("=" + "=".repeat(suiteName.length + 20));
         
         let suiteStartTime = Date.now();
         let testResults: TestResult[] = [];
@@ -70,16 +70,16 @@ class RAIITestRunner {
         let failedCount = 0;
         
         for (let {name, test} of tests) {
-            console.log(`\n📋 Running Test: ${name}`);
+            _print(`\n📋 Running Test: ${name}`);
             let result = this.runTest(name, test);
             testResults.push(result);
             
             if (result.passed) {
-                console.log(`✅ ${name} - PASSED (${result.duration}ms)`);
+                _print(`✅ ${name} - PASSED (${result.duration}ms)`);
                 passedCount++;
             } else {
-                console.log(`❌ ${name} - FAILED (${result.duration}ms)`);
-                console.log(`   Error: ${result.error}`);
+                _print(`❌ ${name} - FAILED (${result.duration}ms)`);
+                _print(`   Error: ${result.error}`);
                 failedCount++;
             }
         }
@@ -87,12 +87,12 @@ class RAIITestRunner {
         let suiteEndTime = Date.now();
         let totalDuration = suiteEndTime - suiteStartTime;
         
-        console.log(`\n📊 Suite Summary: ${suiteName}`);
-        console.log(`   Total Tests: ${tests.length}`);
-        console.log(`   Passed: ${passedCount}`);
-        console.log(`   Failed: ${failedCount}`);
-        console.log(`   Duration: ${totalDuration}ms`);
-        console.log(`   Success Rate: ${(passedCount / tests.length * 100).toFixed(1)}%`);
+        _print(`\n📊 Suite Summary: ${suiteName}`);
+        _print(`   Total Tests: ${tests.length}`);
+        _print(`   Passed: ${passedCount}`);
+        _print(`   Failed: ${failedCount}`);
+        _print(`   Duration: ${totalDuration}ms`);
+        _print(`   Success Rate: ${(passedCount / tests.length * 100).toFixed(1)}%`);
         
         return {
             name: suiteName,
@@ -105,8 +105,8 @@ class RAIITestRunner {
     
     // Run all RAII tests
     runAllTests(): void {
-        console.log("🚀 Starting Comprehensive RAII Test Suite");
-        console.log("==========================================");
+        _print("🚀 Starting Comprehensive RAII Test Suite");
+        _print("==========================================");
         
         this.startTime = Date.now();
         
@@ -114,27 +114,27 @@ class RAIITestRunner {
         let unitTests = [
             {name: "Basic RAII", test: () => {
                 let resource = new SimpleResource("test");
-                console.log(`Resource name: ${resource.getName()}`);
+                _print(`Resource name: ${resource.getName()}`);
             }},
             {name: "Complex RAII", test: () => {
                 let resource = new ComplexResource(100);
-                console.log(`Resource data length: ${resource.getData().length}`);
+                _print(`Resource data length: ${resource.getData().length}`);
             }},
             {name: "Nested RAII", test: () => {
                 let resource = new NestedResource("nested");
-                console.log(`Resource counter: ${resource.getCounter()}`);
+                _print(`Resource counter: ${resource.getCounter()}`);
             }},
             {name: "Error Handling", test: () => {
                 try {
                     let resource = new ErrorProneResource("error-test", true);
                 } catch (e) {
-                    console.log("Caught error in destructor");
+                    _print("Caught error in destructor");
                 }
             }},
             {name: "Shared Ownership", test: () => {
                 let resource = new SharedResource("shared");
                 resource.addRef();
-                console.log(`Resource ref count: ${resource.getRefCount()}`);
+                _print(`Resource ref count: ${resource.getRefCount()}`);
             }}
         ];
         
@@ -145,27 +145,27 @@ class RAIITestRunner {
             {name: "Inheritance Integration", test: () => {
                 let base = new BaseRAII("base");
                 let derived = new DerivedRAII("derived", "extra");
-                console.log(`Base name: ${base.getName()}`);
-                console.log(`Derived name: ${derived.getName()}, extra: ${derived.getExtra()}`);
+                _print(`Base name: ${base.getName()}`);
+                _print(`Derived name: ${derived.getName()}, extra: ${derived.getExtra()}`);
             }},
             {name: "Generic Integration", test: () => {
                 let stringResource = new GenericRAII<string>("string-resource", "hello");
                 let numberResource = new GenericRAII<number>("number-resource", 42);
-                console.log(`String resource: ${stringResource.getName()} = ${stringResource.getData()}`);
-                console.log(`Number resource: ${numberResource.getName()} = ${numberResource.getData()}`);
+                _print(`String resource: ${stringResource.getName()} = ${stringResource.getData()}`);
+                _print(`Number resource: ${numberResource.getName()} = ${numberResource.getData()}`);
             }},
             {name: "Interface Integration", test: () => {
                 let resource: ResourceInterface = new InterfaceRAII("interface-resource");
-                console.log(`Interface resource name: ${resource.getName()}`);
+                _print(`Interface resource name: ${resource.getName()}`);
             }},
             {name: "Abstract Integration", test: () => {
                 let concrete = new ConcreteRAII("concrete", "type2");
-                console.log(`Concrete resource: ${concrete.getName()}, type: ${concrete.getType()}`);
+                _print(`Concrete resource: ${concrete.getName()}, type: ${concrete.getType()}`);
             }},
             {name: "Static Integration", test: () => {
                 let resource1 = new StaticRAII("static1");
                 let resource2 = new StaticRAII("static2");
-                console.log(`Instance count: ${StaticRAII.getInstanceCount()}`);
+                _print(`Instance count: ${StaticRAII.getInstanceCount()}`);
             }}
         ];
         
@@ -178,8 +178,8 @@ class RAIITestRunner {
                 let file2 = new FileHandle("image.jpg");
                 file1.setFileSize(1024);
                 file2.setFileSize(2048);
-                console.log(`File1: ${file1.getFilename()}, size: ${file1.getFileSize()}`);
-                console.log(`File2: ${file2.getFilename()}, size: ${file2.getFileSize()}`);
+                _print(`File1: ${file1.getFilename()}, size: ${file1.getFileSize()}`);
+                _print(`File2: ${file2.getFilename()}, size: ${file2.getFileSize()}`);
             }},
             {name: "Database Management", test: () => {
                 let db = new DatabaseConnection("postgresql://localhost:5432/mydb");
@@ -187,20 +187,20 @@ class RAIITestRunner {
                 db.beginTransaction();
                 db.commitTransaction();
                 db.commitTransaction();
-                console.log(`Database: ${db.getConnectionString()}`);
+                _print(`Database: ${db.getConnectionString()}`);
             }},
             {name: "Network Management", test: () => {
                 let socket = new NetworkSocket("localhost", 8080);
                 socket.transferData(512);
                 socket.transferData(1024);
-                console.log(`Socket: ${socket.getHost()}:${socket.getPort()}`);
+                _print(`Socket: ${socket.getHost()}:${socket.getPort()}`);
             }},
             {name: "Memory Pool Management", test: () => {
                 let pool = new MemoryPool("main-pool", 100);
                 pool.allocateBlock();
                 pool.allocateBlock();
                 pool.deallocateBlock();
-                console.log(`Pool: ${pool.getName()}, size: ${pool.getPoolSize()}`);
+                _print(`Pool: ${pool.getName()}, size: ${pool.getPoolSize()}`);
             }},
             {name: "Cache Management", test: () => {
                 let cache = new CacheManager("lru-cache", 1000);
@@ -208,7 +208,7 @@ class RAIITestRunner {
                 cache.addItem("item2", 200);
                 cache.getItem("item1");
                 cache.getItem("item2");
-                console.log(`Cache: ${cache.getName()}, size: ${cache.getCacheSize()}`);
+                _print(`Cache: ${cache.getName()}, size: ${cache.getCacheSize()}`);
             }}
         ];
         
@@ -220,7 +220,7 @@ class RAIITestRunner {
                 try {
                     let resource = new ExceptionDestructor("exception-test", true);
                 } catch (e) {
-                    console.log("Caught exception in destructor");
+                    _print("Caught exception in destructor");
                 }
             }},
             {name: "Circular Dependencies", test: () => {
@@ -228,26 +228,26 @@ class RAIITestRunner {
                 let b = new CircularRAIIB("B");
                 a.setB(b);
                 b.setA(a);
-                console.log(`CircularA: ${a.getName()}`);
-                console.log(`CircularB: ${b.getName()}`);
+                _print(`CircularA: ${a.getName()}`);
+                _print(`CircularB: ${b.getName()}`);
             }},
             {name: "Double Destruction", test: () => {
                 try {
                     let resource = new DoubleDestruction("double-test");
                 } catch (e) {
-                    console.log("Caught double destruction error");
+                    _print("Caught double destruction error");
                 }
             }},
             {name: "Resource Leak Detection", test: () => {
                 let resource = new ResourceLeak("leak-test");
-                console.log(`Resource name: ${resource.getName()}`);
-                console.log(`Resources: ${resource.getResources().join(", ")}`);
+                _print(`Resource name: ${resource.getName()}`);
+                _print(`Resources: ${resource.getResources().join(", ")}`);
             }},
             {name: "Invalid Access", test: () => {
                 try {
                     let resource = new InvalidAccess("access-test", "test-data");
                 } catch (e) {
-                    console.log("Caught invalid access error");
+                    _print("Caught invalid access error");
                 }
             }}
         ];
@@ -266,7 +266,7 @@ class RAIITestRunner {
                 }
                 let endTime = Date.now();
                 let duration = endTime - startTime;
-                console.log(`Basic RAII: ${duration}ms for ${iterations} iterations`);
+                _print(`Basic RAII: ${duration}ms for ${iterations} iterations`);
             }},
             {name: "Complex RAII Performance", test: () => {
                 let iterations = 100;
@@ -278,7 +278,7 @@ class RAIITestRunner {
                 }
                 let endTime = Date.now();
                 let duration = endTime - startTime;
-                console.log(`Complex RAII: ${duration}ms for ${iterations} iterations`);
+                _print(`Complex RAII: ${duration}ms for ${iterations} iterations`);
             }},
             {name: "Smart Pointer RAII Performance", test: () => {
                 let iterations = 100;
@@ -290,7 +290,7 @@ class RAIITestRunner {
                 }
                 let endTime = Date.now();
                 let duration = endTime - startTime;
-                console.log(`Smart Pointer RAII: ${duration}ms for ${iterations} iterations`);
+                _print(`Smart Pointer RAII: ${duration}ms for ${iterations} iterations`);
             }},
             {name: "Inheritance RAII Performance", test: () => {
                 let iterations = 100;
@@ -302,7 +302,7 @@ class RAIITestRunner {
                 }
                 let endTime = Date.now();
                 let duration = endTime - startTime;
-                console.log(`Inheritance RAII: ${duration}ms for ${iterations} iterations`);
+                _print(`Inheritance RAII: ${duration}ms for ${iterations} iterations`);
             }},
             {name: "Generic RAII Performance", test: () => {
                 let iterations = 100;
@@ -314,7 +314,7 @@ class RAIITestRunner {
                 }
                 let endTime = Date.now();
                 let duration = endTime - startTime;
-                console.log(`Generic RAII: ${duration}ms for ${iterations} iterations`);
+                _print(`Generic RAII: ${duration}ms for ${iterations} iterations`);
             }}
         ];
         
@@ -326,8 +326,8 @@ class RAIITestRunner {
     
     // Generate comprehensive test report
     private generateReport(): void {
-        console.log("\n📊 COMPREHENSIVE TEST REPORT");
-        console.log("============================");
+        _print("\n📊 COMPREHENSIVE TEST REPORT");
+        _print("============================");
         
         let totalTests = 0;
         let totalPassed = 0;
@@ -341,57 +341,57 @@ class RAIITestRunner {
             totalDuration += suite.totalDuration;
         }
         
-        console.log(`\n📈 Overall Statistics:`);
-        console.log(`   Total Test Suites: ${this.suites.length}`);
-        console.log(`   Total Tests: ${totalTests}`);
-        console.log(`   Passed: ${totalPassed}`);
-        console.log(`   Failed: ${totalFailed}`);
-        console.log(`   Success Rate: ${(totalPassed / totalTests * 100).toFixed(1)}%`);
-        console.log(`   Total Duration: ${totalDuration}ms`);
-        console.log(`   Average Test Duration: ${(totalDuration / totalTests).toFixed(2)}ms`);
+        _print(`\n📈 Overall Statistics:`);
+        _print(`   Total Test Suites: ${this.suites.length}`);
+        _print(`   Total Tests: ${totalTests}`);
+        _print(`   Passed: ${totalPassed}`);
+        _print(`   Failed: ${totalFailed}`);
+        _print(`   Success Rate: ${(totalPassed / totalTests * 100).toFixed(1)}%`);
+        _print(`   Total Duration: ${totalDuration}ms`);
+        _print(`   Average Test Duration: ${(totalDuration / totalTests).toFixed(2)}ms`);
         
-        console.log(`\n📋 Suite Breakdown:`);
+        _print(`\n📋 Suite Breakdown:`);
         for (let suite of this.suites) {
             let successRate = (suite.passedCount / suite.tests.length * 100).toFixed(1);
-            console.log(`   ${suite.name}: ${suite.passedCount}/${suite.tests.length} (${successRate}%) - ${suite.totalDuration}ms`);
+            _print(`   ${suite.name}: ${suite.passedCount}/${suite.tests.length} (${successRate}%) - ${suite.totalDuration}ms`);
         }
         
         if (totalFailed > 0) {
-            console.log(`\n❌ Failed Tests:`);
+            _print(`\n❌ Failed Tests:`);
             for (let suite of this.suites) {
                 if (suite.failedCount > 0) {
-                    console.log(`   ${suite.name}:`);
+                    _print(`   ${suite.name}:`);
                     for (let test of suite.tests) {
                         if (!test.passed) {
-                            console.log(`     - ${test.testName}: ${test.error}`);
+                            _print(`     - ${test.testName}: ${test.error}`);
                         }
                     }
                 }
             }
         }
         
-        console.log(`\n🎯 Test Coverage:`);
-        console.log(`   ✅ Unit Tests: Basic RAII functionality`);
-        console.log(`   ✅ Integration Tests: RAII with other language features`);
-        console.log(`   ✅ System Tests: Real-world usage scenarios`);
-        console.log(`   ✅ Error Handling Tests: Edge cases and error conditions`);
-        console.log(`   ✅ Performance Tests: Performance benchmarking`);
+        _print(`\n🎯 Test Coverage:`);
+        _print(`   ✅ Unit Tests: Basic RAII functionality`);
+        _print(`   ✅ Integration Tests: RAII with other language features`);
+        _print(`   ✅ System Tests: Real-world usage scenarios`);
+        _print(`   ✅ Error Handling Tests: Edge cases and error conditions`);
+        _print(`   ✅ Performance Tests: Performance benchmarking`);
         
-        console.log(`\n🏆 Test Quality Metrics:`);
-        console.log(`   - Test Coverage: Comprehensive`);
-        console.log(`   - Error Handling: Robust`);
-        console.log(`   - Performance: Measured`);
-        console.log(`   - Integration: Verified`);
-        console.log(`   - System: Validated`);
+        _print(`\n🏆 Test Quality Metrics:`);
+        _print(`   - Test Coverage: Comprehensive`);
+        _print(`   - Error Handling: Robust`);
+        _print(`   - Performance: Measured`);
+        _print(`   - Integration: Verified`);
+        _print(`   - System: Validated`);
         
         if (totalFailed === 0) {
-            console.log(`\n🎉 ALL TESTS PASSED! RAII implementation is working correctly.`);
+            _print(`\n🎉 ALL TESTS PASSED! RAII implementation is working correctly.`);
         } else {
-            console.log(`\n⚠️  ${totalFailed} tests failed. Please review and fix issues.`);
+            _print(`\n⚠️  ${totalFailed} tests failed. Please review and fix issues.`);
         }
         
-        console.log("\n============================");
-        console.log("✅ Comprehensive RAII Test Suite Completed");
+        _print("\n============================");
+        _print("✅ Comprehensive RAII Test Suite Completed");
     }
 }
 

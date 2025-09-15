@@ -243,73 +243,73 @@ class MixedOperationsBenchmark {
 }
 
 // Execute Performance Benchmarks
-console.log("=== Starting Performance Benchmarks ===");
+_print("=== Starting Performance Benchmarks ===");
 
 // Benchmark 1: Array Creation
 let creationBenchmark = new ArrayCreationBenchmark();
 creationBenchmark.createEmptyArray();
-console.log("Creation benchmark - initial length:", creationBenchmark.getLength());
+_print("Creation benchmark - initial length:", creationBenchmark.getLength());
 
 // Benchmark 2: Array Push Operations
 let pushBenchmark = new ArrayPushBenchmark();
 pushBenchmark.pushSingleItem(42);
 pushBenchmark.pushMultipleItems(10);
-console.log("Push benchmark - item count:", pushBenchmark.getItemCount());
+_print("Push benchmark - item count:", pushBenchmark.getItemCount());
 
 // Benchmark 3: Array Length Access
 let lengthBenchmark = new ArrayLengthBenchmark();
 lengthBenchmark.addItems(20);
 let lengthResult = lengthBenchmark.measureLengthAccess(100);
-console.log("Length benchmark - total length access result:", lengthResult);
+_print("Length benchmark - total length access result:", lengthResult);
 
 // Benchmark 4: Array Size Operations
 let sizeBenchmark = new ArraySizeBenchmark();
 sizeBenchmark.populateArray(50);
-console.log("Size benchmark - array size:", sizeBenchmark.getArraySize());
+_print("Size benchmark - array size:", sizeBenchmark.getArraySize());
 sizeBenchmark.clearArray();
-console.log("Size benchmark - after clear:", sizeBenchmark.getArraySize());
+_print("Size benchmark - after clear:", sizeBenchmark.getArraySize());
 
 // Benchmark 5: Generic Array Operations
 let genericBenchmark = new GenericArrayBenchmark<number>();
 genericBenchmark.addGenericItem(100);
 genericBenchmark.addGenericItem(200);
-console.log("Generic benchmark - length:", genericBenchmark.getGenericLength());
+_print("Generic benchmark - length:", genericBenchmark.getGenericLength());
 
 // Benchmark 6: Complex Object Operations
 let complexBenchmark = new ComplexObjectBenchmark();
 complexBenchmark.performComplexOperation();
-console.log("Complex benchmark - length:", complexBenchmark.getComplexLength());
+_print("Complex benchmark - length:", complexBenchmark.getComplexLength());
 
 // Benchmark 7: Memory Pressure
 let memoryBenchmark = new MemoryPressureBenchmark();
 memoryBenchmark.createLargeArray(1000);
-console.log("Memory benchmark - large array size:", memoryBenchmark.getLargeArraySize());
+_print("Memory benchmark - large array size:", memoryBenchmark.getLargeArraySize());
 memoryBenchmark.clearLargeArray();
-console.log("Memory benchmark - after clear:", memoryBenchmark.getLargeArraySize());
+_print("Memory benchmark - after clear:", memoryBenchmark.getLargeArraySize());
 
 // Benchmark 8: Nested Array Operations
 let nestedBenchmark = new NestedArrayBenchmark();
 nestedBenchmark.addNestedArray(10);
 nestedBenchmark.addNestedArray(20);
-console.log("Nested benchmark - nested count:", nestedBenchmark.getNestedCount());
-console.log("Nested benchmark - total nested items:", nestedBenchmark.getTotalNestedItems());
+_print("Nested benchmark - nested count:", nestedBenchmark.getNestedCount());
+_print("Nested benchmark - total nested items:", nestedBenchmark.getTotalNestedItems());
 
 // Benchmark 9: String Array Operations
 let stringBenchmark = new StringArrayBenchmark();
 stringBenchmark.addStringItem("test");
 stringBenchmark.addMultipleStrings(5);
-console.log("String benchmark - string count:", stringBenchmark.getStringCount());
+_print("String benchmark - string count:", stringBenchmark.getStringCount());
 
 // Benchmark 10: Mixed Operations
 let mixedBenchmark = new MixedOperationsBenchmark();
 mixedBenchmark.performMixedOperations();
-console.log("Mixed operations benchmark - result:", mixedBenchmark.getMixedOperationsResult());
+_print("Mixed operations benchmark - result:", mixedBenchmark.getMixedOperationsResult());
 
-console.log("=== All Performance Benchmarks Completed ===");
+_print("=== All Performance Benchmarks Completed ===");
 
 // Performance Summary
-console.log("=== Performance Summary ===");
-console.log("All benchmarks completed successfully");
-console.log("Array operations are functioning correctly");
-console.log("Memory management appears stable");
-console.log("No performance bottlenecks detected");
+_print("=== Performance Summary ===");
+_print("All benchmarks completed successfully");
+_print("Array operations are functioning correctly");
+_print("Memory management appears stable");
+_print("No performance bottlenecks detected");

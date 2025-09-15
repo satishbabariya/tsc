@@ -315,7 +315,7 @@ class EventEmitter {
                 try {
                     handler(data);
                 } catch (error) {
-                    console.error("Error in event handler:", error);
+                    _print("Error in event handler:", error);
                 }
             }
         }
@@ -411,11 +411,11 @@ function createApplication(): void {
     
     // Set up event handlers
     eventEmitter.on("user.created", (user: User) => {
-        console.log("User created:", user.name);
+        _print("User created:", user.name);
     });
     
     eventEmitter.on("order.created", (order: Order) => {
-        console.log("Order created:", order.id, "Total:", order.total);
+        _print("Order created:", order.id, "Total:", order.total);
     });
     
     // Create configuration
@@ -480,20 +480,20 @@ function createApplication(): void {
             orderService.processOrder(order.id);
         }
     } catch (error) {
-        console.error("Order creation failed:", error.message);
+        _print("Order creation failed:", error.message);
     }
     
     // Process data with processor
     let processedUser = userProcessor.process(savedUser);
     if (processedUser) {
-        console.log("Processed user:", processedUser.name);
+        _print("Processed user:", processedUser.name);
     }
     
     // Use configuration
     if (configManager.validate()) {
-        console.log("Configuration is valid");
-        console.log("Database host:", configManager.getNested("database", "host"));
-        console.log("API timeout:", configManager.getNested("api", "timeout"));
+        _print("Configuration is valid");
+        _print("Database host:", configManager.getNested("database", "host"));
+        _print("API timeout:", configManager.getNested("api", "timeout"));
     }
 }
 

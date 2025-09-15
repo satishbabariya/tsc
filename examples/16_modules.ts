@@ -171,7 +171,7 @@ let EventEmitter = (function() {
                     try {
                         callback(data);
                     } catch (error) {
-                        console.error("Error in event listener:", error);
+                        _print("Error in event listener:", error);
                     }
                 });
             }
@@ -199,11 +199,11 @@ let EventEmitter = (function() {
 
 // Using the event emitter
 EventEmitter.on("user.created", function(user: any) {
-    console.log("User created:", user.name);
+    _print("User created:", user.name);
 });
 
 EventEmitter.on("user.updated", function(user: any) {
-    console.log("User updated:", user.name);
+    _print("User updated:", user.name);
 });
 
 EventEmitter.emit("user.created", { name: "Alice", email: "alice@example.com" });

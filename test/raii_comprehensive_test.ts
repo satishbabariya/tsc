@@ -11,13 +11,13 @@ class ResourceManager {
     constructor(resource: string) {
         this.resource = resource;
         this.isAcquired = true;
-        console.log(`Resource acquired: ${this.resource}`);
+        _print(`Resource acquired: ${this.resource}`);
     }
     
     // Phase 1: Destructor syntax parsing
     ~ResourceManager() {
         if (this.isAcquired) {
-            console.log(`Resource released: ${this.resource}`);
+            _print(`Resource released: ${this.resource}`);
             this.isAcquired = false;
         }
     }
@@ -34,13 +34,13 @@ class FileHandler {
     constructor(filename: string) {
         this.filename = filename;
         this.isOpen = true;
-        console.log(`File opened: ${this.filename}`);
+        _print(`File opened: ${this.filename}`);
     }
     
     // Phase 1: Destructor syntax parsing
     ~FileHandler() {
         if (this.isOpen) {
-            console.log(`File closed: ${this.filename}`);
+            _print(`File closed: ${this.filename}`);
             this.isOpen = false;
         }
     }
@@ -59,13 +59,13 @@ class NetworkConnection {
         this.host = host;
         this.port = port;
         this.isConnected = true;
-        console.log(`Connected to ${this.host}:${this.port}`);
+        _print(`Connected to ${this.host}:${this.port}`);
     }
     
     // Phase 1: Destructor syntax parsing
     ~NetworkConnection() {
         if (this.isConnected) {
-            console.log(`Disconnected from ${this.host}:${this.port}`);
+            _print(`Disconnected from ${this.host}:${this.port}`);
             this.isConnected = false;
         }
     }
@@ -81,7 +81,7 @@ class NetworkConnection {
 
 // Test function to demonstrate RAII
 function testRAII() {
-    console.log("=== RAII Comprehensive Test ===");
+    _print("=== RAII Comprehensive Test ===");
     
     // Create resources - destructors will be called automatically
     let resource1 = new ResourceManager("Database Connection");
@@ -89,12 +89,12 @@ function testRAII() {
     let network1 = new NetworkConnection("localhost", 8080);
     
     // Use the resources
-    console.log(`Using resource: ${resource1.getResource()}`);
-    console.log(`Using file: ${file1.getFilename()}`);
-    console.log(`Using network: ${network1.getHost()}:${network1.getPort()}`);
+    _print(`Using resource: ${resource1.getResource()}`);
+    _print(`Using file: ${file1.getFilename()}`);
+    _print(`Using network: ${network1.getHost()}:${network1.getPort()}`);
     
     // Resources will be automatically cleaned up when they go out of scope
-    console.log("Resources will be cleaned up automatically via RAII");
+    _print("Resources will be cleaned up automatically via RAII");
 }
 
 // Run the test

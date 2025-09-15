@@ -420,59 +420,59 @@ function test_complex_scenario_integration() {
 // ============================================================================
 
 function runAllIntegrationTests() {
-    console.log("Running ARC Integration Test Suite...");
+    _print("Running ARC Integration Test Suite...");
     
     try {
         test_compiler_runtime_integration();
-        console.log("✓ Test 1: Compiler-Runtime Integration - PASSED");
+        _print("✓ Test 1: Compiler-Runtime Integration - PASSED");
         
         test_type_system_integration();
-        console.log("✓ Test 2: Type System Integration - PASSED");
+        _print("✓ Test 2: Type System Integration - PASSED");
         
         test_semantic_analysis_integration();
-        console.log("✓ Test 3: Semantic Analysis Integration - PASSED");
+        _print("✓ Test 3: Semantic Analysis Integration - PASSED");
         
         test_code_generation_integration();
-        console.log("✓ Test 4: Code Generation Integration - PASSED");
+        _print("✓ Test 4: Code Generation Integration - PASSED");
         
         test_generic_type_integration();
-        console.log("✓ Test 5: Generic Type Integration - PASSED");
+        _print("✓ Test 5: Generic Type Integration - PASSED");
         
         test_exception_handling_integration();
-        console.log("✓ Test 6: Exception Handling Integration - PASSED");
+        _print("✓ Test 6: Exception Handling Integration - PASSED");
         
         test_function_parameter_integration();
-        console.log("✓ Test 7: Function Parameter Integration - PASSED");
+        _print("✓ Test 7: Function Parameter Integration - PASSED");
         
         test_return_value_integration();
-        console.log("✓ Test 8: Return Value Integration - PASSED");
+        _print("✓ Test 8: Return Value Integration - PASSED");
         
         test_class_member_integration();
-        console.log("✓ Test 9: Class Member Integration - PASSED");
+        _print("✓ Test 9: Class Member Integration - PASSED");
         
         test_array_integration();
-        console.log("✓ Test 10: Array Integration - PASSED");
+        _print("✓ Test 10: Array Integration - PASSED");
         
         test_nested_type_integration();
-        console.log("✓ Test 11: Nested Type Integration - PASSED");
+        _print("✓ Test 11: Nested Type Integration - PASSED");
         
         test_template_specialization_integration();
-        console.log("✓ Test 12: Template Specialization Integration - PASSED");
+        _print("✓ Test 12: Template Specialization Integration - PASSED");
         
         test_inheritance_integration();
-        console.log("✓ Test 13: Inheritance Integration - PASSED");
+        _print("✓ Test 13: Inheritance Integration - PASSED");
         
         test_polymorphism_integration();
-        console.log("✓ Test 14: Polymorphism Integration - PASSED");
+        _print("✓ Test 14: Polymorphism Integration - PASSED");
         
         test_complex_scenario_integration();
-        console.log("✓ Test 15: Complex Scenario Integration - PASSED");
+        _print("✓ Test 15: Complex Scenario Integration - PASSED");
         
-        console.log("\n🎉 All ARC integration tests PASSED!");
+        _print("\n🎉 All ARC integration tests PASSED!");
         return true;
         
     } catch (error) {
-        console.error("❌ ARC integration test FAILED:", error);
+        _print("❌ ARC integration test FAILED:", error);
         return false;
     }
 }

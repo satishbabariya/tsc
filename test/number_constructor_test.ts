@@ -4,19 +4,19 @@ class SimpleNumberResource {
     id: number;
     
     constructor(id: number) {
-        console.log("SimpleNumberResource constructor");
+        _print("SimpleNumberResource constructor");
         this.id = id;
     }
     
     ~SimpleNumberResource() {
-        console.log("SimpleNumberResource destructor");
+        _print("SimpleNumberResource destructor");
     }
 }
 
 function testNumberConstructor() {
-    console.log("Creating number resource");
+    _print("Creating number resource");
     let resource = new SimpleNumberResource(42);
-    console.log("Number resource created");
+    _print("Number resource created");
 }
 
 testNumberConstructor();

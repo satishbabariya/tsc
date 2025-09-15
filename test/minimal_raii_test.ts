@@ -6,11 +6,11 @@ class BasicResource {
     
     constructor(name: string) {
         this.name = name;
-        console.log(`Resource '${name}' created`);
+        _print(`Resource '${name}' created`);
     }
     
     ~BasicResource() {
-        console.log(`Resource '${this.name}' destroyed`);
+        _print(`Resource '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -20,13 +20,13 @@ class BasicResource {
 
 // Test function
 function testBasicRAII(): void {
-    console.log("=== Testing Basic RAII ===");
+    _print("=== Testing Basic RAII ===");
     
     let resource = new BasicResource("TestResource");
-    console.log(`Resource name: ${resource.getName()}`);
+    _print(`Resource name: ${resource.getName()}`);
     
     // Resource should be automatically destroyed when going out of scope
-    console.log("End of test function - resource should be destroyed");
+    _print("End of test function - resource should be destroyed");
 }
 
 // Run the test

@@ -7,11 +7,11 @@ class BaseRAII {
     
     constructor(name: string) {
         this.name = name;
-        console.log(`BaseRAII '${name}' created`);
+        _print(`BaseRAII '${name}' created`);
     }
     
     ~BaseRAII() {
-        console.log(`BaseRAII '${this.name}' destroyed`);
+        _print(`BaseRAII '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -25,11 +25,11 @@ class DerivedRAII extends BaseRAII {
     constructor(name: string, extra: string) {
         super(name);
         this.extra = extra;
-        console.log(`DerivedRAII '${name}' with extra '${extra}' created`);
+        _print(`DerivedRAII '${name}' with extra '${extra}' created`);
     }
     
     ~DerivedRAII() {
-        console.log(`DerivedRAII '${this.name}' with extra '${this.extra}' destroyed`);
+        _print(`DerivedRAII '${this.name}' with extra '${this.extra}' destroyed`);
     }
     
     getExtra(): string {
@@ -44,11 +44,11 @@ class PolymorphicRAII extends BaseRAII {
     constructor(name: string, type: string) {
         super(name);
         this.type = type;
-        console.log(`PolymorphicRAII '${name}' of type '${type}' created`);
+        _print(`PolymorphicRAII '${name}' of type '${type}' created`);
     }
     
     ~PolymorphicRAII() {
-        console.log(`PolymorphicRAII '${this.name}' of type '${this.type}' destroyed`);
+        _print(`PolymorphicRAII '${this.name}' of type '${this.type}' destroyed`);
     }
     
     getType(): string {
@@ -64,11 +64,11 @@ class GenericRAII<T extends string | number> {
     constructor(name: string, data: T) {
         this.name = name;
         this.data = data;
-        console.log(`GenericRAII '${name}' created with data: ${data}`);
+        _print(`GenericRAII '${name}' created with data: ${data}`);
     }
     
     ~GenericRAII() {
-        console.log(`GenericRAII '${this.name}' destroyed`);
+        _print(`GenericRAII '${this.name}' destroyed`);
     }
     
     getData(): T {
@@ -93,12 +93,12 @@ class InterfaceRAII implements ResourceInterface {
     constructor(name: string) {
         this.name = name;
         this.cleaned = false;
-        console.log(`InterfaceRAII '${name}' created`);
+        _print(`InterfaceRAII '${name}' created`);
     }
     
     ~InterfaceRAII() {
         this.cleanup();
-        console.log(`InterfaceRAII '${this.name}' destroyed`);
+        _print(`InterfaceRAII '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -107,7 +107,7 @@ class InterfaceRAII implements ResourceInterface {
     
     cleanup(): void {
         if (!this.cleaned) {
-            console.log(`Cleaning up InterfaceRAII '${this.name}'`);
+            _print(`Cleaning up InterfaceRAII '${this.name}'`);
             this.cleaned = true;
         }
     }
@@ -119,11 +119,11 @@ abstract class AbstractRAII {
     
     constructor(name: string) {
         this.name = name;
-        console.log(`AbstractRAII '${name}' created`);
+        _print(`AbstractRAII '${name}' created`);
     }
     
     ~AbstractRAII() {
-        console.log(`AbstractRAII '${this.name}' destroyed`);
+        _print(`AbstractRAII '${this.name}' destroyed`);
     }
     
     abstract getType(): string;
@@ -139,11 +139,11 @@ class ConcreteRAII extends AbstractRAII {
     constructor(name: string, type: string) {
         super(name);
         this.type = type;
-        console.log(`ConcreteRAII '${name}' of type '${type}' created`);
+        _print(`ConcreteRAII '${name}' of type '${type}' created`);
     }
     
     ~ConcreteRAII() {
-        console.log(`ConcreteRAII '${this.name}' of type '${this.type}' destroyed`);
+        _print(`ConcreteRAII '${this.name}' of type '${this.type}' destroyed`);
     }
     
     getType(): string {
@@ -159,12 +159,12 @@ class StaticRAII {
     constructor(name: string) {
         this.name = name;
         StaticRAII.instanceCount++;
-        console.log(`StaticRAII '${name}' created (total instances: ${StaticRAII.instanceCount})`);
+        _print(`StaticRAII '${name}' created (total instances: ${StaticRAII.instanceCount})`);
     }
     
     ~StaticRAII() {
         StaticRAII.instanceCount--;
-        console.log(`StaticRAII '${this.name}' destroyed (remaining instances: ${StaticRAII.instanceCount})`);
+        _print(`StaticRAII '${this.name}' destroyed (remaining instances: ${StaticRAII.instanceCount})`);
     }
     
     getName(): string {
@@ -182,11 +182,11 @@ class OuterRAII {
     
     constructor(name: string) {
         this.name = name;
-        console.log(`OuterRAII '${name}' created`);
+        _print(`OuterRAII '${name}' created`);
     }
     
     ~OuterRAII() {
-        console.log(`OuterRAII '${this.name}' destroyed`);
+        _print(`OuterRAII '${this.name}' destroyed`);
     }
     
     getName(): string {
@@ -200,11 +200,11 @@ class OuterRAII {
         constructor(outer: OuterRAII, innerName: string) {
             this.outer = outer;
             this.innerName = innerName;
-            console.log(`InnerRAII '${innerName}' created in '${outer.getName()}'`);
+            _print(`InnerRAII '${innerName}' created in '${outer.getName()}'`);
         }
         
         ~InnerRAII() {
-            console.log(`InnerRAII '${this.innerName}' destroyed`);
+            _print(`InnerRAII '${this.innerName}' destroyed`);
         }
         
         getInnerName(): string {
@@ -225,17 +225,17 @@ class ChainedRAII {
     constructor(name: string) {
         this.name = name;
         this.chain = [];
-        console.log(`ChainedRAII '${name}' created`);
+        _print(`ChainedRAII '${name}' created`);
     }
     
     ~ChainedRAII() {
-        console.log(`ChainedRAII '${this.name}' destroyed`);
-        console.log(`Chain: ${this.chain.join(" -> ")}`);
+        _print(`ChainedRAII '${this.name}' destroyed`);
+        _print(`Chain: ${this.chain.join(" -> ")}`);
     }
     
     addToChain(step: string): ChainedRAII {
         this.chain.push(step);
-        console.log(`Added '${step}' to chain`);
+        _print(`Added '${step}' to chain`);
         return this;
     }
     
@@ -252,13 +252,13 @@ class ExceptionRAII {
     constructor(name: string, shouldThrow: boolean = false) {
         this.name = name;
         this.shouldThrow = shouldThrow;
-        console.log(`ExceptionRAII '${name}' created`);
+        _print(`ExceptionRAII '${name}' created`);
     }
     
     ~ExceptionRAII() {
-        console.log(`ExceptionRAII '${this.name}' destroyed`);
+        _print(`ExceptionRAII '${this.name}' destroyed`);
         if (this.shouldThrow) {
-            console.log("ERROR: Destructor throwing exception!");
+            _print("ERROR: Destructor throwing exception!");
             throw new Error("Destructor exception");
         }
     }
@@ -282,13 +282,13 @@ class AsyncRAII {
     constructor(name: string) {
         this.name = name;
         this.completed = false;
-        console.log(`AsyncRAII '${name}' created`);
+        _print(`AsyncRAII '${name}' created`);
     }
     
     ~AsyncRAII() {
-        console.log(`AsyncRAII '${this.name}' destroyed`);
+        _print(`AsyncRAII '${this.name}' destroyed`);
         if (!this.completed) {
-            console.log("WARNING: Async operation not completed");
+            _print("WARNING: Async operation not completed");
         }
     }
     
@@ -298,95 +298,95 @@ class AsyncRAII {
     
     complete(): void {
         this.completed = true;
-        console.log(`AsyncRAII '${this.name}' completed`);
+        _print(`AsyncRAII '${this.name}' completed`);
     }
 }
 
 // Integration test functions
 function testInheritanceIntegration(): void {
-    console.log("=== Testing RAII with Inheritance ===");
+    _print("=== Testing RAII with Inheritance ===");
     let base = new BaseRAII("base");
     let derived = new DerivedRAII("derived", "extra");
     let polymorphic = new PolymorphicRAII("poly", "type1");
     
-    console.log(`Base name: ${base.getName()}`);
-    console.log(`Derived name: ${derived.getName()}, extra: ${derived.getExtra()}`);
-    console.log(`Polymorphic name: ${polymorphic.getName()}, type: ${polymorphic.getType()}`);
+    _print(`Base name: ${base.getName()}`);
+    _print(`Derived name: ${derived.getName()}, extra: ${derived.getExtra()}`);
+    _print(`Polymorphic name: ${polymorphic.getName()}, type: ${polymorphic.getType()}`);
 }
 
 function testGenericIntegration(): void {
-    console.log("=== Testing RAII with Generics ===");
+    _print("=== Testing RAII with Generics ===");
     let stringResource = new GenericRAII<string>("string-resource", "hello");
     let numberResource = new GenericRAII<number>("number-resource", 42);
     
-    console.log(`String resource: ${stringResource.getName()} = ${stringResource.getData()}`);
-    console.log(`Number resource: ${numberResource.getName()} = ${numberResource.getData()}`);
+    _print(`String resource: ${stringResource.getName()} = ${stringResource.getData()}`);
+    _print(`Number resource: ${numberResource.getName()} = ${numberResource.getData()}`);
 }
 
 function testInterfaceIntegration(): void {
-    console.log("=== Testing RAII with Interfaces ===");
+    _print("=== Testing RAII with Interfaces ===");
     let resource: ResourceInterface = new InterfaceRAII("interface-resource");
-    console.log(`Interface resource name: ${resource.getName()}`);
+    _print(`Interface resource name: ${resource.getName()}`);
 }
 
 function testAbstractIntegration(): void {
-    console.log("=== Testing RAII with Abstract Classes ===");
+    _print("=== Testing RAII with Abstract Classes ===");
     let concrete = new ConcreteRAII("concrete", "type2");
-    console.log(`Concrete resource: ${concrete.getName()}, type: ${concrete.getType()}`);
+    _print(`Concrete resource: ${concrete.getName()}, type: ${concrete.getType()}`);
 }
 
 function testStaticIntegration(): void {
-    console.log("=== Testing RAII with Static Members ===");
+    _print("=== Testing RAII with Static Members ===");
     let resource1 = new StaticRAII("static1");
     let resource2 = new StaticRAII("static2");
-    console.log(`Instance count: ${StaticRAII.getInstanceCount()}`);
-    console.log(`Resource1 name: ${resource1.getName()}`);
-    console.log(`Resource2 name: ${resource2.getName()}`);
+    _print(`Instance count: ${StaticRAII.getInstanceCount()}`);
+    _print(`Resource1 name: ${resource1.getName()}`);
+    _print(`Resource2 name: ${resource2.getName()}`);
 }
 
 function testNestedClassIntegration(): void {
-    console.log("=== Testing RAII with Nested Classes ===");
+    _print("=== Testing RAII with Nested Classes ===");
     let outer = new OuterRAII("outer");
     let inner = new outer.InnerRAII(outer, "inner");
-    console.log(`Outer name: ${outer.getName()}`);
-    console.log(`Inner name: ${inner.getInnerName()}, outer: ${inner.getOuterName()}`);
+    _print(`Outer name: ${outer.getName()}`);
+    _print(`Inner name: ${inner.getInnerName()}, outer: ${inner.getOuterName()}`);
 }
 
 function testMethodChainingIntegration(): void {
-    console.log("=== Testing RAII with Method Chaining ===");
+    _print("=== Testing RAII with Method Chaining ===");
     let resource = new ChainedRAII("chained");
     resource.addToChain("step1").addToChain("step2").addToChain("step3");
-    console.log(`Chained resource name: ${resource.getName()}`);
+    _print(`Chained resource name: ${resource.getName()}`);
 }
 
 function testExceptionIntegration(): void {
-    console.log("=== Testing RAII with Exception Handling ===");
+    _print("=== Testing RAII with Exception Handling ===");
     try {
         let resource = new ExceptionRAII("exception-resource", true);
         resource.throwInConstructor();
     } catch (e) {
-        console.log("Caught exception in constructor");
+        _print("Caught exception in constructor");
     }
     
     try {
         let resource = new ExceptionRAII("exception-destructor", false);
         // Resource should be destroyed when going out of scope
     } catch (e) {
-        console.log("Caught exception in destructor");
+        _print("Caught exception in destructor");
     }
 }
 
 function testAsyncIntegration(): void {
-    console.log("=== Testing RAII with Async Operations ===");
+    _print("=== Testing RAII with Async Operations ===");
     let resource = new AsyncRAII("async-resource");
     resource.complete();
-    console.log(`Async resource name: ${resource.getName()}`);
+    _print(`Async resource name: ${resource.getName()}`);
 }
 
 // Run all integration tests
 function runAllIntegrationTests(): void {
-    console.log("🚀 Starting RAII Integration Tests");
-    console.log("=====================================");
+    _print("🚀 Starting RAII Integration Tests");
+    _print("=====================================");
     
     testInheritanceIntegration();
     testGenericIntegration();
@@ -398,8 +398,8 @@ function runAllIntegrationTests(): void {
     testExceptionIntegration();
     testAsyncIntegration();
     
-    console.log("=====================================");
-    console.log("✅ All RAII Integration Tests Completed");
+    _print("=====================================");
+    _print("✅ All RAII Integration Tests Completed");
 }
 
 // Export for testing

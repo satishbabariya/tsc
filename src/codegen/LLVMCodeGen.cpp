@@ -1133,7 +1133,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
         setCurrentValue(createNullValue(getAnyType()));
         return;
     } else if (auto propertyAccess = dynamic_cast<PropertyAccess*>(node.getCallee())) {
-        // Handle property access calls like obj.method() or console.log()
+        // Handle property access calls like obj.method() or _print()
         // First, process the property access to get the callee value
         propertyAccess->accept(*this);
         llvm::Value* calleeValue = getCurrentValue();
@@ -1275,16 +1275,16 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         return;
                     }
                     
-                    // Special handling for console_log calls - convert double arguments to strings
-                    if (function && function->getName().str() == "console_log" && argValue->getType() == getNumberType()) {
-                        std::cout << "DEBUG: CallExpression - Converting double argument to string for console_log" << std::endl;
+                    // Special handling for _print calls - convert double arguments to strings
+                    if (function && function->getName().str() == "_print" && argValue->getType() == getNumberType()) {
+                        std::cout << "DEBUG: CallExpression - Converting double argument to string for _print" << std::endl;
                         // Convert double to string using number_to_string
                         llvm::Function* numberToStringFunc = createBuiltinMethodFunction("toString", std::make_shared<PrimitiveType>(TypeKind::Number), node.getLocation());
                         argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
                     }
                     
-                    // Special handling for console_log calls - convert non-string pointer arguments to strings
-                    if (function && function->getName().str() == "console_log" && argValue->getType()->isPointerTy()) {
+                    // Special handling for _print calls - convert non-string pointer arguments to strings
+                    if (function && function->getName().str() == "_print" && argValue->getType()->isPointerTy()) {
                         // Check if this is a string constant (GlobalVariable with string data)
                         bool isStringConstant = false;
                         if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(argValue)) {
@@ -1316,7 +1316,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                             std::cout << "DEBUG: CallExpression - String-like value, not converting" << std::endl;
                         } else {
                             // This is likely a non-string pointer, convert to string representation
-                            std::cout << "DEBUG: CallExpression - Converting non-string pointer argument to string for console_log" << std::endl;
+                            std::cout << "DEBUG: CallExpression - Converting non-string pointer argument to string for _print" << std::endl;
                             llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
                             argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
                         }
@@ -1476,16 +1476,16 @@ void LLVMCodeGen::visit(CallExpression& node) {
                             return;
                         }
                         
-                        // Special handling for console_log calls - convert double arguments to strings
-                        if (function && function->getName().str() == "console_log" && argValue->getType() == getNumberType()) {
-                            std::cout << "DEBUG: CallExpression - Converting double argument to string for console_log" << std::endl;
+                        // Special handling for _print calls - convert double arguments to strings
+                        if (function && function->getName().str() == "_print" && argValue->getType() == getNumberType()) {
+                            std::cout << "DEBUG: CallExpression - Converting double argument to string for _print" << std::endl;
                             // Convert double to string using number_to_string
                             llvm::Function* numberToStringFunc = createBuiltinMethodFunction("toString", std::make_shared<PrimitiveType>(TypeKind::Number), node.getLocation());
                             argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
                         }
                         
-                        // Special handling for console_log calls - convert non-string pointer arguments to strings
-                        if (function && function->getName().str() == "console_log" && argValue->getType()->isPointerTy()) {
+                        // Special handling for _print calls - convert non-string pointer arguments to strings
+                        if (function && function->getName().str() == "_print" && argValue->getType()->isPointerTy()) {
                             // Check if this is a string constant (GlobalVariable with string data)
                             bool isStringConstant = false;
                             if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(argValue)) {
@@ -1517,7 +1517,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                                 std::cout << "DEBUG: CallExpression - String-like value, not converting" << std::endl;
                             } else {
                                 // This is likely a non-string pointer, convert to string representation
-                                std::cout << "DEBUG: CallExpression - Converting non-string pointer argument to string for console_log" << std::endl;
+                                std::cout << "DEBUG: CallExpression - Converting non-string pointer argument to string for _print" << std::endl;
                                 llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
                                 argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
                             }
@@ -2213,14 +2213,14 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         return;
     }
     
-    // Check if this is console.log access first
+    // Check if this is _print access first
     if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {
         std::cout << "DEBUG: PropertyAccess - identifier name: " << identifier->getName() << ", property: " << node.getProperty() << std::endl;
-        if (identifier->getName() == "console" && node.getProperty() == "log") {
-            std::cout << "DEBUG: PropertyAccess - Found console.log, creating function" << std::endl;
-            // This is console.log - return a function pointer to our console.log implementation
-            llvm::Function* consoleLogFunc = getOrCreateConsoleLogFunction();
-            setCurrentValue(consoleLogFunc);
+        if (identifier->getName() == "_print") {
+            std::cout << "DEBUG: PropertyAccess - Found _print, creating function" << std::endl;
+            // This is _print - return a function pointer to our _print implementation
+            llvm::Function* printFunc = getOrCreatePrintFunction();
+            setCurrentValue(printFunc);
             return;
         }
     }
@@ -4576,15 +4576,15 @@ llvm::Value* LLVMCodeGen::createDefaultValue(llvm::Type* type) {
     }
 }
 
-llvm::Function* LLVMCodeGen::getOrCreateConsoleLogFunction() {
-    // Check if console.log function already exists
-    llvm::Function* existingFunc = module_->getFunction("console_log");
+llvm::Function* LLVMCodeGen::getOrCreatePrintFunction() {
+    // Check if _print function already exists
+    llvm::Function* existingFunc = module_->getFunction("_print");
     if (existingFunc) {
         return existingFunc;
     }
     
-    // Create console.log function that takes a variable number of arguments
-    // Make it variadic to handle multiple arguments like console.log("msg", value)
+    // Create _print function that takes a variable number of arguments
+    // Make it variadic to handle multiple arguments like _print("msg", value)
     std::vector<llvm::Type*> paramTypes;
     paramTypes.push_back(getAnyType()); // First parameter of any type
     
@@ -4596,16 +4596,16 @@ llvm::Function* LLVMCodeGen::getOrCreateConsoleLogFunction() {
     
     // Create the function as external (declaration only)
     // The actual implementation is in runtime.c
-    llvm::Function* consoleLogFunc = llvm::Function::Create(
+    llvm::Function* printFunc = llvm::Function::Create(
         funcType,
         llvm::Function::ExternalLinkage,
-        "console_log",
+        "_print",
         *module_
     );
     
     // No function body needed - the implementation is in runtime.c
     
-    return consoleLogFunc;
+    return printFunc;
 }
 
 // Binary operations implementation
@@ -6857,19 +6857,9 @@ llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodNam
 
 // BuiltinFunctionRegistry implementation
 void LLVMCodeGen::BuiltinFunctionRegistry::registerBuiltinFunctions() {
-    registerConsoleFunctions();
     registerMathFunctions();
     registerStringFunctions();
     registerArrayFunctions();
-}
-
-void LLVMCodeGen::BuiltinFunctionRegistry::registerConsoleFunctions() {
-    // NOTE: console.log and console.error are NOT implemented in runtime.c
-    // We should not create external declarations for unimplemented functions
-    // This would cause LLVM IR verification failures
-    
-    // console.log - DISABLED (not implemented in runtime.c)
-    // console.error - DISABLED (not implemented in runtime.c)
 }
 
 void LLVMCodeGen::BuiltinFunctionRegistry::registerMathFunctions() {

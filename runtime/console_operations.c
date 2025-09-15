@@ -3,9 +3,9 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-// Console log function
+// Internal print function for static compiler
 // This is a variadic function that can accept multiple arguments
-void console_log(void* first_arg, ...) {
+void _print(void* first_arg, ...) {
     va_list args;
     va_start(args, first_arg);
     

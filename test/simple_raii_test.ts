@@ -5,11 +5,11 @@ class SimpleResource {
     
     constructor(id: number) {
         this.id = id;
-        console.log("Resource created with ID: " + id);
+        _print("Resource created with ID: " + id);
     }
     
     ~SimpleResource() {
-        console.log("Resource destroyed with ID: " + this.id);
+        _print("Resource destroyed with ID: " + this.id);
     }
     
     getId(): number {
@@ -18,12 +18,12 @@ class SimpleResource {
 }
 
 function testSimpleRAII(): void {
-    console.log("=== Starting RAII Test ===");
+    _print("=== Starting RAII Test ===");
     
     let resource = new SimpleResource(42);
-    console.log("Resource ID: " + resource.getId());
+    _print("Resource ID: " + resource.getId());
     
-    console.log("=== End of RAII Test ===");
+    _print("=== End of RAII Test ===");
 }
 
 testSimpleRAII();

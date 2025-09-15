@@ -3,11 +3,11 @@ class TestClass1 {
     
     constructor(id: number) {
         this.id = id;
-        console.log("TestClass1 constructor");
+        _print("TestClass1 constructor");
     }
     
     ~TestClass1() {
-        console.log("TestClass1 destructor");
+        _print("TestClass1 destructor");
     }
 }
 
@@ -16,21 +16,21 @@ class TestClass2 {
     
     constructor(name: string) {
         this.name = name;
-        console.log("TestClass2 constructor");
+        _print("TestClass2 constructor");
     }
     
     ~TestClass2() {
-        console.log("TestClass2 destructor");
+        _print("TestClass2 destructor");
     }
 }
 
 function testDifferentDestructors() {
-    console.log("Creating objects with different destructors");
+    _print("Creating objects with different destructors");
     let obj1 = new TestClass1(1);
-    console.log("First object created");
+    _print("First object created");
     let obj2 = new TestClass2("test");
-    console.log("Second object created");
-    console.log("Both objects created");
+    _print("Second object created");
+    _print("Both objects created");
 }
 
 testDifferentDestructors();

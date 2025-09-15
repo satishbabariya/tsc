@@ -5,15 +5,15 @@
 function testSmartPointerTypes() {
     // unique_ptr test
     let uniquePtr: unique_ptr<number> = new unique_ptr<number>(42);
-    console.log("unique_ptr created with value:", uniquePtr.get());
+    _print("unique_ptr created with value:", uniquePtr.get());
     
     // shared_ptr test
     let sharedPtr: shared_ptr<string> = new shared_ptr<string>("Hello ARC");
-    console.log("shared_ptr created with value:", sharedPtr.get());
+    _print("shared_ptr created with value:", sharedPtr.get());
     
     // weak_ptr test
     let weakPtr: weak_ptr<string> = new weak_ptr<string>(sharedPtr);
-    console.log("weak_ptr created from shared_ptr");
+    _print("weak_ptr created from shared_ptr");
 }
 
 // Test 2: Move Semantics
@@ -21,9 +21,9 @@ function testMoveSemantics() {
     let source: unique_ptr<number> = new unique_ptr<number>(100);
     let destination: unique_ptr<number> = std::move(source);
     
-    console.log("Move semantics test:");
-    console.log("Source after move:", source.get()); // Should be null
-    console.log("Destination after move:", destination.get()); // Should be 100
+    _print("Move semantics test:");
+    _print("Source after move:", source.get()); // Should be null
+    _print("Destination after move:", destination.get()); // Should be 100
 }
 
 // Test 3: ARC Assignment
@@ -31,15 +31,15 @@ function testARCAssignment() {
     let ptr1: shared_ptr<string> = new shared_ptr<string>("First");
     let ptr2: shared_ptr<string> = new shared_ptr<string>("Second");
     
-    console.log("Before assignment:");
-    console.log("ptr1:", ptr1.get());
-    console.log("ptr2:", ptr2.get());
+    _print("Before assignment:");
+    _print("ptr1:", ptr1.get());
+    _print("ptr2:", ptr2.get());
     
     ptr1 = ptr2; // ARC should handle reference counting
     
-    console.log("After assignment:");
-    console.log("ptr1:", ptr1.get());
-    console.log("ptr2:", ptr2.get());
+    _print("After assignment:");
+    _print("ptr1:", ptr1.get());
+    _print("ptr2:", ptr2.get());
 }
 
 // Test 4: Memory Management Annotations
@@ -114,7 +114,7 @@ function testCycleDetection() {
     node2.setNext(node3);
     node3.setNext(node1);
     
-    console.log("Cycle created between nodes");
+    _print("Cycle created between nodes");
     // ARC should detect and break the cycle
 }
 
@@ -123,14 +123,14 @@ function testWeakReferences() {
     let strongRef: shared_ptr<string> = new shared_ptr<string>("Strong reference");
     let weakRef: weak_ptr<string> = new weak_ptr<string>(strongRef);
     
-    console.log("Strong reference:", strongRef.get());
-    console.log("Weak reference:", weakRef.get());
+    _print("Strong reference:", strongRef.get());
+    _print("Weak reference:", weakRef.get());
     
     // Clear strong reference
     strongRef = null;
     
-    console.log("After clearing strong reference:");
-    console.log("Weak reference:", weakRef.get()); // Should be null
+    _print("After clearing strong reference:");
+    _print("Weak reference:", weakRef.get()); // Should be null
 }
 
 // Test 7: Function Parameters and Return Values
@@ -144,9 +144,9 @@ function testFunctionCalls() {
     let input: shared_ptr<number> = new shared_ptr<number>(42);
     let output: shared_ptr<string> = testFunctionParameters(input);
     
-    console.log("Function call test:");
-    console.log("Input:", input.get());
-    console.log("Output:", output.get());
+    _print("Function call test:");
+    _print("Input:", input.get());
+    _print("Output:", output.get());
 }
 
 // Test 8: Array of Smart Pointers
@@ -157,9 +157,9 @@ function testArrayOfSmartPointers() {
         numbers.push(new shared_ptr<number>(i * 10));
     }
     
-    console.log("Array of smart pointers:");
+    _print("Array of smart pointers:");
     for (let i = 0; i < numbers.length; i++) {
-        console.log(`numbers[${i}]:`, numbers[i].get());
+        _print(`numbers[${i}]:`, numbers[i].get());
     }
 }
 
@@ -191,15 +191,15 @@ class SmartPointerContainer {
 function testSmartPointerContainer() {
     let container = new SmartPointerContainer();
     
-    console.log("Smart pointer container test:");
-    console.log("Unique data:", container.getUniqueData());
-    console.log("Shared data:", container.getSharedData());
-    console.log("Weak data:", container.getWeakData());
+    _print("Smart pointer container test:");
+    _print("Unique data:", container.getUniqueData());
+    _print("Shared data:", container.getSharedData());
+    _print("Weak data:", container.getWeakData());
 }
 
 // Test 10: Memory Leak Detection
 function testMemoryLeakDetection() {
-    console.log("Testing memory leak detection...");
+    _print("Testing memory leak detection...");
     
     // Create many objects
     for (let i = 0; i < 1000; i++) {
@@ -207,12 +207,12 @@ function testMemoryLeakDetection() {
         // Objects should be automatically cleaned up
     }
     
-    console.log("Memory leak test completed");
+    _print("Memory leak test completed");
 }
 
 // Main test runner
 function runARCTests() {
-    console.log("=== ARC Memory Management Test Suite ===");
+    _print("=== ARC Memory Management Test Suite ===");
     
     try {
         testSmartPointerTypes();
@@ -225,9 +225,9 @@ function runARCTests() {
         testSmartPointerContainer();
         testMemoryLeakDetection();
         
-        console.log("=== All ARC tests completed successfully ===");
+        _print("=== All ARC tests completed successfully ===");
     } catch (error) {
-        console.error("ARC test failed:", error);
+        _print("ARC test failed:", error);
     }
 }
 

@@ -58,53 +58,53 @@ class FileCLI {
     const path = args[0] || '.';
     const recursive = this.cli.parseArgs(process.argv).options.get('recursive') === 'true';
     
-    console.log(`Listing files in ${path}${recursive ? ' (recursive)' : ''}`);
+    _print(`Listing files in ${path}${recursive ? ' (recursive)' : ''}`);
     // Simulate file listing
-    console.log('file1.txt');
-    console.log('file2.txt');
-    console.log('subdirectory/');
+    _print('file1.txt');
+    _print('file2.txt');
+    _print('subdirectory/');
   }
 
   private createFile(args: string[]): void {
     const filename = args[0];
     if (!filename) {
-      console.error('Error: filename is required');
+      _print('Error: filename is required');
       return;
     }
 
-    console.log(`Creating file: ${filename}`);
+    _print(`Creating file: ${filename}`);
     // Simulate file creation
-    console.log(`File ${filename} created successfully`);
+    _print(`File ${filename} created successfully`);
   }
 
   private readFile(args: string[]): void {
     const filename = args[0];
     if (!filename) {
-      console.error('Error: filename is required');
+      _print('Error: filename is required');
       return;
     }
 
-    console.log(`Reading file: ${filename}`);
+    _print(`Reading file: ${filename}`);
     // Simulate file reading
-    console.log('File contents:');
-    console.log('This is the content of the file.');
+    _print('File contents:');
+    _print('This is the content of the file.');
   }
 
   private deleteFile(args: string[]): void {
     const filename = args[0];
     if (!filename) {
-      console.error('Error: filename is required');
+      _print('Error: filename is required');
       return;
     }
 
     const force = this.cli.parseArgs(process.argv).options.get('force') === 'true';
     if (!force) {
-      console.log(`Are you sure you want to delete ${filename}? (y/N)`);
+      _print(`Are you sure you want to delete ${filename}? (y/N)`);
       // Simulate user confirmation
-      console.log('File deleted');
+      _print('File deleted');
     } else {
-      console.log(`Force deleting: ${filename}`);
-      console.log('File deleted');
+      _print(`Force deleting: ${filename}`);
+      _print('File deleted');
     }
   }
 
@@ -113,13 +113,13 @@ class FileCLI {
     const destination = args[1];
     
     if (!source || !destination) {
-      console.error('Error: source and destination are required');
+      _print('Error: source and destination are required');
       return;
     }
 
-    console.log(`Copying ${source} to ${destination}`);
+    _print(`Copying ${source} to ${destination}`);
     // Simulate file copying
-    console.log('File copied successfully');
+    _print('File copied successfully');
   }
 
   private moveFile(args: string[]): void {
@@ -127,38 +127,38 @@ class FileCLI {
     const destination = args[1];
     
     if (!source || !destination) {
-      console.error('Error: source and destination are required');
+      _print('Error: source and destination are required');
       return;
     }
 
-    console.log(`Moving ${source} to ${destination}`);
+    _print(`Moving ${source} to ${destination}`);
     // Simulate file moving
-    console.log('File moved successfully');
+    _print('File moved successfully');
   }
 
   private searchFiles(args: string[]): void {
     const pattern = args[0];
     if (!pattern) {
-      console.error('Error: search pattern is required');
+      _print('Error: search pattern is required');
       return;
     }
 
     const recursive = this.cli.parseArgs(process.argv).options.get('recursive') === 'true';
-    console.log(`Searching for files matching "${pattern}"${recursive ? ' (recursive)' : ''}`);
+    _print(`Searching for files matching "${pattern}"${recursive ? ' (recursive)' : ''}`);
     
     // Simulate file search
-    console.log('file1.txt');
-    console.log('file2.txt');
-    console.log('subdirectory/file3.txt');
+    _print('file1.txt');
+    _print('file2.txt');
+    _print('subdirectory/file3.txt');
   }
 
   private showStats(args: string[]): void {
     const path = args[0] || '.';
-    console.log(`File statistics for ${path}:`);
-    console.log('Total files: 15');
-    console.log('Total directories: 3');
-    console.log('Total size: 2.5 MB');
-    console.log('Last modified: 2024-01-15 10:30:00');
+    _print(`File statistics for ${path}:`);
+    _print('Total files: 15');
+    _print('Total directories: 3');
+    _print('Total size: 2.5 MB');
+    _print('Last modified: 2024-01-15 10:30:00');
   }
 
   run(args: string[]): void {
@@ -209,56 +209,56 @@ class SystemCLI {
   }
 
   private showCPUInfo(): void {
-    console.log('CPU Information:');
-    console.log('Model: Intel Core i7-9700K');
-    console.log('Cores: 8');
-    console.log('Threads: 8');
-    console.log('Frequency: 3.60 GHz');
-    console.log('Architecture: x86_64');
+    _print('CPU Information:');
+    _print('Model: Intel Core i7-9700K');
+    _print('Cores: 8');
+    _print('Threads: 8');
+    _print('Frequency: 3.60 GHz');
+    _print('Architecture: x86_64');
   }
 
   private showMemoryInfo(): void {
-    console.log('Memory Information:');
-    console.log('Total: 16.0 GB');
-    console.log('Used: 8.5 GB');
-    console.log('Free: 7.5 GB');
-    console.log('Available: 7.5 GB');
-    console.log('Usage: 53.1%');
+    _print('Memory Information:');
+    _print('Total: 16.0 GB');
+    _print('Used: 8.5 GB');
+    _print('Free: 7.5 GB');
+    _print('Available: 7.5 GB');
+    _print('Usage: 53.1%');
   }
 
   private showDiskInfo(): void {
-    console.log('Disk Information:');
-    console.log('Device: /dev/sda');
-    console.log('Mount: /');
-    console.log('Total: 500.0 GB');
-    console.log('Used: 300.0 GB');
-    console.log('Free: 200.0 GB');
-    console.log('Usage: 60.0%');
+    _print('Disk Information:');
+    _print('Device: /dev/sda');
+    _print('Mount: /');
+    _print('Total: 500.0 GB');
+    _print('Used: 300.0 GB');
+    _print('Free: 200.0 GB');
+    _print('Usage: 60.0%');
   }
 
   private showProcesses(): void {
-    console.log('Running Processes:');
-    console.log('PID    Name                CPU%    Memory%');
-    console.log('1      systemd             0.1     0.5');
-    console.log('1234   node                5.2     2.1');
-    console.log('5678   chrome              15.3    8.7');
-    console.log('9012   vscode              3.4     4.2');
+    _print('Running Processes:');
+    _print('PID    Name                CPU%    Memory%');
+    _print('1      systemd             0.1     0.5');
+    _print('1234   node                5.2     2.1');
+    _print('5678   chrome              15.3    8.7');
+    _print('9012   vscode              3.4     4.2');
   }
 
   private showNetworkInfo(): void {
-    console.log('Network Information:');
-    console.log('Interface: eth0');
-    console.log('IP Address: 192.168.1.100');
-    console.log('Subnet: 192.168.1.0/24');
-    console.log('Gateway: 192.168.1.1');
-    console.log('DNS: 8.8.8.8, 8.8.4.4');
+    _print('Network Information:');
+    _print('Interface: eth0');
+    _print('IP Address: 192.168.1.100');
+    _print('Subnet: 192.168.1.0/24');
+    _print('Gateway: 192.168.1.1');
+    _print('DNS: 8.8.8.8, 8.8.4.4');
   }
 
   private showUptime(): void {
-    console.log('System Uptime:');
-    console.log('Uptime: 5 days, 12 hours, 30 minutes');
-    console.log('Load Average: 0.45, 0.52, 0.48');
-    console.log('Users: 2');
+    _print('System Uptime:');
+    _print('Uptime: 5 days, 12 hours, 30 minutes');
+    _print('Load Average: 0.45, 0.52, 0.48');
+    _print('Users: 2');
   }
 
   run(args: string[]): void {
@@ -312,86 +312,86 @@ class PackageCLI {
   private installPackages(args: string[]): void {
     const packages = args;
     if (packages.length === 0) {
-      console.error('Error: package names are required');
+      _print('Error: package names are required');
       return;
     }
 
     const global = this.cli.parseArgs(process.argv).options.get('global') === 'true';
     const dev = this.cli.parseArgs(process.argv).options.get('dev') === 'true';
     
-    console.log(`Installing packages: ${packages.join(', ')}`);
-    console.log(`Global: ${global}, Dev: ${dev}`);
+    _print(`Installing packages: ${packages.join(', ')}`);
+    _print(`Global: ${global}, Dev: ${dev}`);
     
     // Simulate package installation
     for (const pkg of packages) {
-      console.log(`Installing ${pkg}...`);
-      console.log(`✓ ${pkg} installed successfully`);
+      _print(`Installing ${pkg}...`);
+      _print(`✓ ${pkg} installed successfully`);
     }
   }
 
   private uninstallPackages(args: string[]): void {
     const packages = args;
     if (packages.length === 0) {
-      console.error('Error: package names are required');
+      _print('Error: package names are required');
       return;
     }
 
-    console.log(`Uninstalling packages: ${packages.join(', ')}`);
+    _print(`Uninstalling packages: ${packages.join(', ')}`);
     
     // Simulate package uninstallation
     for (const pkg of packages) {
-      console.log(`Uninstalling ${pkg}...`);
-      console.log(`✓ ${pkg} uninstalled successfully`);
+      _print(`Uninstalling ${pkg}...`);
+      _print(`✓ ${pkg} uninstalled successfully`);
     }
   }
 
   private listPackages(): void {
-    console.log('Installed Packages:');
-    console.log('Name                Version    Description');
-    console.log('typescript          5.0.0      TypeScript compiler');
-    console.log('express             4.18.0     Web framework');
-    console.log('lodash              4.17.21    Utility library');
-    console.log('@types/node         18.0.0     Node.js type definitions');
+    _print('Installed Packages:');
+    _print('Name                Version    Description');
+    _print('typescript          5.0.0      TypeScript compiler');
+    _print('express             4.18.0     Web framework');
+    _print('lodash              4.17.21    Utility library');
+    _print('@types/node         18.0.0     Node.js type definitions');
   }
 
   private updatePackages(args: string[]): void {
     const packages = args;
-    console.log(`Updating packages: ${packages.length > 0 ? packages.join(', ') : 'all'}`);
+    _print(`Updating packages: ${packages.length > 0 ? packages.join(', ') : 'all'}`);
     
     // Simulate package updates
-    console.log('Checking for updates...');
-    console.log('✓ typescript: 5.0.0 → 5.1.0');
-    console.log('✓ express: 4.18.0 → 4.19.0');
-    console.log('✓ lodash: 4.17.21 → 4.17.22');
+    _print('Checking for updates...');
+    _print('✓ typescript: 5.0.0 → 5.1.0');
+    _print('✓ express: 4.18.0 → 4.19.0');
+    _print('✓ lodash: 4.17.21 → 4.17.22');
   }
 
   private searchPackages(args: string[]): void {
     const query = args[0];
     if (!query) {
-      console.error('Error: search query is required');
+      _print('Error: search query is required');
       return;
     }
 
-    console.log(`Searching for packages matching "${query}":`);
-    console.log('Package Name        Version    Description');
-    console.log('typescript          5.0.0      TypeScript compiler');
-    console.log('typescript-eslint   6.0.0      ESLint rules for TypeScript');
-    console.log('@types/typescript   5.0.0      TypeScript type definitions');
+    _print(`Searching for packages matching "${query}":`);
+    _print('Package Name        Version    Description');
+    _print('typescript          5.0.0      TypeScript compiler');
+    _print('typescript-eslint   6.0.0      ESLint rules for TypeScript');
+    _print('@types/typescript   5.0.0      TypeScript type definitions');
   }
 
   private showPackageInfo(args: string[]): void {
     const packageName = args[0];
     if (!packageName) {
-      console.error('Error: package name is required');
+      _print('Error: package name is required');
       return;
     }
 
-    console.log(`Package Information: ${packageName}`);
-    console.log('Version: 5.0.0');
-    console.log('Description: TypeScript compiler');
-    console.log('Author: Microsoft');
-    console.log('License: Apache-2.0');
-    console.log('Repository: https://github.com/Microsoft/TypeScript');
+    _print(`Package Information: ${packageName}`);
+    _print('Version: 5.0.0');
+    _print('Description: TypeScript compiler');
+    _print('Author: Microsoft');
+    _print('License: Apache-2.0');
+    _print('Repository: https://github.com/Microsoft/TypeScript');
   }
 
   run(args: string[]): void {

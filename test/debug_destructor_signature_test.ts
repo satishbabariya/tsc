@@ -1,19 +1,19 @@
 // Test to debug destructor signature issues
 class DebugClass {
     constructor() {
-        console.log("DebugClass constructor");
+        _print("DebugClass constructor");
     }
     
     ~DebugClass() {
-        console.log("DebugClass destructor - about to return");
+        _print("DebugClass destructor - about to return");
     }
 }
 
 function testDebugDestructor() {
-    console.log("=== Testing Debug Destructor ===");
+    _print("=== Testing Debug Destructor ===");
     
     let obj = new DebugClass();
-    console.log("Object created");
+    _print("Object created");
     // Only one object, should be simpler to debug
 }
 

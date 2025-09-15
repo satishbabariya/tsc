@@ -64,24 +64,24 @@ testArrayT.push(2);
 testArrayBracket.push(3);
 testArrayBracket.push(4);
 
-console.log("Array<T> length:", testArrayT.length);
-console.log("T[] length:", testArrayBracket.length);
+_print("Array<T> length:", testArrayT.length);
+_print("T[] length:", testArrayBracket.length);
 
 // Test 9: Element access
-console.log("Array<T> first element:", testArrayT[0]);
-console.log("T[] first element:", testArrayBracket[0]);
+_print("Array<T> first element:", testArrayT[0]);
+_print("T[] first element:", testArrayBracket[0]);
 
 // Test 10: Generic class instantiation
 let numberContainer = new GenericArrayContainer<number>();
 numberContainer.addItem(42);
-console.log("Number array length:", numberContainer.getLength());
+_print("Number array length:", numberContainer.getLength());
 
 let stringContainer = new GenericArrayContainer<string>();
 stringContainer.addItem("hello");
-console.log("String array length:", stringContainer.getLength());
+_print("String array length:", stringContainer.getLength());
 
 // Test 11: Function calls with generic arrays
-console.log("Function with Array<T> parameter:", processArrayT(testArrayT));
-console.log("Function with T[] parameter:", processArrayBracket(testArrayBracket));
+_print("Function with Array<T> parameter:", processArrayT(testArrayT));
+_print("Function with T[] parameter:", processArrayBracket(testArrayBracket));
 
-console.log("All Array<T> vs T[] tests completed successfully!");
+_print("All Array<T> vs T[] tests completed successfully!");

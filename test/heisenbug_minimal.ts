@@ -6,11 +6,11 @@ class ClassA {
     
     constructor(id: number) {
         this.id = id;
-        console.log("ClassA constructor - id:", this.id);
+        _print("ClassA constructor - id:", this.id);
     }
     
     ~ClassA() {
-        console.log("ClassA destructor - id:", this.id);
+        _print("ClassA destructor - id:", this.id);
     }
 }
 
@@ -19,22 +19,22 @@ class ClassB {
     
     constructor(name: string) {
         this.name = name;
-        console.log("ClassB constructor - name:", this.name);
+        _print("ClassB constructor - name:", this.name);
     }
     
     ~ClassB() {
-        console.log("ClassB destructor - name:", this.name);
+        _print("ClassB destructor - name:", this.name);
     }
 }
 
 function testHeisenbug() {
-    console.log("=== Testing Heisenbug Reproduction ===");
+    _print("=== Testing Heisenbug Reproduction ===");
     
     // Create objects with different destructor functions
     let objA = new ClassA(1);
     let objB = new ClassB("test");
     
-    console.log("Both objects created successfully");
+    _print("Both objects created successfully");
 }
 
 testHeisenbug();

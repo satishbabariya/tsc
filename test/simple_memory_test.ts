@@ -6,21 +6,21 @@ class SimpleResource {
     
     constructor(id: number) {
         this.id = id;
-        console.log(`SimpleResource ${id} created`);
+        _print(`SimpleResource ${id} created`);
     }
     
     ~SimpleResource() {
-        console.log(`SimpleResource ${this.id} destroyed`);
+        _print(`SimpleResource ${this.id} destroyed`);
     }
 }
 
 function testSimpleMemory() {
-    console.log("=== Simple Memory Test ===");
+    _print("=== Simple Memory Test ===");
     
     let resource1 = new SimpleResource(1);
     let resource2 = new SimpleResource(2);
     
-    console.log("Resources created, function ending...");
+    _print("Resources created, function ending...");
 }
 
 testSimpleMemory();

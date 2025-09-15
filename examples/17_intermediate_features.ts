@@ -141,7 +141,7 @@ interface Lengthwise {
 }
 
 function loggingIdentity<T extends Lengthwise>(arg: T): T {
-  console.log(arg.length);
+  _print(arg.length);
   return arg;
 }
 
@@ -155,14 +155,14 @@ interface HasName {
 }
 
 function processEntity<T extends HasId & HasName>(entity: T): T {
-  console.log(`Processing ${entity.name} with ID ${entity.id}`);
+  _print(`Processing ${entity.name} with ID ${entity.id}`);
   return entity;
 }
 
 // 18. Namespaces
 namespace Utils {
   export function log(msg: string): void {
-    console.log("Log:", msg);
+    _print("Log:", msg);
   }
   
   export function formatDate(date: Date): string {

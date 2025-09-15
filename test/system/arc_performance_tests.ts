@@ -45,7 +45,7 @@ class PerformanceStats {
 
 // Test 1: Object Creation Performance
 function benchmarkObjectCreation(): void {
-    console.log("=== Benchmark 1: Object Creation Performance ===");
+    _print("=== Benchmark 1: Object Creation Performance ===");
     
     const iterations = 10000;
     const stats = new PerformanceStats();
@@ -66,16 +66,16 @@ function benchmarkObjectCreation(): void {
         objects = [];
     }
     
-    console.log(`Object Creation (${iterations} objects):`);
-    console.log(`  Average: ${stats.getAverage().toFixed(2)}ms`);
-    console.log(`  Min: ${stats.getMin()}ms`);
-    console.log(`  Max: ${stats.getMax()}ms`);
-    console.log(`  Per object: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
+    _print(`Object Creation (${iterations} objects):`);
+    _print(`  Average: ${stats.getAverage().toFixed(2)}ms`);
+    _print(`  Min: ${stats.getMin()}ms`);
+    _print(`  Max: ${stats.getMax()}ms`);
+    _print(`  Per object: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
 }
 
 // Test 2: Reference Counting Performance
 function benchmarkReferenceCounting(): void {
-    console.log("=== Benchmark 2: Reference Counting Performance ===");
+    _print("=== Benchmark 2: Reference Counting Performance ===");
     
     const iterations = 10000;
     const stats = new PerformanceStats();
@@ -101,16 +101,16 @@ function benchmarkReferenceCounting(): void {
         stats.addMeasurement(duration);
     }
     
-    console.log(`Reference Counting (${iterations} operations):`);
-    console.log(`  Average: ${stats.getAverage().toFixed(2)}ms`);
-    console.log(`  Min: ${stats.getMin()}ms`);
-    console.log(`  Max: ${stats.getMax()}ms`);
-    console.log(`  Per operation: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
+    _print(`Reference Counting (${iterations} operations):`);
+    _print(`  Average: ${stats.getAverage().toFixed(2)}ms`);
+    _print(`  Min: ${stats.getMin()}ms`);
+    _print(`  Max: ${stats.getMax()}ms`);
+    _print(`  Per operation: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
 }
 
 // Test 3: Move Semantics Performance
 function benchmarkMoveSemantics(): void {
-    console.log("=== Benchmark 3: Move Semantics Performance ===");
+    _print("=== Benchmark 3: Move Semantics Performance ===");
     
     const iterations = 10000;
     const stats = new PerformanceStats();
@@ -130,16 +130,16 @@ function benchmarkMoveSemantics(): void {
         stats.addMeasurement(duration);
     }
     
-    console.log(`Move Semantics (${iterations} moves):`);
-    console.log(`  Average: ${stats.getAverage().toFixed(2)}ms`);
-    console.log(`  Min: ${stats.getMin()}ms`);
-    console.log(`  Max: ${stats.getMax()}ms`);
-    console.log(`  Per move: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
+    _print(`Move Semantics (${iterations} moves):`);
+    _print(`  Average: ${stats.getAverage().toFixed(2)}ms`);
+    _print(`  Min: ${stats.getMin()}ms`);
+    _print(`  Max: ${stats.getMax()}ms`);
+    _print(`  Per move: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
 }
 
 // Test 4: Weak Reference Performance
 function benchmarkWeakReferences(): void {
-    console.log("=== Benchmark 4: Weak Reference Performance ===");
+    _print("=== Benchmark 4: Weak Reference Performance ===");
     
     const iterations = 10000;
     const stats = new PerformanceStats();
@@ -168,16 +168,16 @@ function benchmarkWeakReferences(): void {
         stats.addMeasurement(duration);
     }
     
-    console.log(`Weak References (${iterations} operations):`);
-    console.log(`  Average: ${stats.getAverage().toFixed(2)}ms`);
-    console.log(`  Min: ${stats.getMin()}ms`);
-    console.log(`  Max: ${stats.getMax()}ms`);
-    console.log(`  Per operation: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
+    _print(`Weak References (${iterations} operations):`);
+    _print(`  Average: ${stats.getAverage().toFixed(2)}ms`);
+    _print(`  Min: ${stats.getMin()}ms`);
+    _print(`  Max: ${stats.getMax()}ms`);
+    _print(`  Per operation: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
 }
 
 // Test 5: Array Operations Performance
 function benchmarkArrayOperations(): void {
-    console.log("=== Benchmark 5: Array Operations Performance ===");
+    _print("=== Benchmark 5: Array Operations Performance ===");
     
     const arraySize = 1000;
     const iterations = 100;
@@ -209,16 +209,16 @@ function benchmarkArrayOperations(): void {
         stats.addMeasurement(duration);
     }
     
-    console.log(`Array Operations (${arraySize} elements, ${iterations} iterations):`);
-    console.log(`  Average: ${stats.getAverage().toFixed(2)}ms`);
-    console.log(`  Min: ${stats.getMin()}ms`);
-    console.log(`  Max: ${stats.getMax()}ms`);
-    console.log(`  Per iteration: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
+    _print(`Array Operations (${arraySize} elements, ${iterations} iterations):`);
+    _print(`  Average: ${stats.getAverage().toFixed(2)}ms`);
+    _print(`  Min: ${stats.getMin()}ms`);
+    _print(`  Max: ${stats.getMax()}ms`);
+    _print(`  Per iteration: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
 }
 
 // Test 6: Function Call Performance
 function benchmarkFunctionCalls(): void {
-    console.log("=== Benchmark 6: Function Call Performance ===");
+    _print("=== Benchmark 6: Function Call Performance ===");
     
     function processPtr(ptr: shared_ptr<number>): shared_ptr<string> {
         let value = ptr.get();
@@ -244,16 +244,16 @@ function benchmarkFunctionCalls(): void {
         stats.addMeasurement(duration);
     }
     
-    console.log(`Function Calls (${iterations} calls):`);
-    console.log(`  Average: ${stats.getAverage().toFixed(2)}ms`);
-    console.log(`  Min: ${stats.getMin()}ms`);
-    console.log(`  Max: ${stats.getMax()}ms`);
-    console.log(`  Per call: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
+    _print(`Function Calls (${iterations} calls):`);
+    _print(`  Average: ${stats.getAverage().toFixed(2)}ms`);
+    _print(`  Min: ${stats.getMin()}ms`);
+    _print(`  Max: ${stats.getMax()}ms`);
+    _print(`  Per call: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
 }
 
 // Test 7: Memory Allocation Patterns
 function benchmarkMemoryAllocation(): void {
-    console.log("=== Benchmark 7: Memory Allocation Patterns ===");
+    _print("=== Benchmark 7: Memory Allocation Patterns ===");
     
     const patterns = [
         { name: "Small Objects", count: 10000, size: 1 },
@@ -284,17 +284,17 @@ function benchmarkMemoryAllocation(): void {
             objects = [];
         }
         
-        console.log(`${pattern.name} (${pattern.count} objects, ${pattern.size} elements each):`);
-        console.log(`  Average: ${stats.getAverage().toFixed(2)}ms`);
-        console.log(`  Min: ${stats.getMin()}ms`);
-        console.log(`  Max: ${stats.getMax()}ms`);
-        console.log(`  Per object: ${(stats.getAverage() / pattern.count).toFixed(4)}ms`);
+        _print(`${pattern.name} (${pattern.count} objects, ${pattern.size} elements each):`);
+        _print(`  Average: ${stats.getAverage().toFixed(2)}ms`);
+        _print(`  Min: ${stats.getMin()}ms`);
+        _print(`  Max: ${stats.getMax()}ms`);
+        _print(`  Per object: ${(stats.getAverage() / pattern.count).toFixed(4)}ms`);
     }
 }
 
 // Test 8: Cycle Detection Performance
 function benchmarkCycleDetection(): void {
-    console.log("=== Benchmark 8: Cycle Detection Performance ===");
+    _print("=== Benchmark 8: Cycle Detection Performance ===");
     
     class CycleNode {
         private value: number;
@@ -350,17 +350,17 @@ function benchmarkCycleDetection(): void {
             stats.addMeasurement(duration);
         }
         
-        console.log(`Cycle Detection (${nodeCount} nodes):`);
-        console.log(`  Average: ${stats.getAverage().toFixed(2)}ms`);
-        console.log(`  Min: ${stats.getMin()}ms`);
-        console.log(`  Max: ${stats.getMax()}ms`);
-        console.log(`  Per node: ${(stats.getAverage() / nodeCount).toFixed(4)}ms`);
+        _print(`Cycle Detection (${nodeCount} nodes):`);
+        _print(`  Average: ${stats.getAverage().toFixed(2)}ms`);
+        _print(`  Min: ${stats.getMin()}ms`);
+        _print(`  Max: ${stats.getMax()}ms`);
+        _print(`  Per node: ${(stats.getAverage() / nodeCount).toFixed(4)}ms`);
     }
 }
 
 // Test 9: Memory Pressure Performance
 function benchmarkMemoryPressure(): void {
-    console.log("=== Benchmark 9: Memory Pressure Performance ===");
+    _print("=== Benchmark 9: Memory Pressure Performance ===");
     
     const cycles = 100;
     const objectsPerCycle = 1000;
@@ -392,16 +392,16 @@ function benchmarkMemoryPressure(): void {
         stats.addMeasurement(duration);
     }
     
-    console.log(`Memory Pressure (${cycles} cycles, ${objectsPerCycle} objects each):`);
-    console.log(`  Average: ${stats.getAverage().toFixed(2)}ms`);
-    console.log(`  Min: ${stats.getMin()}ms`);
-    console.log(`  Max: ${stats.getMax()}ms`);
-    console.log(`  Per cycle: ${(stats.getAverage() / cycles).toFixed(4)}ms`);
+    _print(`Memory Pressure (${cycles} cycles, ${objectsPerCycle} objects each):`);
+    _print(`  Average: ${stats.getAverage().toFixed(2)}ms`);
+    _print(`  Min: ${stats.getMin()}ms`);
+    _print(`  Max: ${stats.getMax()}ms`);
+    _print(`  Per cycle: ${(stats.getAverage() / cycles).toFixed(4)}ms`);
 }
 
 // Test 10: Overall System Performance
 function benchmarkOverallSystem(): void {
-    console.log("=== Benchmark 10: Overall System Performance ===");
+    _print("=== Benchmark 10: Overall System Performance ===");
     
     const iterations = 1000;
     const stats = new PerformanceStats();
@@ -442,11 +442,11 @@ function benchmarkOverallSystem(): void {
         stats.addMeasurement(duration);
     }
     
-    console.log(`Overall System (${iterations} mixed operations):`);
-    console.log(`  Average: ${stats.getAverage().toFixed(2)}ms`);
-    console.log(`  Min: ${stats.getMin()}ms`);
-    console.log(`  Max: ${stats.getMax()}ms`);
-    console.log(`  Per operation: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
+    _print(`Overall System (${iterations} mixed operations):`);
+    _print(`  Average: ${stats.getAverage().toFixed(2)}ms`);
+    _print(`  Min: ${stats.getMin()}ms`);
+    _print(`  Max: ${stats.getMax()}ms`);
+    _print(`  Per operation: ${(stats.getAverage() / iterations).toFixed(4)}ms`);
 }
 
 // Helper function for assertions
@@ -458,9 +458,9 @@ function assert(condition: boolean, message: string): void {
 
 // Main benchmark runner
 function runPerformanceBenchmarks(): void {
-    console.log("TSC ARC Performance Benchmarks");
-    console.log("===============================");
-    console.log();
+    _print("TSC ARC Performance Benchmarks");
+    _print("===============================");
+    _print();
     
     let benchmarks = [
         benchmarkObjectCreation,
@@ -484,24 +484,24 @@ function runPerformanceBenchmarks(): void {
             benchmark();
             passed++;
         } catch (error) {
-            console.error(`❌ Benchmark failed: ${error.message}`);
+            _print(`❌ Benchmark failed: ${error.message}`);
             failed++;
         }
-        console.log();
+        _print();
     }
     
     let totalTime = Date.now() - totalStartTime;
     
-    console.log("=== Benchmark Results ===");
-    console.log(`Passed: ${passed}`);
-    console.log(`Failed: ${failed}`);
-    console.log(`Total: ${passed + failed}`);
-    console.log(`Total time: ${totalTime}ms`);
+    _print("=== Benchmark Results ===");
+    _print(`Passed: ${passed}`);
+    _print(`Failed: ${failed}`);
+    _print(`Total: ${passed + failed}`);
+    _print(`Total time: ${totalTime}ms`);
     
     if (failed === 0) {
-        console.log("🎉 All benchmarks completed successfully!");
+        _print("🎉 All benchmarks completed successfully!");
     } else {
-        console.log("⚠️ Some benchmarks failed!");
+        _print("⚠️ Some benchmarks failed!");
     }
 }
 

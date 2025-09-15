@@ -73,13 +73,13 @@ function main(): number {
         isActive: true
     };
     
-    console.log(greet(person));
+    _print(greet(person));
     
     const calc = new Calculator(10)
         .add(5)
         .multiply(2);
     
-    console.log("Result: " + calc.getValue());
+    _print("Result: " + calc.getValue());
     
     return 0;
 }

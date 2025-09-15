@@ -4,19 +4,19 @@ class SimpleStringResource {
     name: string;
     
     constructor(name: string) {
-        console.log("SimpleStringResource constructor");
+        _print("SimpleStringResource constructor");
         this.name = name;
     }
     
     ~SimpleStringResource() {
-        console.log("SimpleStringResource destructor");
+        _print("SimpleStringResource destructor");
     }
 }
 
 function testStringConstructor() {
-    console.log("Creating string resource");
+    _print("Creating string resource");
     let resource = new SimpleStringResource("test");
-    console.log("String resource created");
+    _print("String resource created");
 }
 
 testStringConstructor();

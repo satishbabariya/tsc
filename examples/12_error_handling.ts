@@ -9,7 +9,7 @@ function divide(a: number, b: number): number {
         }
         return a / b;
     } catch (error) {
-        console.log("Error caught:", error.message);
+        _print("Error caught:", error.message);
         return 0;
     }
 }
@@ -25,7 +25,7 @@ function processString(input: string): string {
         }
         return input.toUpperCase();
     } catch (error) {
-        console.log("String processing error:", error.message);
+        _print("String processing error:", error.message);
         return "";
     }
 }
@@ -38,7 +38,7 @@ function readFile(filename: string): string {
     try {
         // Simulate file opening
         fileHandle = { name: filename, isOpen: true };
-        console.log("Opening file:", filename);
+        _print("Opening file:", filename);
         
         // Simulate file reading
         if (filename === "nonexistent.txt") {
@@ -46,16 +46,16 @@ function readFile(filename: string): string {
         }
         
         content = "File content here";
-        console.log("File read successfully");
+        _print("File read successfully");
         
     } catch (error) {
-        console.log("Error reading file:", error.message);
+        _print("Error reading file:", error.message);
         content = "";
     } finally {
         // Cleanup code that always runs
         if (fileHandle) {
             fileHandle.isOpen = false;
-            console.log("File handle closed");
+            _print("File handle closed");
         }
     }
     
@@ -81,13 +81,13 @@ function processData(data: any): any {
         
     } catch (error) {
         if (error instanceof SyntaxError) {
-            console.log("JSON parsing error:", error.message);
+            _print("JSON parsing error:", error.message);
             return null;
         } else if (error instanceof TypeError) {
-            console.log("Type error:", error.message);
+            _print("Type error:", error.message);
             return null;
         } else {
-            console.log("General error:", error.message);
+            _print("General error:", error.message);
             return null;
         }
     }
@@ -158,10 +158,10 @@ function createUser(userData: any): object {
         
     } catch (error) {
         if (error instanceof ValidationError) {
-            console.log("Validation failed for field '" + error.field + "': " + error.message);
+            _print("Validation failed for field '" + error.field + "': " + error.message);
             return null;
         } else {
-            console.log("Unexpected error:", error.message);
+            _print("Unexpected error:", error.message);
             return null;
         }
     }
@@ -189,11 +189,11 @@ async function fetchUserData(userId: number): Promise<object | null> {
         
     } catch (error) {
         if (error instanceof ValidationError) {
-            console.log("Validation error:", error.message);
+            _print("Validation error:", error.message);
         } else if (error instanceof NetworkError) {
-            console.log("Network error:", error.message, "Status:", error.statusCode);
+            _print("Network error:", error.message, "Status:", error.statusCode);
         } else {
-            console.log("Unexpected error:", error.message);
+            _print("Unexpected error:", error.message);
         }
         return null;
     }
@@ -216,7 +216,7 @@ async function fetchDataWithRetry(url: string, maxRetries: number = 3): Promise<
             
         } catch (error) {
             lastError = error;
-            console.log("Attempt " + attempt + " failed:", error.message);
+            _print("Attempt " + attempt + " failed:", error.message);
             
             if (attempt < maxRetries) {
                 // Wait before retry
@@ -225,7 +225,7 @@ async function fetchDataWithRetry(url: string, maxRetries: number = 3): Promise<
         }
     }
     
-    console.log("All retry attempts failed. Last error:", lastError.message);
+    _print("All retry attempts failed. Last error:", lastError.message);
     return null;
 }
 
@@ -236,35 +236,35 @@ function processResource(resourceName: string): boolean {
     try {
         // Acquire resource
         resource = { name: resourceName, isAcquired: true };
-        console.log("Resource acquired:", resourceName);
+        _print("Resource acquired:", resourceName);
         
         // Process resource
         if (resourceName === "invalid") {
             throw new Error("Invalid resource");
         }
         
-        console.log("Resource processed successfully");
+        _print("Resource processed successfully");
         return true;
         
     } catch (error) {
-        console.log("Error processing resource:", error.message);
+        _print("Error processing resource:", error.message);
         return false;
         
     } finally {
         // Always cleanup
         if (resource) {
             resource.isAcquired = false;
-            console.log("Resource released:", resourceName);
+            _print("Resource released:", resourceName);
         }
     }
 }
 
 // Error handling with logging
 function logError(error: Error, context: string): void {
-    console.log("Error in " + context + ":");
-    console.log("  Message:", error.message);
-    console.log("  Name:", error.name);
-    console.log("  Stack:", error.stack);
+    _print("Error in " + context + ":");
+    _print("  Message:", error.message);
+    _print("  Name:", error.name);
+    _print("  Stack:", error.stack);
 }
 
 // Function that uses error logging
@@ -300,8 +300,8 @@ function getConfigValue(key: string, defaultValue: any): any {
         return config[key];
         
     } catch (error) {
-        console.log("Config error:", error.message);
-        console.log("Using default value:", defaultValue);
+        _print("Config error:", error.message);
+        _print("Using default value:", defaultValue);
         return defaultValue;
     }
 }

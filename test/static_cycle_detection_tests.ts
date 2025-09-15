@@ -115,7 +115,7 @@ class EventListener {
     handleEvent(event: string) {
         const emitter = this.emitter.lock();
         if (emitter) {
-            console.log(`Event received: ${event}`);
+            _print(`Event received: ${event}`);
         }
     }
 }

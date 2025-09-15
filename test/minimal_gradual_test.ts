@@ -3,18 +3,18 @@ class ResourceWithStringField {
     
     constructor(name: string) {
         this.name = name;
-        console.log("ResourceWithStringField constructor");
+        _print("ResourceWithStringField constructor");
     }
     
     ~ResourceWithStringField() {
-        console.log("ResourceWithStringField destructor");
+        _print("ResourceWithStringField destructor");
     }
 }
 
 function testStringFieldResource() {
-    console.log("=== Testing String Field Resource ===");
+    _print("=== Testing String Field Resource ===");
     let resource = new ResourceWithStringField("test");
-    console.log("String field resource created");
+    _print("String field resource created");
 }
 
 testStringFieldResource();

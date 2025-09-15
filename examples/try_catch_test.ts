@@ -4,9 +4,9 @@ function testTryCatch() {
         throw "Something went wrong";
         return x;
     } catch (e) {
-        console.log("Caught error: " + e);
+        _print("Caught error: " + e);
         return -1;
     } finally {
-        console.log("Cleanup complete");
+        _print("Cleanup complete");
     }
 }

@@ -361,7 +361,7 @@ class ThreadSafeRAIIPerf {
 
 // Performance benchmark functions
 function benchmarkBasicRAII(iterations: number): void {
-    console.log(`=== Benchmarking Basic RAII (${iterations} iterations) ===`);
+    _print(`=== Benchmarking Basic RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
     
     for (let i = 0; i < iterations; i++) {
@@ -372,12 +372,12 @@ function benchmarkBasicRAII(iterations: number): void {
     
     let endTime = Date.now();
     let duration = endTime - startTime;
-    console.log(`Basic RAII: ${duration}ms for ${iterations} iterations`);
-    console.log(`Average: ${duration / iterations}ms per iteration`);
+    _print(`Basic RAII: ${duration}ms for ${iterations} iterations`);
+    _print(`Average: ${duration / iterations}ms per iteration`);
 }
 
 function benchmarkComplexRAII(iterations: number): void {
-    console.log(`=== Benchmarking Complex RAII (${iterations} iterations) ===`);
+    _print(`=== Benchmarking Complex RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
     
     for (let i = 0; i < iterations; i++) {
@@ -389,12 +389,12 @@ function benchmarkComplexRAII(iterations: number): void {
     
     let endTime = Date.now();
     let duration = endTime - startTime;
-    console.log(`Complex RAII: ${duration}ms for ${iterations} iterations`);
-    console.log(`Average: ${duration / iterations}ms per iteration`);
+    _print(`Complex RAII: ${duration}ms for ${iterations} iterations`);
+    _print(`Average: ${duration / iterations}ms per iteration`);
 }
 
 function benchmarkSmartPointerRAII(iterations: number): void {
-    console.log(`=== Benchmarking Smart Pointer RAII (${iterations} iterations) ===`);
+    _print(`=== Benchmarking Smart Pointer RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
     
     for (let i = 0; i < iterations; i++) {
@@ -406,12 +406,12 @@ function benchmarkSmartPointerRAII(iterations: number): void {
     
     let endTime = Date.now();
     let duration = endTime - startTime;
-    console.log(`Smart Pointer RAII: ${duration}ms for ${iterations} iterations`);
-    console.log(`Average: ${duration / iterations}ms per iteration`);
+    _print(`Smart Pointer RAII: ${duration}ms for ${iterations} iterations`);
+    _print(`Average: ${duration / iterations}ms per iteration`);
 }
 
 function benchmarkInheritanceRAII(iterations: number): void {
-    console.log(`=== Benchmarking Inheritance RAII (${iterations} iterations) ===`);
+    _print(`=== Benchmarking Inheritance RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
     
     for (let i = 0; i < iterations; i++) {
@@ -423,12 +423,12 @@ function benchmarkInheritanceRAII(iterations: number): void {
     
     let endTime = Date.now();
     let duration = endTime - startTime;
-    console.log(`Inheritance RAII: ${duration}ms for ${iterations} iterations`);
-    console.log(`Average: ${duration / iterations}ms per iteration`);
+    _print(`Inheritance RAII: ${duration}ms for ${iterations} iterations`);
+    _print(`Average: ${duration / iterations}ms per iteration`);
 }
 
 function benchmarkGenericRAII(iterations: number): void {
-    console.log(`=== Benchmarking Generic RAII (${iterations} iterations) ===`);
+    _print(`=== Benchmarking Generic RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
     
     for (let i = 0; i < iterations; i++) {
@@ -439,12 +439,12 @@ function benchmarkGenericRAII(iterations: number): void {
     
     let endTime = Date.now();
     let duration = endTime - startTime;
-    console.log(`Generic RAII: ${duration}ms for ${iterations} iterations`);
-    console.log(`Average: ${duration / iterations}ms per iteration`);
+    _print(`Generic RAII: ${duration}ms for ${iterations} iterations`);
+    _print(`Average: ${duration / iterations}ms per iteration`);
 }
 
 function benchmarkNestedRAII(iterations: number): void {
-    console.log(`=== Benchmarking Nested RAII (${iterations} iterations) ===`);
+    _print(`=== Benchmarking Nested RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
     
     for (let i = 0; i < iterations; i++) {
@@ -456,12 +456,12 @@ function benchmarkNestedRAII(iterations: number): void {
     
     let endTime = Date.now();
     let duration = endTime - startTime;
-    console.log(`Nested RAII: ${duration}ms for ${iterations} iterations`);
-    console.log(`Average: ${duration / iterations}ms per iteration`);
+    _print(`Nested RAII: ${duration}ms for ${iterations} iterations`);
+    _print(`Average: ${duration / iterations}ms per iteration`);
 }
 
 function benchmarkResourcePoolRAII(iterations: number): void {
-    console.log(`=== Benchmarking Resource Pool RAII (${iterations} iterations) ===`);
+    _print(`=== Benchmarking Resource Pool RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
     
     for (let i = 0; i < iterations; i++) {
@@ -479,12 +479,12 @@ function benchmarkResourcePoolRAII(iterations: number): void {
     
     let endTime = Date.now();
     let duration = endTime - startTime;
-    console.log(`Resource Pool RAII: ${duration}ms for ${iterations} iterations`);
-    console.log(`Average: ${duration / iterations}ms per iteration`);
+    _print(`Resource Pool RAII: ${duration}ms for ${iterations} iterations`);
+    _print(`Average: ${duration / iterations}ms per iteration`);
 }
 
 function benchmarkMoveableRAII(iterations: number): void {
-    console.log(`=== Benchmarking Moveable RAII (${iterations} iterations) ===`);
+    _print(`=== Benchmarking Moveable RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
     
     for (let i = 0; i < iterations; i++) {
@@ -497,12 +497,12 @@ function benchmarkMoveableRAII(iterations: number): void {
     
     let endTime = Date.now();
     let duration = endTime - startTime;
-    console.log(`Moveable RAII: ${duration}ms for ${iterations} iterations`);
-    console.log(`Average: ${duration / iterations}ms per iteration`);
+    _print(`Moveable RAII: ${duration}ms for ${iterations} iterations`);
+    _print(`Average: ${duration / iterations}ms per iteration`);
 }
 
 function benchmarkExceptionRAII(iterations: number): void {
-    console.log(`=== Benchmarking Exception RAII (${iterations} iterations) ===`);
+    _print(`=== Benchmarking Exception RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
     
     for (let i = 0; i < iterations; i++) {
@@ -517,12 +517,12 @@ function benchmarkExceptionRAII(iterations: number): void {
     
     let endTime = Date.now();
     let duration = endTime - startTime;
-    console.log(`Exception RAII: ${duration}ms for ${iterations} iterations`);
-    console.log(`Average: ${duration / iterations}ms per iteration`);
+    _print(`Exception RAII: ${duration}ms for ${iterations} iterations`);
+    _print(`Average: ${duration / iterations}ms per iteration`);
 }
 
 function benchmarkThreadSafeRAII(iterations: number): void {
-    console.log(`=== Benchmarking Thread Safe RAII (${iterations} iterations) ===`);
+    _print(`=== Benchmarking Thread Safe RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
     
     for (let i = 0; i < iterations; i++) {
@@ -535,14 +535,14 @@ function benchmarkThreadSafeRAII(iterations: number): void {
     
     let endTime = Date.now();
     let duration = endTime - startTime;
-    console.log(`Thread Safe RAII: ${duration}ms for ${iterations} iterations`);
-    console.log(`Average: ${duration / iterations}ms per iteration`);
+    _print(`Thread Safe RAII: ${duration}ms for ${iterations} iterations`);
+    _print(`Average: ${duration / iterations}ms per iteration`);
 }
 
 // Run all performance benchmarks
 function runAllPerformanceTests(): void {
-    console.log("🚀 Starting RAII Performance Tests");
-    console.log("====================================");
+    _print("🚀 Starting RAII Performance Tests");
+    _print("====================================");
     
     let iterations = 1000;
     
@@ -557,8 +557,8 @@ function runAllPerformanceTests(): void {
     benchmarkExceptionRAII(iterations);
     benchmarkThreadSafeRAII(iterations);
     
-    console.log("====================================");
-    console.log("✅ All RAII Performance Tests Completed");
+    _print("====================================");
+    _print("✅ All RAII Performance Tests Completed");
 }
 
 // Export for testing

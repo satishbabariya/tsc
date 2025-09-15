@@ -122,7 +122,7 @@ let users: object[] = [
 ];
 
 for (let { name, age } of users) {
-    console.log(`${name} is ${age} years old`);
+    _print(`${name} is ${age} years old`);
 }
 
 // Destructuring with type annotations

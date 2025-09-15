@@ -23,7 +23,7 @@ let data: any = "could be anything";
 let value: unknown = 42;
 
 function logMessage(msg: string): void {
-  console.log(msg);
+  _print(msg);
 }
 
 function throwError(msg: string): never {
@@ -56,13 +56,13 @@ class Animal {
   constructor(public name: string) {}
 
   move(distance: number = 0): void {
-    console.log(`${this.name} moved ${distance}m`);
+    _print(`${this.name} moved ${distance}m`);
   }
 }
 
 class Dog extends Animal {
   bark(): void {
-    console.log("Woof!");
+    _print("Woof!");
   }
 }
 
@@ -95,28 +95,28 @@ let strLength: number = (someValue as string).length;
 
 // 10. Control Flow
 if (age >= 18) {
-  console.log("Adult");
+  _print("Adult");
 } else {
-  console.log("Minor");
+  _print("Minor");
 }
 
 switch (move) {
   case Direction.Up:
-    console.log("Going up");
+    _print("Going up");
     break;
   case Direction.Down:
-    console.log("Going down");
+    _print("Going down");
     break;
   default:
-    console.log("Unknown direction");
+    _print("Unknown direction");
 }
 
 for (let i = 0; i < 10; i++) {
-  console.log(i);
+  _print(i);
 }
 
 for (let score of scores) {
-  console.log(score);
+  _print(score);
 }
 
 // 11. Arrays & Objects
@@ -143,11 +143,11 @@ let { name: fullName, age: userAge2 } = person;
 // 14. Error Handling
 try {
   let result = add(5, 3);
-  console.log("Result:", result);
+  _print("Result:", result);
 } catch (error) {
-  console.error("Error:", error.message);
+  _print("Error:", error.message);
 } finally {
-  console.log("Cleanup completed");
+  _print("Cleanup completed");
 }
 
 // Usage examples
@@ -157,11 +157,11 @@ let product = multiply(4, 7);
 let identified = identity("TypeScript");
 let greeting = person.greet();
 
-console.log("Sum:", sum);
-console.log("Product:", product);
-console.log("Identified:", identified);
-console.log("Greeting:", greeting);
-console.log("Message:", message);
-console.log("String length:", strLength);
-console.log("First score:", first);
-console.log("Full name:", fullName);
+_print("Sum:", sum);
+_print("Product:", product);
+_print("Identified:", identified);
+_print("Greeting:", greeting);
+_print("Message:", message);
+_print("String length:", strLength);
+_print("First score:", first);
+_print("Full name:", fullName);

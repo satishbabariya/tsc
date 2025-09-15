@@ -64,7 +64,7 @@ class APIServer {
   private setupMiddleware(): void {
     // CORS middleware
     this.server.use(async (req) => {
-      console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+      _print(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
       return null;
     });
 
@@ -188,16 +188,16 @@ class APIServer {
   }
 
   async start(port: number = 3000): Promise<void> {
-    console.log(`Starting API server on port ${port}`);
+    _print(`Starting API server on port ${port}`);
     this.server.listen(port, () => {
-      console.log(`API server is running on http://localhost:${port}`);
-      console.log('Available endpoints:');
-      console.log('  GET    /api/users     - List all users');
-      console.log('  GET    /api/users/:id - Get user by ID');
-      console.log('  POST   /api/users     - Create new user');
-      console.log('  PUT    /api/users/:id - Update user');
-      console.log('  DELETE /api/users/:id - Delete user');
-      console.log('  GET    /health        - Health check');
+      _print(`API server is running on http://localhost:${port}`);
+      _print('Available endpoints:');
+      _print('  GET    /api/users     - List all users');
+      _print('  GET    /api/users/:id - Get user by ID');
+      _print('  POST   /api/users     - Create new user');
+      _print('  PUT    /api/users/:id - Update user');
+      _print('  DELETE /api/users/:id - Delete user');
+      _print('  GET    /health        - Health check');
     });
   }
 }
@@ -224,16 +224,16 @@ class APICLI {
         break;
         
       default:
-        console.log('Unknown command. Use "help" for available commands.');
+        _print('Unknown command. Use "help" for available commands.');
         break;
     }
   }
 
   private showHelp(): void {
-    console.log('API Server CLI');
-    console.log('Commands:');
-    console.log('  start [port]  - Start the API server (default port: 3000)');
-    console.log('  help          - Show this help message');
+    _print('API Server CLI');
+    _print('Commands:');
+    _print('  start [port]  - Start the API server (default port: 3000)');
+    _print('  help          - Show this help message');
   }
 }
 
@@ -249,5 +249,5 @@ export { APIServer, APICLI, User, UserRepository };
 
 // Run if this is the main module
 if (require.main === module) {
-  main().catch(console.error);
+  main().catch(_print);
 }
