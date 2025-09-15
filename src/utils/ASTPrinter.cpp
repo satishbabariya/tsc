@@ -858,6 +858,22 @@ void ASTPrinter::visit(MethodDeclaration& node) {
     decreaseIndent();
 }
 
+void ASTPrinter::visit(DestructorDeclaration& node) {
+    printIndent();
+    output_ << "DestructorDeclaration: ~" << node.getClassName() << std::endl;
+    increaseIndent();
+    
+    if (node.getBody()) {
+        printIndent();
+        output_ << "Body:" << std::endl;
+        increaseIndent();
+        node.getBody()->accept(*this);
+        decreaseIndent();
+    }
+    
+    decreaseIndent();
+}
+
 void ASTPrinter::visit(ClassDeclaration& node) {
     printIndent();
     output_ << "ClassDeclaration: " << node.getName() << std::endl;
@@ -1035,6 +1051,19 @@ void ASTPrinter::visit(FunctionExpression& node) {
         decreaseIndent();
     }
     
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(MoveExpression& node) {
+    printIndent();
+    output_ << "MoveExpression:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Operand:" << std::endl;
+    increaseIndent();
+    node.getOperand()->accept(*this);
+    decreaseIndent();
     decreaseIndent();
 }
 

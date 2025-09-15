@@ -4,6 +4,7 @@
 #include "tsc/AST.h"
 #include "tsc/semantic/SymbolTable.h"
 #include "tsc/semantic/TypeSystem.h"
+#include "tsc/semantic/CycleDetector.h"
 #include "tsc/utils/DiagnosticEngine.h"
 
 namespace tsc {
@@ -62,6 +63,19 @@ public:
     SymbolTable& getSymbolTable() { return *symbolTable_; }
     const TypeSystem& getTypeSystem() const { return *typeSystem_; }
     
+    // Cycle detection
+    void runCycleDetection();
+    bool hasCycleErrors() const;
+    void printCycleResults() const;
+    
+    // RAII Analysis
+    void analyzeDestructor(const DestructorDeclaration& destructor);
+    void validateRAIIPatterns(const ClassDeclaration& classDecl);
+    void suggestResourceCleanup(const ClassDeclaration& classDecl);
+    void detectResourceLeaks(const ClassDeclaration& classDecl);
+    void analyzeResourceOwnership(const ClassDeclaration& classDecl);
+    void validateDestructorSafety(const DestructorDeclaration& destructor);
+    
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;
     void visit(StringLiteral& node) override;
@@ -84,6 +98,7 @@ public:
     void visit(PropertyAccess& node) override;
     void visit(ArrowFunction& node) override;
     void visit(FunctionExpression& node) override;
+    void visit(MoveExpression& node) override;
     void visit(ForOfStatement& node) override;
     
     void visit(ExpressionStatement& node) override;
@@ -107,6 +122,7 @@ public:
     // Class-related declarations
     void visit(PropertyDeclaration& node) override;
     void visit(MethodDeclaration& node) override;
+    void visit(DestructorDeclaration& node) override;
     void visit(ClassDeclaration& node) override;
     void visit(InterfaceDeclaration& node) override;
     void visit(EnumMember& node) override;
@@ -128,6 +144,7 @@ private:
     unique_ptr<TypeSystem> typeSystem_;
     unique_ptr<SemanticContext> context_;
     unique_ptr<GenericConstraintChecker> constraintChecker_;
+    unique_ptr<semantic::CycleDetector> cycleDetector_;
     
     // Function context tracking
     int functionDepth_ = 0;
@@ -227,6 +244,16 @@ private:
     // Generic constraint validation helpers
     FunctionDeclaration* getFunctionDeclaration(const String& functionName);
     bool validateGenericFunctionCall(const CallExpression& call, const FunctionDeclaration& funcDecl, const FunctionType& functionType);
+    
+    // ARC Memory Management Analysis
+    void analyzeOwnership(const Expression& expr);
+    void analyzeMoveSemantics(const MoveExpression& moveExpr);
+    void analyzeAssignmentOwnership(const AssignmentExpression& assignExpr);
+    void detectCycles(const ClassDeclaration& classDecl);
+    void suggestWeakReferences(const ClassDeclaration& classDecl);
+    bool isARCManaged(const Type& type) const;
+    bool isMoveable(const Type& type) const;
+    bool hasDestructor(const Type& type) const;
 };
 
 // Semantic analysis result

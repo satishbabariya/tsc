@@ -18,6 +18,7 @@ add_library(tsc_lib STATIC
     semantic/SymbolTable.cpp
     semantic/TypeSystem.cpp
     semantic/GenericConstraintChecker.cpp
+    semantic/CycleDetector.cpp
     
     # Code Generation
     codegen/LLVMCodeGen.cpp

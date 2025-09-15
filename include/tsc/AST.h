@@ -633,6 +633,24 @@ private:
     SourceLocation location_;
 };
 
+// Move expression for ARC move semantics
+class MoveExpression : public Expression {
+public:
+    MoveExpression(unique_ptr<Expression> operand, const SourceLocation& loc)
+        : operand_(std::move(operand)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::XValue; }
+    String toString() const override;
+    
+    Expression* getOperand() const { return operand_.get(); }
+
+private:
+    unique_ptr<Expression> operand_;
+    SourceLocation location_;
+};
+
 // Block statement
 class BlockStatement : public Statement {
 public:
@@ -1166,6 +1184,27 @@ private:
     bool isAsync_;
 };
 
+class DestructorDeclaration : public Declaration {
+public:
+    DestructorDeclaration(const String& className,
+                         unique_ptr<BlockStatement> body,
+                         const SourceLocation& loc)
+        : className_(className), body_(std::move(body)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String getName() const override { return className_; }
+    String toString() const override;
+    
+    const String& getClassName() const { return className_; }
+    BlockStatement* getBody() const { return body_.get(); }
+
+private:
+    String className_;
+    unique_ptr<BlockStatement> body_;
+    SourceLocation location_;
+};
+
 class ClassDeclaration : public Declaration {
 public:
     ClassDeclaration(const String& name,
@@ -1175,11 +1214,12 @@ public:
                     std::vector<unique_ptr<PropertyDeclaration>> properties,
                     std::vector<unique_ptr<MethodDeclaration>> methods,
                     unique_ptr<MethodDeclaration> constructor,
+                    unique_ptr<DestructorDeclaration> destructor,
                     const SourceLocation& loc,
                     bool isAbstract = false)
         : name_(name), typeParameters_(std::move(typeParameters)), baseClass_(baseClass), interfaces_(std::move(interfaces)),
           properties_(std::move(properties)), methods_(std::move(methods)),
-          constructor_(std::move(constructor)), location_(loc), isAbstract_(isAbstract) {}
+          constructor_(std::move(constructor)), destructor_(std::move(destructor)), location_(loc), isAbstract_(isAbstract) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
@@ -1192,6 +1232,7 @@ public:
     const std::vector<unique_ptr<PropertyDeclaration>>& getProperties() const { return properties_; }
     const std::vector<unique_ptr<MethodDeclaration>>& getMethods() const { return methods_; }
     MethodDeclaration* getConstructor() const { return constructor_.get(); }
+    DestructorDeclaration* getDestructor() const { return destructor_.get(); }
     bool isAbstract() const { return isAbstract_; }
 
 private:
@@ -1202,6 +1243,7 @@ private:
     std::vector<unique_ptr<PropertyDeclaration>> properties_;
     std::vector<unique_ptr<MethodDeclaration>> methods_;
     unique_ptr<MethodDeclaration> constructor_;
+    unique_ptr<DestructorDeclaration> destructor_;
     SourceLocation location_;
     bool isAbstract_;
 };
@@ -1350,6 +1392,7 @@ public:
     virtual void visit(PropertyAccess& node) = 0;
     virtual void visit(ArrowFunction& node) = 0;
     virtual void visit(FunctionExpression& node) = 0;
+    virtual void visit(MoveExpression& node) = 0;
     
     // Statements
     virtual void visit(ExpressionStatement& node) = 0;
@@ -1374,6 +1417,7 @@ public:
     // Class-related declarations
     virtual void visit(PropertyDeclaration& node) = 0;
     virtual void visit(MethodDeclaration& node) = 0;
+    virtual void visit(DestructorDeclaration& node) = 0;
     virtual void visit(ClassDeclaration& node) = 0;
     virtual void visit(InterfaceDeclaration& node) = 0;
     virtual void visit(EnumMember& node) = 0;
