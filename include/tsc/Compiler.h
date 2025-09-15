@@ -87,7 +87,7 @@ private:
     void reportPhaseError(CompilationPhase phase, const String& error);
     
     // Cross-module compilation helper
-    CompilationResult compileWithResolvedSymbols(const String& sourceFile, SemanticAnalyzer& analyzer);
+    CompilationResult compileWithResolvedSymbols(const String& sourceFile, SemanticAnalyzer& analyzer, bool isEntryPoint = false);
 };
 
 // Utility functions

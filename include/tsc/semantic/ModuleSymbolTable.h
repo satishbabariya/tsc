@@ -47,7 +47,7 @@ struct ExportedSymbol {
 // Module symbol table that extends the base SymbolTable with module-specific functionality
 class ModuleSymbolTable {
 public:
-    explicit ModuleSymbolTable(const String& modulePath, DiagnosticEngine& diagnostics);
+    explicit ModuleSymbolTable(const String& modulePath, DiagnosticEngine& diagnostics, SymbolTable* symbolTable = nullptr);
     ~ModuleSymbolTable();
     
     // Module information
@@ -57,6 +57,7 @@ public:
     // Access to the underlying symbol table
     SymbolTable& getSymbolTable() { return *symbolTable_; }
     const SymbolTable& getSymbolTable() const { return *symbolTable_; }
+    SymbolTable* getSymbolTablePtr() { return symbolTable_.get(); }
     
     // Import management
     void addImportedSymbol(const ImportedSymbol& importedSymbol);
@@ -88,6 +89,7 @@ private:
     String moduleName_;
     DiagnosticEngine& diagnostics_;
     unique_ptr<SymbolTable> symbolTable_;
+    bool ownsSymbolTable_;
     
     std::vector<ImportedSymbol> importedSymbols_;
     std::vector<ExportedSymbol> exportedSymbols_;
@@ -101,7 +103,7 @@ private:
 // Manager for multiple module symbol tables
 class ModuleSymbolManager {
 public:
-    explicit ModuleSymbolManager(DiagnosticEngine& diagnostics);
+    explicit ModuleSymbolManager(DiagnosticEngine& diagnostics, SymbolTable* mainSymbolTable = nullptr);
     ~ModuleSymbolManager();
     
     // Module management
@@ -127,6 +129,7 @@ public:
 
 private:
     DiagnosticEngine& diagnostics_;
+    SymbolTable* mainSymbolTable_;
     std::unordered_map<String, unique_ptr<ModuleSymbolTable>> moduleTables_;
     
     // Helper methods

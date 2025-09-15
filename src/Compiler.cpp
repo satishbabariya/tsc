@@ -164,10 +164,13 @@ CompilationResult Compiler::compileModule(const std::vector<String>& sourceFiles
     
     // Phase 2: Code generation for each module with resolved symbols
     std::vector<String> objectFiles;
-    for (const auto& sourceFile : sourceFiles) {
-        std::cout << "DEBUG: Generating code for module: " << sourceFile << std::endl;
+    for (size_t i = 0; i < sourceFiles.size(); ++i) {
+        const auto& sourceFile = sourceFiles[i];
+        bool isEntryPoint = (i == sourceFiles.size() - 1); // Last module is entry point
+        std::cout << "DEBUG: Generating code for module: " << sourceFile 
+                  << (isEntryPoint ? " (entry point)" : "") << std::endl;
         
-        auto fileResult = compileWithResolvedSymbols(sourceFile, analyzer);
+        auto fileResult = compileWithResolvedSymbols(sourceFile, analyzer, isEntryPoint);
         if (!fileResult.success) {
             return fileResult; // Propagate error
         }
@@ -191,7 +194,7 @@ CompilationResult Compiler::compileModule(const std::vector<String>& sourceFiles
     return result;
 }
 
-CompilationResult Compiler::compileWithResolvedSymbols(const String& sourceFile, SemanticAnalyzer& analyzer) {
+CompilationResult Compiler::compileWithResolvedSymbols(const String& sourceFile, SemanticAnalyzer& analyzer, bool isEntryPoint) {
     CompilationResult result;
     
     try {
@@ -224,16 +227,23 @@ CompilationResult Compiler::compileWithResolvedSymbols(const String& sourceFile,
         // Store AST for potential debugging
         result.ast = std::move(module);
         
+        // Create a new LLVMCodeGen instance for this module to avoid function accumulation
+        auto moduleCodeGenerator = createLLVMCodeGen(*diagnostics_, options_);
+        
+        // Set main function generation flag for multi-module compilation
+        moduleCodeGenerator->setGenerateMainFunction(isEntryPoint);
+        std::cout << "DEBUG: Set generateMainFunction to " << (isEntryPoint ? "true" : "false") << " for " << sourceFile << std::endl;
+        
         // Generate LLVM IR using the resolved symbols from analyzer
         // TODO: Modify LLVMCodeGen to use resolved symbols from SemanticAnalyzer
-        if (!codeGenerator_->generateCode(*result.ast, 
-                                         typeChecker_->getSymbolTable(), 
-                                         typeChecker_->getTypeSystem())) {
+        if (!moduleCodeGenerator->generateCode(*result.ast, 
+                                             typeChecker_->getSymbolTable(), 
+                                             typeChecker_->getTypeSystem())) {
             result.errorMessage = "Failed to generate LLVM IR for: " + sourceFile;
             return result;
         }
         
-        String llvmIR = codeGenerator_->getLLVMIRString();
+        String llvmIR = moduleCodeGenerator->getLLVMIRString();
         result.llvmIR = llvmIR;
         
         // Generate object file

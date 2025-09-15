@@ -9,16 +9,28 @@ namespace tsc {
 namespace fs = std::filesystem;
 
 // ModuleSymbolTable implementation
-ModuleSymbolTable::ModuleSymbolTable(const String& modulePath, DiagnosticEngine& diagnostics)
+ModuleSymbolTable::ModuleSymbolTable(const String& modulePath, DiagnosticEngine& diagnostics, SymbolTable* symbolTable)
     : modulePath_(modulePath), diagnostics_(diagnostics) {
     moduleName_ = extractModuleName(modulePath);
-    symbolTable_ = make_unique<SymbolTable>(moduleName_);
+    if (symbolTable) {
+        symbolTable_ = std::unique_ptr<SymbolTable>(symbolTable);
+        ownsSymbolTable_ = false;
+    } else {
+        symbolTable_ = make_unique<SymbolTable>(moduleName_);
+        ownsSymbolTable_ = true;
+    }
     
     std::cout << "DEBUG: Created ModuleSymbolTable for module: " << moduleName_ 
               << " at path: " << modulePath_ << std::endl;
 }
 
-ModuleSymbolTable::~ModuleSymbolTable() = default;
+ModuleSymbolTable::~ModuleSymbolTable() {
+    if (ownsSymbolTable_) {
+        symbolTable_.release(); // Let unique_ptr handle deletion
+    } else {
+        symbolTable_.release(); // Don't delete, we don't own it
+    }
+}
 
 void ModuleSymbolTable::addImportedSymbol(const ImportedSymbol& importedSymbol) {
     // Check for conflicts with existing symbols
@@ -191,8 +203,8 @@ void ModuleSymbolTable::validateSymbolConflict(const String& name, const SourceL
 }
 
 // ModuleSymbolManager implementation
-ModuleSymbolManager::ModuleSymbolManager(DiagnosticEngine& diagnostics)
-    : diagnostics_(diagnostics) {
+ModuleSymbolManager::ModuleSymbolManager(DiagnosticEngine& diagnostics, SymbolTable* mainSymbolTable)
+    : diagnostics_(diagnostics), mainSymbolTable_(mainSymbolTable) {
     std::cout << "DEBUG: Created ModuleSymbolManager" << std::endl;
 }
 
@@ -204,7 +216,7 @@ ModuleSymbolTable* ModuleSymbolManager::createModuleSymbolTable(const String& mo
         return it->second.get();
     }
     
-    auto moduleTable = make_unique<ModuleSymbolTable>(modulePath, diagnostics_);
+    auto moduleTable = make_unique<ModuleSymbolTable>(modulePath, diagnostics_, mainSymbolTable_);
     ModuleSymbolTable* result = moduleTable.get();
     moduleTables_[modulePath] = std::move(moduleTable);
     
@@ -301,40 +313,10 @@ bool ModuleSymbolManager::bindExportsToImports() {
             std::cout << "DEBUG: Found exported symbol '" << imported.importedName 
                       << "' in source module" << std::endl;
             
-            // Create or find the imported symbol in the main symbol table
+            // Find the imported symbol in the main symbol table
             Symbol* importedSymbol = moduleTable->getSymbolTable().lookupSymbol(imported.localName);
-            if (!importedSymbol) {
-                // Create a new symbol for the imported symbol using factory functions
-                unique_ptr<Symbol> newSymbol;
-                switch (imported.kind) {
-                    case SymbolKind::Variable:
-                        newSymbol = createVariableSymbol(imported.localName, exportedSymbol->getType(), imported.location);
-                        break;
-                    case SymbolKind::Function:
-                        newSymbol = createFunctionSymbol(imported.localName, exportedSymbol->getType(), imported.location);
-                        break;
-                    case SymbolKind::Module:
-                        newSymbol = make_unique<Symbol>(imported.localName, imported.kind, exportedSymbol->getType(), imported.location, exportedSymbol->getDeclaration());
-                        break;
-                    default:
-                        newSymbol = make_unique<Symbol>(imported.localName, imported.kind, exportedSymbol->getType(), imported.location, exportedSymbol->getDeclaration());
-                        break;
-                }
-                
-                if (newSymbol) {
-                    // Add the symbol to the current scope
-                    Scope* currentScope = moduleTable->getSymbolTable().getCurrentScope();
-                    if (currentScope) {
-                        currentScope->addSymbol(std::move(newSymbol));
-                        importedSymbol = moduleTable->getSymbolTable().lookupSymbol(imported.localName);
-                        std::cout << "DEBUG: Created imported symbol " << imported.localName 
-                                  << " in symbol table" << std::endl;
-                    }
-                }
-            }
-            
             if (importedSymbol) {
-                // Copy type and other information from the exported symbol
+                // Update the existing symbol with type and declaration information from the exported symbol
                 importedSymbol->setType(exportedSymbol->getType());
                 importedSymbol->setDeclaration(exportedSymbol->getDeclaration());
                 
@@ -342,8 +324,10 @@ bool ModuleSymbolManager::bindExportsToImports() {
                           << " to export " << imported.importedName 
                           << " from " << imported.sourceModulePath << std::endl;
             } else {
-                diagnostics_.error("Failed to create imported symbol: " + imported.localName, 
-                                 imported.location);
+                std::cout << "DEBUG: Imported symbol " << imported.localName 
+                          << " not found in symbol table" << std::endl;
+                diagnostics_.error("Cannot resolve import: symbol '" + imported.localName + 
+                                 "' not found in symbol table", imported.location);
                 success = false;
             }
         }

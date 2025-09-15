@@ -3458,7 +3458,10 @@ void LLVMCodeGen::visit(Module& module) {
     // Check if main function already exists
     bool mainExists = module_->getFunction("main") != nullptr;
     
-    if (!moduleStatements.empty() && !mainExists) {
+    std::cout << "DEBUG: Checking main function generation: moduleStatements=" << moduleStatements.size() 
+              << ", mainExists=" << (mainExists ? "true" : "false") 
+              << ", generateMainFunction=" << (generateMainFunction_ ? "true" : "false") << std::endl;
+    if (!moduleStatements.empty() && !mainExists && generateMainFunction_) {
         llvm::FunctionType* mainType = llvm::FunctionType::get(
             llvm::Type::getInt32Ty(*context_), false);
         mainFunc = llvm::Function::Create(
@@ -3673,7 +3676,7 @@ void LLVMCodeGen::visit(Module& module) {
         // Also check all other functions in the module for missing terminators
         // Skip the duplicate terminator checking for now to avoid the "Terminator found in the middle of a basic block!" error
         // The terminator addition logic is already handled in the method generation code
-    } else if (!mainExists) {
+    } else if (!mainExists && generateMainFunction_) {
         // Create an empty main function if no module-level statements exist and no main function exists
         llvm::FunctionType* mainType = llvm::FunctionType::get(
             llvm::Type::getInt32Ty(*context_), false);

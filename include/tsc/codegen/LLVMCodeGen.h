@@ -358,6 +358,9 @@ public:
     llvm::Module* getLLVMModule() const { return module_.get(); }
     String getLLVMIRString() const;
     
+    // Multi-module compilation control
+    void setGenerateMainFunction(bool generate) { generateMainFunction_ = generate; }
+    
     // Nested function generation
     void generateNestedFunction(const FunctionDeclaration& node);
     
@@ -444,6 +447,9 @@ private:
     std::stack<FunctionContext> functionContexts_;
     std::unique_ptr<BuiltinFunctionRegistry> builtinRegistry_;
     std::unique_ptr<IRAllocator> irAllocator_;
+    
+    // Multi-module compilation control
+    bool generateMainFunction_ = true;
     
     // Type caching system
     std::unordered_map<String, llvm::Type*> typeCache_;
