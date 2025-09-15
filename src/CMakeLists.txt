@@ -40,5 +40,8 @@ target_include_directories(tsc_lib PUBLIC
     ${LLVM_INCLUDE_DIRS}
 )
 
+# Add runtime subdirectory
+add_subdirectory(runtime)
+
 # Compiler definitions
 target_compile_definitions(tsc_lib PUBLIC ${LLVM_DEFINITIONS})
