@@ -2561,9 +2561,31 @@ unique_ptr<DestructuringPattern> Parser::parseArrayDestructuringPattern() {
                 elements.push_back(std::move(restPattern));
             }
         } else {
+            // Parse the pattern element
             auto element = parseDestructuringPattern();
             if (element) {
-                elements.push_back(std::move(element));
+                // Check if this is an identifier pattern with a default value
+                if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(element.get())) {
+                    // Check for default value: [a = default]
+                    if (match(TokenType::Equal)) {
+                        auto defaultValue = parseExpression();
+                        if (!defaultValue) {
+                            reportError("Expected default value after '='", getCurrentLocation());
+                            return nullptr;
+                        }
+                        // Create a new IdentifierPattern with the default value
+                        auto newPattern = make_unique<IdentifierPattern>(
+                            identifierPattern->getName(), 
+                            std::move(defaultValue), 
+                            identifierPattern->getLocation()
+                        );
+                        elements.push_back(std::move(newPattern));
+                    } else {
+                        elements.push_back(std::move(element));
+                    }
+                } else {
+                    elements.push_back(std::move(element));
+                }
             }
         }
     } while (match(TokenType::Comma));

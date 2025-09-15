@@ -6961,8 +6961,12 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
         const auto& element = elements[i];
         
         if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(element.get())) {
-            // Simple identifier pattern: let [a, b] = array;
-            std::cout << "DEBUG: Processing identifier pattern: " << identifierPattern->getName() << std::endl;
+            // Simple identifier pattern: let [a, b] = array; or let [a = default] = array;
+            std::cout << "DEBUG: Processing identifier pattern: " << identifierPattern->getName();
+            if (identifierPattern->hasDefaultValue()) {
+                std::cout << " (with default value)";
+            }
+            std::cout << std::endl;
             
             // Generate code to access array[i]
             llvm::Value* indexValue = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i);
@@ -6991,11 +6995,37 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
                             llvm::Value* elementPtr = builder_->CreateGEP(arrayType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
                             llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
                             
+                            // Handle default value if present
+                            llvm::Value* finalValue = elementValue;
+                            if (identifierPattern->hasDefaultValue()) {
+                                // Check if array has enough elements (i < array.length)
+                                // Load array length from field 0
+                                llvm::Value* lengthPtr = builder_->CreateGEP(arrayType, arrayPtr, {
+                                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)
+                                }, "length_ptr");
+                                llvm::Value* arrayLength = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "array_length");
+                                
+                                // Compare index with length: i < length
+                                llvm::Value* indexLessThanLength = builder_->CreateICmpULT(indexValue, arrayLength, "index_lt_length");
+                                
+                                // Generate default value
+                                llvm::Value* defaultValue = nullptr;
+                                if (identifierPattern->getDefaultValue()) {
+                                    identifierPattern->getDefaultValue()->accept(*this);
+                                    defaultValue = getCurrentValue();
+                                }
+                                
+                                // Select between element value and default value
+                                finalValue = builder_->CreateSelect(indexLessThanLength, elementValue, defaultValue, "selected_value_" + std::to_string(i));
+                                
+                                std::cout << "DEBUG: Generated default value logic for " << identifierPattern->getName() << std::endl;
+                            }
+                            
                             // Create the variable storage first
                             llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
                             
-                            // Store the element value in the variable
-                            builder_->CreateStore(elementValue, variableStorage);
+                            // Store the final value in the variable
+                            builder_->CreateStore(finalValue, variableStorage);
                             
                             std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
                             continue; // Successfully processed this element
@@ -7012,11 +7042,31 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
                     llvm::Value* elementPtr = builder_->CreateGEP(arrayType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
                     llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
                     
+                    // Handle default value if present
+                    llvm::Value* finalValue = elementValue;
+                    if (identifierPattern->hasDefaultValue()) {
+                        // For legacy arrays, we assume they have a fixed size
+                        // We could add bounds checking here if needed
+                        // For now, just use the element value
+                        
+                        // Generate default value
+                        llvm::Value* defaultValue = nullptr;
+                        if (identifierPattern->getDefaultValue()) {
+                            identifierPattern->getDefaultValue()->accept(*this);
+                            defaultValue = getCurrentValue();
+                        }
+                        
+                        // For legacy arrays, we'll use the element value (no bounds checking for now)
+                        finalValue = elementValue;
+                        
+                        std::cout << "DEBUG: Generated default value logic for legacy array " << identifierPattern->getName() << std::endl;
+                    }
+                    
                     // Create the variable storage first
                     llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
                     
-                    // Store the element value in the variable
-                    builder_->CreateStore(elementValue, variableStorage);
+                    // Store the final value in the variable
+                    builder_->CreateStore(finalValue, variableStorage);
                     
                     std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
                     continue; // Successfully processed this element
@@ -7026,20 +7076,91 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
                 // For now, assume it's a pointer to a double array (simplified)
                 elementType = getNumberType(); // Assume double elements
                 
-                // Create a pointer to the element type
-                llvm::Type* elementPtrType = elementType->getPointerTo();
-                
-                std::vector<llvm::Value*> indices = {
-                    indexValue  // Element index
-                };
-                llvm::Value* elementPtr = builder_->CreateGEP(elementPtrType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
-                llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
-                
-                // Create the variable storage first
-                llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
-                
-                // Store the element value in the variable
-                builder_->CreateStore(elementValue, variableStorage);
+                // For global arrays, we need to handle them differently
+                if (llvm::isa<llvm::GlobalVariable>(arrayPtr)) {
+                    // This is a global array - access it directly
+                    std::vector<llvm::Value*> indices = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                        indexValue  // Element index
+                    };
+                    llvm::Value* elementPtr = builder_->CreateGEP(elementType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
+                    llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
+                    
+                    // Handle default value if present
+                    llvm::Value* finalValue = elementValue;
+                    if (identifierPattern->hasDefaultValue()) {
+                        // For global arrays, we can add bounds checking
+                        // Get the array size from the global variable type
+                        auto* globalVar = llvm::cast<llvm::GlobalVariable>(arrayPtr);
+                        llvm::Type* arrayType = globalVar->getValueType();
+                        
+                        if (auto* arrType = llvm::dyn_cast<llvm::ArrayType>(arrayType)) {
+                            llvm::Value* arraySize = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), arrType->getNumElements());
+                            
+                            // Compare index with size: i < size
+                            llvm::Value* indexLessThanSize = builder_->CreateICmpULT(indexValue, arraySize, "index_lt_size");
+                            
+                            // Generate default value
+                            llvm::Value* defaultValue = nullptr;
+                            if (identifierPattern->getDefaultValue()) {
+                                identifierPattern->getDefaultValue()->accept(*this);
+                                defaultValue = getCurrentValue();
+                            }
+                            
+                            // Select between element value and default value
+                            finalValue = builder_->CreateSelect(indexLessThanSize, elementValue, defaultValue, "selected_value_" + std::to_string(i));
+                            
+                            std::cout << "DEBUG: Generated default value logic for global array " << identifierPattern->getName() << std::endl;
+                        } else {
+                            // Fallback: use element value
+                            finalValue = elementValue;
+                        }
+                    }
+                    
+                    // Create the variable storage first
+                    llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
+                    
+                    // Store the final value in the variable
+                    builder_->CreateStore(finalValue, variableStorage);
+                    
+                    std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                    continue; // Successfully processed this element
+                } else {
+                    // Non-global array - use pointer arithmetic
+                    llvm::Type* elementPtrType = elementType->getPointerTo();
+                    
+                    std::vector<llvm::Value*> indices = {
+                        indexValue  // Element index
+                    };
+                    llvm::Value* elementPtr = builder_->CreateGEP(elementPtrType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
+                    llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
+                    
+                    // Handle default value if present
+                    llvm::Value* finalValue = elementValue;
+                    if (identifierPattern->hasDefaultValue()) {
+                        // For pointer arrays, we don't have length information readily available
+                        // We could add bounds checking here if needed
+                        // For now, just use the element value
+                        
+                        // Generate default value
+                        llvm::Value* defaultValue = nullptr;
+                        if (identifierPattern->getDefaultValue()) {
+                            identifierPattern->getDefaultValue()->accept(*this);
+                            defaultValue = getCurrentValue();
+                        }
+                        
+                        // For pointer arrays, we'll use the element value (no bounds checking for now)
+                        finalValue = elementValue;
+                        
+                        std::cout << "DEBUG: Generated default value logic for pointer array " << identifierPattern->getName() << std::endl;
+                    }
+                    
+                    // Create the variable storage first
+                    llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
+                    
+                    // Store the final value in the variable
+                    builder_->CreateStore(finalValue, variableStorage);
+                }
                 
                 std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
                 continue; // Successfully processed this element

@@ -1126,15 +1126,21 @@ private:
 class IdentifierPattern : public DestructuringPattern {
 public:
     IdentifierPattern(const String& name, const SourceLocation& loc)
-        : DestructuringPattern(loc), name_(name) {}
+        : DestructuringPattern(loc), name_(name), defaultValue_(nullptr) {}
+    
+    IdentifierPattern(const String& name, unique_ptr<Expression> defaultValue, const SourceLocation& loc)
+        : DestructuringPattern(loc), name_(name), defaultValue_(std::move(defaultValue)) {}
     
     void accept(ASTVisitor& visitor) override;
     String toString() const override;
     
     const String& getName() const { return name_; }
+    Expression* getDefaultValue() const { return defaultValue_.get(); }
+    bool hasDefaultValue() const { return defaultValue_ != nullptr; }
 
 private:
     String name_;
+    unique_ptr<Expression> defaultValue_;
 };
 
 // Destructuring assignment: let [a, b] = array;
