@@ -2180,46 +2180,30 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
             // Handle destructors and constructors accessing class properties
             if (isDestructor || isConstructor) {
                 // For destructors and constructors, we need to access class properties
-                // The object structure is { i32 ref_count, ptr data } where data points to the actual object
-                // We need to load the data pointer first, then access the property
+                // The ARC object structure is: { i32 ref_count, i32 weak_count, ptr destructor, ptr type_info }
+                // The actual object data is stored after the header
                 
-                // First, get the data pointer (second field of ARC object)
-                llvm::Value* dataIndices[] = {
-                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
-                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)   // Field index 1 (data pointer)
-                };
+                // Calculate the offset to the object data (after the ARC header)
+                // ARC_ObjectHeader size: 4 + 4 + 8 + 8 = 24 bytes (on 64-bit)
+                llvm::Value* objectDataOffset = llvm::ConstantInt::get(llvm::Type::getInt64Ty(*context_), 24);
                 
-                llvm::StructType* arcStructType = llvm::StructType::get(*context_, {
-                    llvm::Type::getInt32Ty(*context_),  // ref_count
-                    llvm::Type::getInt8Ty(*context_)->getPointerTo()  // data pointer
-                });
+                // Get pointer to the object data (after the ARC header)
+                llvm::Value* objectDataPtr = builder_->CreateGEP(llvm::Type::getInt8Ty(*context_), objectValue, objectDataOffset, "object_data_ptr");
                 
-                llvm::Value* dataPtr = builder_->CreateGEP(arcStructType, objectValue, dataIndices, "data_ptr");
-                llvm::Value* actualObject = builder_->CreateLoad(llvm::Type::getInt8Ty(*context_)->getPointerTo(), dataPtr, "actual_object");
-                
-                // Now access the property on the actual object
-                // For now, assume properties are at fixed offsets based on their type
+                // Now access the property on the actual object data
                 if (propertyName == "id") {
-                    // Assume 'id' is a number at offset 0
-                    llvm::Value* propertyIndices[] = {
-                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)  // Field index 0
-                    };
-                    std::vector<llvm::Type*> propertyTypes = { getNumberType() };
-                    llvm::StructType* propertyStructType = llvm::StructType::get(*context_, propertyTypes);
-                    llvm::Value* propertyPtr = builder_->CreateGEP(propertyStructType, actualObject, propertyIndices, "id_ptr");
+                    // Assume 'id' is a number at offset 0 in the object data
+                    llvm::Value* propertyPtr = builder_->CreateGEP(getNumberType(), objectDataPtr, 
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), "id_ptr");
                     llvm::Value* propertyValue = builder_->CreateLoad(getNumberType(), propertyPtr, "id_value");
                     setCurrentValue(propertyValue);
                     std::cout << "DEBUG: PropertyAccess - Successfully accessed property 'id' in " << 
                                  (isDestructor ? "destructor" : "constructor") << std::endl;
                     return;
                 } else if (propertyName == "name") {
-                    // Assume 'name' is a string at offset 0
-                    llvm::Value* propertyIndices[] = {
-                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)  // Field index 0
-                    };
-                    std::vector<llvm::Type*> propertyTypes = { getStringType() };
-                    llvm::StructType* propertyStructType = llvm::StructType::get(*context_, propertyTypes);
-                    llvm::Value* propertyPtr = builder_->CreateGEP(propertyStructType, actualObject, propertyIndices, "name_ptr");
+                    // Assume 'name' is a string at offset 0 in the object data
+                    llvm::Value* propertyPtr = builder_->CreateGEP(getStringType(), objectDataPtr, 
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), "name_ptr");
                     llvm::Value* propertyValue = builder_->CreateLoad(getStringType(), propertyPtr, "name_value");
                     setCurrentValue(propertyValue);
                     std::cout << "DEBUG: PropertyAccess - Successfully accessed property 'name' in " << 

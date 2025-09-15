@@ -91,6 +91,10 @@ char* number_to_string_1(double value) {
     return number_to_string(value);
 }
 
+char* number_to_string_2(double value) {
+    return number_to_string(value);
+}
+
 char* number_to_string_4(double value) {
     return number_to_string(value);
 }
@@ -119,6 +123,8 @@ char* number_to_string_9(double value) {
 // These create symbols with dots in the name that the linker expects
 __asm__(".weak number_to_string.1");
 __asm__(".set number_to_string.1, number_to_string_1");
+__asm__(".weak number_to_string.2");
+__asm__(".set number_to_string.2, number_to_string_2");
 __asm__(".weak number_to_string.4");
 __asm__(".set number_to_string.4, number_to_string_4");
 __asm__(".weak number_to_string.5");
