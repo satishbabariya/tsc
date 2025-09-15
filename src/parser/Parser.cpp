@@ -807,6 +807,8 @@ ExportClause Parser::parseExportClause() {
         return ExportClause(ExportClause::Default, {}, std::move(classDecl));
     } else if (check(TokenType::Const) || check(TokenType::Let) || check(TokenType::Var)) {
         // Export variable declaration
+        // Consume the keyword first
+        Token keyword = advance();
         auto varDecl = parseVariableStatement();
         return ExportClause(ExportClause::Default, {}, std::move(varDecl));
     } else {
