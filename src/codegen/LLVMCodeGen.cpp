@@ -3554,6 +3554,9 @@ void LLVMCodeGen::visit(SwitchStatement& node) {
     llvm::BasicBlock* endBlock = llvm::BasicBlock::Create(*context_, "switch.end", currentFunc);
     llvm::BasicBlock* defaultBlock = endBlock;  // Default to end block if no default case
     
+    // Enter switch context for break statement handling
+    enterSwitch(endBlock);
+    
     // Create blocks for each case
     std::vector<std::pair<llvm::ConstantInt*, llvm::BasicBlock*>> caseBlocks;
     
@@ -3607,10 +3610,20 @@ void LLVMCodeGen::visit(SwitchStatement& node) {
         
         // If no terminator was added (no break/return), fall through to next case
         if (!builder_->GetInsertBlock()->getTerminator()) {
-            if (i + 1 < node.getCases().size()) {
-                // Fall through to next case (simplified - should find next case block)
+            // Check if this case has a break statement that should fall through
+            bool hasBreak = false;
+            for (const auto& stmt : caseClause->getStatements()) {
+                if (dynamic_cast<BreakStatement*>(stmt.get())) {
+                    hasBreak = true;
+                    break;
+                }
+            }
+            
+            if (hasBreak) {
+                // Break statement should jump to switch end
                 builder_->CreateBr(endBlock);
             } else {
+                // No break, fall through to next case or end
                 builder_->CreateBr(endBlock);
             }
         }
@@ -3618,6 +3631,9 @@ void LLVMCodeGen::visit(SwitchStatement& node) {
     
     // Continue with end block
     builder_->SetInsertPoint(endBlock);
+    
+    // Exit switch context
+    exitSwitch();
 }
 
 void LLVMCodeGen::visit(CaseClause& node) {
@@ -3628,9 +3644,23 @@ void LLVMCodeGen::visit(CaseClause& node) {
 }
 
 void LLVMCodeGen::visit(BreakStatement& node) {
-    // TODO: Implement proper break handling with loop/switch context tracking
-    // For now, just create an unreachable instruction as placeholder
-    builder_->CreateUnreachable();
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    if (!currentFunc) {
+        reportError("Break statement outside function", node.getLocation());
+        return;
+    }
+    
+    // Check if we're in a switch context
+    llvm::BasicBlock* switchExitBlock = getCurrentSwitchExitBlock();
+    if (switchExitBlock) {
+        // Break from switch statement
+        builder_->CreateBr(switchExitBlock);
+        return;
+    }
+    
+    // Check if we're in a loop context (for future implementation)
+    // For now, report error if break is not in a switch
+    reportError("Break statement must be inside a switch or loop", node.getLocation());
 }
 
 void LLVMCodeGen::visit(ContinueStatement& node) {
@@ -7925,6 +7955,24 @@ void LLVMCodeGen::generateAutomaticCleanup(const String& className) {
     }
     
     std::cout << "DEBUG: Automatic cleanup generation completed for: " << className << std::endl;
+}
+
+// Switch context management
+void LLVMCodeGen::enterSwitch(llvm::BasicBlock* exitBlock) {
+    switchStack_.push({exitBlock});
+}
+
+void LLVMCodeGen::exitSwitch() {
+    if (!switchStack_.empty()) {
+        switchStack_.pop();
+    }
+}
+
+llvm::BasicBlock* LLVMCodeGen::getCurrentSwitchExitBlock() const {
+    if (!switchStack_.empty()) {
+        return switchStack_.top().exitBlock;
+    }
+    return nullptr;
 }
 
 // Factory function

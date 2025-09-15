@@ -67,6 +67,11 @@ public:
     llvm::BasicBlock* getCurrentContinueBlock() const;
     llvm::BasicBlock* getCurrentBreakBlock() const;
     
+    // Switch context for break statements
+    void enterSwitch(llvm::BasicBlock* exitBlock);
+    void exitSwitch();
+    llvm::BasicBlock* getCurrentSwitchExitBlock() const;
+    
     
     // Scope management
     void enterScope();
@@ -104,6 +109,12 @@ private:
         llvm::BasicBlock* breakBlock;
     };
     std::stack<LoopContext> loopStack_;
+    
+    // Switch context for break statements
+    struct SwitchContext {
+        llvm::BasicBlock* exitBlock;
+    };
+    std::stack<SwitchContext> switchStack_;
     
     // ARC object tracking
     struct ARCManagedObject {
