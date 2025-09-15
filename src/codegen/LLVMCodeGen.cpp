@@ -116,18 +116,7 @@ void CodeGenContext::generateScopeCleanup(class LLVMCodeGen* codeGen) {
         const ARCManagedObject& obj = *it;
         std::cout << "DEBUG: Generating cleanup for ARC object '" << obj.name << "' (class: " << obj.className << ")" << std::endl;
         
-        // 1. Call destructor if it exists
-        String destructorName = "~" + obj.className;
-        llvm::Function* destructorFunc = module_.getFunction(destructorName);
-        
-        if (destructorFunc) {
-            std::cout << "DEBUG: Calling destructor " << destructorName << " for object " << obj.name << std::endl;
-            builder_.CreateCall(destructorFunc, {obj.object});
-        } else {
-            std::cout << "DEBUG: No destructor found for class " << obj.className << std::endl;
-        }
-        
-        // 2. Call __tsc_release to decrement reference count
+        // Call __tsc_release to decrement reference count (this will automatically call the destructor when ref count reaches 0)
         llvm::Function* releaseFunc = codeGen->getOrCreateARCReleaseFunction();
         if (releaseFunc) {
             std::cout << "DEBUG: Calling __tsc_release for object " << obj.name << std::endl;
@@ -538,8 +527,11 @@ void LLVMCodeGen::visit(NewExpression& node) {
                 std::cout << "DEBUG: ARC allocating 16 bytes for struct type { i32, ptr }" << std::endl;
             }
             
-            // Create destructor function pointer (null for now)
-            llvm::Value* destructorPtr = llvm::ConstantPointerNull::get(llvm::PointerType::get(*context_, 0));
+            // Create destructor function pointer
+            llvm::Function* destructorFunc = module_->getFunction("~" + className);
+            llvm::Value* destructorPtr = destructorFunc ? 
+                builder_->CreateBitCast(destructorFunc, llvm::PointerType::get(*context_, 0)) :
+                llvm::ConstantPointerNull::get(llvm::PointerType::get(*context_, 0));
             // Create type info pointer (null for now)
             llvm::Value* typeInfoPtr = llvm::ConstantPointerNull::get(llvm::PointerType::get(*context_, 0));
             
@@ -708,9 +700,31 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
             std::cout << "DEBUG: PropertyAssignment - property: " << propertyName << std::endl;
             
             // Handle specific property assignments for class fields
-            if (propertyName == "items" || propertyName == "data") {
+            if (propertyName == "items" || propertyName == "data" || propertyName == "id") {
                 // Implement proper property assignment to object fields
                 std::cout << "DEBUG: PropertyAssignment - assigning to " << propertyName << " field" << std::endl;
+                
+                if (propertyName == "id") {
+                    // Handle id property assignment for class constructors
+                    // The ARC object structure is: { i32 ref_count, i32 weak_count, ptr destructor, ptr type_info }
+                    // The actual object data is stored after the header at offset 24 bytes
+                    
+                    // Calculate the offset to the object data (after the ARC header)
+                    llvm::Value* objectDataOffset = llvm::ConstantInt::get(llvm::Type::getInt64Ty(*context_), 24);
+                    
+                    // Get pointer to the object data (after the ARC header)
+                    llvm::Value* objectDataPtr = builder_->CreateGEP(llvm::Type::getInt8Ty(*context_), objectPtr, objectDataOffset, "object_data_ptr");
+                    
+                    // Store the id value at offset 0 in the object data
+                    llvm::Value* idFieldPtr = builder_->CreateGEP(getNumberType(), objectDataPtr, 
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), "id_field_ptr");
+                    
+                    builder_->CreateStore(value, idFieldPtr);
+                    std::cout << "DEBUG: PropertyAssignment - id value stored in object data" << std::endl;
+                    
+                    setCurrentValue(value); // Assignment returns the assigned value
+                    return;
+                }
                 
                 // Get the object type to determine the field layout
                 // For BasicArrayOperations<T>, the layout is { i32, ptr }
@@ -1260,6 +1274,23 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         setCurrentValue(createNullValue(getAnyType()));
                         return;
                     }
+                    
+                    // Special handling for console_log calls - convert double arguments to strings
+                    if (function && function->getName().str() == "console_log" && argValue->getType() == getNumberType()) {
+                        std::cout << "DEBUG: CallExpression - Converting double argument to string for console_log" << std::endl;
+                        // Convert double to string using number_to_string
+                        llvm::Function* numberToStringFunc = createBuiltinMethodFunction("toString", std::make_shared<PrimitiveType>(TypeKind::Number), node.getLocation());
+                        argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
+                    }
+                    
+                    // Special handling for console_log calls - convert pointer arguments to strings
+                    if (function && function->getName().str() == "console_log" && argValue->getType()->isPointerTy()) {
+                        std::cout << "DEBUG: CallExpression - Converting pointer argument to string for console_log" << std::endl;
+                        // Convert pointer to string using pointer_to_string
+                        llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
+                        argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
+                    }
+                    
                     args.push_back(argValue);
                     std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
                 }
@@ -1413,6 +1444,23 @@ void LLVMCodeGen::visit(CallExpression& node) {
                             setCurrentValue(createNullValue(getAnyType()));
                             return;
                         }
+                        
+                        // Special handling for console_log calls - convert double arguments to strings
+                        if (function && function->getName().str() == "console_log" && argValue->getType() == getNumberType()) {
+                            std::cout << "DEBUG: CallExpression - Converting double argument to string for console_log" << std::endl;
+                            // Convert double to string using number_to_string
+                            llvm::Function* numberToStringFunc = createBuiltinMethodFunction("toString", std::make_shared<PrimitiveType>(TypeKind::Number), node.getLocation());
+                            argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
+                        }
+                        
+                        // Special handling for console_log calls - convert pointer arguments to strings
+                        if (function && function->getName().str() == "console_log" && argValue->getType()->isPointerTy()) {
+                            std::cout << "DEBUG: CallExpression - Converting pointer argument to string for console_log" << std::endl;
+                            // Convert pointer to string using pointer_to_string
+                            llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
+                            argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
+                        }
+                        
                         args.push_back(argValue);
                         std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
                     }
@@ -2261,6 +2309,34 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
     // Check if this is property access on a non-generic class type
     std::cout << "DEBUG: PropertyAccess - objectValue type: " << (objectValue->getType()->isPointerTy() ? "pointer" : "not pointer") << std::endl;
     std::cout << "DEBUG: PropertyAccess - objectValue type == getAnyType(): " << (objectValue->getType() == getAnyType() ? "true" : "false") << std::endl;
+    
+    // Check if this is a method call on a primitive value (like num.toString())
+    if (!objectValue->getType()->isPointerTy()) {
+        // This is a method call on a primitive value
+        String propertyName = node.getProperty();
+        std::cout << "DEBUG: PropertyAccess - Handling method call on primitive value: " << propertyName << std::endl;
+        
+        if (propertyName == "toString") {
+            // Handle toString() on primitive values
+            if (objectValue->getType() == getNumberType()) {
+                // toString() on a number
+                auto numberType = std::make_shared<PrimitiveType>(TypeKind::Number);
+                llvm::Function* toStringFunc = createBuiltinMethodFunction("toString", numberType, node.getLocation());
+                
+                // Call the number_to_string function directly
+                std::vector<llvm::Value*> args = {objectValue};
+                llvm::Value* result = builder_->CreateCall(toStringFunc, args, "toString_result");
+                setCurrentValue(result);
+                std::cout << "DEBUG: PropertyAccess - Called toString on number primitive" << std::endl;
+                return;
+            }
+        }
+        
+        // For other methods on primitives, we could add more cases here
+        std::cout << "DEBUG: PropertyAccess - Unknown method on primitive: " << propertyName << std::endl;
+        setCurrentValue(createNullValue(getAnyType()));
+        return;
+    }
     
     // Check if this is property access on a non-generic class type
     // For now, handle the case where objectValue is getAnyType() but we know it's a class
@@ -3878,9 +3954,12 @@ void LLVMCodeGen::visit(Module& module) {
         
         // Dump LLVM IR to file for debugging
         std::error_code ec;
+        std::cout << "DEBUG: Attempting to create IR file..." << std::endl;
         llvm::raw_fd_ostream irFile("generated_ir.ll", ec, llvm::sys::fs::OF_Text);
         if (!ec) {
+            std::cout << "DEBUG: IR file created successfully, printing module..." << std::endl;
             module_->print(irFile, nullptr);
+            irFile.flush();
             std::cout << "DEBUG: LLVM IR dumped to generated_ir.ll" << std::endl;
         } else {
             std::cout << "DEBUG: Failed to dump LLVM IR: " << ec.message() << std::endl;
@@ -5805,6 +5884,30 @@ llvm::Function* LLVMCodeGen::getOrCreateARCReleaseFunction() {
     
     builtinFunctions_["__tsc_release"] = releaseFunc;
     return releaseFunc;
+}
+
+llvm::Function* LLVMCodeGen::getOrCreatePointerToStringFunction() {
+    if (builtinFunctions_.find("pointer_to_string") != builtinFunctions_.end()) {
+        return builtinFunctions_["pointer_to_string"];
+    }
+    
+    // Create pointer_to_string function declaration
+    llvm::Type* ptrType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    llvm::FunctionType* funcType = llvm::FunctionType::get(
+        ptrType, // Return type: char*
+        {ptrType}, // Parameter: void*
+        false // Not variadic
+    );
+    
+    llvm::Function* func = llvm::Function::Create(
+        funcType,
+        llvm::Function::ExternalLinkage,
+        "pointer_to_string",
+        module_.get()
+    );
+    
+    builtinFunctions_["pointer_to_string"] = func;
+    return func;
 }
 
 llvm::Function* LLVMCodeGen::getOrCreateARCAllocFunction() {

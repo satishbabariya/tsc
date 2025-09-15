@@ -95,12 +95,23 @@ char* number_to_string_2(double value) {
     return number_to_string(value);
 }
 
+char* number_to_string_3(double value) {
+    return number_to_string(value);
+}
+
 char* number_to_string_4(double value) {
     return number_to_string(value);
 }
 
 char* number_to_string_5(double value) {
     return number_to_string(value);
+}
+
+// Convert pointer to string representation
+char* pointer_to_string(void* ptr) {
+    static char buffer[32]; // Buffer for pointer string representation
+    snprintf(buffer, sizeof(buffer), "%p", ptr);
+    return buffer;
 }
 
 char* number_to_string_6(double value) {
@@ -125,6 +136,8 @@ __asm__(".weak number_to_string.1");
 __asm__(".set number_to_string.1, number_to_string_1");
 __asm__(".weak number_to_string.2");
 __asm__(".set number_to_string.2, number_to_string_2");
+__asm__(".weak number_to_string.3");
+__asm__(".set number_to_string.3, number_to_string_3");
 __asm__(".weak number_to_string.4");
 __asm__(".set number_to_string.4, number_to_string_4");
 __asm__(".weak number_to_string.5");

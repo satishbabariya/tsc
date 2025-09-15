@@ -529,6 +529,7 @@ private:
     llvm::Function* getOrCreateARCRetainFunction();
 public:
     llvm::Function* getOrCreateARCReleaseFunction();
+    llvm::Function* getOrCreatePointerToStringFunction();
     llvm::Function* getOrCreateARCAllocFunction();
     
     // ARC helper functions
