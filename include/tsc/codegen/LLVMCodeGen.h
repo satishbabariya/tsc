@@ -64,8 +64,8 @@ public:
     // Block context for break/continue
     void enterLoop(llvm::BasicBlock* continueBlock, llvm::BasicBlock* breakBlock);
     void exitLoop();
-    llvm::BasicBlock* getCurrentContinueBlock() const;
-    llvm::BasicBlock* getCurrentBreakBlock() const;
+    llvm::BasicBlock* getCurrentLoopContinueBlock() const;
+    llvm::BasicBlock* getCurrentLoopBreakBlock() const;
     
     // Switch context for break statements
     void enterSwitch(llvm::BasicBlock* exitBlock);

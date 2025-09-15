@@ -153,6 +153,31 @@ llvm::BasicBlock* CodeGenContext::getCurrentSwitchExitBlock() const {
     return nullptr;
 }
 
+// Loop context management
+void CodeGenContext::enterLoop(llvm::BasicBlock* continueBlock, llvm::BasicBlock* breakBlock) {
+    loopStack_.push({continueBlock, breakBlock});
+}
+
+void CodeGenContext::exitLoop() {
+    if (!loopStack_.empty()) {
+        loopStack_.pop();
+    }
+}
+
+llvm::BasicBlock* CodeGenContext::getCurrentLoopContinueBlock() const {
+    if (!loopStack_.empty()) {
+        return loopStack_.top().continueBlock;
+    }
+    return nullptr;
+}
+
+llvm::BasicBlock* CodeGenContext::getCurrentLoopBreakBlock() const {
+    if (!loopStack_.empty()) {
+        return loopStack_.top().breakBlock;
+    }
+    return nullptr;
+}
+
 // LLVMCodeGen implementation
 LLVMCodeGen::LLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& options)
     : diagnostics_(diagnostics), options_(options), currentValue_(nullptr) {
@@ -3345,6 +3370,9 @@ void LLVMCodeGen::visit(DoWhileStatement& node) {
     llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context_, "do.cond", currentFunc);
     llvm::BasicBlock* endBlock = llvm::BasicBlock::Create(*context_, "do.end", currentFunc);
     
+    // Enter loop context for break/continue support
+    codeGenContext_->enterLoop(conditionBlock, endBlock);
+    
     // Jump to body block (do-while executes body at least once)
     builder_->CreateBr(bodyBlock);
     
@@ -3379,6 +3407,9 @@ void LLVMCodeGen::visit(DoWhileStatement& node) {
     
     // Create conditional branch (continue if true, exit if false)
     builder_->CreateCondBr(conditionValue, bodyBlock, endBlock);
+    
+    // Exit loop context
+    codeGenContext_->exitLoop();
     
     // Continue with end block
     builder_->SetInsertPoint(endBlock);
@@ -3726,15 +3757,35 @@ void LLVMCodeGen::visit(BreakStatement& node) {
         return;
     }
     
-    // Check if we're in a loop context (for future implementation)
-    // For now, report error if break is not in a switch
+    // Check if we're in a loop context
+    llvm::BasicBlock* loopBreakBlock = codeGenContext_->getCurrentLoopBreakBlock();
+    if (loopBreakBlock) {
+        // Break from loop statement
+        builder_->CreateBr(loopBreakBlock);
+        return;
+    }
+    
+    // If not in switch or loop context, report error
     reportError("Break statement must be inside a switch or loop", node.getLocation());
 }
 
 void LLVMCodeGen::visit(ContinueStatement& node) {
-    // TODO: Implement proper continue handling with loop context tracking
-    // For now, just create an unreachable instruction as placeholder
-    builder_->CreateUnreachable();
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    if (!currentFunc) {
+        reportError("Continue statement outside function", node.getLocation());
+        return;
+    }
+    
+    // Check if we're in a loop context
+    llvm::BasicBlock* loopContinueBlock = codeGenContext_->getCurrentLoopContinueBlock();
+    if (loopContinueBlock) {
+        // Continue to loop condition/continue block
+        builder_->CreateBr(loopContinueBlock);
+        return;
+    }
+    
+    // If not in loop context, report error
+    reportError("Continue statement must be inside a loop", node.getLocation());
 }
 
 void LLVMCodeGen::visit(TryStatement& node) {
