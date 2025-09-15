@@ -1,176 +1,127 @@
 
-// Regression tests to ensure existing functionality remains intact
-interface LegacyInterface {
-    id: number;
-    name: string;
+// Regression tests for error handling
+// These tests ensure existing functionality remains intact
+
+// Test 1: Basic TypeScript compilation (without error handling)
+function basicTypeScriptTest(): void {
+    interface User {
+        id: string;
+        name: string;
+        email: string;
+    }
+    
+    class UserService {
+        private users: User[] = [];
+        
+        addUser(user: User): void {
+            this.users.push(user);
+        }
+        
+        getUser(id: string): User | undefined {
+            return this.users.find(user => user.id === id);
+        }
+        
+        getAllUsers(): User[] {
+            return [...this.users];
+        }
+    }
+    
+    const userService = new UserService();
+    userService.addUser({ id: "1", name: "Alice", email: "alice@example.com" });
+    userService.addUser({ id: "2", name: "Bob", email: "bob@example.com" });
+    
+    const user = userService.getUser("1");
+    console.log("User found:", user);
 }
 
-// Test that existing non-generic code still works
-function legacyFunction(item: LegacyInterface): string {
-    return `${item.id}: ${item.name}`;
+// Test 2: Generic types (without error handling)
+function genericTypesTest(): void {
+    interface Repository<T> {
+        findById(id: string): T | null;
+        save(entity: T): void;
+        findAll(): T[];
+    }
+    
+    class InMemoryRepository<T> implements Repository<T> {
+        private entities: T[] = [];
+        
+        findById(id: string): T | null {
+            return this.entities.find((entity: any) => entity.id === id) || null;
+        }
+        
+        save(entity: T): void {
+            this.entities.push(entity);
+        }
+        
+        findAll(): T[] {
+            return [...this.entities];
+        }
+    }
+    
+    const userRepo = new InMemoryRepository<User>();
+    userRepo.save({ id: "1", name: "Alice", email: "alice@example.com" });
+    
+    const foundUser = userRepo.findById("1");
+    console.log("Found user:", foundUser);
 }
 
-// Test that generic code doesn't break existing functionality
-class LegacyClass {
-    private items: LegacyInterface[] = [];
-    
-    add(item: LegacyInterface): void {
-        this.items.push(item);
+// Test 3: Async/await (without error handling)
+async function asyncAwaitTest(): Promise<void> {
+    async function fetchData(url: string): Promise<any> {
+        // Simulate async operation
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { data: "success", url };
     }
     
-    getById(id: number): LegacyInterface | undefined {
-        return this.items.find(item => item.id === id);
-    }
-    
-    getAll(): LegacyInterface[] {
-        return this.items;
-    }
+    const result = await fetchData("https://api.example.com/data");
+    console.log("Async result:", result);
 }
 
-// Test generic code alongside legacy code
-class GenericLegacyClass<T extends LegacyInterface> {
-    private items: T[] = [];
+// Test 4: Class inheritance (without error handling)
+abstract class BaseEntity {
+    constructor(public id: string) {}
     
-    add(item: T): void {
-        this.items.push(item);
-    }
-    
-    getById(id: number): T | undefined {
-        return this.items.find(item => item.id === id);
-    }
-    
-    getAll(): T[] {
-        return this.items;
-    }
-    
-    // Generic method that works with legacy interface
-    processLegacy(item: LegacyInterface): string {
-        return legacyFunction(item);
-    }
+    abstract validate(): boolean;
 }
 
-// Test that generic constraints work with existing interfaces
-interface ExistingInterface {
-    id: number;
-    value: string;
-}
-
-function processExisting<T extends ExistingInterface>(item: T): T {
-    return item;
-}
-
-// Test that generic arrays work with existing arrays
-function processExistingArray(items: LegacyInterface[]): LegacyInterface[] {
-    return items.map(item => ({ ...item, name: item.name.toUpperCase() }));
-}
-
-// Test that generic functions work with existing functions
-function combineLegacyAndGeneric<T extends LegacyInterface>(
-    legacyItem: LegacyInterface,
-    genericItem: T
-): { legacy: string; generic: T } {
-    return {
-        legacy: legacyFunction(legacyItem),
-        generic: genericItem
-    };
-}
-
-// Test that generic classes work with existing classes
-class ExtendedLegacyClass<T extends LegacyInterface> extends LegacyClass {
-    private genericItems: T[] = [];
-    
-    addGeneric(item: T): void {
-        this.genericItems.push(item);
+class UserEntity extends BaseEntity {
+    constructor(id: string, public name: string, public email: string) {
+        super(id);
     }
     
-    getGenericById(id: number): T | undefined {
-        return this.genericItems.find(item => item.id === id);
-    }
-    
-    getAllGeneric(): T[] {
-        return this.genericItems;
-    }
-    
-    // Method that combines legacy and generic functionality
-    processBoth(legacyId: number, genericId: number): { legacy?: LegacyInterface; generic?: T } {
-        return {
-            legacy: this.getById(legacyId),
-            generic: this.getGenericById(genericId)
-        };
+    validate(): boolean {
+        return !!(this.name && this.email);
     }
 }
 
-// Test that generic methods work with existing methods
-class MixedClass {
-    private legacyItems: LegacyInterface[] = [];
-    private genericItems: any[] = [];
-    
-    // Legacy method
-    addLegacy(item: LegacyInterface): void {
-        this.legacyItems.push(item);
+// Test 5: Function overloading (without error handling)
+function processData(data: string): string;
+function processData(data: number): number;
+function processData(data: boolean): boolean;
+function processData(data: any): any {
+    return data;
+}
+
+// Test 6: Module system (without error handling)
+export class ModuleTest {
+    public test(): void {
+        console.log("Module test successful");
     }
-    
-    // Generic method
-    addGeneric<T>(item: T): void {
-        this.genericItems.push(item);
-    }
-    
-    // Method that uses both
-    processAll(): { legacy: LegacyInterface[]; generic: any[] } {
-        return {
-            legacy: this.legacyItems,
-            generic: this.genericItems
-        };
-    }
-}
-
-// Test that generic constraints work with existing constraints
-interface ExistingConstraint {
-    compare(other: ExistingConstraint): number;
-}
-
-function sortExisting<T extends ExistingConstraint>(items: T[]): T[] {
-    return items.sort((a, b) => a.compare(b));
-}
-
-// Test that generic type inference works with existing types
-function inferFromExisting<T>(items: T[]): T[] {
-    return items.filter((item, index) => index % 2 === 0);
-}
-
-// Test that generic arrays work with existing array methods
-function processWithExistingMethods<T extends LegacyInterface>(items: T[]): T[] {
-    return items
-        .filter(item => item.id > 0)
-        .map(item => ({ ...item, name: item.name.toUpperCase() }))
-        .sort((a, b) => a.id - b.id);
 }
 
 // Run regression tests
-const legacyItem: LegacyInterface = { id: 1, name: 'Legacy Item' };
-const existingItem: ExistingInterface = { id: 2, value: 'Existing Value' };
+console.log("=== Regression Tests ===");
 
-console.log('Legacy function:', legacyFunction(legacyItem));
-console.log('Process existing:', processExisting(existingItem));
-console.log('Combine legacy and generic:', combineLegacyAndGeneric(legacyItem, legacyItem));
+basicTypeScriptTest();
+genericTypesTest();
+asyncAwaitTest();
 
-const legacyClass = new LegacyClass();
-legacyClass.add(legacyItem);
-console.log('Legacy class:', legacyClass.getAll());
+const userEntity = new UserEntity("1", "Alice", "alice@example.com");
+console.log("User entity valid:", userEntity.validate());
 
-const genericLegacyClass = new GenericLegacyClass<LegacyInterface>();
-genericLegacyClass.add(legacyItem);
-console.log('Generic legacy class:', genericLegacyClass.getAll());
-console.log('Process legacy:', genericLegacyClass.processLegacy(legacyItem));
+console.log("Process string:", processData("test"));
+console.log("Process number:", processData(123));
+console.log("Process boolean:", processData(true));
 
-const extendedClass = new ExtendedLegacyClass<LegacyInterface>();
-extendedClass.add(legacyItem);
-extendedClass.addGeneric(legacyItem);
-console.log('Extended class both:', extendedClass.processBoth(1, 1));
-
-const mixedClass = new MixedClass();
-mixedClass.addLegacy(legacyItem);
-mixedClass.addGeneric(existingItem);
-console.log('Mixed class all:', mixedClass.processAll());
-
-console.log('Regression tests completed successfully');
+const moduleTest = new ModuleTest();
+moduleTest.test();
