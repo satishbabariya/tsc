@@ -1867,10 +1867,10 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
         // For global scope, create a proper array structure
         std::cout << "DEBUG: Creating array literal for global context" << std::endl;
         
-        // Create array structure: { i32 length, ptr data }
+        // Create array structure: { i32 length, [size x elementType] data }
         llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
             llvm::Type::getInt32Ty(*context_),  // length
-            llvm::Type::getInt8Ty(*context_)->getPointerTo()  // data (pointer to dynamically allocated array)
+            llvm::ArrayType::get(elementType, arraySize)  // data
         });
         
         // Create a global variable for the array structure
@@ -1883,9 +1883,31 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
             "array_global"
         );
         
+        // Generate element values for initialization
+        std::vector<llvm::Constant*> elementValues;
+        for (size_t i = 0; i < elements.size(); ++i) {
+            elements[i]->accept(*this);
+            llvm::Value* elementValue = getCurrentValue();
+            
+            if (!elementValue) {
+                reportError("Failed to generate array element", elements[i]->getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+            
+            // Convert to constant if possible
+            if (auto* constValue = llvm::dyn_cast<llvm::Constant>(elementValue)) {
+                elementValues.push_back(constValue);
+            } else {
+                // For non-constant values, we'll need to initialize them at runtime
+                // For now, use a default value
+                elementValues.push_back(llvm::Constant::getNullValue(elementType));
+            }
+        }
+        
         // Initialize the array structure with proper values
         llvm::Constant* lengthConst = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), arraySize);
-        llvm::Constant* dataConst = llvm::ConstantPointerNull::get(llvm::Type::getInt8Ty(*context_)->getPointerTo());
+        llvm::Constant* dataConst = llvm::ConstantArray::get(llvm::cast<llvm::ArrayType>(arrayStructType->getStructElementType(1)), elementValues);
         
         llvm::Constant* arrayConst = llvm::ConstantStruct::get(
             llvm::cast<llvm::StructType>(arrayStructType),
@@ -6976,9 +6998,14 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
             llvm::Type* elementType = getAnyType(); // Default fallback
             llvm::Value* arrayPtr = sourceArray;
             
-            // Try to get the array type from the alloca instruction
+            // Try to get the array type from the alloca instruction or global variable
             if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(sourceArray)) {
                 arrayType = allocaInst->getAllocatedType();
+            } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(sourceArray)) {
+                arrayType = globalVar->getValueType();
+            }
+            
+            if (arrayType) {
                 if (auto* structType = llvm::dyn_cast<llvm::StructType>(arrayType)) {
                     // This is our new array structure: { i32 length, [size x elementType] data }
                     if (structType->getNumElements() == 2) {
