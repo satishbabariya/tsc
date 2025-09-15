@@ -512,6 +512,7 @@ private:
     
     // ARC helper functions
     bool isARCManagedType(shared_ptr<Type> type) const;
+    void generateAutomaticCleanup(const String& className);
     
     // Type conversion
     llvm::Type* convertTypeToLLVM(shared_ptr<Type> type);

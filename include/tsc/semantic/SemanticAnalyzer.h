@@ -68,6 +68,14 @@ public:
     bool hasCycleErrors() const;
     void printCycleResults() const;
     
+    // RAII Analysis
+    void analyzeDestructor(const DestructorDeclaration& destructor);
+    void validateRAIIPatterns(const ClassDeclaration& classDecl);
+    void suggestResourceCleanup(const ClassDeclaration& classDecl);
+    void detectResourceLeaks(const ClassDeclaration& classDecl);
+    void analyzeResourceOwnership(const ClassDeclaration& classDecl);
+    void validateDestructorSafety(const DestructorDeclaration& destructor);
+    
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;
     void visit(StringLiteral& node) override;

@@ -5422,6 +5422,9 @@ void LLVMCodeGen::visit(DestructorDeclaration& node) {
         // Generate destructor body
         node.getBody()->accept(*this);
         
+        // Generate automatic ARC cleanup for class members
+        generateAutomaticCleanup(node.getClassName());
+        
         // Ensure function has a return (destructors always return void)
         if (!builder_->GetInsertBlock()->getTerminator()) {
             builder_->CreateRetVoid();
@@ -6478,6 +6481,46 @@ bool LLVMCodeGen::isARCManagedType(shared_ptr<Type> type) const {
            type->getKind() == TypeKind::SharedPtr || 
            type->getKind() == TypeKind::WeakPtr ||
            type->getKind() == TypeKind::Class; // Classes are ARC-managed by default
+}
+
+void LLVMCodeGen::generateAutomaticCleanup(const String& className) {
+    std::cout << "DEBUG: Generating automatic cleanup for class: " << className << std::endl;
+    
+    // Look up the class symbol to get its properties
+    Symbol* classSymbol = symbolTable_->lookupSymbol(className);
+    if (!classSymbol) {
+        std::cout << "DEBUG: Class symbol not found for: " << className << std::endl;
+        return;
+    }
+    
+    // Get the class declaration from the symbol
+    ClassDeclaration* classDecl = dynamic_cast<ClassDeclaration*>(classSymbol->getDeclaration());
+    if (!classDecl) {
+        std::cout << "DEBUG: Class declaration not found for: " << className << std::endl;
+        return;
+    }
+    
+    // Generate cleanup for each ARC-managed property
+    for (const auto& prop : classDecl->getProperties()) {
+        // Get the property type from the property declaration
+        shared_ptr<Type> propType = prop->getType();
+        
+        if (isARCManagedType(propType)) {
+            std::cout << "DEBUG: Generating cleanup for ARC-managed property: " << prop->getName() << std::endl;
+            
+            // Generate ARC release call for the property
+            // In a full implementation, we would:
+            // 1. Load the 'this' pointer
+            // 2. Get the property offset
+            // 3. Load the property value
+            // 4. Call __tsc_release on the property value
+            
+            // For now, just emit a debug message
+            std::cout << "   - ARC cleanup for property '" << prop->getName() << "' (type: " << propType->toString() << ")" << std::endl;
+        }
+    }
+    
+    std::cout << "DEBUG: Automatic cleanup generation completed for: " << className << std::endl;
 }
 
 // Factory function

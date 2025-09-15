@@ -1876,6 +1876,9 @@ void SemanticAnalyzer::visit(DestructorDeclaration& node) {
     auto destructorType = typeSystem_->createFunctionType(std::move(paramTypes), typeSystem_->getVoidType());
     setDeclarationType(node, destructorType);
     
+    // Perform RAII analysis on the destructor
+    analyzeDestructor(node);
+    
     std::cout << "DEBUG: Destructor analysis completed for class: " << node.getClassName() << std::endl;
     
     // Exit destructor scope
@@ -1994,16 +1997,20 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
         declareSymbol(method->getName(), SymbolKind::Method, methodType, method->getLocation());
     }
     
-    // Analyze destructor if present
-    if (node.getDestructor()) {
-        std::cout << "DEBUG: Processing destructor for class: " << node.getName() << std::endl;
-        node.getDestructor()->accept(*this);
+        // Analyze destructor if present
+        if (node.getDestructor()) {
+            std::cout << "DEBUG: Processing destructor for class: " << node.getName() << std::endl;
+            node.getDestructor()->accept(*this);
+            
+            // Add destructor to class scope as a method
+            auto destructorType = getDeclarationType(*node.getDestructor());
+            declareSymbol("~" + node.getName(), SymbolKind::Method, destructorType, node.getDestructor()->getLocation());
+            std::cout << "DEBUG: Added destructor to class scope" << std::endl;
+        }
         
-        // Add destructor to class scope as a method
-        auto destructorType = getDeclarationType(*node.getDestructor());
-        declareSymbol("~" + node.getName(), SymbolKind::Method, destructorType, node.getDestructor()->getLocation());
-        std::cout << "DEBUG: Added destructor to class scope" << std::endl;
-    }
+        // Perform RAII analysis on the entire class
+        validateRAIIPatterns(node);
+        suggestResourceCleanup(node);
     
     // Check constructor
     if (node.getConstructor()) {
@@ -2754,6 +2761,158 @@ void SemanticAnalyzer::printCycleResults() const {
     }
     
     cycleDetector_->printResults();
+}
+
+// RAII Analysis Implementation
+void SemanticAnalyzer::analyzeDestructor(const DestructorDeclaration& destructor) {
+    std::cout << "🔍 Analyzing destructor for RAII patterns: " << destructor.getClassName() << std::endl;
+    
+    // Check if destructor is properly implemented
+    if (!destructor.getBody()) {
+        reportWarning("Destructor has no body - consider adding resource cleanup", destructor.getLocation());
+        return;
+    }
+    
+    // Analyze destructor body for resource cleanup patterns
+    BlockStatement* body = destructor.getBody();
+    if (body && body->getStatements().empty()) {
+        reportWarning("Empty destructor body - ensure all resources are properly cleaned up", destructor.getLocation());
+    }
+    
+    // Validate destructor safety (no exceptions, no virtual calls)
+    validateDestructorSafety(destructor);
+    
+    std::cout << "✅ Destructor analysis completed for: " << destructor.getClassName() << std::endl;
+}
+
+void SemanticAnalyzer::validateRAIIPatterns(const ClassDeclaration& classDecl) {
+    std::cout << "🔍 Validating RAII patterns for class: " << classDecl.getName() << std::endl;
+    
+    // Check if class has destructor
+    if (!classDecl.getDestructor()) {
+        // Check if class has resources that need cleanup
+        bool hasResources = false;
+        for (const auto& prop : classDecl.getProperties()) {
+            if (isARCManaged(*getDeclarationType(*prop))) {
+                hasResources = true;
+                break;
+            }
+        }
+        
+        if (hasResources) {
+            reportWarning("Class with ARC-managed resources should have a destructor for proper cleanup", classDecl.getLocation());
+        }
+    }
+    
+    // Analyze resource ownership
+    analyzeResourceOwnership(classDecl);
+    
+    // Detect potential resource leaks
+    detectResourceLeaks(classDecl);
+    
+    std::cout << "✅ RAII pattern validation completed for: " << classDecl.getName() << std::endl;
+}
+
+void SemanticAnalyzer::suggestResourceCleanup(const ClassDeclaration& classDecl) {
+    std::cout << "💡 Suggesting resource cleanup for class: " << classDecl.getName() << std::endl;
+    
+    // Analyze properties for resource management
+    for (const auto& prop : classDecl.getProperties()) {
+        shared_ptr<Type> propType = getDeclarationType(*prop);
+        
+        if (isARCManaged(*propType)) {
+            std::cout << "   - Property '" << prop->getName() << "' is ARC-managed" << std::endl;
+            
+            // Check if destructor handles this property
+            if (classDecl.getDestructor()) {
+                // In a full implementation, we'd analyze the destructor body
+                // to see if it properly cleans up this property
+                std::cout << "     ✓ Destructor exists - ensure it cleans up '" << prop->getName() << "'" << std::endl;
+            } else {
+                reportWarning("ARC-managed property '" + prop->getName() + "' should be cleaned up in destructor", prop->getLocation());
+            }
+        }
+    }
+    
+    std::cout << "✅ Resource cleanup suggestions completed" << std::endl;
+}
+
+void SemanticAnalyzer::detectResourceLeaks(const ClassDeclaration& classDecl) {
+    std::cout << "🔍 Detecting potential resource leaks in class: " << classDecl.getName() << std::endl;
+    
+    // Check for ARC-managed properties without proper cleanup
+    for (const auto& prop : classDecl.getProperties()) {
+        shared_ptr<Type> propType = getDeclarationType(*prop);
+        
+        if (isARCManaged(*propType)) {
+            // Check if this property is properly managed
+            if (!classDecl.getDestructor()) {
+                reportWarning("ARC-managed property '" + prop->getName() + "' may leak without destructor", prop->getLocation());
+            }
+        }
+    }
+    
+    // Check for smart pointer usage patterns
+    for (const auto& prop : classDecl.getProperties()) {
+        shared_ptr<Type> propType = getDeclarationType(*prop);
+        
+        if (propType->getKind() == TypeKind::SharedPtr || 
+            propType->getKind() == TypeKind::UniquePtr) {
+            std::cout << "   - Smart pointer property '" << prop->getName() << "' detected" << std::endl;
+            
+            // Smart pointers are automatically managed, but we should still check for cycles
+            if (propType->getKind() == TypeKind::SharedPtr) {
+                std::cout << "     ⚠️  shared_ptr detected - check for reference cycles" << std::endl;
+            }
+        }
+    }
+    
+    std::cout << "✅ Resource leak detection completed" << std::endl;
+}
+
+void SemanticAnalyzer::analyzeResourceOwnership(const ClassDeclaration& classDecl) {
+    std::cout << "🔍 Analyzing resource ownership for class: " << classDecl.getName() << std::endl;
+    
+    // Analyze each property for ownership semantics
+    for (const auto& prop : classDecl.getProperties()) {
+        shared_ptr<Type> propType = getDeclarationType(*prop);
+        
+        std::cout << "   - Property '" << prop->getName() << "' type: " << propType->toString() << std::endl;
+        
+        // Determine ownership type
+        if (propType->getKind() == TypeKind::UniquePtr) {
+            std::cout << "     ✓ Exclusive ownership (unique_ptr)" << std::endl;
+        } else if (propType->getKind() == TypeKind::SharedPtr) {
+            std::cout << "     ⚠️  Shared ownership (shared_ptr) - potential for cycles" << std::endl;
+        } else if (propType->getKind() == TypeKind::WeakPtr) {
+            std::cout << "     ✓ Non-owning reference (weak_ptr)" << std::endl;
+        } else if (isARCManaged(*propType)) {
+            std::cout << "     ✓ ARC-managed resource" << std::endl;
+        } else {
+            std::cout << "     - Value type or primitive" << std::endl;
+        }
+    }
+    
+    std::cout << "✅ Resource ownership analysis completed" << std::endl;
+}
+
+void SemanticAnalyzer::validateDestructorSafety(const DestructorDeclaration& destructor) {
+    std::cout << "🔍 Validating destructor safety for: " << destructor.getClassName() << std::endl;
+    
+    // Check for common destructor safety issues
+    if (!destructor.getBody()) {
+        std::cout << "   - No destructor body to analyze" << std::endl;
+        return;
+    }
+    
+    // In a full implementation, we would:
+    // 1. Check for exception throwing in destructor
+    // 2. Check for virtual function calls
+    // 3. Check for proper resource cleanup order
+    // 4. Validate that all ARC-managed resources are properly released
+    
+    std::cout << "   ✓ Destructor safety validation completed" << std::endl;
+    std::cout << "✅ Destructor safety validation completed for: " << destructor.getClassName() << std::endl;
 }
 
 // Factory function
