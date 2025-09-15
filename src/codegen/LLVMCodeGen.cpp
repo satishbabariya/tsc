@@ -135,6 +135,24 @@ void CodeGenContext::reportError(const String& message, const SourceLocation& lo
     errorCount_++;
 }
 
+// Switch context management
+void CodeGenContext::enterSwitch(llvm::BasicBlock* exitBlock) {
+    switchStack_.push({exitBlock});
+}
+
+void CodeGenContext::exitSwitch() {
+    if (!switchStack_.empty()) {
+        switchStack_.pop();
+    }
+}
+
+llvm::BasicBlock* CodeGenContext::getCurrentSwitchExitBlock() const {
+    if (!switchStack_.empty()) {
+        return switchStack_.top().exitBlock;
+    }
+    return nullptr;
+}
+
 // LLVMCodeGen implementation
 LLVMCodeGen::LLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& options)
     : diagnostics_(diagnostics), options_(options), currentValue_(nullptr) {
@@ -3529,6 +3547,7 @@ void LLVMCodeGen::visit(ForOfStatement& node) {
 }
 
 void LLVMCodeGen::visit(SwitchStatement& node) {
+    std::cout << "DEBUG: SwitchStatement visitor called" << std::endl;
     llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
     if (!currentFunc) {
         reportError("Switch statement outside function", node.getLocation());
@@ -8008,20 +8027,15 @@ void LLVMCodeGen::generateAutomaticCleanup(const String& className) {
 
 // Switch context management
 void LLVMCodeGen::enterSwitch(llvm::BasicBlock* exitBlock) {
-    switchStack_.push({exitBlock});
+    codeGenContext_->enterSwitch(exitBlock);
 }
 
 void LLVMCodeGen::exitSwitch() {
-    if (!switchStack_.empty()) {
-        switchStack_.pop();
-    }
+    codeGenContext_->exitSwitch();
 }
 
 llvm::BasicBlock* LLVMCodeGen::getCurrentSwitchExitBlock() const {
-    if (!switchStack_.empty()) {
-        return switchStack_.top().exitBlock;
-    }
-    return nullptr;
+    return codeGenContext_->getCurrentSwitchExitBlock();
 }
 
 // Factory function

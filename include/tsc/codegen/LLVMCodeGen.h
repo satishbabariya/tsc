@@ -568,6 +568,11 @@ public:
     // Performance optimization: struct type caching
     llvm::StructType* getOrCreateStructType(const std::vector<llvm::Type*>& fieldTypes);
     
+    // Switch context for break statements
+    void enterSwitch(llvm::BasicBlock* exitBlock);
+    void exitSwitch();
+    llvm::BasicBlock* getCurrentSwitchExitBlock() const;
+    
     // Generic type monomorphization
     llvm::Type* createMonomorphizedType(const GenericType& genericType);
     String generateMangledName(const GenericType& genericType);
