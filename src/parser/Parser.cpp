@@ -166,7 +166,12 @@ unique_ptr<Statement> Parser::parseStatement() {
 }
 
 unique_ptr<Statement> Parser::parseVariableStatement() {
-    // Parse identifier
+    // Check if this is a destructuring assignment: let [a, b] = array;
+    if (check(TokenType::LeftBracket) || check(TokenType::LeftBrace)) {
+        return parseDestructuringVariableStatement();
+    }
+    
+    // Parse regular variable declaration: let name = value;
     Token nameToken = consume(TokenType::Identifier, "Expected variable name");
     String name = nameToken.getStringValue();
     
@@ -2470,6 +2475,171 @@ unique_ptr<Parser> createParser(DiagnosticEngine& diagnostics, const TypeSystem&
 
 unique_ptr<Parser> createEnhancedParser(utils::EnhancedDiagnosticEngine& diagnostics, const TypeSystem& typeSystem) {
     return make_unique<Parser>(diagnostics, typeSystem);
+}
+
+// Destructuring assignment parsing methods
+unique_ptr<Statement> Parser::parseDestructuringVariableStatement() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Parse the destructuring pattern
+    auto pattern = parseDestructuringPattern();
+    if (!pattern) {
+        reportError("Expected destructuring pattern", getCurrentLocation());
+        return nullptr;
+    }
+    
+    // Optional type annotation
+    shared_ptr<Type> typeAnnotation = nullptr;
+    if (match(TokenType::Colon)) {
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
+        typeAnnotation = parseUnionType();
+        setContext(oldContext);
+    }
+    
+    // Required initializer for destructuring
+    if (!match(TokenType::Equal)) {
+        reportError("Expected '=' after destructuring pattern", getCurrentLocation());
+        return nullptr;
+    }
+    
+    auto initializer = parseExpression();
+    if (!initializer) {
+        reportError("Expected expression after '=' in destructuring assignment", getCurrentLocation());
+        return nullptr;
+    }
+    
+    consume(TokenType::Semicolon, "Expected ';' after destructuring assignment");
+    
+    // Create a destructuring assignment expression
+    auto destructuringAssignment = make_unique<DestructuringAssignment>(
+        std::move(pattern), std::move(initializer), location
+    );
+    
+    // Wrap in expression statement
+    return make_unique<ExpressionStatement>(std::move(destructuringAssignment), location);
+}
+
+unique_ptr<DestructuringPattern> Parser::parseDestructuringPattern() {
+    if (check(TokenType::LeftBracket)) {
+        return parseArrayDestructuringPattern();
+    } else if (check(TokenType::LeftBrace)) {
+        return parseObjectDestructuringPattern();
+    } else if (check(TokenType::Identifier)) {
+        return parseIdentifierPattern();
+    } else {
+        reportError("Expected destructuring pattern", getCurrentLocation());
+        return nullptr;
+    }
+}
+
+unique_ptr<DestructuringPattern> Parser::parseArrayDestructuringPattern() {
+    SourceLocation location = getCurrentLocation();
+    advance(); // consume '['
+    
+    std::vector<unique_ptr<DestructuringPattern>> elements;
+    
+    // Handle empty array: []
+    if (check(TokenType::RightBracket)) {
+        advance(); // consume ']'
+        return make_unique<ArrayDestructuringPattern>(std::move(elements), location);
+    }
+    
+    // Parse array elements
+    do {
+        if (check(TokenType::RightBracket)) {
+            break; // Trailing comma case: [a, b, ]
+        }
+        
+        // Check for spread element: ...rest
+        if (match(TokenType::DotDotDot)) {
+            auto restPattern = parseDestructuringPattern();
+            if (restPattern) {
+                // For now, we'll treat spread as a regular element
+                // In a full implementation, this would need special handling
+                elements.push_back(std::move(restPattern));
+            }
+        } else {
+            auto element = parseDestructuringPattern();
+            if (element) {
+                elements.push_back(std::move(element));
+            }
+        }
+    } while (match(TokenType::Comma));
+    
+    consume(TokenType::RightBracket, "Expected ']' after array destructuring pattern");
+    
+    return make_unique<ArrayDestructuringPattern>(std::move(elements), location);
+}
+
+unique_ptr<DestructuringPattern> Parser::parseObjectDestructuringPattern() {
+    SourceLocation location = getCurrentLocation();
+    advance(); // consume '{'
+    
+    std::vector<ObjectDestructuringPattern::Property> properties;
+    
+    // Handle empty object: {}
+    if (check(TokenType::RightBrace)) {
+        advance(); // consume '}'
+        return make_unique<ObjectDestructuringPattern>(std::move(properties), location);
+    }
+    
+    // Parse object properties
+    do {
+        if (check(TokenType::RightBrace)) {
+            break; // Trailing comma case: { a, b, }
+        }
+        
+        // Parse property key (identifier or string literal)
+        String key;
+        if (check(TokenType::Identifier)) {
+            Token keyToken = advance();
+            key = keyToken.getStringValue();
+        } else if (check(TokenType::StringLiteral)) {
+            Token keyToken = advance();
+            key = keyToken.getStringValue();
+        } else {
+            reportError("Expected property name in object destructuring pattern", getCurrentLocation());
+            return nullptr;
+        }
+        
+        // Parse pattern (can be identifier or nested destructuring)
+        unique_ptr<DestructuringPattern> pattern = nullptr;
+        
+        if (match(TokenType::Colon)) {
+            // Shorthand: { a: b } - parse the pattern after colon
+            pattern = parseDestructuringPattern();
+            if (!pattern) {
+                reportError("Expected destructuring pattern after ':'", getCurrentLocation());
+                return nullptr;
+            }
+        } else {
+            // Shorthand: { a } - same as { a: a }
+            pattern = make_unique<IdentifierPattern>(key, getCurrentLocation());
+        }
+        
+        // Parse default value: { a = default }
+        unique_ptr<Expression> defaultValue = nullptr;
+        if (match(TokenType::Equal)) {
+            defaultValue = parseExpression();
+            if (!defaultValue) {
+                reportError("Expected default value after '='", getCurrentLocation());
+                return nullptr;
+            }
+        }
+        
+        properties.emplace_back(key, std::move(pattern), std::move(defaultValue), getCurrentLocation());
+        
+    } while (match(TokenType::Comma));
+    
+    consume(TokenType::RightBrace, "Expected '}' after object destructuring pattern");
+    
+    return make_unique<ObjectDestructuringPattern>(std::move(properties), location);
+}
+
+unique_ptr<DestructuringPattern> Parser::parseIdentifierPattern() {
+    Token token = consume(TokenType::Identifier, "Expected identifier in destructuring pattern");
+    return make_unique<IdentifierPattern>(token.getStringValue(), token.getLocation());
 }
 
 } // namespace tsc

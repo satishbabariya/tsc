@@ -1057,6 +1057,107 @@ private:
     SourceLocation location_;
 };
 
+// Destructuring pattern base class
+class DestructuringPattern : public Expression {
+public:
+    DestructuringPattern(const SourceLocation& loc) : location_(loc) {}
+    
+    virtual ~DestructuringPattern() = default;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::LValue; } // Can be assigned to
+
+protected:
+    SourceLocation location_;
+};
+
+// Array destructuring pattern: [a, b, c]
+class ArrayDestructuringPattern : public DestructuringPattern {
+public:
+    ArrayDestructuringPattern(std::vector<unique_ptr<DestructuringPattern>> elements,
+                             const SourceLocation& loc)
+        : DestructuringPattern(loc), elements_(std::move(elements)) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    String toString() const override;
+    
+    const std::vector<unique_ptr<DestructuringPattern>>& getElements() const { return elements_; }
+
+private:
+    std::vector<unique_ptr<DestructuringPattern>> elements_;
+};
+
+// Object destructuring pattern: { a, b: c, d = default }
+class ObjectDestructuringPattern : public DestructuringPattern {
+public:
+    // Property in object destructuring pattern
+    class Property {
+    public:
+        Property(String key, unique_ptr<DestructuringPattern> pattern, 
+                unique_ptr<Expression> defaultValue, const SourceLocation& loc)
+            : key_(key), pattern_(std::move(pattern)), defaultValue_(std::move(defaultValue)), location_(loc) {}
+        
+        const String& getKey() const { return key_; }
+        DestructuringPattern* getPattern() const { return pattern_.get(); }
+        Expression* getDefaultValue() const { return defaultValue_.get(); }
+        SourceLocation getLocation() const { return location_; }
+        bool hasDefaultValue() const { return defaultValue_ != nullptr; }
+        
+    private:
+        String key_;
+        unique_ptr<DestructuringPattern> pattern_;
+        unique_ptr<Expression> defaultValue_;
+        SourceLocation location_;
+    };
+    
+    ObjectDestructuringPattern(std::vector<Property> properties, const SourceLocation& loc)
+        : DestructuringPattern(loc), properties_(std::move(properties)) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    String toString() const override;
+    
+    const std::vector<Property>& getProperties() const { return properties_; }
+
+private:
+    std::vector<Property> properties_;
+};
+
+// Identifier pattern: variable name
+class IdentifierPattern : public DestructuringPattern {
+public:
+    IdentifierPattern(const String& name, const SourceLocation& loc)
+        : DestructuringPattern(loc), name_(name) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    String toString() const override;
+    
+    const String& getName() const { return name_; }
+
+private:
+    String name_;
+};
+
+// Destructuring assignment: let [a, b] = array;
+class DestructuringAssignment : public Expression {
+public:
+    DestructuringAssignment(unique_ptr<DestructuringPattern> pattern,
+                           unique_ptr<Expression> value,
+                           const SourceLocation& loc)
+        : pattern_(std::move(pattern)), value_(std::move(value)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    DestructuringPattern* getPattern() const { return pattern_.get(); }
+    Expression* getValue() const { return value_.get(); }
+
+private:
+    unique_ptr<DestructuringPattern> pattern_;
+    unique_ptr<Expression> value_;
+    SourceLocation location_;
+};
+
 // Variable declaration
 class VariableDeclaration : public Declaration {
 public:
@@ -1483,6 +1584,13 @@ public:
     virtual void visit(ArrowFunction& node) = 0;
     virtual void visit(FunctionExpression& node) = 0;
     virtual void visit(MoveExpression& node) = 0;
+    
+    // Destructuring patterns
+    virtual void visit(DestructuringPattern& node) = 0;
+    virtual void visit(ArrayDestructuringPattern& node) = 0;
+    virtual void visit(ObjectDestructuringPattern& node) = 0;
+    virtual void visit(IdentifierPattern& node) = 0;
+    virtual void visit(DestructuringAssignment& node) = 0;
     
     // Statements
     virtual void visit(ExpressionStatement& node) = 0;

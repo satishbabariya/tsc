@@ -63,6 +63,7 @@ private:
     
     // Statements
     unique_ptr<Statement> parseVariableStatement();
+    unique_ptr<Statement> parseDestructuringVariableStatement();
     unique_ptr<Statement> parseFunctionDeclaration();
     unique_ptr<Statement> parseClassDeclaration();
     unique_ptr<Statement> parseInterfaceDeclaration();
@@ -114,10 +115,17 @@ private:
     // TypeScript-specific
     shared_ptr<Type> parseTypeAnnotation();
     shared_ptr<Type> parseUnionType();
+    shared_ptr<Type> parseIntersectionType();
     shared_ptr<Type> parsePrimaryType();
     shared_ptr<Type> parseArrayType(shared_ptr<Type> baseType);
     shared_ptr<Type> parseTupleType();
     shared_ptr<Type> parseObjectType();
+    
+    // Destructuring patterns
+    unique_ptr<DestructuringPattern> parseDestructuringPattern();
+    unique_ptr<DestructuringPattern> parseArrayDestructuringPattern();
+    unique_ptr<DestructuringPattern> parseObjectDestructuringPattern();
+    unique_ptr<DestructuringPattern> parseIdentifierPattern();
     
     // Function and class parsing
     std::vector<FunctionDeclaration::Parameter> parseParameterList();
