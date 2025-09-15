@@ -3,6 +3,7 @@
 #include <iostream>
 #include <filesystem>
 #include <algorithm>
+#include <sstream>
 
 namespace tsc {
 

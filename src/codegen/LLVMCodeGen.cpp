@@ -224,7 +224,7 @@ bool LLVMCodeGen::generateCode(Module& module, SymbolTable& symbolTable,
     
     try {
         // Generate code for the module
-        module.accept(*this);
+        module.accept(static_cast<ASTVisitor&>(*this));
         
         // Verify the generated module
         std::string errorStr;
@@ -272,7 +272,7 @@ void LLVMCodeGen::visit(TemplateLiteral& node) {
         if (element.isExpression()) {
             // Generate code for the expression
             std::cout << "DEBUG: Processing template expression" << std::endl;
-            element.getExpression()->accept(*this);
+            element.getExpression()->accept(static_cast<ASTVisitor&>(*this));
             elementValue = getCurrentValue();
             std::cout << "DEBUG: Template expression result type: " << (elementValue ? elementValue->getType()->getTypeID() : -1) << std::endl;
             
@@ -613,7 +613,7 @@ void LLVMCodeGen::visit(NewExpression& node) {
         constructorArgs.push_back(objectPtr); // First argument is 'this'
         
         for (const auto& arg : node.getArguments()) {
-            arg->accept(*this);
+            arg->accept(static_cast<ASTVisitor&>(*this));
             llvm::Value* argValue = getCurrentValue();
             if (!argValue) {
                 reportError("Failed to generate constructor argument", arg->getLocation());
@@ -677,10 +677,10 @@ void LLVMCodeGen::visit(NewExpression& node) {
 
 void LLVMCodeGen::visit(BinaryExpression& node) {
     // Generate left and right operands
-    node.getLeft()->accept(*this);
+    node.getLeft()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* left = getCurrentValue();
     
-    node.getRight()->accept(*this);
+    node.getRight()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* right = getCurrentValue();
     
     if (!left || !right) {
@@ -696,7 +696,7 @@ void LLVMCodeGen::visit(BinaryExpression& node) {
 
 void LLVMCodeGen::visit(UnaryExpression& node) {
     // Generate operand
-    node.getOperand()->accept(*this);
+    node.getOperand()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* operand = getCurrentValue();
     
     if (!operand) {
@@ -712,7 +712,7 @@ void LLVMCodeGen::visit(UnaryExpression& node) {
 void LLVMCodeGen::visit(AssignmentExpression& node) {
     std::cout << "DEBUG: AssignmentExpression visitor called" << std::endl;
     // Generate right-hand side value
-    node.getRight()->accept(*this);
+    node.getRight()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* value = getCurrentValue();
     std::cout << "DEBUG: AssignmentExpression right-hand side value: " << (value ? "found" : "null") << std::endl;
     
@@ -738,7 +738,7 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
         setCurrentValue(value); // Assignment returns the assigned value
     } else if (auto propertyAccess = dynamic_cast<PropertyAccess*>(node.getLeft())) {
         // Property assignment (e.g., this.value = ...)
-        propertyAccess->getObject()->accept(*this);
+        propertyAccess->getObject()->accept(static_cast<ASTVisitor&>(*this));
         llvm::Value* objectPtr = getCurrentValue();
         
         if (objectPtr) {
@@ -847,7 +847,7 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
 
 void LLVMCodeGen::visit(ConditionalExpression& node) {
     // Generate condition
-    node.getCondition()->accept(*this);
+    node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* conditionValue = getCurrentValue();
     
     // Convert condition to boolean if necessary
@@ -886,7 +886,7 @@ void LLVMCodeGen::visit(ConditionalExpression& node) {
     
     // Generate true branch
     builder_->SetInsertPoint(trueBlock);
-    node.getTrueExpression()->accept(*this);
+    node.getTrueExpression()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* trueValue = getCurrentValue();
     
     // Convert true value to result type in the true block
@@ -899,7 +899,7 @@ void LLVMCodeGen::visit(ConditionalExpression& node) {
     
     // Generate false branch
     builder_->SetInsertPoint(falseBlock);
-    node.getFalseExpression()->accept(*this);
+    node.getFalseExpression()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* falseValue = getCurrentValue();
     
     // Convert false value to result type in the false block
@@ -1022,7 +1022,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         
                         // Add regular function arguments
                         for (const auto& arg : node.getArguments()) {
-                            arg->accept(*this);
+                            arg->accept(static_cast<ASTVisitor&>(*this));
                             llvm::Value* argValue = getCurrentValue();
                             if (!argValue) {
                                 reportError("Failed to generate function argument", arg->getLocation());
@@ -1098,7 +1098,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         // Note: This is a fallback path, so we don't have closure environment here
                         
                         for (const auto& arg : node.getArguments()) {
-                            arg->accept(*this);
+                            arg->accept(static_cast<ASTVisitor&>(*this));
                             llvm::Value* argValue = getCurrentValue();
                             if (!argValue) {
                                 reportError("Failed to generate function argument", arg->getLocation());
@@ -1138,7 +1138,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 // Note: This is a fallback path, so we don't have closure environment here
                 
                 for (const auto& arg : node.getArguments()) {
-                    arg->accept(*this);
+                    arg->accept(static_cast<ASTVisitor&>(*this));
                     llvm::Value* argValue = getCurrentValue();
                     if (!argValue) {
                         reportError("Failed to generate function argument", arg->getLocation());
@@ -1192,7 +1192,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
             
             // For method calls, we need to pass the object as the first argument
             // Generate the object being called on
-            propertyAccess->getObject()->accept(*this);
+            propertyAccess->getObject()->accept(static_cast<ASTVisitor&>(*this));
             llvm::Value* objectInstance = getCurrentValue();
             
             // Special handling for arrayPush calls - we need to pass the array structure pointer,
@@ -1301,7 +1301,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         }
                     } else {
                         // For non-identifier arguments to arrayPush, still use the normal processing
-                        arg->accept(*this);
+                        arg->accept(static_cast<ASTVisitor&>(*this));
                         llvm::Value* argValue = getCurrentValue();
                         if (!argValue) {
                             reportError("Failed to generate argument for arrayPush call", node.getLocation());
@@ -1313,7 +1313,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     }
                 } else {
                     // Normal argument processing for non-arrayPush calls
-                    arg->accept(*this);
+                    arg->accept(static_cast<ASTVisitor&>(*this));
                     llvm::Value* argValue = getCurrentValue();
                     if (!argValue) {
                         reportError("Failed to generate argument for method call", node.getLocation());
@@ -1393,7 +1393,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 std::cout << "DEBUG: CallExpression - Property access returned function: " << function->getName().str() << std::endl;
                 
                 // Generate the object being called on
-                propertyAccess->getObject()->accept(*this);
+                propertyAccess->getObject()->accept(static_cast<ASTVisitor&>(*this));
                 llvm::Value* objectInstance = getCurrentValue();
                 
                 // Special handling for arrayPush calls - we need to pass the array structure pointer,
@@ -1502,7 +1502,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                             }
                         } else {
                             // For non-identifier arguments to arrayPush, still use the normal processing
-                            arg->accept(*this);
+                            arg->accept(static_cast<ASTVisitor&>(*this));
                             llvm::Value* argValue = getCurrentValue();
                             if (!argValue) {
                                 reportError("Failed to generate argument for arrayPush call", node.getLocation());
@@ -1514,7 +1514,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         }
                     } else {
                         // Normal argument processing for non-arrayPush calls
-                        arg->accept(*this);
+                        arg->accept(static_cast<ASTVisitor&>(*this));
                         llvm::Value* argValue = getCurrentValue();
                         if (!argValue) {
                             reportError("Failed to generate argument for method call", node.getLocation());
@@ -1598,7 +1598,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
             String methodName = propertyAccess->getProperty();
             
             // Generate the object being called on
-            propertyAccess->getObject()->accept(*this);
+            propertyAccess->getObject()->accept(static_cast<ASTVisitor&>(*this));
             llvm::Value* objectInstance = getCurrentValue();
             
             // First try to get the method from the PropertyAccess visitor
@@ -1645,7 +1645,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         }
                     } else {
                         // For non-identifier arguments to arrayPush, still use the normal processing
-                        arg->accept(*this);
+                        arg->accept(static_cast<ASTVisitor&>(*this));
                         llvm::Value* argValue = getCurrentValue();
                         if (!argValue) {
                             reportError("Failed to generate argument for arrayPush call", node.getLocation());
@@ -1657,7 +1657,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     }
                 } else {
                     // Normal argument processing for non-arrayPush calls
-                    arg->accept(*this);
+                    arg->accept(static_cast<ASTVisitor&>(*this));
                     llvm::Value* argValue = getCurrentValue();
                     if (!argValue) {
                         reportError("Failed to generate argument for method call", node.getLocation());
@@ -1693,7 +1693,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
     // If this is a method call from PropertyAccess, prepend the object as first argument
     if (auto propertyAccess = dynamic_cast<PropertyAccess*>(node.getCallee())) {
         // We already generated the object instance above, now we need to get it again
-        propertyAccess->getObject()->accept(*this);
+        propertyAccess->getObject()->accept(static_cast<ASTVisitor&>(*this));
         llvm::Value* objectInstance = getCurrentValue();
         if (objectInstance) {
             // Check if we need to convert the argument type to match the function signature
@@ -3208,7 +3208,7 @@ void LLVMCodeGen::visit(IfStatement& node) {
     }
     
     // Generate condition
-    node.getCondition()->accept(*this);
+    node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* conditionValue = getCurrentValue();
     
     if (!conditionValue) {
@@ -3327,7 +3327,7 @@ void LLVMCodeGen::visit(WhileStatement& node) {
     
     // Generate condition
     builder_->SetInsertPoint(conditionBlock);
-    node.getCondition()->accept(*this);
+    node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* conditionValue = getCurrentValue();
     
     if (!conditionValue) {
@@ -3388,7 +3388,7 @@ void LLVMCodeGen::visit(DoWhileStatement& node) {
     
     // Generate condition
     builder_->SetInsertPoint(conditionBlock);
-    node.getCondition()->accept(*this);
+    node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* conditionValue = getCurrentValue();
     
     if (!conditionValue) {
@@ -3442,7 +3442,7 @@ void LLVMCodeGen::visit(ForStatement& node) {
     // Generate condition
     builder_->SetInsertPoint(conditionBlock);
     if (node.getCondition()) {
-        node.getCondition()->accept(*this);
+        node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
         llvm::Value* conditionValue = getCurrentValue();
         
         if (!conditionValue) {
@@ -4296,7 +4296,7 @@ void LLVMCodeGen::visit(Module& module) {
                     
                     // Process method arguments
                     for (const auto& arg : callExpr->getArguments()) {
-                        arg->accept(*this);
+                        arg->accept(static_cast<ASTVisitor&>(*this));
                         llvm::Value* argValue = getCurrentValue();
                         if (argValue) {
                             args.push_back(argValue);
@@ -5472,26 +5472,26 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(NullLiteral& node) override {}
         void visit(Identifier& node) override {}
         void visit(BinaryExpression& node) override {
-            node.getLeft()->accept(*this);
-            if (!found_) node.getRight()->accept(*this);
+            node.getLeft()->accept(static_cast<ASTVisitor&>(*this));
+            if (!found_) node.getRight()->accept(static_cast<ASTVisitor&>(*this));
         }
         void visit(UnaryExpression& node) override {
-            node.getOperand()->accept(*this);
+            node.getOperand()->accept(static_cast<ASTVisitor&>(*this));
         }
         void visit(AssignmentExpression& node) override {
-            node.getLeft()->accept(*this);
-            if (!found_) node.getRight()->accept(*this);
+            node.getLeft()->accept(static_cast<ASTVisitor&>(*this));
+            if (!found_) node.getRight()->accept(static_cast<ASTVisitor&>(*this));
         }
         void visit(ConditionalExpression& node) override {
-            node.getCondition()->accept(*this);
-            if (!found_) node.getTrueExpression()->accept(*this);
-            if (!found_) node.getFalseExpression()->accept(*this);
+            node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
+            if (!found_) node.getTrueExpression()->accept(static_cast<ASTVisitor&>(*this));
+            if (!found_) node.getFalseExpression()->accept(static_cast<ASTVisitor&>(*this));
         }
         void visit(CallExpression& node) override {
             node.getCallee()->accept(*this);
             if (!found_) {
                 for (const auto& arg : node.getArguments()) {
-                    arg->accept(*this);
+                    arg->accept(static_cast<ASTVisitor&>(*this));
                     if (found_) break;
                 }
             }
@@ -5518,7 +5518,7 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(ThisExpression& node) override {}
         void visit(NewExpression& node) override {
             for (const auto& arg : node.getArguments()) {
-                arg->accept(*this);
+                arg->accept(static_cast<ASTVisitor&>(*this));
                 if (found_) break;
             }
         }
@@ -5533,21 +5533,21 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
             }
         }
         void visit(IfStatement& node) override {
-            node.getCondition()->accept(*this);
+            node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
             if (!found_) node.getThenStatement()->accept(*this);
             if (!found_ && node.getElseStatement()) node.getElseStatement()->accept(*this);
         }
         void visit(WhileStatement& node) override {
-            node.getCondition()->accept(*this);
+            node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
             if (!found_) node.getBody()->accept(*this);
         }
         void visit(DoWhileStatement& node) override {
             node.getBody()->accept(*this);
-            if (!found_) node.getCondition()->accept(*this);
+            if (!found_) node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
         }
         void visit(ForStatement& node) override {
             if (node.getInit()) node.getInit()->accept(*this);
-            if (!found_ && node.getCondition()) node.getCondition()->accept(*this);
+            if (!found_ && node.getCondition()) node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
             if (!found_ && node.getIncrement()) node.getIncrement()->accept(*this);
             if (!found_) node.getBody()->accept(*this);
         }
@@ -5650,21 +5650,21 @@ bool LLVMCodeGen::hasReturnStatementsWithValues(const FunctionDeclaration& funcD
         void visit(NullLiteral& node) override {}
         void visit(Identifier& node) override {}
         void visit(BinaryExpression& node) override {
-            node.getLeft()->accept(*this);
-            if (!found_) node.getRight()->accept(*this);
+            node.getLeft()->accept(static_cast<ASTVisitor&>(*this));
+            if (!found_) node.getRight()->accept(static_cast<ASTVisitor&>(*this));
         }
         void visit(UnaryExpression& node) override {
-            node.getOperand()->accept(*this);
+            node.getOperand()->accept(static_cast<ASTVisitor&>(*this));
         }
         void visit(AssignmentExpression& node) override {
-            node.getLeft()->accept(*this);
-            if (!found_) node.getRight()->accept(*this);
+            node.getLeft()->accept(static_cast<ASTVisitor&>(*this));
+            if (!found_) node.getRight()->accept(static_cast<ASTVisitor&>(*this));
         }
         void visit(CallExpression& node) override {
             node.getCallee()->accept(*this);
             if (!found_) {
                 for (const auto& arg : node.getArguments()) {
-                    arg->accept(*this);
+                    arg->accept(static_cast<ASTVisitor&>(*this));
                     if (found_) break;
                 }
             }
@@ -5679,7 +5679,7 @@ bool LLVMCodeGen::hasReturnStatementsWithValues(const FunctionDeclaration& funcD
             }
         }
         void visit(IfStatement& node) override {
-            node.getCondition()->accept(*this);
+            node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
             if (!found_) {
                 node.getThenStatement()->accept(*this);
             }
@@ -5688,13 +5688,13 @@ bool LLVMCodeGen::hasReturnStatementsWithValues(const FunctionDeclaration& funcD
             }
         }
         void visit(WhileStatement& node) override {
-            node.getCondition()->accept(*this);
+            node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
             if (!found_) {
                 node.getBody()->accept(*this);
             }
         }
         void visit(ForStatement& node) override {
-            node.getCondition()->accept(*this);
+            node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
             if (!found_) {
                 node.getBody()->accept(*this);
             }
@@ -5755,6 +5755,10 @@ bool LLVMCodeGen::hasReturnStatementsWithValues(const FunctionDeclaration& funcD
                     void visit(OptionalIndexAccess& node) override {}
                     void visit(OptionalCallExpr& node) override {}
                     void visit(SpreadElement& node) override {}
+                    
+                    // Missing pure virtual method implementations
+                    void visit(ImportDeclaration& node) override {}
+                    void visit(ExportDeclaration& node) override {}
     };
     
     ReturnStatementWithValueChecker checker;
@@ -7312,7 +7316,7 @@ void LLVMCodeGen::BuiltinFunctionRegistry::registerArrayFunctions() {
 // MoveExpression visitor implementation
 void LLVMCodeGen::visit(MoveExpression& node) {
     // Generate code for the operand
-    node.getOperand()->accept(*this);
+    node.getOperand()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* operandValue = getCurrentValue();
     
     if (!operandValue) {

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <sstream>
 
 namespace tsc {
 
@@ -533,6 +534,8 @@ void DependencyScanner::extractImportsFromAST(Module& ast, const String& moduleP
         void visit(CatchClause& node) override {}
         void visit(ThrowStatement& node) override {}
         void visit(ExportDeclaration& node) override {}
+        void visit(MoveExpression& node) override {}
+        void visit(DestructorDeclaration& node) override {}
         void visit(Module& node) override {
             for (const auto& stmt : node.getStatements()) {
                 stmt->accept(*this);
@@ -653,11 +656,24 @@ void DependencyScanner::extractExportsFromAST(Module& ast, const String& moduleP
         void visit(TryStatement& node) override {}
         void visit(CatchClause& node) override {}
         void visit(ThrowStatement& node) override {}
+        void visit(MoveExpression& node) override {}
+        void visit(DestructorDeclaration& node) override {}
         void visit(Module& node) override {
             for (const auto& stmt : node.getStatements()) {
                 stmt->accept(*this);
             }
         }
+        
+        // Missing pure virtual method implementations
+        void visit(OptionalPropertyAccess& node) override {}
+        void visit(OptionalIndexAccess& node) override {}
+        void visit(OptionalCallExpr& node) override {}
+        void visit(SpreadElement& node) override {}
+        void visit(DestructuringPattern& node) override {}
+        void visit(ArrayDestructuringPattern& node) override {}
+        void visit(ObjectDestructuringPattern& node) override {}
+        void visit(IdentifierPattern& node) override {}
+        void visit(DestructuringAssignment& node) override {}
         
     private:
         ModuleResolver& moduleResolver_;

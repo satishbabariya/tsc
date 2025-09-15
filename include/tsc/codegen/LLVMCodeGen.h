@@ -135,10 +135,33 @@ public:
     explicit LLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& options);
     ~LLVMCodeGen();
     
-    // Forward declaration for ExceptionContext
-    class ExceptionContext;
-    
     // Nested helper classes for enhanced IR generation
+    class ExceptionContext {
+    private:
+        llvm::BasicBlock* tryBlock_;
+        llvm::BasicBlock* catchBlock_;
+        llvm::BasicBlock* finallyBlock_;
+        llvm::Value* exceptionVar_;
+        
+    public:
+        ExceptionContext(llvm::BasicBlock* tryBlock, llvm::BasicBlock* catchBlock, 
+                        llvm::BasicBlock* finallyBlock = nullptr, llvm::Value* exceptionVar = nullptr)
+            : tryBlock_(tryBlock), catchBlock_(catchBlock), 
+              finallyBlock_(finallyBlock), exceptionVar_(exceptionVar) {}
+        
+        llvm::BasicBlock* getTryBlock() const { return tryBlock_; }
+        llvm::BasicBlock* getCatchBlock() const { return catchBlock_; }
+        llvm::BasicBlock* getFinallyBlock() const { return finallyBlock_; }
+        llvm::Value* getExceptionVar() const { return exceptionVar_; }
+        
+        bool hasFinally() const { return finallyBlock_ != nullptr; }
+        bool hasExceptionVar() const { return exceptionVar_ != nullptr; }
+        
+        // Exception handling utilities
+        void setExceptionVar(llvm::Value* var) { exceptionVar_ = var; }
+        void setFinallyBlock(llvm::BasicBlock* block) { finallyBlock_ = block; }
+    };
+    
     class FunctionContext {
     private:
         llvm::Function* function_;
@@ -231,32 +254,6 @@ public:
         size_t getScopeDepth() const {
             return symbolStack_.size();
         }
-    };
-    
-    class ExceptionContext {
-    private:
-        llvm::BasicBlock* tryBlock_;
-        llvm::BasicBlock* catchBlock_;
-        llvm::BasicBlock* finallyBlock_;
-        llvm::Value* exceptionVar_;
-        
-    public:
-        ExceptionContext(llvm::BasicBlock* tryBlock, llvm::BasicBlock* catchBlock, 
-                        llvm::BasicBlock* finallyBlock = nullptr, llvm::Value* exceptionVar = nullptr)
-            : tryBlock_(tryBlock), catchBlock_(catchBlock), 
-              finallyBlock_(finallyBlock), exceptionVar_(exceptionVar) {}
-        
-        llvm::BasicBlock* getTryBlock() const { return tryBlock_; }
-        llvm::BasicBlock* getCatchBlock() const { return catchBlock_; }
-        llvm::BasicBlock* getFinallyBlock() const { return finallyBlock_; }
-        llvm::Value* getExceptionVar() const { return exceptionVar_; }
-        
-        bool hasFinally() const { return finallyBlock_ != nullptr; }
-        bool hasExceptionVar() const { return exceptionVar_ != nullptr; }
-        
-        // Exception handling utilities
-        void setExceptionVar(llvm::Value* var) { exceptionVar_ = var; }
-        void setFinallyBlock(llvm::BasicBlock* block) { finallyBlock_ = block; }
     };
     
     class BuiltinFunctionRegistry {
@@ -675,14 +672,8 @@ public:
     void reportWarning(const String& message, const SourceLocation& location);
 
 private:
-    DiagnosticEngine& diagnostics_;
     unique_ptr<EnhancedErrorReporting> errorReporter_;
-    unique_ptr<CodeGenContext> codeGenContext_;
     unique_ptr<llvm::LLVMContext> llvmContext_;
-    unique_ptr<llvm::Module> module_;
-    unique_ptr<llvm::IRBuilder<>> builder_;
-    llvm::Value* currentValue_ = nullptr;
-    const CompilerOptions& options_;
 };
 
 // Code generation result

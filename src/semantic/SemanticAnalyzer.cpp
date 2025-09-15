@@ -352,7 +352,7 @@ void SemanticAnalyzer::visit(NewExpression& node) {
     
     // Analyze arguments first
     for (const auto& arg : node.getArguments()) {
-        arg->accept(*this);
+        arg->accept(static_cast<ASTVisitor&>(*this));
     }
     
     // Handle constructor expression
@@ -415,7 +415,7 @@ void SemanticAnalyzer::visit(NewExpression& node) {
         }
     } else {
         // For complex constructor expressions, analyze them
-        node.getConstructor()->accept(*this);
+        node.getConstructor()->accept(static_cast<ASTVisitor&>(*this));
         auto constructorType = getExpressionType(*node.getConstructor());
         
         // For complex constructor expressions, use the constructor's type or any type
@@ -425,23 +425,23 @@ void SemanticAnalyzer::visit(NewExpression& node) {
 
 void SemanticAnalyzer::visit(BinaryExpression& node) {
     // Analyze operands first
-    node.getLeft()->accept(*this);
-    node.getRight()->accept(*this);
+    node.getLeft()->accept(static_cast<ASTVisitor&>(*this));
+    node.getRight()->accept(static_cast<ASTVisitor&>(*this));
     
     checkBinaryOperation(node);
 }
 
 void SemanticAnalyzer::visit(UnaryExpression& node) {
     // Analyze operand first
-    node.getOperand()->accept(*this);
+    node.getOperand()->accept(static_cast<ASTVisitor&>(*this));
     
     checkUnaryOperation(node);
 }
 
 void SemanticAnalyzer::visit(AssignmentExpression& node) {
     // Analyze both sides
-    node.getLeft()->accept(*this);
-    node.getRight()->accept(*this);
+    node.getLeft()->accept(static_cast<ASTVisitor&>(*this));
+    node.getRight()->accept(static_cast<ASTVisitor&>(*this));
     
     checkAssignment(*node.getLeft(), *node.getRight(), node.getLocation());
     
@@ -452,8 +452,8 @@ void SemanticAnalyzer::visit(AssignmentExpression& node) {
 
 void SemanticAnalyzer::visit(ConditionalExpression& node) {
     // Analyze all three expressions
-    node.getCondition()->accept(*this);
-    node.getTrueExpression()->accept(*this);
+    node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
+    node.getTrueExpression()->accept(static_cast<ASTVisitor&>(*this));
     node.getFalseExpression()->accept(*this);
     
     // Get types
@@ -480,7 +480,7 @@ void SemanticAnalyzer::visit(CallExpression& node) {
     // Analyze callee and arguments
     node.getCallee()->accept(*this);
     for (const auto& arg : node.getArguments()) {
-        arg->accept(*this);
+        arg->accept(static_cast<ASTVisitor&>(*this));
     }
     
     // Check if this is a call to a deferred super property access
@@ -970,7 +970,7 @@ void SemanticAnalyzer::visit(ReturnStatement& node) {
 
 void SemanticAnalyzer::visit(IfStatement& node) {
     // Analyze condition
-    node.getCondition()->accept(*this);
+    node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
     
     // Check if condition is boolean-compatible
     auto conditionType = node.getCondition()->getType();
@@ -992,7 +992,7 @@ void SemanticAnalyzer::visit(IfStatement& node) {
 
 void SemanticAnalyzer::visit(WhileStatement& node) {
     // Analyze condition
-    node.getCondition()->accept(*this);
+    node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
     
     // Check if condition is boolean-compatible
     auto conditionType = node.getCondition()->getType();
@@ -1012,7 +1012,7 @@ void SemanticAnalyzer::visit(DoWhileStatement& node) {
     node.getBody()->accept(*this);
     
     // Analyze condition
-    node.getCondition()->accept(*this);
+    node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
     
     // Check if condition is boolean-compatible
     auto conditionType = node.getCondition()->getType();
@@ -1032,7 +1032,7 @@ void SemanticAnalyzer::visit(ForStatement& node) {
     
     // Analyze condition if present
     if (node.getCondition()) {
-        node.getCondition()->accept(*this);
+        node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
         
         // Check if condition is boolean-compatible
         auto conditionType = node.getCondition()->getType();
@@ -2193,7 +2193,7 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     // Analyze constructor if present
     if (node.getConstructor()) {
         std::cout << "DEBUG: Processing constructor method" << std::endl;
-        node.getConstructor()->accept(*this);
+        node.getConstructor()->accept(static_cast<ASTVisitor&>(*this));
         
         // Add constructor to class scope as a method
         auto constructorType = getDeclarationType(*node.getConstructor());
@@ -3140,7 +3140,7 @@ bool SemanticAnalyzer::hasDestructor(const Type& type) const {
 // MoveExpression visitor implementation
 void SemanticAnalyzer::visit(MoveExpression& node) {
     // Analyze the operand first
-    node.getOperand()->accept(*this);
+    node.getOperand()->accept(static_cast<ASTVisitor&>(*this));
     
     // Get the type of the operand
     auto operandType = getExpressionType(*node.getOperand());
@@ -3382,7 +3382,7 @@ void SemanticAnalyzer::visit(OptionalCallExpr& node) {
     // TODO: Implement optional call expression semantic analysis
     node.getCallee()->accept(*this);
     for (const auto& arg : node.getArguments()) {
-        arg->accept(*this);
+        arg->accept(static_cast<ASTVisitor&>(*this));
     }
 }
 

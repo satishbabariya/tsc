@@ -27,23 +27,8 @@ void __clear_exception(void);
 // Internal print function
 void _print(void* first_arg, ...);
 
-// Memory operations (ARC-compatible malloc wrappers)
-void* malloc_1(size_t size);
-void* malloc_2(size_t size);
-void* malloc_3(size_t size);
-void* malloc_4(size_t size);
-void* malloc_5(size_t size);
-void* malloc_6(size_t size);
-void* malloc_7(size_t size);
-void* malloc_8(size_t size);
-void* malloc_9(size_t size);
-void* malloc_10(size_t size);
-void* malloc_11(size_t size);
-void* malloc_12(size_t size);
-void* malloc_13(size_t size);
-void* malloc_14(size_t size);
-void* malloc_15(size_t size);
-void* malloc_16(size_t size);
+// Memory operations are handled by ARC runtime functions
+// See arc/arc_runtime.h for __tsc_alloc, __tsc_retain, __tsc_release, etc.
 
 // Global constants
 extern double Infinity;

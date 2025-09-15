@@ -70,7 +70,7 @@ public:
     void reportCircularTypeReference(const SourceLocation& location, const String& suggestion = "");
     void reportGenericTypeError(const SourceLocation& location, const String& generic,
                                const String& suggestion = "");
-    void reportUnionTypeError(const SourceLocation& location, const String& union,
+    void reportUnionTypeError(const SourceLocation& location, const String& unionType,
                              const String& suggestion = "");
     void reportIntersectionTypeError(const SourceLocation& location, const String& intersection,
                                     const String& suggestion = "");
