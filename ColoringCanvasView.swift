@@ -4,6 +4,7 @@ import UIKit
 struct ColoringCanvasView: View {
     let template: ColoringTemplate
     @Binding var selectedColor: Color
+    @ObservedObject var errorHandler: ErrorHandler
     @State private var coloredRegions: [String: Color] = [:]
     @State private var showShareSheet = false
     @State private var capturedImage: UIImage?
@@ -24,15 +25,20 @@ struct ColoringCanvasView: View {
                             region.path
                                 .fill(coloredRegions[region.id] ?? Color.clear)
                                 .scaleEffect(min(geometry.size.width / 400, geometry.size.height / 400))
-                                .onTapGesture {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                        coloredRegions[region.id] = selectedColor
-                                    }
-                                    
-                                    // Add haptic feedback
-                                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                    impactFeedback.impactOccurred()
-                                }
+                        .onTapGesture {
+                            // Validate region before coloring
+                            guard InputValidator.validateRegionId(region.id) else {
+                                errorHandler.handleError(.invalidRegion)
+                                return
+                            }
+                            
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                coloredRegions[region.id] = selectedColor
+                            }
+                            
+                            // Safe haptic feedback
+                            SafeHapticFeedback.shared.lightImpact()
+                        }
                         }
                         
                         // Template outline (on top)
@@ -52,6 +58,7 @@ struct ColoringCanvasView: View {
                             withAnimation(.spring()) {
                                 coloredRegions.removeAll()
                             }
+                            SafeHapticFeedback.shared.mediumImpact()
                         }) {
                             HStack {
                                 Image(systemName: "trash")
@@ -66,7 +73,11 @@ struct ColoringCanvasView: View {
                         
                         // Save/Share button
                         Button(action: {
-                            captureImage()
+                            guard let image = captureImage() else {
+                                errorHandler.handleError(.imageCaptureFailed)
+                                return
+                            }
+                            capturedImage = image
                             showShareSheet = true
                         }) {
                             HStack {
@@ -91,35 +102,31 @@ struct ColoringCanvasView: View {
         }
         .sheet(isPresented: $showShareSheet) {
             if let image = capturedImage {
-                ShareSheet(activityItems: [image])
+                SafeShareSheet(activityItems: [image], errorHandler: errorHandler)
             }
         }
     }
     
-    private func captureImage() {
-        let renderer = ImageRenderer(content: 
-            ZStack {
-                Color.white
-                VStack {
-                    ZStack {
-                        // Colored regions
-                        ForEach(template.regions, id: \.id) { region in
-                            region.path
-                                .fill(coloredRegions[region.id] ?? Color.clear)
-                        }
-                        
-                        // Template outline
-                        template.drawing
-                            .stroke(Color.black, lineWidth: 3)
+    private func captureImage() -> UIImage? {
+        let content = ZStack {
+            Color.white
+            VStack {
+                ZStack {
+                    // Colored regions
+                    ForEach(template.regions, id: \.id) { region in
+                        region.path
+                            .fill(coloredRegions[region.id] ?? Color.clear)
                     }
-                    .frame(width: 400, height: 400)
+                    
+                    // Template outline
+                    template.drawing
+                        .stroke(Color.black, lineWidth: 3)
                 }
+                .frame(width: 400, height: 400)
             }
-        )
-        
-        if let uiImage = renderer.uiImage {
-            capturedImage = uiImage
         }
+        
+        return SafeImageCapture.captureImage(from: content, errorHandler: errorHandler)
     }
 }
 

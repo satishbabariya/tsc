@@ -5,49 +5,99 @@ struct ContentView: View {
     @State private var selectedColor: Color = .red
     @State private var showColorPicker = false
     @State private var animateColors = false
+    @StateObject private var errorHandler = ErrorHandler()
+    @StateObject private var memoryMonitor = MemoryMonitor()
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // Header with template selection
-                TemplateSelectorView(selectedTemplate: $selectedTemplate)
-                
-                // Main coloring area
-                ColoringCanvasView(
-                    template: selectedTemplate,
-                    selectedColor: $selectedColor
-                )
-                
-                // Color palette
-                ColorPaletteView(selectedColor: $selectedColor, animateColors: $animateColors)
-            }
-            .navigationTitle("🎨 Color Fun")
-            .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
-                    animateColors = true
+            ZStack {
+                VStack(spacing: 0) {
+                    // Header with template selection
+                    TemplateSelectorView(
+                        selectedTemplate: $selectedTemplate,
+                        errorHandler: errorHandler
+                    )
+                    
+                    // Main coloring area
+                    ColoringCanvasView(
+                        template: selectedTemplate,
+                        selectedColor: $selectedColor,
+                        errorHandler: errorHandler
+                    )
+                    
+                    // Color palette
+                    ColorPaletteView(
+                        selectedColor: $selectedColor,
+                        animateColors: $animateColors,
+                        errorHandler: errorHandler
+                    )
                 }
+                .navigationTitle("🎨 Color Fun")
+                .navigationBarTitleDisplayMode(.inline)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                        animateColors = true
+                    }
+                    memoryMonitor.startMonitoring()
+                }
+                .onDisappear {
+                    memoryMonitor.stopMonitoring()
+                }
+                
+                // Error alert overlay
+                if errorHandler.showErrorAlert {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            errorHandler.clearError()
+                        }
+                    
+                    ErrorAlertView(errorHandler: errorHandler)
+                        .transition(.scale.combined(with: .opacity))
+                }
+                
+                // Memory warning overlay
+                MemoryWarningView(
+                    memoryMonitor: memoryMonitor,
+                    errorHandler: errorHandler
+                )
+                .transition(.scale.combined(with: .opacity))
             }
         }
         .preferredColorScheme(.light)
+        .alert("Error", isPresented: $errorHandler.showErrorAlert) {
+            Button("OK") {
+                errorHandler.clearError()
+            }
+        } message: {
+            if let error = errorHandler.currentError {
+                Text(error.localizedDescription)
+            }
+        }
     }
 }
 
 struct TemplateSelectorView: View {
     @Binding var selectedTemplate: ColoringTemplate
+    @ObservedObject var errorHandler: ErrorHandler
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 15) {
                 ForEach(ColoringTemplate.allCases, id: \.self) { template in
                     Button(action: {
+                        // Validate template before selection
+                        guard InputValidator.validateTemplate(template) else {
+                            errorHandler.handleError(.invalidTemplate)
+                            return
+                        }
+                        
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
                             selectedTemplate = template
                         }
                         
-                        // Haptic feedback
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                        impactFeedback.impactOccurred()
+                        // Safe haptic feedback
+                        SafeHapticFeedback.shared.mediumImpact()
                     }) {
                         VStack(spacing: 5) {
                             template.icon
@@ -127,6 +177,7 @@ struct ColoringCanvasView: View {
 struct ColorPaletteView: View {
     @Binding var selectedColor: Color
     @Binding var animateColors: Bool
+    @ObservedObject var errorHandler: ErrorHandler
     
     let colors: [Color] = [
         .red, .orange, .yellow, .green, .mint, .teal,
@@ -155,13 +206,18 @@ struct ColorPaletteView: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 12) {
                 ForEach(Array(colors.enumerated()), id: \.offset) { index, color in
                     Button(action: {
+                        // Validate color before selection
+                        guard InputValidator.validateColor(color) else {
+                            errorHandler.handleError(.colorSelectionFailed)
+                            return
+                        }
+                        
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                             selectedColor = color
                         }
                         
-                        // Haptic feedback
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                        impactFeedback.impactOccurred()
+                        // Safe haptic feedback
+                        SafeHapticFeedback.shared.lightImpact()
                     }) {
                         Circle()
                             .fill(color)
