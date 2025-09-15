@@ -33,23 +33,14 @@ ModuleSymbolTable::~ModuleSymbolTable() {
 }
 
 void ModuleSymbolTable::addImportedSymbol(const ImportedSymbol& importedSymbol) {
-    // Check for conflicts with existing symbols
-    validateSymbolConflict(importedSymbol.localName, importedSymbol.location);
+    // Don't check for conflicts with existing symbols for imports
+    // Imported symbols can reference existing symbols from other modules
     
     // Add to imported symbols list
     importedSymbols_.push_back(importedSymbol);
     
-    // Create a placeholder symbol in the symbol table
-    // The actual symbol will be resolved during export binding
-    auto symbol = make_unique<Symbol>(
-        importedSymbol.localName,
-        importedSymbol.kind,
-        nullptr, // Type will be resolved later
-        importedSymbol.location
-    );
-    
-    symbolTable_->addSymbol(importedSymbol.localName, importedSymbol.kind, nullptr, 
-                           importedSymbol.location);
+    // Don't create placeholder symbol immediately - wait for validation
+    // The symbol will be created during export binding if it's valid
     
     std::cout << "DEBUG: Added imported symbol: " << importedSymbol.localName 
               << " from " << importedSymbol.sourceModulePath << std::endl;
@@ -313,10 +304,22 @@ bool ModuleSymbolManager::bindExportsToImports() {
             std::cout << "DEBUG: Found exported symbol '" << imported.importedName 
                       << "' in source module" << std::endl;
             
-            // Find the imported symbol in the main symbol table
+            // Create the imported symbol in the symbol table now that we know it's valid
             Symbol* importedSymbol = moduleTable->getSymbolTable().lookupSymbol(imported.localName);
+            if (!importedSymbol) {
+                // Create the symbol since it doesn't exist yet
+                if (!moduleTable->getSymbolTable().addSymbol(imported.localName, imported.kind, 
+                                                           exportedSymbol->getType(), imported.location)) {
+                    diagnostics_.error("Cannot create import symbol: '" + imported.localName + 
+                                     "' already exists", imported.location);
+                    success = false;
+                    continue;
+                }
+                importedSymbol = moduleTable->getSymbolTable().lookupSymbol(imported.localName);
+            }
+            
             if (importedSymbol) {
-                // Update the existing symbol with type and declaration information from the exported symbol
+                // Update the symbol with type and declaration information from the exported symbol
                 importedSymbol->setType(exportedSymbol->getType());
                 importedSymbol->setDeclaration(exportedSymbol->getDeclaration());
                 
@@ -324,10 +327,8 @@ bool ModuleSymbolManager::bindExportsToImports() {
                           << " to export " << imported.importedName 
                           << " from " << imported.sourceModulePath << std::endl;
             } else {
-                std::cout << "DEBUG: Imported symbol " << imported.localName 
-                          << " not found in symbol table" << std::endl;
-                diagnostics_.error("Cannot resolve import: symbol '" + imported.localName + 
-                                 "' not found in symbol table", imported.location);
+                std::cout << "DEBUG: Failed to create imported symbol " << imported.localName << std::endl;
+                diagnostics_.error("Cannot create import symbol: '" + imported.localName + "'", imported.location);
                 success = false;
             }
         }

@@ -805,6 +805,10 @@ ExportClause Parser::parseExportClause() {
         // Export class declaration
         auto classDecl = parseClassDeclaration();
         return ExportClause(ExportClause::Default, {}, std::move(classDecl));
+    } else if (check(TokenType::Interface)) {
+        // Export interface declaration
+        auto interfaceDecl = parseInterfaceDeclaration();
+        return ExportClause(ExportClause::Default, {}, std::move(interfaceDecl));
     } else if (check(TokenType::Const) || check(TokenType::Let) || check(TokenType::Var)) {
         // Export variable declaration
         // Consume the keyword first
