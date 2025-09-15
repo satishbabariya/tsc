@@ -1,114 +1,114 @@
 
-// Error scenarios for for...of loops
+// Error scenarios testing
 function testErrorScenarios() {
     // Test with null/undefined
-    const nullArray: number[] | null = null;
-    const undefinedArray: number[] | undefined = undefined;
+    const nullValue = null;
+    const undefinedValue = undefined;
     
     // These should cause errors
-    // for (const item of nullArray) { // Error: Object is possibly 'null'
-    //     console.log(item);
-    // }
+    // const { prop } = nullValue; // Error: Cannot destructure property 'prop' of 'null'
+    // const { prop } = undefinedValue; // Error: Cannot destructure property 'prop' of 'undefined'
     
-    // for (const item of undefinedArray) { // Error: Object is possibly 'undefined'
-    //     console.log(item);
-    // }
+    // Safe destructuring with defaults
+    const { prop = "default" } = nullValue || {};
+    console.log("Safe destructuring:", prop);
     
-    // Safe iteration with null checks
-    if (nullArray) {
-        for (const item of nullArray) {
-            console.log("Null array item:", item);
-        }
-    }
+    // Test with non-object types
+    const stringValue = "hello";
+    const numberValue = 42;
     
-    if (undefinedArray) {
-        for (const item of undefinedArray) {
-            console.log("Undefined array item:", item);
-        }
-    }
+    // These should cause errors
+    // const { prop } = stringValue; // Error: Cannot destructure property 'prop' of 'string'
+    // const { prop } = numberValue; // Error: Cannot destructure property 'prop' of 'number'
+    
+    // Test with missing properties
+    const incompleteObject = { name: "Alice" };
+    
+    // Destructuring non-existent properties
+    const { name, age = 0, city = "Unknown" } = incompleteObject;
+    console.log("Name:", name);
+    console.log("Age (default):", age);
+    console.log("City (default):", city);
 }
 
 // Test with type mismatches
 function testTypeMismatches() {
-    const numbers: number[] = [1, 2, 3, 4, 5];
+    const user = {
+        name: "Alice",
+        age: 30,
+        isActive: true
+    };
     
-    // This should cause a type error
-    // const strings: string[] = [];
-    // for (const num of numbers) {
-    //     strings.push(num); // Error: Type 'number' is not assignable to type 'string'
-    // }
+    // These should cause type errors
+    // const { name }: number = user; // Error: Type 'string' is not assignable to type 'number'
+    // const { age }: string = user; // Error: Type 'number' is not assignable to type 'string'
     
-    // Correct way
-    const strings: string[] = [];
-    for (const num of numbers) {
-        strings.push(num.toString());
-    }
+    // Correct destructuring with types
+    const { name }: { name: string } = user;
+    const { age }: { age: number } = user;
+    const { isActive }: { isActive: boolean } = user;
     
-    console.log("Number strings:", strings);
+    console.log("Name:", name);
+    console.log("Age:", age);
+    console.log("Is active:", isActive);
 }
 
-// Test with non-iterable types
-function testNonIterableTypes() {
-    const notIterable = 42;
-    const alsoNotIterable = { name: "test" };
+// Test with invalid destructuring patterns
+function testInvalidPatterns() {
+    const array = [1, 2, 3, 4, 5];
     
     // These should cause errors
-    // for (const item of notIterable) { // Error: Type 'number' is not iterable
-    //     console.log(item);
-    // }
+    // const { prop } = array; // Error: Cannot destructure property 'prop' of 'number[]'
+    // const [a, b, c] = { prop: "value" }; // Error: Object is not iterable
     
-    // for (const item of alsoNotIterable) { // Error: Type '{ name: string; }' is not iterable
-    //     console.log(item);
-    // }
+    // Correct patterns
+    const [first, second, third] = array;
+    console.log("First:", first);
+    console.log("Second:", second);
+    console.log("Third:", third);
+    
+    const obj = { prop: "value" };
+    const { prop } = obj;
+    console.log("Prop:", prop);
 }
 
-// Test with async context errors
-function testAsyncContextErrors() {
-    const regularArray = [1, 2, 3, 4, 5];
+// Test with reserved keywords
+function testReservedKeywords() {
+    const data = {
+        class: "test-class",
+        function: "test-function",
+        const: "test-const"
+    };
     
-    // This should cause an error in async context
-    // async function asyncFunction() {
-    //     for await (const item of regularArray) { // Error: Type 'number[]' is not async iterable
-    //         console.log(item);
-    //     }
-    // }
+    // These should cause errors
+    // const { class } = data; // Error: 'class' is a reserved keyword
+    // const { function } = data; // Error: 'function' is a reserved keyword
+    // const { const } = data; // Error: 'const' is a reserved keyword
+    
+    // Correct way with renaming
+    const { class: className, function: functionName, const: constName } = data;
+    console.log("Class name:", className);
+    console.log("Function name:", functionName);
+    console.log("Const name:", constName);
 }
 
-// Test with variable redeclaration
-function testVariableRedeclaration() {
-    const numbers = [1, 2, 3, 4, 5];
+// Test with circular references
+function testCircularReferences() {
+    const obj1: any = { name: "Object 1" };
+    const obj2: any = { name: "Object 2" };
     
-    // This should cause an error
-    // for (const numbers of numbers) { // Error: Cannot redeclare block-scoped variable 'numbers'
-    //     console.log(numbers);
-    // }
+    obj1.ref = obj2;
+    obj2.ref = obj1;
     
-    // Correct way
-    for (const num of numbers) {
-        console.log("Number:", num);
-    }
-}
-
-// Test with const reassignment
-function testConstReassignment() {
-    const numbers = [1, 2, 3, 4, 5];
-    
-    // This should cause an error
-    // for (const num of numbers) {
-    //     num = 10; // Error: Cannot assign to 'num' because it is a constant
-    // }
-    
-    // Use let if reassignment is needed
-    for (let num of numbers) {
-        num = num * 2;
-        console.log("Doubled:", num);
-    }
+    // Destructuring should work fine
+    const { name: name1, ref: { name: name2 } } = obj1;
+    console.log("Name 1:", name1);
+    console.log("Name 2:", name2);
 }
 
 // Run tests
 testErrorScenarios();
 testTypeMismatches();
-testNonIterableTypes();
-testAsyncContextErrors();
-testVariableRedeclaration();
-testConstReassignment();
+testInvalidPatterns();
+testReservedKeywords();
+testCircularReferences();
