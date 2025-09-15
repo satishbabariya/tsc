@@ -7455,8 +7455,136 @@ void LLVMCodeGen::visit(OptionalCallExpr& node) {
 }
 
 void LLVMCodeGen::visit(SpreadElement& node) {
-    // TODO: Implement spread element code generation
-    reportError("SpreadElement code generation not yet implemented", node.getLocation());
+    std::cout << "DEBUG: SpreadElement visitor called" << std::endl;
+    
+    // Generate the expression being spread
+    node.getExpression()->accept(*this);
+    llvm::Value* spreadValue = getCurrentValue();
+    
+    if (!spreadValue) {
+        reportError("Failed to generate spread expression", node.getLocation());
+        return;
+    }
+    
+    // For now, we'll implement a simplified version that works with arrays
+    // In a full implementation, we'd need to handle both arrays and objects
+    
+    // Check if the spread value is an array (has our array structure)
+    llvm::Type* spreadType = nullptr;
+    if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(spreadValue)) {
+        spreadType = allocaInst->getAllocatedType();
+    } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(spreadValue)) {
+        spreadType = globalVar->getValueType();
+    }
+    
+    if (spreadType && llvm::isa<llvm::StructType>(spreadType)) {
+        auto* structType = llvm::cast<llvm::StructType>(spreadType);
+        if (structType->getNumElements() == 2) {
+            // This is our array structure: { i32 length, [size x elementType] data }
+            auto* dataArrayType = llvm::dyn_cast<llvm::ArrayType>(structType->getElementType(1));
+            if (dataArrayType) {
+                llvm::Type* elementType = dataArrayType->getElementType();
+                size_t arraySize = dataArrayType->getNumElements();
+                
+                std::cout << "DEBUG: Spreading array with " << arraySize << " elements of type " << elementType->getTypeID() << std::endl;
+                
+                // Create a new array with the same structure
+                llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+                if (!currentFunc) {
+                    // Global scope - create a global array
+                    llvm::Type* newArrayStructType = llvm::StructType::get(*context_, {
+                        llvm::Type::getInt32Ty(*context_),  // length
+                        llvm::ArrayType::get(elementType, arraySize)  // data
+                    });
+                    
+                    llvm::GlobalVariable* newArray = new llvm::GlobalVariable(
+                        *module_,
+                        newArrayStructType,
+                        false, // not constant
+                        llvm::GlobalValue::PrivateLinkage,
+                        nullptr, // no initializer for now
+                        "spread_array_global"
+                    );
+                    
+                    // Copy elements from source array to new array
+                    std::vector<llvm::Constant*> copiedElements;
+                    for (size_t i = 0; i < arraySize; ++i) {
+                        // Access source array element
+                        std::vector<llvm::Value*> indices = {
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Element index
+                        };
+                        llvm::Value* sourceElementPtr = builder_->CreateGEP(structType, spreadValue, indices, "source_element_ptr");
+                        llvm::Value* sourceElement = builder_->CreateLoad(elementType, sourceElementPtr, "source_element");
+                        
+                        // Convert to constant if possible
+                        if (auto* constValue = llvm::dyn_cast<llvm::Constant>(sourceElement)) {
+                            copiedElements.push_back(constValue);
+                        } else {
+                            // For non-constant values, use a default value
+                            copiedElements.push_back(llvm::Constant::getNullValue(elementType));
+                        }
+                    }
+                    
+                    // Initialize the new array structure
+                    llvm::Constant* lengthConst = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), arraySize);
+                    llvm::Constant* dataConst = llvm::ConstantArray::get(llvm::cast<llvm::ArrayType>(newArrayStructType->getStructElementType(1)), copiedElements);
+                    
+                    llvm::Constant* arrayConst = llvm::ConstantStruct::get(
+                        llvm::cast<llvm::StructType>(newArrayStructType),
+                        {lengthConst, dataConst}
+                    );
+                    
+                    newArray->setInitializer(arrayConst);
+                    setCurrentValue(newArray);
+                    return;
+                } else {
+                    // Local scope - create a local array
+                    llvm::Type* newArrayStructType = llvm::StructType::get(*context_, {
+                        llvm::Type::getInt32Ty(*context_),  // length
+                        llvm::ArrayType::get(elementType, arraySize)  // data
+                    });
+                    
+                    llvm::IRBuilder<> allocaBuilder(&currentFunc->getEntryBlock(), 
+                                                   currentFunc->getEntryBlock().begin());
+                    llvm::AllocaInst* newArrayStorage = allocaBuilder.CreateAlloca(newArrayStructType, nullptr, "spread_array");
+                    
+                    // Set the length field
+                    llvm::Value* lengthPtr = builder_->CreateStructGEP(newArrayStructType, newArrayStorage, 0, "length.ptr");
+                    builder_->CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), arraySize), lengthPtr);
+                    
+                    // Copy elements from source array to new array
+                    for (size_t i = 0; i < arraySize; ++i) {
+                        // Access source array element
+                        std::vector<llvm::Value*> sourceIndices = {
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Element index
+                        };
+                        llvm::Value* sourceElementPtr = builder_->CreateGEP(structType, spreadValue, sourceIndices, "source_element_ptr");
+                        llvm::Value* sourceElement = builder_->CreateLoad(elementType, sourceElementPtr, "source_element");
+                        
+                        // Store in new array
+                        std::vector<llvm::Value*> newIndices = {
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Element index
+                        };
+                        llvm::Value* newElementPtr = builder_->CreateGEP(newArrayStructType, newArrayStorage, newIndices, "new_element_ptr");
+                        builder_->CreateStore(sourceElement, newElementPtr);
+                    }
+                    
+                    setCurrentValue(newArrayStorage);
+                    return;
+                }
+            }
+        }
+    }
+    
+    // Fallback: if we can't determine the type, create a null value
+    reportError("SpreadElement: unsupported spread type", node.getLocation());
+    setCurrentValue(createNullValue(getAnyType()));
 }
 
 // Helper function to check if a type is ARC-managed
