@@ -2456,7 +2456,7 @@ unique_ptr<Expression> Parser::parseArrowFunction() {
         Token param = advance();
         
         // Must be followed by arrow
-        if (!check(TokenType::Arrow)) {
+        if (!match(TokenType::Arrow)) {
             reportError("Expected '=>' after parameter", getCurrentLocation());
             return nullptr;
         }
