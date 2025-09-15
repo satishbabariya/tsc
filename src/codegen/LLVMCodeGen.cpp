@@ -3244,11 +3244,11 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
         llvmType = mapTypeScriptTypeToLLVM(*varSymbol->getType());
         std::cout << "DEBUG: Variable " << node.getName() << " using symbol table type: " << varSymbol->getType()->toString() << std::endl;
         
-        // For global variables, ensure they are pointers to the type
+        // For global variables, keep the original type (don't convert to pointer)
+        // Global variables should be declared as the actual type, not a pointer to it
         llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
-        if (!currentFunc && llvmType && !llvmType->isPointerTy()) {
-            llvmType = llvm::PointerType::get(llvmType, 0);
-            std::cout << "DEBUG: Variable " << node.getName() << " converted to pointer type for global variable" << std::endl;
+        if (!currentFunc) {
+            std::cout << "DEBUG: Variable " << node.getName() << " is global variable, keeping original type: " << llvmType << std::endl;
         }
     }
     
