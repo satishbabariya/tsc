@@ -2176,7 +2176,7 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
             return;
         }
         
-        llvm::StructType* objectStructType = llvm::StructType::create(*context_, fieldTypes, "ObjectStruct");
+        llvm::StructType* objectStructType = getOrCreateStructType(fieldTypes);
         
         // Create global variable for the object
         llvm::GlobalVariable* globalObject = new llvm::GlobalVariable(
@@ -2192,22 +2192,40 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
         std::vector<llvm::Constant*> fieldValues;
         
         // Copy values from resolved spread properties (last-in-wins semantics applied)
+        // Optimization: For global objects, directly access constant values instead of generating GEP/Load instructions
         for (const auto& propInfo : resolvedProperties) {
-            // Access spread object field
-            std::vector<llvm::Value*> indices = {
-                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
-                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), propInfo.fieldIndex)   // Field index
-            };
-            llvm::Value* fieldPtr = builder_->CreateGEP(propInfo.spreadType, propInfo.spreadValue, indices, "spread_field_ptr");
-            llvm::Value* fieldValue = builder_->CreateLoad(propInfo.type, fieldPtr, "spread_field_value");
+            llvm::Constant* fieldValue = nullptr;
             
-            // Convert to constant if possible
-            if (auto* constValue = llvm::dyn_cast<llvm::Constant>(fieldValue)) {
-                fieldValues.push_back(constValue);
-            } else {
-                fieldValues.push_back(llvm::Constant::getNullValue(propInfo.type));
+            // Check if the spread value is a global variable with constant initializer
+            if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(propInfo.spreadValue)) {
+                if (globalVar->hasInitializer()) {
+                    auto* initializer = globalVar->getInitializer();
+                    if (auto* structConst = llvm::dyn_cast<llvm::ConstantStruct>(initializer)) {
+                        if (propInfo.fieldIndex < structConst->getNumOperands()) {
+                            fieldValue = llvm::cast<llvm::Constant>(structConst->getOperand(propInfo.fieldIndex));
+                        }
+                    }
+                }
             }
             
+            // Fallback to runtime access if not a constant
+            if (!fieldValue) {
+                std::vector<llvm::Value*> indices = {
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), propInfo.fieldIndex)   // Field index
+                };
+                llvm::Value* fieldPtr = builder_->CreateGEP(propInfo.spreadType, propInfo.spreadValue, indices, "spread_field_ptr");
+                llvm::Value* runtimeValue = builder_->CreateLoad(propInfo.type, fieldPtr, "spread_field_value");
+                
+                // Convert to constant if possible
+                if (auto* constValue = llvm::dyn_cast<llvm::Constant>(runtimeValue)) {
+                    fieldValue = constValue;
+                } else {
+                    fieldValue = llvm::Constant::getNullValue(propInfo.type);
+                }
+            }
+            
+            fieldValues.push_back(fieldValue);
             std::cout << "DEBUG: Copied value for property " << propInfo.name << " from spread " << propInfo.spreadOrder << std::endl;
         }
         
@@ -6723,6 +6741,26 @@ llvm::Type* LLVMCodeGen::generateObjectType(const shared_ptr<Type>& type) {
     
     auto structType = llvm::StructType::create(*context_, fieldTypes, typeName);
     structTypeCache_[typeName] = structType;
+    
+    return structType;
+}
+
+llvm::StructType* LLVMCodeGen::getOrCreateStructType(const std::vector<llvm::Type*>& fieldTypes) {
+    // Create a unique key for this struct type based on field types
+    std::string key = "struct_";
+    for (auto* type : fieldTypes) {
+        key += std::to_string(type->getTypeID()) + "_";
+    }
+    
+    // Check cache first
+    auto cached = structTypeCache_.find(key);
+    if (cached != structTypeCache_.end()) {
+        return cached->second;
+    }
+    
+    // Create new struct type
+    llvm::StructType* structType = llvm::StructType::create(*context_, fieldTypes, "ObjectStruct_" + std::to_string(structTypeCache_.size()));
+    structTypeCache_[key] = structType;
     
     return structType;
 }

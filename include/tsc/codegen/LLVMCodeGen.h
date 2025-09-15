@@ -67,6 +67,7 @@ public:
     llvm::BasicBlock* getCurrentContinueBlock() const;
     llvm::BasicBlock* getCurrentBreakBlock() const;
     
+    
     // Scope management
     void enterScope();
     void exitScope();
@@ -90,6 +91,9 @@ private:
     
     // Function context stack
     std::stack<llvm::Function*> functionStack_;
+    
+    // Performance optimization: struct type cache
+    std::unordered_map<String, llvm::StructType*> structTypeCache_;
     
     // Class context stack
     std::stack<String> classStack_;
@@ -549,6 +553,9 @@ public:
     
     // Type conversion
     llvm::Type* convertTypeToLLVM(shared_ptr<Type> type);
+    
+    // Performance optimization: struct type caching
+    llvm::StructType* getOrCreateStructType(const std::vector<llvm::Type*>& fieldTypes);
     
     // Generic type monomorphization
     llvm::Type* createMonomorphizedType(const GenericType& genericType);
