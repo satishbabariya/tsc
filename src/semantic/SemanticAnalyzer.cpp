@@ -99,11 +99,15 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
                 return false;
             }
             
+            std::cout << "DEBUG: *** BEFORE PARSER *** About to create parser for " << modulePath << std::endl;
+            std::cout.flush();
             VectorTokenStream tokenStream(tokens);
             Parser parser(diagnostics_, *typeSystem_);
-            std::cout << "DEBUG: About to call parser.parse() for " << modulePath << std::endl;
+            std::cout << "DEBUG: *** PARSER INVOCATION *** About to call parser.parse() for " << modulePath << std::endl;
+            std::cout.flush();
             auto module = parser.parse(tokens, modulePath);
-            std::cout << "DEBUG: Parser.parse() returned " << (module ? "success" : "null") << std::endl;
+            std::cout << "DEBUG: *** PARSER RESULT *** Parser.parse() returned " << (module ? "SUCCESS" : "NULL") << " for " << modulePath << std::endl;
+            std::cout.flush();
             if (!module) {
                 diagnostics_.error("Failed to parse: " + modulePath, SourceLocation());
                 return false;
