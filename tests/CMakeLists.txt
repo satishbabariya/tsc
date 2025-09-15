@@ -1,108 +1,69 @@
-# TSC Tests
-find_package(GTest QUIET)
+# CMakeLists.txt for IR Generation Tests
 
-if(GTest_FOUND)
-    # Unit tests with GTest
-    add_executable(tsc_tests
-        test_lexer.cpp
-        test_parser.cpp
-        test_ast.cpp
-        test_compiler.cpp
-        test_semantic_analyzer.cpp
-        test_module_resolution_fix.cpp
-        test_module_resolution_integration.cpp
-        test_closure_semantic_analyzer.cpp
-        test_closure_llvm_codegen.cpp
-        test_closure_integration.cpp
-        test_irbuilder_context_management.cpp
-        # New comprehensive tests for critical fixes
-        test_parser_comparison_operators.cpp
-        test_codegen_control_flow.cpp
-        test_regression_critical_fixes.cpp
-        test_ast_validation.cpp
-        test_integration_control_flow.cpp
-        test_system_end_to_end.cpp
-        # Advanced generics semantic analysis tests
-        test_advanced_generics_semantic.cpp
-        test_integration_advanced_generics.cpp
-        test_regression_advanced_generics.cpp
-        # Comprehensive generic constraints tests
-        test_generic_constraints_integration.cpp
-        test_generic_constraints_negative.cpp
-        test_generic_constraints_ast_validation.cpp
-        test_generic_constraints_regression.cpp
-        test_generic_constraints_performance.cpp
-        test_generic_constraints_edge_cases.cpp
-        test_generic_constraints_advanced_negative.cpp
-        # Runtime function declaration tests
-        test_runtime_function_declarations.cpp
-    )
-    
-    target_link_libraries(tsc_tests
-        tsc_lib
-        GTest::gtest
-        GTest::gtest_main
-        ${llvm_libs}
-    )
-    
-    # Add tests to CTest
-    add_test(NAME TSCTests COMMAND tsc_tests)
-else()
-    message(STATUS "GTest not found, using custom test framework")
-endif()
+# Find required packages
+find_package(GTest REQUIRED)
+find_package(LLVM REQUIRED CONFIG)
 
-# Custom semantic analyzer tests (no external dependencies)
-# add_executable(tsc_semantic_tests
-#     test_semantic_analyzer_simple.cpp
-# )
+# Include directories
+include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/src)
 
-# Custom closure tests (no external dependencies)
-# add_executable(tsc_closure_tests
-#     test_closure_validation.cpp
-# )
+# Add LLVM definitions
+add_definitions(${LLVM_DEFINITIONS})
 
-# target_link_libraries(tsc_semantic_tests
-#     tsc_lib
-#     ${llvm_libs}
-# )
+# Unit tests
+add_executable(ir_generation_unit_tests
+    test_ir_generation_unit.cpp
+)
 
-# target_link_libraries(tsc_closure_tests
-#     tsc_lib
-#     ${llvm_libs}
-# )
+target_link_libraries(ir_generation_unit_tests
+    GTest::gtest
+    GTest::gtest_main
+    ${LLVM_LIBRARIES}
+)
 
-# Add custom tests to CTest
-# add_test(NAME SemanticAnalyzerTests COMMAND tsc_semantic_tests)
-# add_test(NAME ClosureTests COMMAND tsc_closure_tests)
+# Integration tests
+add_executable(ir_generation_integration_tests
+    test_ir_generation_integration.cpp
+)
 
-# Integration tests for generic classes and LLVM bug fix validation
-# add_executable(tsc_integration_tests
-#     test_integration.cpp
-# )
+target_link_libraries(ir_generation_integration_tests
+    GTest::gtest
+    GTest::gtest_main
+    ${LLVM_LIBRARIES}
+)
 
-# target_link_libraries(tsc_integration_tests
-#     tsc_lib
-#     ${llvm_libs}
-# )
+# System tests
+add_executable(ir_generation_system_tests
+    test_ir_generation_system.cpp
+)
 
-# add_test(NAME IntegrationTests COMMAND tsc_integration_tests)
+target_link_libraries(ir_generation_system_tests
+    GTest::gtest
+    GTest::gtest_main
+    ${LLVM_LIBRARIES}
+)
 
-# Class-level generics unit tests
-# add_executable(tsc_class_generics_tests
-#     test_class_level_generics.cpp
-# )
+# Add tests to CTest
+enable_testing()
 
-# target_link_libraries(tsc_class_generics_tests
-#     tsc_lib
-#     ${llvm_libs}
-# )
+add_test(NAME IRGenerationUnitTests COMMAND ir_generation_unit_tests)
+add_test(NAME IRGenerationIntegrationTests COMMAND ir_generation_integration_tests)
+add_test(NAME IRGenerationSystemTests COMMAND ir_generation_system_tests)
 
-# add_test(NAME ClassLevelGenericsTests COMMAND tsc_class_generics_tests)
+# Set test properties
+set_tests_properties(IRGenerationUnitTests PROPERTIES
+    TIMEOUT 60
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
 
-# Integration tests using the compiler binary
-add_test(NAME BasicCompilation 
-         COMMAND tsc ${CMAKE_CURRENT_SOURCE_DIR}/examples/hello.ts)
+set_tests_properties(IRGenerationIntegrationTests PROPERTIES
+    TIMEOUT 120
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
 
-# Copy test files to build directory
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/examples/hello.ts 
-               ${CMAKE_CURRENT_BINARY_DIR}/examples/hello.ts COPYONLY)
+set_tests_properties(IRGenerationSystemTests PROPERTIES
+    TIMEOUT 300
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)

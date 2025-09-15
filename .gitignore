@@ -89,12 +89,12 @@ demo.ts
 simple.ts
 hello.ts
 
-# Test files (organized in test_files/)
-test_files/coverage/
-test_files/parser/
-test_files/semantic/
-test_files/codegen/
-test_files/regression/
+# Test files (organized in tests/)
+tests/coverage/
+tests/parser/
+tests/semantic/
+tests/codegen/
+tests/regression/
 
 # Cleanup artifacts
 *.txt
