@@ -62,6 +62,8 @@ private:
     std::vector<unique_ptr<Statement>> parseStatementList();
     
     // Statements
+    unique_ptr<Statement> parseImportDeclaration();
+    unique_ptr<Statement> parseExportDeclaration();
     unique_ptr<Statement> parseVariableStatement();
     unique_ptr<Statement> parseFunctionDeclaration();
     unique_ptr<Statement> parseClassDeclaration();
@@ -140,6 +142,13 @@ private:
     bool match(std::initializer_list<TokenType> types);
     Token consume(TokenType type, const String& errorMessage);
     bool isAtEnd() const;
+    
+    // Import/Export parsing helpers
+    ImportClause parseImportClause();
+    std::vector<ImportSpec> parseNamedImports();
+    ExportClause parseExportClause();
+    std::vector<ExportSpec> parseNamedExports();
+    String parseModuleSpecifier();
     
     // Error handling and recovery
     void reportError(const String& message, const SourceLocation& location = {}, 
