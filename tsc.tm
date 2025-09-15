@@ -1360,6 +1360,7 @@ Modifiers<WithDeclare>:
 ClassElement<Yield, Await> -> ClassElement /* interface */:
     Modifiers<+WithDeclare>? MethodDefinition  -> MemberMethod
   | Modifiers<+WithDeclare>? FieldDefinition   -> MemberVar
+  | Modifiers<+WithDeclare>? DestructorDeclaration -> DestructorMember
   | IndexSignature<+WithDeclare> ';'           -> TsIndexMemberDecl
   | ClassStaticBlock
   | ';' -> EmptyDecl
@@ -1368,6 +1369,9 @@ ClassElement<Yield, Await> -> ClassElement /* interface */:
 
 FieldDefinition<Yield, Await>:
     PropertyName ('?' | '!')? TypeAnnotationopt Initializeropt<+In> ';' ;
+
+DestructorDeclaration<Yield, Await> -> DestructorDecl:
+    '~' BindingIdentifier '(' ')' Block ;
 
 ClassStaticBlock -> StaticBlock:
     'static' ClassStaticBlockBody ;

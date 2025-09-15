@@ -762,6 +762,24 @@ String MethodDeclaration::toString() const {
     return oss.str();
 }
 
+// DestructorDeclaration implementation
+void DestructorDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String DestructorDeclaration::toString() const {
+    std::ostringstream oss;
+    oss << "~" << className_ << "()";
+    
+    if (body_) {
+        oss << " { /* destructor body */ }";
+    } else {
+        oss << ";";
+    }
+    
+    return oss.str();
+}
+
 // ClassDeclaration implementation
 void ClassDeclaration::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
@@ -799,6 +817,11 @@ String ClassDeclaration::toString() const {
     // Methods
     for (const auto& method : methods_) {
         oss << "  " << method->toString() << "\n";
+    }
+    
+    // Destructor
+    if (destructor_) {
+        oss << "  " << destructor_->toString() << "\n";
     }
     
     oss << "}";

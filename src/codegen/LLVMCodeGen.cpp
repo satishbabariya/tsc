@@ -4963,6 +4963,7 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(ClassDeclaration& node) override {}
         void visit(PropertyDeclaration& node) override {}
         void visit(MethodDeclaration& node) override {}
+        void visit(DestructorDeclaration& node) override {}
         void visit(InterfaceDeclaration& node) override {}
         void visit(EnumDeclaration& node) override {}
         void visit(EnumMember& node) override {}
@@ -5383,6 +5384,54 @@ void LLVMCodeGen::visit(MethodDeclaration& node) {
         codeGenContext_->exitFunction();
     }
     
+    setCurrentValue(function);
+}
+
+void LLVMCodeGen::visit(DestructorDeclaration& node) {
+    std::cout << "DEBUG: Generating destructor for class: " << node.getClassName() << std::endl;
+    
+    // Generate LLVM function for the destructor
+    std::vector<llvm::Type*> paramTypes;
+    
+    // Add 'this' pointer as first parameter for destructors
+    paramTypes.push_back(getAnyType()); // Simplified: use generic pointer for 'this'
+    
+    // Destructors always return void and take no parameters (except 'this')
+    llvm::Type* returnType = getVoidType();
+    
+    // Create function type
+    llvm::FunctionType* functionType = llvm::FunctionType::get(returnType, paramTypes, false);
+    
+    // Create function with mangled name
+    String functionName = "~" + node.getClassName();
+    
+    std::cout << "DEBUG: Generating destructor function: " << functionName << std::endl;
+    
+    llvm::Function* function = llvm::Function::Create(
+        functionType, llvm::Function::ExternalLinkage, functionName, module_.get()
+    );
+    
+    // Generate function body if present
+    if (node.getBody()) {
+        llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", function);
+        builder_->SetInsertPoint(entryBlock);
+        
+        // Save current function context
+        codeGenContext_->enterFunction(function);
+        
+        // Generate destructor body
+        node.getBody()->accept(*this);
+        
+        // Ensure function has a return (destructors always return void)
+        if (!builder_->GetInsertBlock()->getTerminator()) {
+            builder_->CreateRetVoid();
+        }
+        
+        // Restore previous function context
+        codeGenContext_->exitFunction();
+    }
+    
+    std::cout << "DEBUG: Destructor function generated successfully" << std::endl;
     setCurrentValue(function);
 }
 

@@ -312,6 +312,7 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     std::vector<unique_ptr<PropertyDeclaration>> properties;
     std::vector<unique_ptr<MethodDeclaration>> methods;
     unique_ptr<MethodDeclaration> constructor = nullptr;
+    unique_ptr<DestructorDeclaration> destructor = nullptr;
     
     while (!check(TokenType::RightBrace) && !isAtEnd()) {
         // Parse visibility modifiers
@@ -331,7 +332,31 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
             else if (match(TokenType::Abstract)) isAbstract = true;
         }
         
-        if (check(TokenType::Identifier) || check(TokenType::Constructor)) {
+        if (check(TokenType::Tilde)) {
+            // Parse destructor declaration
+            advance(); // consume '~'
+            Token classNameToken = consume(TokenType::Identifier, "Expected class name after '~'");
+            String destructorClassName = classNameToken.getStringValue();
+            
+            // Verify the destructor class name matches the current class name
+            if (destructorClassName != name) {
+                reportError("Destructor class name '" + destructorClassName + "' does not match class name '" + name + "'", 
+                           classNameToken.getLocation());
+            }
+            
+            consume(TokenType::LeftParen, "Expected '(' after destructor class name");
+            consume(TokenType::RightParen, "Expected ')' after destructor class name (destructors take no parameters)");
+            
+            auto body = parseFunctionBody();
+            
+            if (destructor) {
+                reportError("Class can only have one destructor", getCurrentLocation());
+            } else {
+                destructor = make_unique<DestructorDeclaration>(
+                    destructorClassName, std::move(body), getCurrentLocation()
+                );
+            }
+        } else if (check(TokenType::Identifier) || check(TokenType::Constructor)) {
             Token memberToken = advance();
             String memberName = memberToken.getStringValue();
             
@@ -438,7 +463,7 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     
     return make_unique<ClassDeclaration>(
         name, std::move(typeParameters), baseClass, std::move(interfaces), std::move(properties), 
-        std::move(methods), std::move(constructor), location
+        std::move(methods), std::move(constructor), std::move(destructor), location
     );
 }
 

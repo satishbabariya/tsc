@@ -1859,6 +1859,30 @@ void SemanticAnalyzer::visit(MethodDeclaration& node) {
     exitScope();
 }
 
+void SemanticAnalyzer::visit(DestructorDeclaration& node) {
+    // Enter destructor scope
+    enterScope(Scope::ScopeType::Function, "~" + node.getClassName());
+    functionDepth_++;
+    
+    std::cout << "DEBUG: Analyzing destructor for class: " << node.getClassName() << std::endl;
+    
+    // Analyze destructor body
+    if (node.getBody()) {
+        node.getBody()->accept(*this);
+    }
+    
+    // Create destructor type (void function with no parameters)
+    std::vector<FunctionType::Parameter> paramTypes; // Empty parameters
+    auto destructorType = typeSystem_->createFunctionType(std::move(paramTypes), typeSystem_->getVoidType());
+    setDeclarationType(node, destructorType);
+    
+    std::cout << "DEBUG: Destructor analysis completed for class: " << node.getClassName() << std::endl;
+    
+    // Exit destructor scope
+    functionDepth_--;
+    exitScope();
+}
+
 void SemanticAnalyzer::visit(ClassDeclaration& node) {
     // Create class type first (without base class, will be resolved later)
     auto classType = typeSystem_->createClassType(node.getName(), &node, nullptr);
@@ -1968,6 +1992,17 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
         // Add method to class scope
         auto methodType = getDeclarationType(*method);
         declareSymbol(method->getName(), SymbolKind::Method, methodType, method->getLocation());
+    }
+    
+    // Analyze destructor if present
+    if (node.getDestructor()) {
+        std::cout << "DEBUG: Processing destructor for class: " << node.getName() << std::endl;
+        node.getDestructor()->accept(*this);
+        
+        // Add destructor to class scope as a method
+        auto destructorType = getDeclarationType(*node.getDestructor());
+        declareSymbol("~" + node.getName(), SymbolKind::Method, destructorType, node.getDestructor()->getLocation());
+        std::cout << "DEBUG: Added destructor to class scope" << std::endl;
     }
     
     // Check constructor
