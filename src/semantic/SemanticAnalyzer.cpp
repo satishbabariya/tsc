@@ -454,7 +454,7 @@ void SemanticAnalyzer::visit(ConditionalExpression& node) {
     // Analyze all three expressions
     node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
     node.getTrueExpression()->accept(static_cast<ASTVisitor&>(*this));
-    node.getFalseExpression()->accept(*this);
+    node.getFalseExpression()->accept(static_cast<ASTVisitor&>(*this));
     
     // Get types
     auto conditionType = getExpressionType(*node.getCondition());
@@ -1838,7 +1838,7 @@ void SemanticAnalyzer::checkUnaryOperation(UnaryExpression& expr) {
 // Error reporting
 void SemanticAnalyzer::reportError(const String& message, const SourceLocation& location) {
     if (errorReporter_) {
-        errorReporter_->reportSemanticError(ErrorCodes::Semantic::CANNOT_FIND_NAME, location, message);
+        errorReporter_->reportTypeError(ErrorCodes::Semantic::CANNOT_FIND_NAME, location, message);
     } else {
         diagnostics_.error(message, location);
     }
@@ -1847,7 +1847,7 @@ void SemanticAnalyzer::reportError(const String& message, const SourceLocation& 
 
 void SemanticAnalyzer::reportWarning(const String& message, const SourceLocation& location) {
     if (errorReporter_) {
-        errorReporter_->reportWarning(ErrorCodes::Warning::UNUSED_VARIABLE, location, message);
+        errorReporter_->reportWarning(ErrorCodes::Warning::UNUSED_VARIABLE, location, message, "");
     } else {
         diagnostics_.warning(message, location);
     }
@@ -1865,7 +1865,7 @@ void SemanticAnalyzer::reportTypeError(const String& expected, const String& act
 
 void SemanticAnalyzer::reportUndefinedSymbol(const String& name, const SourceLocation& location) {
     if (errorReporter_) {
-        errorReporter_->reportCannotFindName(location, name, "Check the spelling or declare the symbol");
+        errorReporter_->reportUndefinedVariable(location, name, "Check the spelling or declare the symbol");
     } else {
         reportError("Undefined symbol: " + name, location);
     }
@@ -1874,7 +1874,7 @@ void SemanticAnalyzer::reportUndefinedSymbol(const String& name, const SourceLoc
 void SemanticAnalyzer::reportRedefinitionError(const String& name, const SourceLocation& location, 
                                               const SourceLocation& originalLocation) {
     if (errorReporter_) {
-        errorReporter_->reportDuplicateIdentifier(location, name, 
+        errorReporter_->reportDuplicateDeclaration(location, name, 
                                                  "Rename one of the identifiers to make them unique");
     } else {
         reportError("Redefinition of symbol: " + name + 

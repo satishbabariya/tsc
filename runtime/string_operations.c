@@ -130,8 +130,25 @@ char* number_to_string_9(double value) {
     return number_to_string(value);
 }
 
-// Assembly aliases for mangled names with dots
-// These create symbols with dots in the name that the linker expects
+// Wrapper functions for mangled names with dots
+// These create symbols with the names that the linker expects
+#ifdef __APPLE__
+// On macOS, create wrapper functions with the expected names
+// Note: We can't use dots in function names, so these are alternative implementations
+char* number_to_string_1_dot(double value) { return number_to_string_1(value); }
+char* number_to_string_2_dot(double value) { return number_to_string_2(value); }
+char* number_to_string_3_dot(double value) { return number_to_string_3(value); }
+char* number_to_string_4_dot(double value) { return number_to_string_4(value); }
+char* number_to_string_5_dot(double value) { return number_to_string_5(value); }
+char* number_to_string_6_dot(double value) { return number_to_string_6(value); }
+char* number_to_string_7_dot(double value) { return number_to_string_7(value); }
+char* number_to_string_8_dot(double value) { return number_to_string_8(value); }
+char* number_to_string_9_dot(double value) { return number_to_string_9(value); }
+char* number_to_string_11_dot(double value) { return number_to_string_7(value); }
+char* number_to_string_12_dot(double value) { return number_to_string_8(value); }
+char* number_to_string_13_dot(double value) { return number_to_string_7(value); }
+#else
+// On Linux, use assembly directives
 __asm__(".weak number_to_string.1");
 __asm__(".set number_to_string.1, number_to_string_1");
 __asm__(".weak number_to_string.2");
@@ -156,3 +173,4 @@ __asm__(".weak number_to_string.12");
 __asm__(".set number_to_string.12, number_to_string_8");
 __asm__(".weak number_to_string.13");
 __asm__(".set number_to_string.13, number_to_string_7");
+#endif

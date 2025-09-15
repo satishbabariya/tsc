@@ -92,7 +92,23 @@ void* arrayPop(void* array_ptr) {
     return (void*)0x12345678; // Placeholder address
 }
 
-// Aliases for mangled arrayPush functions
+// Wrapper functions for mangled arrayPush functions
+// These provide the mangled names that the linker expects
+#ifdef __APPLE__
+// On macOS, create wrapper functions with the expected names
+void arrayPush_1(void* array_ptr, void* element) { arrayPush(array_ptr, element); }
+void arrayPush_2(void* array_ptr, void* element) { arrayPush(array_ptr, element); }
+void arrayPush_3(void* array_ptr, void* element) { arrayPush(array_ptr, element); }
+void arrayPush_4(void* array_ptr, void* element) { arrayPush(array_ptr, element); }
+void arrayPush_5(void* array_ptr, void* element) { arrayPush(array_ptr, element); }
+void arrayPush_6(void* array_ptr, void* element) { arrayPush(array_ptr, element); }
+void arrayPush_7(void* array_ptr, void* element) { arrayPush(array_ptr, element); }
+void arrayPush_8(void* array_ptr, void* element) { arrayPush(array_ptr, element); }
+void arrayPush_9(void* array_ptr, void* element) { arrayPush(array_ptr, element); }
+void arrayPush_10(void* array_ptr, void* element) { arrayPush(array_ptr, element); }
+void arrayPush_11(void* array_ptr, void* element) { arrayPush(array_ptr, element); }
+#else
+// On Linux, use assembly directives
 __asm__(".weak arrayPush.1");
 __asm__(".set arrayPush.1, arrayPush");
 __asm__(".weak arrayPush.2");
@@ -115,3 +131,4 @@ __asm__(".weak arrayPush.10");
 __asm__(".set arrayPush.10, arrayPush");
 __asm__(".weak arrayPush.11");
 __asm__(".set arrayPush.11, arrayPush");
+#endif

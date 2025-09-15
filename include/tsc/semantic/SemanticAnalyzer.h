@@ -284,18 +284,7 @@ private:
     bool hasDestructor(const Type& type) const;
 
 private:
-    DiagnosticEngine& diagnostics_;
-    unique_ptr<SymbolTable> symbolTable_;
-    unique_ptr<TypeSystem> typeSystem_;
-    unique_ptr<SemanticContext> context_;
-    unique_ptr<GenericConstraintChecker> constraintChecker_;
-    unique_ptr<semantic::CycleDetector> cycleDetector_;
     unique_ptr<EnhancedErrorReporting> errorReporter_;
-    
-    // Type and symbol tracking
-    std::unordered_map<const Expression*, shared_ptr<Type>> expressionTypes_;
-    std::unordered_map<const Declaration*, shared_ptr<Type>> declarationTypes_;
-    std::unordered_map<const ASTNode*, Symbol*> nodeSymbols_;
 };
 
 // Semantic analysis result

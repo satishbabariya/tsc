@@ -216,10 +216,10 @@ void EnhancedErrorReporting::reportGenericTypeError(const SourceLocation& locati
 }
 
 // Continue with more methods...
-void EnhancedErrorReporting::reportUnionTypeError(const SourceLocation& location, const String& union,
+void EnhancedErrorReporting::reportUnionTypeError(const SourceLocation& location, const String& unionType,
                                                   const String& suggestion) {
-    String message = formatMessage(ErrorMessages::Type::UNION_TYPE_ERROR_MSG, union);
-    String sug = suggestion.empty() ? formatSuggestion(ErrorSuggestions::Type::UNION_TYPE_ERROR_SUGGESTION, union) : suggestion;
+    String message = formatMessage(ErrorMessages::Type::UNION_TYPE_ERROR_MSG, unionType);
+    String sug = suggestion.empty() ? formatSuggestion(ErrorSuggestions::Type::UNION_TYPE_ERROR_SUGGESTION, unionType) : suggestion;
     addDiagnostic(DiagnosticLevel::Error, ErrorCodes::Type::UNION_TYPE_ERROR, location, message, sug);
 }
 
@@ -280,10 +280,16 @@ void EnhancedErrorReporting::reportTupleTypeError(const SourceLocation& location
 }
 
 void EnhancedErrorReporting::reportLiteralTypeError(const SourceLocation& location, const String& literal,
-                                                     const String& suggestion) {
+                                                    const String& suggestion) {
     String message = formatMessage(ErrorMessages::Type::LITERAL_TYPE_ERROR_MSG, literal);
     String sug = suggestion.empty() ? formatSuggestion(ErrorSuggestions::Type::LITERAL_TYPE_ERROR_SUGGESTION, literal) : suggestion;
     addDiagnostic(DiagnosticLevel::Error, ErrorCodes::Type::LITERAL_TYPE_ERROR, location, message, sug);
+}
+
+// Warning reporting methods
+void EnhancedErrorReporting::reportWarning(const String& code, const SourceLocation& location,
+                                          const String& message, const String& suggestion) {
+    addDiagnostic(DiagnosticLevel::Warning, code, location, message, suggestion);
 }
 
 // Utility methods

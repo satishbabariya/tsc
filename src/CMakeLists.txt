@@ -3,6 +3,7 @@ add_library(tsc_lib STATIC
     # Core utilities
     utils/DiagnosticEngine.cpp
     utils/EnhancedDiagnosticEngine.cpp
+    utils/EnhancedErrorReporting.cpp
     utils/ASTPrinter.cpp
     
     # Lexer

@@ -96,33 +96,11 @@ unique_ptr<Statement> Parser::parseStatement() {
     
     // Handle export declarations
     if (match(TokenType::Export)) {
-        std::cout << "DEBUG: Parser found export declaration" << std::endl;
         return parseExportDeclaration();
-    }
-    
-    // Debug: Check what token we're looking at
-    if (check(TokenType::Export)) {
-        std::cout << "DEBUG: Found Export token, but match() returned false" << std::endl;
-    }
-    
-    // Debug: Show current token when parsing statements
-    if (!tokens_->isAtEnd()) {
-        Token current = tokens_->peek();
-        if (current.getType() == TokenType::Export) {
-            std::cout << "DEBUG: Current token IS Export, but not matched" << std::endl;
-        }
-        std::cout << "DEBUG: Current token in parseStatement: " << static_cast<int>(current.getType()) << std::endl;
-    }
-    
-    // Debug: Show current token
-    if (!tokens_->isAtEnd()) {
-        Token current = tokens_->peek();
-        std::cout << "DEBUG: Current token: " << current.toString() << std::endl;
     }
     
     // Handle variable declarations
     if (match({TokenType::Var, TokenType::Let, TokenType::Const})) {
-        std::cout << "DEBUG: Parser found variable declaration" << std::endl;
         return parseVariableStatement();
     }
     
@@ -211,6 +189,7 @@ unique_ptr<Statement> Parser::parseStatement() {
 }
 
 unique_ptr<Statement> Parser::parseVariableStatement() {
+    std::cout << "DEBUG: parseVariableStatement called, current token: " << peek().toString() << std::endl;
     // Check if this is a destructuring assignment: let [a, b] = array;
     if (check(TokenType::LeftBracket) || check(TokenType::LeftBrace)) {
         return parseDestructuringVariableStatement();
@@ -234,7 +213,7 @@ unique_ptr<Statement> Parser::parseVariableStatement() {
     // Optional initializer
     unique_ptr<Expression> initializer = nullptr;
     if (match(TokenType::Equal)) {
-        initializer = parseExpression();
+        initializer = parseAssignmentExpression();
     }
     
     consume(TokenType::Semicolon, "Expected ';' after variable declaration");
@@ -2555,21 +2534,34 @@ unique_ptr<Expression> Parser::parseArrowFunction() {
 }
 
 bool Parser::looksLikeArrowFunction() {
-    // Simple heuristic for arrow function detection
     // Pattern 1: identifier => (single parameter)
     if (check(TokenType::Identifier)) {
-        // We need to peek ahead to see if there's an arrow
-        // Since we can't backtrack easily, let's try a different approach
-        // For now, let's be conservative and only detect simple cases
-        return false; // Will implement this step by step
+        // Look ahead to see if there's an arrow after the identifier
+        Token nextToken = peekAhead(1);
+        return nextToken.getType() == TokenType::Arrow;
     }
     
     // Pattern 2: (params) => 
     if (check(TokenType::LeftParen)) {
-        // TODO: Implement proper lookahead for arrow function detection
-        // For now, be conservative and let parenthesized expressions be handled normally
-        // This prevents parsing errors with complex arithmetic expressions like (a + b)
-        return false;
+        // Look ahead to find the matching closing paren and check for arrow
+        size_t offset = 1;
+        int parenCount = 1;
+        
+        while (hasAhead(offset) && parenCount > 0) {
+            Token token = peekAhead(offset);
+            if (token.getType() == TokenType::LeftParen) {
+                parenCount++;
+            } else if (token.getType() == TokenType::RightParen) {
+                parenCount--;
+            }
+            offset++;
+        }
+        
+        // Check if there's an arrow after the closing paren
+        if (parenCount == 0 && hasAhead(offset)) {
+            Token nextToken = peekAhead(offset);
+            return nextToken.getType() == TokenType::Arrow;
+        }
     }
     
     return false;
