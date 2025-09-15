@@ -580,6 +580,7 @@ public:
     llvm::Function* generateFunctionDeclaration(const FunctionDeclaration& funcDecl);
     void generateFunctionBody(llvm::Function* function, const FunctionDeclaration& funcDecl);
     bool hasReturnStatements(const FunctionDeclaration& funcDecl);
+    bool hasReturnStatementsWithValues(const FunctionDeclaration& funcDecl);
     
     // Unreachable block handling
     void ensureBlockTerminators(llvm::Function* function);

@@ -50,7 +50,10 @@ void __tsc_release(void* obj) {
     if (new_count == 1) {
         // Last reference, deallocate
         if (header->destructor) {
+            printf("DEBUG: Calling destructor %p for object %p\n", header->destructor, obj);
             header->destructor(obj);
+        } else {
+            printf("DEBUG: No destructor for object %p\n", obj);
         }
         __tsc_dealloc(obj);
     }
@@ -73,6 +76,8 @@ void* __tsc_alloc(size_t size, void (*destructor)(void*), void* type_info) {
     atomic_init(&header->weak_count, 0);  // No weak references initially
     header->destructor = destructor;
     header->type_info = type_info;
+    
+    printf("DEBUG: __tsc_alloc allocated object %p with destructor %p\n", obj, destructor);
     
     // Return pointer to object (after header)
     void* obj = (char*)memory + sizeof(ARC_ObjectHeader);

@@ -1283,12 +1283,43 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
                     }
                     
-                    // Special handling for console_log calls - convert pointer arguments to strings
+                    // Special handling for console_log calls - convert non-string pointer arguments to strings
                     if (function && function->getName().str() == "console_log" && argValue->getType()->isPointerTy()) {
-                        std::cout << "DEBUG: CallExpression - Converting pointer argument to string for console_log" << std::endl;
-                        // Convert pointer to string using pointer_to_string
-                        llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
-                        argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
+                        // Check if this is a string constant (GlobalVariable with string data)
+                        bool isStringConstant = false;
+                        if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(argValue)) {
+                            if (globalVar->hasInitializer()) {
+                                if (auto* initArray = llvm::dyn_cast<llvm::ConstantDataArray>(globalVar->getInitializer())) {
+                                    if (initArray->isString()) {
+                                        isStringConstant = true;
+                                        std::cout << "DEBUG: CallExpression - Found string constant: " << globalVar->getName().str() << std::endl;
+                                    }
+                                } else if (auto* zeroInit = llvm::dyn_cast<llvm::ConstantAggregateZero>(globalVar->getInitializer())) {
+                                    // Check if this is an empty string constant (zeroinitializer)
+                                    if (globalVar->getName().str().find("str") != std::string::npos) {
+                                        isStringConstant = true;
+                                        std::cout << "DEBUG: CallExpression - Found empty string constant: " << globalVar->getName().str() << std::endl;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Check if this looks like a string by examining the value name
+                        std::string valueName = argValue->getName().str();
+                        std::cout << "DEBUG: CallExpression - Argument value name: '" << valueName << "'" << std::endl;
+                        if (valueName.find("template_concat") != std::string::npos || 
+                            valueName.find("string_concat") != std::string::npos ||
+                            valueName.find("number_to_string") != std::string::npos ||
+                            valueName.find("@str") != std::string::npos ||
+                            isStringConstant) {
+                            // This looks like a string result, don't convert
+                            std::cout << "DEBUG: CallExpression - String-like value, not converting" << std::endl;
+                        } else {
+                            // This is likely a non-string pointer, convert to string representation
+                            std::cout << "DEBUG: CallExpression - Converting non-string pointer argument to string for console_log" << std::endl;
+                            llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
+                            argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
+                        }
                     }
                     
                     args.push_back(argValue);
@@ -1453,12 +1484,43 @@ void LLVMCodeGen::visit(CallExpression& node) {
                             argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
                         }
                         
-                        // Special handling for console_log calls - convert pointer arguments to strings
+                        // Special handling for console_log calls - convert non-string pointer arguments to strings
                         if (function && function->getName().str() == "console_log" && argValue->getType()->isPointerTy()) {
-                            std::cout << "DEBUG: CallExpression - Converting pointer argument to string for console_log" << std::endl;
-                            // Convert pointer to string using pointer_to_string
-                            llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
-                            argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
+                            // Check if this is a string constant (GlobalVariable with string data)
+                            bool isStringConstant = false;
+                            if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(argValue)) {
+                                if (globalVar->hasInitializer()) {
+                                    if (auto* initArray = llvm::dyn_cast<llvm::ConstantDataArray>(globalVar->getInitializer())) {
+                                        if (initArray->isString()) {
+                                            isStringConstant = true;
+                                            std::cout << "DEBUG: CallExpression - Found string constant: " << globalVar->getName().str() << std::endl;
+                                        }
+                                    } else if (auto* zeroInit = llvm::dyn_cast<llvm::ConstantAggregateZero>(globalVar->getInitializer())) {
+                                        // Check if this is an empty string constant (zeroinitializer)
+                                        if (globalVar->getName().str().find("str") != std::string::npos) {
+                                            isStringConstant = true;
+                                            std::cout << "DEBUG: CallExpression - Found empty string constant: " << globalVar->getName().str() << std::endl;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Check if this looks like a string by examining the value name
+                            std::string valueName = argValue->getName().str();
+                            std::cout << "DEBUG: CallExpression - Argument value name: '" << valueName << "'" << std::endl;
+                            if (valueName.find("template_concat") != std::string::npos || 
+                                valueName.find("string_concat") != std::string::npos ||
+                                valueName.find("number_to_string") != std::string::npos ||
+                                valueName.find("@str") != std::string::npos ||
+                                isStringConstant) {
+                                // This looks like a string result, don't convert
+                                std::cout << "DEBUG: CallExpression - String-like value, not converting" << std::endl;
+                            } else {
+                                // This is likely a non-string pointer, convert to string representation
+                                std::cout << "DEBUG: CallExpression - Converting non-string pointer argument to string for console_log" << std::endl;
+                                llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
+                                argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
+                            }
                         }
                         
                         args.push_back(argValue);
@@ -2859,6 +2921,9 @@ void LLVMCodeGen::visit(ReturnStatement& node) {
         return;
     }
     
+    // Generate cleanup for ARC-managed objects before return
+    codeGenContext_->generateScopeCleanup(this);
+    
     if (node.hasValue()) {
         // Generate code for return value
         node.getValue()->accept(*this);
@@ -2932,8 +2997,10 @@ void LLVMCodeGen::visit(IfStatement& node) {
     llvm::BasicBlock* currentThenBlock = builder_->GetInsertBlock();
     bool thenHasTerminator = currentThenBlock && currentThenBlock->getTerminator() != nullptr;
     
-    // Only add branch if the block doesn't already have a terminator
+    // Generate cleanup for ARC-managed objects if the block doesn't have a terminator
     if (!thenHasTerminator && currentThenBlock) {
+        // Generate cleanup before adding the branch
+        codeGenContext_->generateScopeCleanup(this);
         builder_->CreateBr(endBlock);
     }
     
@@ -2947,6 +3014,8 @@ void LLVMCodeGen::visit(IfStatement& node) {
         llvm::BasicBlock* currentElseBlock = builder_->GetInsertBlock();
         elseHasTerminator = currentElseBlock && currentElseBlock->getTerminator() != nullptr;
         if (!elseHasTerminator && currentElseBlock) {
+            // Generate cleanup before adding the branch
+            codeGenContext_->generateScopeCleanup(this);
             builder_->CreateBr(endBlock);
         }
     }
@@ -4777,8 +4846,14 @@ llvm::Function* LLVMCodeGen::generateFunctionDeclaration(const FunctionDeclarati
     } else {
         // If no explicit return type, analyze function body to infer return type
         if (hasReturnStatements(funcDecl)) {
-            // Function has return statements, so it likely returns a value
-            returnType = getAnyType();
+            // Check if any return statements have values
+            if (hasReturnStatementsWithValues(funcDecl)) {
+                // Function has return statements with values, so it returns a value
+                returnType = getAnyType();
+            } else {
+                // Function has return statements but no values, so it's void
+                returnType = getVoidType();
+            }
         } else {
             // Function has no return statements, so it's likely void
             returnType = getVoidType();
@@ -4953,16 +5028,15 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
         }
     }
     
-    // Generate cleanup for ARC-managed objects before adding return statement
-    codeGenContext_->generateScopeCleanup(this);
-    
-    // Add cleanup for malloc'd objects before return
-    // TODO: Implement proper tracking of malloc'd objects for cleanup
-    // For now, this is a simplified approach that doesn't track individual allocations
-    
     // Add return if not present
     std::cout << "DEBUG: About to check for terminator in generateFunctionBody" << std::endl;
     if (!builder_->GetInsertBlock()->getTerminator()) {
+        // Generate cleanup for ARC-managed objects before adding return statement
+        codeGenContext_->generateScopeCleanup(this);
+        
+        // Add cleanup for malloc'd objects before return
+        // TODO: Implement proper tracking of malloc'd objects for cleanup
+        // For now, this is a simplified approach that doesn't track individual allocations
         std::cout << "DEBUG: No terminator found, adding return statement" << std::endl;
         llvm::Type* returnType = function->getReturnType();
         if (returnType->isVoidTy()) {
@@ -5177,6 +5251,132 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         funcDecl.getBody()->accept(checker);
     }
     return checker.hasReturnStatements();
+}
+
+bool LLVMCodeGen::hasReturnStatementsWithValues(const FunctionDeclaration& funcDecl) {
+    // Simple visitor to check if function body contains return statements with values
+    class ReturnStatementWithValueChecker : public ASTVisitor {
+    private:
+        bool found_ = false;
+        
+    public:
+        bool hasReturnStatementsWithValues() const { return found_; }
+        
+        void visit(ReturnStatement& node) override {
+            if (node.hasValue()) {
+                found_ = true;
+            }
+        }
+        
+        // Default implementations for all other node types (no-op)
+        void visit(NumericLiteral& node) override {}
+        void visit(StringLiteral& node) override {}
+        void visit(TemplateLiteral& node) override { }
+        void visit(BooleanLiteral& node) override {}
+        void visit(NullLiteral& node) override {}
+        void visit(Identifier& node) override {}
+        void visit(BinaryExpression& node) override {
+            node.getLeft()->accept(*this);
+            if (!found_) node.getRight()->accept(*this);
+        }
+        void visit(UnaryExpression& node) override {
+            node.getOperand()->accept(*this);
+        }
+        void visit(AssignmentExpression& node) override {
+            node.getLeft()->accept(*this);
+            if (!found_) node.getRight()->accept(*this);
+        }
+        void visit(CallExpression& node) override {
+            node.getCallee()->accept(*this);
+            if (!found_) {
+                for (const auto& arg : node.getArguments()) {
+                    arg->accept(*this);
+                    if (found_) break;
+                }
+            }
+        }
+        void visit(PropertyAccess& node) override {
+            node.getObject()->accept(*this);
+        }
+        void visit(IndexExpression& node) override {
+            node.getObject()->accept(*this);
+            if (!found_) {
+                node.getIndex()->accept(*this);
+            }
+        }
+        void visit(IfStatement& node) override {
+            node.getCondition()->accept(*this);
+            if (!found_) {
+                node.getThenStatement()->accept(*this);
+            }
+            if (!found_ && node.hasElse()) {
+                node.getElseStatement()->accept(*this);
+            }
+        }
+        void visit(WhileStatement& node) override {
+            node.getCondition()->accept(*this);
+            if (!found_) {
+                node.getBody()->accept(*this);
+            }
+        }
+        void visit(ForStatement& node) override {
+            node.getCondition()->accept(*this);
+            if (!found_) {
+                node.getBody()->accept(*this);
+            }
+        }
+        void visit(BlockStatement& node) override {
+            for (const auto& stmt : node.getStatements()) {
+                stmt->accept(*this);
+                if (found_) break;
+            }
+        }
+        void visit(ExpressionStatement& node) override {
+            node.getExpression()->accept(*this);
+        }
+        void visit(VariableDeclaration& node) override {
+            if (node.getInitializer()) {
+                node.getInitializer()->accept(*this);
+            }
+        }
+        void visit(ThisExpression& node) override {}
+        void visit(SuperExpression& node) override {}
+        void visit(NewExpression& node) override {}
+        void visit(ConditionalExpression& node) override {}
+                    void visit(ArrayLiteral& node) override {}
+                    void visit(ObjectLiteral& node) override {}
+                    void visit(DoWhileStatement& node) override {}
+                    void visit(ForOfStatement& node) override {}
+                    void visit(SwitchStatement& node) override {}
+                    void visit(CaseClause& node) override {}
+                    void visit(BreakStatement& node) override {}
+                    void visit(ContinueStatement& node) override {}
+                    void visit(TryStatement& node) override {}
+                    void visit(CatchClause& node) override {}
+                    void visit(ThrowStatement& node) override {}
+                    void visit(FunctionDeclaration& node) override {
+                        // Don't traverse into nested functions
+                    }
+                    void visit(TypeParameter& node) override {}
+                    void visit(ClassDeclaration& node) override {}
+                    void visit(PropertyDeclaration& node) override {}
+                    void visit(MethodDeclaration& node) override {}
+                    void visit(DestructorDeclaration& node) override {}
+                    void visit(InterfaceDeclaration& node) override {}
+                    void visit(EnumDeclaration& node) override {}
+                    void visit(EnumMember& node) override {}
+                    void visit(TypeAliasDeclaration& node) override {}
+                    void visit(ArrowFunction& node) override {}
+                    void visit(FunctionExpression& node) override {}
+                    void visit(Module& node) override {}
+                    void visit(MoveExpression& node) override {}
+    };
+    
+    ReturnStatementWithValueChecker checker;
+    if (funcDecl.getBody()) {
+        funcDecl.getBody()->accept(checker);
+    }
+    return checker.hasReturnStatementsWithValues();
 }
 
 // Memory management implementation
