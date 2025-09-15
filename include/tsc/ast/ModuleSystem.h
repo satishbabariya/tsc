@@ -30,10 +30,11 @@ public:
 };
 
 /**
- * Represents an ES6 import declaration
+ * Represents a static ES6 import declaration
  * import { named1, named2 } from 'module';
  * import defaultExport from 'module';
  * import * as namespace from 'module';
+ * Note: Dynamic imports (import()) are not supported in static compilation
  */
 class ImportDeclaration : public ModuleNode {
 private:

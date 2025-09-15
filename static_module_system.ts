@@ -1,8 +1,8 @@
 
-// ES6 Module Syntax Test
-// Test import/export functionality
+// Static Module System Test
+// Test static imports/exports (no dynamic imports)
 
-// Named exports
+// Static named exports
 export const PI = 3.14159;
 export const E = 2.71828;
 export function add(a: number, b: number): number {
@@ -14,29 +14,29 @@ export class Calculator {
     }
 }
 
-// Default export
+// Static default export
 export default class MathUtils {
     static square(x: number): number {
         return x * x;
     }
 }
 
-// Re-export
+// Static re-export
 export { PI as PI_CONSTANT, add as addFunction } from './math';
 export * from './geometry';
 
-// Type-only exports
+// Type-only exports (compile-time only)
 export type { Point, Line } from './geometry';
 export type { Calculator as CalculatorType } from './math';
 
-// Import tests
+// Static imports (compile-time resolution)
 import { PI, E, add, Calculator } from './math';
 import MathUtils from './math';
 import * as MathNamespace from './math';
 import { PI as PI_ALIAS } from './math';
 import type { Point, Line } from './geometry';
 
-// Test module usage
+// Static module usage
 console.log("PI:", PI);
 console.log("E:", E);
 console.log("Add result:", add(5, 3));
@@ -49,4 +49,4 @@ console.log("Square result:", MathUtils.square(7));
 
 console.log("Math namespace:", MathNamespace);
 
-console.log("ES6 Module Syntax test completed successfully!");
+console.log("Static Module System test completed successfully!");

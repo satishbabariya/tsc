@@ -62,6 +62,12 @@ bool ModuleSystemTypeChecker::checkImportDeclaration(ast::ImportDeclaration* imp
             return false;
         }
         
+        // Validate static compilation constraints
+        if (!validateStaticCompilationConstraints(importDecl)) {
+            std::cerr << "Error: Static compilation constraints violated" << std::endl;
+            return false;
+        }
+        
         // Register imports in symbol table
         registerImports(importDecl);
         
@@ -606,6 +612,54 @@ void ModuleSystemTypeChecker::registerImports(ast::ImportDeclaration* importDecl
 void ModuleSystemTypeChecker::registerNamespace(ast::NamespaceDeclaration* namespaceDecl) {
     // Register namespace in symbol table
     symbolTable_.addSymbol(namespaceDecl->getName(), namespaceDecl);
+}
+
+bool ModuleSystemTypeChecker::validateStaticCompilationConstraints(ast::ImportDeclaration* importDecl) {
+    // Validate that all imports are statically resolvable
+    if (importDecl->getModulePath().empty()) {
+        return false;
+    }
+    
+    // Check for dynamic import patterns (not allowed in static compilation)
+    if (importDecl->getModulePath().find("import(") != std::string::npos) {
+        std::cerr << "Error: Dynamic imports not supported in static compilation" << std::endl;
+        return false;
+    }
+    
+    // Validate module path is statically resolvable
+    if (!isStaticallyResolvable(importDecl->getModulePath())) {
+        std::cerr << "Error: Module path not statically resolvable: " << importDecl->getModulePath() << std::endl;
+        return false;
+    }
+    
+    return true;
+}
+
+bool ModuleSystemTypeChecker::isStaticallyResolvable(const std::string& modulePath) {
+    // Check if module path can be resolved at compile time
+    if (modulePath.empty()) return false;
+    
+    // Relative paths are statically resolvable
+    if (modulePath.starts_with("./") || modulePath.starts_with("../")) {
+        return true;
+    }
+    
+    // Absolute paths are statically resolvable
+    if (modulePath.starts_with("/")) {
+        return true;
+    }
+    
+    // Package names are statically resolvable
+    if (modulePath.find('/') == std::string::npos) {
+        return true;
+    }
+    
+    // Scoped packages are statically resolvable
+    if (modulePath.starts_with("@") && modulePath.find('/') != std::string::npos) {
+        return true;
+    }
+    
+    return false;
 }
 
 } // namespace semantic

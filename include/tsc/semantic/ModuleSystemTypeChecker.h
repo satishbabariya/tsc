@@ -52,6 +52,10 @@ public:
     bool checkTemplateLiteralType(ast::TemplateLiteralType* templateType);
     bool checkKeyofType(ast::KeyofType* keyofType);
     bool checkTypeofType(ast::TypeofType* typeofType);
+    
+    // Static compilation validation
+    bool validateStaticCompilationConstraints(ast::ImportDeclaration* importDecl);
+    bool isStaticallyResolvable(const std::string& modulePath);
 };
 
 } // namespace semantic

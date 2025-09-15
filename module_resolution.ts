@@ -25,26 +25,20 @@ import { ThemeProvider } from '@mui/material/styles';
 import type { ComponentProps } from 'react';
 import type { User } from './types/user';
 
-// Dynamic imports with paths
-async function loadUserModule() {
-    const userModule = await import('./modules/user');
-    return userModule;
-}
+// Static imports with paths
+import { UserModule } from './modules/user';
+import { AdminModule } from './modules/admin';
+import { GuestModule } from './modules/guest';
 
-async function loadAdminModule() {
-    const adminModule = await import('./modules/admin');
-    return adminModule;
-}
-
-// Conditional imports
-async function loadModule(moduleName: string) {
+// Conditional module usage (static)
+function useModule(moduleName: string) {
     switch (moduleName) {
         case 'user':
-            return await import('./modules/user');
+            return new UserModule();
         case 'admin':
-            return await import('./modules/admin');
+            return new AdminModule();
         case 'guest':
-            return await import('./modules/guest');
+            return new GuestModule();
         default:
             throw new Error(`Unknown module: ${moduleName}`);
     }
@@ -72,18 +66,15 @@ const debouncedFunction = debounce(() => {
 const button = <Button>Click me</Button>;
 const theme = <ThemeProvider theme={{}}>App</ThemeProvider>;
 
-// Test dynamic imports
-loadUserModule().then(module => {
-    console.log("User module loaded:", module);
-});
+// Test static module usage
+const userModule = useModule('user');
+console.log("User module:", userModule);
 
-loadAdminModule().then(module => {
-    console.log("Admin module loaded:", module);
-});
+const adminModule = useModule('admin');
+console.log("Admin module:", adminModule);
 
-// Test conditional imports
-loadModule('user').then(module => {
-    console.log("User module loaded conditionally:", module);
-});
+// Test conditional module usage
+const guestModule = useModule('guest');
+console.log("Guest module:", guestModule);
 
 console.log("Module Resolution test completed successfully!");
