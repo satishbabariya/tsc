@@ -700,8 +700,11 @@ unique_ptr<Statement> Parser::parseExportDeclaration() {
         moduleSpecifier = parseModuleSpecifier();
     }
     
-    // Expect semicolon
-    consume(TokenType::Semicolon, "Expected ';' after export declaration");
+    // Only expect semicolon for export statements (not export declarations)
+    // Export declarations like "export function add() {}" don't need semicolons
+    if (clause.getType() == ExportClause::Named || clause.getType() == ExportClause::ReExport || clause.getType() == ExportClause::All) {
+        consume(TokenType::Semicolon, "Expected ';' after export statement");
+    }
     
     return make_unique<ExportDeclaration>(std::move(clause), moduleSpecifier, location);
 }
@@ -775,7 +778,7 @@ ExportClause Parser::parseExportClause() {
     if (match(TokenType::Default)) {
         // Default export: export default class Button
         unique_ptr<Expression> defaultExport = parseExpression();
-        return ExportClause(ExportClause::Default, {}, defaultExport.get());
+        return ExportClause(ExportClause::Default, {}, std::move(defaultExport));
     }
     
     // Check for named exports
@@ -797,19 +800,19 @@ ExportClause Parser::parseExportClause() {
         // Export function declaration
         std::cout << "DEBUG: Parsing export function declaration" << std::endl;
         auto functionDecl = parseFunctionDeclaration();
-        return ExportClause(ExportClause::Default, {}, functionDecl.get());
+        return ExportClause(ExportClause::Default, {}, std::move(functionDecl));
     } else if (check(TokenType::Class)) {
         // Export class declaration
         auto classDecl = parseClassDeclaration();
-        return ExportClause(ExportClause::Default, {}, classDecl.get());
+        return ExportClause(ExportClause::Default, {}, std::move(classDecl));
     } else if (check(TokenType::Const) || check(TokenType::Let) || check(TokenType::Var)) {
         // Export variable declaration
         auto varDecl = parseVariableStatement();
-        return ExportClause(ExportClause::Default, {}, varDecl.get());
+        return ExportClause(ExportClause::Default, {}, std::move(varDecl));
     } else {
         // Export expression or other declaration
         unique_ptr<Expression> expr = parseExpression();
-        return ExportClause(ExportClause::Default, {}, expr.get());
+        return ExportClause(ExportClause::Default, {}, std::move(expr));
     }
 }
 

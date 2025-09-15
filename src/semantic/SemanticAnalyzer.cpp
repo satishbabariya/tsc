@@ -1311,6 +1311,43 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
             // Create class type WITHOUT base class (will be resolved in second pass)
             auto classType = typeSystem_->createClassType(classDecl->getName(), classDecl, nullptr);
             declareSymbol(classDecl->getName(), SymbolKind::Class, classType, classDecl->getLocation());
+        } else if (auto exportDecl = dynamic_cast<ExportDeclaration*>(stmt.get())) {
+            // Handle export declarations that contain function/class declarations
+            const ExportClause& clause = exportDecl->getClause();
+            if (clause.getType() == ExportClause::Default && clause.getDefaultExport()) {
+                if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(clause.getDefaultExport())) {
+                    // Collect exported function declarations
+                    std::vector<FunctionType::Parameter> paramTypes;
+                    for (const auto& param : funcDecl->getParameters()) {
+                        FunctionType::Parameter funcParam;
+                        funcParam.name = param.name;
+                        funcParam.type = param.type ? param.type : typeSystem_->getAnyType();
+                        funcParam.optional = param.optional;
+                        funcParam.rest = param.rest;
+                        paramTypes.push_back(funcParam);
+                    }
+                    
+                    auto returnType = funcDecl->getReturnType() ? funcDecl->getReturnType() : typeSystem_->getVoidType();
+                    auto functionType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
+                    
+                    if (!symbolTable_->addSymbol(funcDecl->getName(), SymbolKind::Function, functionType,
+                                               funcDecl->getLocation(), funcDecl)) {
+                        reportError("Failed to declare exported function: " + funcDecl->getName(), funcDecl->getLocation());
+                    }
+                } else if (auto classDecl = dynamic_cast<ClassDeclaration*>(clause.getDefaultExport())) {
+                    // Collect exported class declarations
+                    auto classType = typeSystem_->createClassType(classDecl->getName(), classDecl, nullptr);
+                    declareSymbol(classDecl->getName(), SymbolKind::Class, classType, classDecl->getLocation());
+                }
+            } else if (clause.getType() == ExportClause::Named) {
+                // Handle named exports (export function add() { })
+                const auto& namedExports = clause.getNamedExports();
+                for (const auto& spec : namedExports) {
+                    // For named exports, we need to find the actual declaration
+                    // This is a bit tricky since we're in the first pass
+                    // We'll handle this in the second pass when we process the export declaration
+                }
+            }
         } else if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
             // std::cout << "DEBUG: Found function declaration: " << funcDecl->getName() << std::endl;
             // Create function type
@@ -2355,12 +2392,16 @@ void SemanticAnalyzer::visit(ExportDeclaration& node) {
         const ExportClause& clause = node.getClause();
         switch (clause.getType()) {
             case ExportClause::Default: {
+                std::cout << "DEBUG: Processing default export" << std::endl;
                 // Export default expression/declaration
                 if (clause.getDefaultExport()) {
+                    std::cout << "DEBUG: Default export is not null" << std::endl;
                     // Process the declaration first
                     if (auto decl = dynamic_cast<Declaration*>(clause.getDefaultExport())) {
+                        std::cout << "DEBUG: Default export is a Declaration: " << decl->getName() << std::endl;
                         // Process the declaration (this will add it to the symbol table)
                         decl->accept(*this);
+                        std::cout << "DEBUG: Declaration processed successfully" << std::endl;
                         
                         // Mark the symbol as exported
                         Symbol* symbol = symbolTable_->lookupSymbol(decl->getName());
@@ -2368,12 +2409,16 @@ void SemanticAnalyzer::visit(ExportDeclaration& node) {
                             symbol->setExported(true);
                             
                             // Add to module's exported symbols
-                            ExportedSymbol exported("default", decl->getName(), node.getLocation(), symbol->getKind());
+                            // For export function/class/var declarations, export with the actual name, not "default"
+                            ExportedSymbol exported(decl->getName(), decl->getName(), node.getLocation(), symbol->getKind());
                             currentModuleTable->addExportedSymbol(exported);
                             
-                            std::cout << "DEBUG: Added default export: " << decl->getName() << " as 'default'" << std::endl;
+                            std::cout << "DEBUG: Added named export: " << decl->getName() << " as '" << decl->getName() << "'" << std::endl;
+                        } else {
+                            std::cout << "DEBUG: Symbol not found for: " << decl->getName() << std::endl;
                         }
                     } else if (auto expr = dynamic_cast<Expression*>(clause.getDefaultExport())) {
+                        std::cout << "DEBUG: Default export is an Expression" << std::endl;
                         // Process the expression
                         expr->accept(*this);
                         
@@ -2382,7 +2427,11 @@ void SemanticAnalyzer::visit(ExportDeclaration& node) {
                         currentModuleTable->addExportedSymbol(exported);
                         
                         std::cout << "DEBUG: Added default export expression as 'default'" << std::endl;
+                    } else {
+                        std::cout << "DEBUG: Default export is neither Declaration nor Expression" << std::endl;
                     }
+                } else {
+                    std::cout << "DEBUG: Default export is null" << std::endl;
                 }
                 break;
             }

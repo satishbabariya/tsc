@@ -1362,19 +1362,19 @@ public:
     enum Type { Named, Default, ReExport, All };
     
     ExportClause(Type type, std::vector<ExportSpec> namedExports = {},
-                ASTNode* defaultExport = nullptr, const String& moduleSpecifier = "")
+                unique_ptr<ASTNode> defaultExport = nullptr, const String& moduleSpecifier = "")
         : type_(type), namedExports_(std::move(namedExports)), 
-          defaultExport_(defaultExport), moduleSpecifier_(moduleSpecifier) {}
+          defaultExport_(std::move(defaultExport)), moduleSpecifier_(moduleSpecifier) {}
     
     Type getType() const { return type_; }
     const std::vector<ExportSpec>& getNamedExports() const { return namedExports_; }
-    ASTNode* getDefaultExport() const { return defaultExport_; }
+    ASTNode* getDefaultExport() const { return defaultExport_.get(); }
     const String& getModuleSpecifier() const { return moduleSpecifier_; }
 
 private:
     Type type_;
     std::vector<ExportSpec> namedExports_;
-    ASTNode* defaultExport_;
+    unique_ptr<ASTNode> defaultExport_;
     String moduleSpecifier_;
 };
 
