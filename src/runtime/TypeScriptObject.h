@@ -3,6 +3,7 @@
 #include "ReferenceCounter.h"
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <any>
 
@@ -125,14 +126,10 @@ public:
         // Mark all contained objects as reachable
         for (const auto& element : elements_) {
             if (element.has_value()) {
-                try {
-                    if (auto obj = std::any_cast<TypeScriptObjectPtr>(&element)) {
-                        if (obj->get()) {
-                            reachable.insert(obj->get());
-                        }
+                if (auto obj = std::any_cast<TypeScriptObjectPtr>(&element)) {
+                    if (obj->get()) {
+                        reachable.insert(obj->get());
                     }
-                } catch (const std::bad_any_cast&) {
-                    // Element is not an object, skip
                 }
             }
         }
@@ -186,14 +183,10 @@ public:
     void markReachable(std::unordered_set<TypeScriptObject*>& reachable) const override {
         // Mark all property values as reachable
         for (const auto& [key, value] : properties_) {
-            try {
-                if (auto obj = std::any_cast<TypeScriptObjectPtr>(&value)) {
-                    if (obj->get()) {
-                        reachable.insert(obj->get());
-                    }
+            if (auto obj = std::any_cast<TypeScriptObjectPtr>(&value)) {
+                if (obj->get()) {
+                    reachable.insert(obj->get());
                 }
-            } catch (const std::bad_any_cast&) {
-                // Property value is not an object, skip
             }
         }
     }

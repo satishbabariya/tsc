@@ -197,13 +197,13 @@ llvm::Value* TypeScriptObjectBuilder::releaseRef(llvm::Value* obj) {
 
 llvm::Value* TypeScriptObjectBuilder::allocateObject(llvm::Type* type) {
     llvm::Value* size = llvm::ConstantInt::get(llvm::Type::getInt64Ty(builder_.getContext()), 64); // Simplified
-    llvm::Value* ptr = builder_.CreateCall(memoryManager_.mallocFunc_, {size}, "alloc");
+    llvm::Value* ptr = builder_.CreateCall(memoryManager_.getMallocFunc(), {size}, "alloc");
     return builder_.CreateBitCast(ptr, llvm::PointerType::getUnqual(type), "obj");
 }
 
 void TypeScriptObjectBuilder::deallocateObject(llvm::Value* obj) {
     llvm::Value* ptr = builder_.CreateBitCast(obj, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(builder_.getContext())), "free_ptr");
-    builder_.CreateCall(memoryManager_.freeFunc_, {ptr}, "free");
+    builder_.CreateCall(memoryManager_.getFreeFunc(), {ptr}, "free");
 }
 
 // LLVMFunctionBuilder implementation

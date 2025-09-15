@@ -39,6 +39,10 @@ public:
     
     // Generate cleanup code
     void generateCleanup(llvm::IRBuilder<>& builder);
+    
+    // Get runtime function references
+    llvm::Function* getMallocFunc() const { return mallocFunc_; }
+    llvm::Function* getFreeFunc() const { return freeFunc_; }
 
 private:
     llvm::LLVMContext& context_;

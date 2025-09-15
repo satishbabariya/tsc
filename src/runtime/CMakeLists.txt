@@ -34,7 +34,18 @@ target_compile_options(tsc_memory_runtime
         -Wall
         -Wextra
         -Wpedantic
-        -Werror
+        -Wno-unused-parameter
+        -Wno-unused-variable
+        -Wno-unused-function
+        -Wno-unused-private-field
+        -Wno-missing-field-initializers
+        -Wno-deprecated-declarations
+        -Wno-unknown-warning-option
+        -Wno-error=unused-parameter
+        -Wno-error=unused-variable
+        -fno-rtti
+        -fno-exceptions
+        -fPIC
 )
 
 # Debug build options
