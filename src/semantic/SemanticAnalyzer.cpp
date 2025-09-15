@@ -10,6 +10,7 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     typeSystem_ = make_unique<TypeSystem>();
     context_ = make_unique<SemanticContext>(*symbolTable_, *typeSystem_, diagnostics_);
     constraintChecker_ = make_unique<GenericConstraintChecker>(diagnostics_, *typeSystem_);
+    moduleResolver_ = make_unique<ModuleResolver>(diagnostics_);
     
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
     
@@ -2132,21 +2133,41 @@ void SemanticAnalyzer::visit(TypeAliasDeclaration& node) {
 }
 
 void SemanticAnalyzer::visit(ImportDeclaration& node) {
-    // Import declarations are handled during module resolution
-    // For now, we'll just validate the syntax and store the import information
     std::cout << "DEBUG: Processing import declaration: " << node.getModuleSpecifier() << std::endl;
     
-    // TODO: Implement proper import resolution and symbol binding
-    // This will be implemented when we add module resolution
+    // Resolve the module
+    String currentFile = "current_file.ts"; // TODO: Get actual current file path
+    ModuleResolutionResult result = moduleResolver_->resolveModule(node.getModuleSpecifier(), currentFile);
+    
+    if (!result.isSuccess) {
+        diagnostics_.error("Failed to resolve module: " + result.errorMessage, node.getLocation());
+        return;
+    }
+    
+    std::cout << "DEBUG: Resolved module " << node.getModuleSpecifier() << " to " << result.resolvedPath << std::endl;
+    
+    // TODO: Load the resolved module and bind its symbols
+    // This will be implemented in the next phase when we add dependency scanning
 }
 
 void SemanticAnalyzer::visit(ExportDeclaration& node) {
-    // Export declarations are handled during module resolution
-    // For now, we'll just validate the syntax and store the export information
     std::cout << "DEBUG: Processing export declaration: " << node.getModuleSpecifier() << std::endl;
     
-    // TODO: Implement proper export resolution and symbol marking
-    // This will be implemented when we add module resolution
+    // Handle re-exports (exports with 'from' clause)
+    if (!node.getModuleSpecifier().empty()) {
+        String currentFile = "current_file.ts"; // TODO: Get actual current file path
+        ModuleResolutionResult result = moduleResolver_->resolveModule(node.getModuleSpecifier(), currentFile);
+        
+        if (!result.isSuccess) {
+            diagnostics_.error("Failed to resolve re-export module: " + result.errorMessage, node.getLocation());
+            return;
+        }
+        
+        std::cout << "DEBUG: Resolved re-export module " << node.getModuleSpecifier() << " to " << result.resolvedPath << std::endl;
+    }
+    
+    // TODO: Mark symbols as exported in the symbol table
+    // This will be implemented in the next phase when we add symbol table extensions
 }
 
 shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
