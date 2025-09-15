@@ -2168,30 +2168,86 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         
         // If we're in a monomorphized method (e.g., Container_number_getValue or BasicArrayOperations_number_getLength)
         // and accessing 'value', 'items', or 'data', handle it as struct field access
-        if (functionName.find("_") != String::npos && (propertyName == "value" || propertyName == "items" || propertyName == "data")) {
-            std::cout << "DEBUG: PropertyAccess - Entering struct field access for monomorphized method" << std::endl;
-            // This is likely a monomorphized method accessing 'this.value' or 'this.items'
-            // For now, assume the first field is the requested field
-            // In a full implementation, we'd look up the actual struct type
+        // OR if we're in a destructor (~ClassName) or constructor (ClassName_constructor), handle any property access
+        bool isDestructor = functionName.length() > 0 && functionName[0] == '~';
+        bool isConstructor = functionName.length() > 11 && functionName.substr(functionName.length() - 11) == "_constructor";
+        bool isMonomorphizedMethod = functionName.find("_") != String::npos && (propertyName == "value" || propertyName == "items" || propertyName == "data");
+        
+        if (isMonomorphizedMethod || isDestructor || isConstructor) {
+            std::cout << "DEBUG: PropertyAccess - Entering struct field access for " << 
+                         (isDestructor ? "destructor" : isConstructor ? "constructor" : "monomorphized method") << std::endl;
             
-            // Create GEP to access the first field (index 0)
-            llvm::Value* indices[] = {
-                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // First field
-                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)   // Field index 0
-            };
-            
-            // Use a generic struct type for now - in a full implementation,
-            // we'd determine the actual struct type from the monomorphized type
-            if (propertyName == "value") {
-                std::vector<llvm::Type*> fieldTypes = { getNumberType() };  // Assume first field is a number for now
-                llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
+            // Handle destructors and constructors accessing class properties
+            if (isDestructor || isConstructor) {
+                // For destructors and constructors, we need to access class properties
+                // The object structure is { i32 ref_count, ptr data } where data points to the actual object
+                // We need to load the data pointer first, then access the property
                 
-                llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "field_ptr");
-                llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
-                setCurrentValue(fieldValue);
-                std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'value'" << std::endl;
-                return;
-            } else if (propertyName == "items" || propertyName == "data") {
+                // First, get the data pointer (second field of ARC object)
+                llvm::Value* dataIndices[] = {
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)   // Field index 1 (data pointer)
+                };
+                
+                llvm::StructType* arcStructType = llvm::StructType::get(*context_, {
+                    llvm::Type::getInt32Ty(*context_),  // ref_count
+                    llvm::Type::getInt8Ty(*context_)->getPointerTo()  // data pointer
+                });
+                
+                llvm::Value* dataPtr = builder_->CreateGEP(arcStructType, objectValue, dataIndices, "data_ptr");
+                llvm::Value* actualObject = builder_->CreateLoad(llvm::Type::getInt8Ty(*context_)->getPointerTo(), dataPtr, "actual_object");
+                
+                // Now access the property on the actual object
+                // For now, assume properties are at fixed offsets based on their type
+                if (propertyName == "id") {
+                    // Assume 'id' is a number at offset 0
+                    llvm::Value* propertyIndices[] = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)  // Field index 0
+                    };
+                    std::vector<llvm::Type*> propertyTypes = { getNumberType() };
+                    llvm::StructType* propertyStructType = llvm::StructType::get(*context_, propertyTypes);
+                    llvm::Value* propertyPtr = builder_->CreateGEP(propertyStructType, actualObject, propertyIndices, "id_ptr");
+                    llvm::Value* propertyValue = builder_->CreateLoad(getNumberType(), propertyPtr, "id_value");
+                    setCurrentValue(propertyValue);
+                    std::cout << "DEBUG: PropertyAccess - Successfully accessed property 'id' in " << 
+                                 (isDestructor ? "destructor" : "constructor") << std::endl;
+                    return;
+                } else if (propertyName == "name") {
+                    // Assume 'name' is a string at offset 0
+                    llvm::Value* propertyIndices[] = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)  // Field index 0
+                    };
+                    std::vector<llvm::Type*> propertyTypes = { getStringType() };
+                    llvm::StructType* propertyStructType = llvm::StructType::get(*context_, propertyTypes);
+                    llvm::Value* propertyPtr = builder_->CreateGEP(propertyStructType, actualObject, propertyIndices, "name_ptr");
+                    llvm::Value* propertyValue = builder_->CreateLoad(getStringType(), propertyPtr, "name_value");
+                    setCurrentValue(propertyValue);
+                    std::cout << "DEBUG: PropertyAccess - Successfully accessed property 'name' in " << 
+                                 (isDestructor ? "destructor" : "constructor") << std::endl;
+                    return;
+                }
+            }
+            
+            // Handle monomorphized methods (original logic)
+            if (isMonomorphizedMethod) {
+                // Create GEP to access the first field (index 0)
+                llvm::Value* indices[] = {
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // First field
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)   // Field index 0
+                };
+                
+                // Use a generic struct type for now - in a full implementation,
+                // we'd determine the actual struct type from the monomorphized type
+                if (propertyName == "value") {
+                    std::vector<llvm::Type*> fieldTypes = { getNumberType() };  // Assume first field is a number for now
+                    llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
+                    
+                    llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "field_ptr");
+                    llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
+                    setCurrentValue(fieldValue);
+                    std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'value'" << std::endl;
+                    return;
+                } else if (propertyName == "items" || propertyName == "data") {
                 // For 'items' or 'data', the object structure is { i32, ptr }
                 // Field 0: length field (not used, but kept for compatibility)
                 // Field 1: pointer to array data
@@ -2211,6 +2267,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 setCurrentValue(fieldPtr);
                 std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field '" << propertyName << "' at index 1 (pointer to array)" << std::endl;
                 return;
+                }
             }
         } else {
             std::cout << "DEBUG: PropertyAccess - Not entering struct field access. functionName: " << functionName << ", propertyName: " << propertyName << std::endl;
