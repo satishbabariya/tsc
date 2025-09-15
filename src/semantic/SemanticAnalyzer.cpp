@@ -947,11 +947,20 @@ void SemanticAnalyzer::visit(ReturnStatement& node) {
         // }
     }
     
+    // Check return type compatibility with function signature
+    if (!functionStack_.empty()) {
+        FunctionDeclaration* currentFunction = functionStack_.back();
+        if (currentFunction->getReturnType()) {
+            // Function has explicit return type - validate against it
+            auto expectedReturnType = resolveType(currentFunction->getReturnType());
+            if (!isValidAssignment(*returnType, *expectedReturnType)) {
+                reportTypeError(expectedReturnType->toString(), returnType->toString(), node.getLocation());
+            }
+        }
+    }
+    
     // Set the type of the return statement
     node.setType(returnType);
-    
-    // TODO: Check return type compatibility with function signature
-    // This will be implemented when we add proper function context tracking
 }
 
 void SemanticAnalyzer::visit(IfStatement& node) {
@@ -1736,14 +1745,21 @@ void SemanticAnalyzer::checkFunctionCall(const CallExpression& call) {
         return;
     }
     
-    // Handle generic function calls with constraint validation
-    // This section integrates constraint validation into the existing function call checking
+    // Handle function calls with argument type validation
     if (auto identifier = dynamic_cast<const Identifier*>(call.getCallee())) {
         Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
         if (symbol && symbol->getKind() == SymbolKind::Function) {
-            // Check if this is a generic function call by examining the function type
+            // Check if this is a function call by examining the function type
             if (auto functionType = 
                 dynamic_cast<const FunctionType*>(calleeType.get())) {
+                
+                // Validate argument types against parameter types
+                if (!validateFunctionArguments(call, *functionType)) {
+                    // Argument validation failed - mark expression as error type
+                    setExpressionType(call, typeSystem_->getErrorType());
+                    return;
+                }
+                
                 // Get the function declaration to access type parameters
                 // This is necessary because the symbol table only stores the function type,
                 // not the detailed AST information including type parameters
@@ -2854,6 +2870,32 @@ FunctionDeclaration* SemanticAnalyzer::getFunctionDeclaration(const String& func
  * @param functionType The function type (used for type checking)
  * @return true if all constraints are satisfied, false otherwise
  */
+bool SemanticAnalyzer::validateFunctionArguments(const CallExpression& call, 
+                                                 const FunctionType& functionType) {
+    const auto& parameters = functionType.getParameters();
+    const auto& arguments = call.getArguments();
+    
+    // Check if we have the right number of arguments
+    if (arguments.size() != parameters.size()) {
+        reportError("Expected " + std::to_string(parameters.size()) + " arguments, but got " + 
+                   std::to_string(arguments.size()), call.getLocation());
+        return false;
+    }
+    
+    // Check each argument type against its corresponding parameter type
+    for (size_t i = 0; i < arguments.size(); ++i) {
+        auto argType = getExpressionType(*arguments[i]);
+        auto paramType = parameters[i].type;
+        
+        if (!isValidAssignment(*argType, *paramType)) {
+            reportTypeError(paramType->toString(), argType->toString(), arguments[i]->getLocation());
+            return false;
+        }
+    }
+    
+    return true;
+}
+
 bool SemanticAnalyzer::validateGenericFunctionCall(const CallExpression& call, 
                                                    const FunctionDeclaration& funcDecl, 
                                                    const FunctionType& functionType) {

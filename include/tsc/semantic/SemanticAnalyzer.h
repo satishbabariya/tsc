@@ -241,6 +241,7 @@ private:
     
     // Generic constraint validation helpers
     FunctionDeclaration* getFunctionDeclaration(const String& functionName);
+    bool validateFunctionArguments(const CallExpression& call, const FunctionType& functionType);
     bool validateGenericFunctionCall(const CallExpression& call, const FunctionDeclaration& funcDecl, const FunctionType& functionType);
 };
 
