@@ -31,8 +31,8 @@ add_library(tsc_lib STATIC
     TargetRegistry.cpp
 )
 
-# Link against LLVM
-target_link_libraries(tsc_lib ${llvm_libs})
+# Link against LLVM and runtime
+target_link_libraries(tsc_lib ${llvm_libs} tsc_memory_runtime)
 
 # Include directories
 target_include_directories(tsc_lib PUBLIC
