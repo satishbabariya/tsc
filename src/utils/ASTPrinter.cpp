@@ -1135,4 +1135,70 @@ void ASTPrinter::visit(DestructuringAssignment& node) {
     decreaseIndent();
 }
 
+void ASTPrinter::visit(OptionalPropertyAccess& node) {
+    printIndent();
+    output_ << "OptionalPropertyAccess: " << node.getProperty() << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Object:" << std::endl;
+    increaseIndent();
+    node.getObject()->accept(*this);
+    decreaseIndent();
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(OptionalIndexAccess& node) {
+    printIndent();
+    output_ << "OptionalIndexAccess:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Object:" << std::endl;
+    increaseIndent();
+    node.getObject()->accept(*this);
+    decreaseIndent();
+    
+    printIndent();
+    output_ << "Index:" << std::endl;
+    increaseIndent();
+    node.getIndex()->accept(*this);
+    decreaseIndent();
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(OptionalCallExpr& node) {
+    printIndent();
+    output_ << "OptionalCallExpr:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Callee:" << std::endl;
+    increaseIndent();
+    node.getCallee()->accept(*this);
+    decreaseIndent();
+    
+    printIndent();
+    output_ << "Arguments:" << std::endl;
+    increaseIndent();
+    for (const auto& arg : node.getArguments()) {
+        arg->accept(*this);
+    }
+    decreaseIndent();
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(SpreadElement& node) {
+    printIndent();
+    output_ << "SpreadElement:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Expression:" << std::endl;
+    increaseIndent();
+    node.getExpression()->accept(*this);
+    decreaseIndent();
+    decreaseIndent();
+}
+
 } // namespace tsc

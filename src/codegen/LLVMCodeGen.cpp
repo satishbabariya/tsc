@@ -5251,6 +5251,10 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(ObjectDestructuringPattern& node) override {}
         void visit(IdentifierPattern& node) override {}
         void visit(DestructuringAssignment& node) override {}
+        void visit(OptionalPropertyAccess& node) override {}
+        void visit(OptionalIndexAccess& node) override {}
+        void visit(OptionalCallExpr& node) override {}
+        void visit(SpreadElement& node) override {}
     };
     
     ReturnStatementChecker checker;
@@ -5384,6 +5388,10 @@ bool LLVMCodeGen::hasReturnStatementsWithValues(const FunctionDeclaration& funcD
                     void visit(ObjectDestructuringPattern& node) override {}
                     void visit(IdentifierPattern& node) override {}
                     void visit(DestructuringAssignment& node) override {}
+                    void visit(OptionalPropertyAccess& node) override {}
+                    void visit(OptionalIndexAccess& node) override {}
+                    void visit(OptionalCallExpr& node) override {}
+                    void visit(SpreadElement& node) override {}
     };
     
     ReturnStatementWithValueChecker checker;
@@ -6960,6 +6968,26 @@ void LLVMCodeGen::visit(IdentifierPattern& node) {
 void LLVMCodeGen::visit(DestructuringAssignment& node) {
     // TODO: Implement destructuring assignment code generation
     reportError("DestructuringAssignment code generation not yet implemented", node.getLocation());
+}
+
+void LLVMCodeGen::visit(OptionalPropertyAccess& node) {
+    // TODO: Implement optional property access code generation
+    reportError("OptionalPropertyAccess code generation not yet implemented", node.getLocation());
+}
+
+void LLVMCodeGen::visit(OptionalIndexAccess& node) {
+    // TODO: Implement optional index access code generation
+    reportError("OptionalIndexAccess code generation not yet implemented", node.getLocation());
+}
+
+void LLVMCodeGen::visit(OptionalCallExpr& node) {
+    // TODO: Implement optional call expression code generation
+    reportError("OptionalCallExpr code generation not yet implemented", node.getLocation());
+}
+
+void LLVMCodeGen::visit(SpreadElement& node) {
+    // TODO: Implement spread element code generation
+    reportError("SpreadElement code generation not yet implemented", node.getLocation());
 }
 
 // Helper function to check if a type is ARC-managed

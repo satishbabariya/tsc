@@ -416,6 +416,10 @@ public:
     void visit(ArrowFunction& node) override;
     void visit(FunctionExpression& node) override;
     void visit(MoveExpression& node) override;
+    void visit(OptionalPropertyAccess& node) override;
+    void visit(OptionalIndexAccess& node) override;
+    void visit(OptionalCallExpr& node) override;
+    void visit(SpreadElement& node) override;
     void visit(ForOfStatement& node) override;
     
     void visit(ExpressionStatement& node) override;

@@ -2948,6 +2948,30 @@ void SemanticAnalyzer::visit(DestructuringAssignment& node) {
     node.getValue()->accept(*this);
 }
 
+void SemanticAnalyzer::visit(OptionalPropertyAccess& node) {
+    // TODO: Implement optional property access semantic analysis
+    node.getObject()->accept(*this);
+}
+
+void SemanticAnalyzer::visit(OptionalIndexAccess& node) {
+    // TODO: Implement optional index access semantic analysis
+    node.getObject()->accept(*this);
+    node.getIndex()->accept(*this);
+}
+
+void SemanticAnalyzer::visit(OptionalCallExpr& node) {
+    // TODO: Implement optional call expression semantic analysis
+    node.getCallee()->accept(*this);
+    for (const auto& arg : node.getArguments()) {
+        arg->accept(*this);
+    }
+}
+
+void SemanticAnalyzer::visit(SpreadElement& node) {
+    // TODO: Implement spread element semantic analysis
+    node.getExpression()->accept(*this);
+}
+
 // Factory function
 unique_ptr<SemanticAnalyzer> createSemanticAnalyzer(DiagnosticEngine& diagnostics) {
     return make_unique<SemanticAnalyzer>(diagnostics);

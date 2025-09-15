@@ -1585,6 +1585,10 @@ public:
     virtual void visit(ArrowFunction& node) = 0;
     virtual void visit(FunctionExpression& node) = 0;
     virtual void visit(MoveExpression& node) = 0;
+    virtual void visit(OptionalPropertyAccess& node) = 0;
+    virtual void visit(OptionalIndexAccess& node) = 0;
+    virtual void visit(OptionalCallExpr& node) = 0;
+    virtual void visit(SpreadElement& node) = 0;
     
     // Destructuring patterns
     virtual void visit(DestructuringPattern& node) = 0;
