@@ -266,7 +266,6 @@ public:
         
     private:
         void registerBuiltinFunctions();
-        void registerConsoleFunctions();
         void registerMathFunctions();
         void registerStringFunctions();
         void registerArrayFunctions();
@@ -557,7 +556,7 @@ public:
     llvm::Value* createBooleanLiteral(bool value);
     llvm::Value* createNullValue(llvm::Type* type);
     llvm::Value* createDefaultValue(llvm::Type* type);
-    llvm::Function* getOrCreateConsoleLogFunction();
+    llvm::Function* getOrCreatePrintFunction();
     
     // Type conversions
     llvm::Value* convertToNumber(llvm::Value* value, llvm::Type* fromType);

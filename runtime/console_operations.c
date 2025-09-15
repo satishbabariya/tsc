@@ -1,29 +1,15 @@
-// Console operations runtime for TSC
+// Print operations runtime for TSC
 #include <stdio.h>
-#include <stdarg.h>
-#include <stdbool.h>
 
-// Console log function
-// This is a variadic function that can accept multiple arguments
-void console_log(void* first_arg, ...) {
-    va_list args;
-    va_start(args, first_arg);
-    
-    // Skip the first argument (it's always null in our current implementation)
-    void* arg = va_arg(args, void*);
-    
-    // Process all arguments
-    bool first = true;
-    while (arg != NULL) {
-        char* str = (char*)arg;
-        if (!first) {
-            printf(" ");
-        }
-        printf("%s", str);
-        first = false;
-        arg = va_arg(args, void*);
+// Simple print function - takes any value and prints it
+void print(void* value) {
+    if (value == NULL) {
+        printf("null\n");
+        return;
     }
     
-    printf("\n");
-    va_end(args);
+    // For now, assume all values are strings
+    // In the future, this could be enhanced to handle different types
+    char* str = (char*)value;
+    printf("%s\n", str);
 }

@@ -1701,9 +1701,12 @@ void SemanticAnalyzer::setupBuiltinEnvironment() {
     // Add built-in functions and global objects
     // This is where we'd add console, Math, etc.
     
-    // Add console object
-    auto consoleType = typeSystem_->createObjectType();
-    symbolTable_->addSymbol("console", SymbolKind::Variable, consoleType, SourceLocation());
+    // Add print function
+    auto printType = typeSystem_->createFunctionType(
+        std::vector<std::shared_ptr<Type>>{typeSystem_->getAnyType()}, // parameter: any
+        typeSystem_->getVoidType() // return: void
+    );
+    symbolTable_->addSymbol("print", SymbolKind::Function, printType, SourceLocation());
     
     // Add built-in number constants
     auto numberType = typeSystem_->getNumberType();

@@ -24,8 +24,8 @@ int __has_exception(void);
 int64_t __get_exception(void);
 void __clear_exception(void);
 
-// Console operations
-void console_log(void* first_arg, ...);
+// Print operations
+void print(void* value);
 
 // Memory operations (ARC-compatible malloc wrappers)
 void* malloc_1(size_t size);

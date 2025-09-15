@@ -218,8 +218,11 @@ Symbol* SymbolTable::lookupSymbolInScope(const String& name, Scope* scope) const
 
 void SymbolTable::addBuiltinSymbols() {
     // Add built-in global functions and variables
-    auto consoleType = make_shared<ObjectType>();
-    addSymbol("console", SymbolKind::Variable, consoleType, SourceLocation());
+    auto printType = make_shared<FunctionType>(
+        std::vector<std::shared_ptr<Type>>{make_shared<PrimitiveType>(TypeKind::Any)}, // parameter: any
+        make_shared<PrimitiveType>(TypeKind::Void) // return: void
+    );
+    addSymbol("print", SymbolKind::Function, printType, SourceLocation());
     
     // Add built-in number constants
     auto numberType = make_shared<PrimitiveType>(TypeKind::Number);
