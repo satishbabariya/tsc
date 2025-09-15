@@ -5,13 +5,19 @@
 // Console log function
 // This is a variadic function that can accept multiple arguments
 void console_log(void* first_arg, ...) {
-    // For now, just print a simple message
-    // In a full implementation, this would format and print all arguments
-    printf("Console log called\n");
+    va_list args;
+    va_start(args, first_arg);
     
-    // Note: This is a placeholder implementation
-    // A full implementation would:
-    // 1. Process all variadic arguments
-    // 2. Convert them to strings
-    // 3. Format and print them
+    // Skip the first argument (it's always null in our current implementation)
+    void* arg = va_arg(args, void*);
+    
+    // Process the actual string argument
+    if (arg != NULL) {
+        char* str = (char*)arg;
+        printf("%s\n", str);
+    } else {
+        printf("(null)\n");
+    }
+    
+    va_end(args);
 }
