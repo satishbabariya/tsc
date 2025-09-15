@@ -3555,11 +3555,11 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
         llvmType = mapTypeScriptTypeToLLVM(*varSymbol->getType());
         std::cout << "DEBUG: Variable " << node.getName() << " using symbol table type: " << varSymbol->getType()->toString() << std::endl;
         
-        // For global variables, ensure they are pointers to the type
+        // For global variables, keep the original type (don't convert to pointer)
+        // Global variables should be declared as the actual type, not a pointer to it
         llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
-        if (!currentFunc && llvmType && !llvmType->isPointerTy()) {
-            llvmType = llvm::PointerType::get(llvmType, 0);
-            std::cout << "DEBUG: Variable " << node.getName() << " converted to pointer type for global variable" << std::endl;
+        if (!currentFunc) {
+            std::cout << "DEBUG: Variable " << node.getName() << " is global variable, keeping original type: " << llvmType << std::endl;
         }
     }
     
@@ -3776,7 +3776,10 @@ void LLVMCodeGen::visit(Module& module) {
     // Check if main function already exists
     bool mainExists = module_->getFunction("main") != nullptr;
     
-    if (!moduleStatements.empty() && !mainExists) {
+    std::cout << "DEBUG: Checking main function generation: moduleStatements=" << moduleStatements.size() 
+              << ", mainExists=" << (mainExists ? "true" : "false") 
+              << ", generateMainFunction=" << (generateMainFunction_ ? "true" : "false") << std::endl;
+    if (!moduleStatements.empty() && !mainExists && generateMainFunction_) {
         llvm::FunctionType* mainType = llvm::FunctionType::get(
             llvm::Type::getInt32Ty(*context_), false);
         mainFunc = llvm::Function::Create(
@@ -3991,7 +3994,7 @@ void LLVMCodeGen::visit(Module& module) {
         // Also check all other functions in the module for missing terminators
         // Skip the duplicate terminator checking for now to avoid the "Terminator found in the middle of a basic block!" error
         // The terminator addition logic is already handled in the method generation code
-    } else if (!mainExists) {
+    } else if (!mainExists && generateMainFunction_) {
         // Create an empty main function if no module-level statements exist and no main function exists
         llvm::FunctionType* mainType = llvm::FunctionType::get(
             llvm::Type::getInt32Ty(*context_), false);
@@ -5243,6 +5246,8 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(ArrowFunction& node) override {}
         void visit(FunctionExpression& node) override {}
         void visit(Module& node) override {}
+        void visit(ImportDeclaration& node) override {}
+        void visit(ExportDeclaration& node) override {}
         void visit(MoveExpression& node) override {}
     };
     
@@ -5994,6 +5999,18 @@ void LLVMCodeGen::visit(TypeAliasDeclaration& node) {
     
     // No-op for now
     setCurrentValue(llvm::Constant::getNullValue(getAnyType()));
+}
+
+void LLVMCodeGen::visit(ImportDeclaration& node) {
+    // Import declarations are handled during module resolution
+    // No runtime code generation needed for imports
+    std::cout << "DEBUG: Processing import declaration: " << node.getModuleSpecifier() << std::endl;
+}
+
+void LLVMCodeGen::visit(ExportDeclaration& node) {
+    // Export declarations are handled during module resolution
+    // No runtime code generation needed for exports
+    std::cout << "DEBUG: Processing export declaration: " << node.getModuleSpecifier() << std::endl;
 }
 
 // Memory management functions

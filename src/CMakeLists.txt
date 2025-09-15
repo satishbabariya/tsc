@@ -18,6 +18,9 @@ add_library(tsc_lib STATIC
     semantic/SymbolTable.cpp
     semantic/TypeSystem.cpp
     semantic/GenericConstraintChecker.cpp
+    semantic/ModuleResolver.cpp
+    semantic/DependencyScanner.cpp
+    semantic/ModuleSymbolTable.cpp
     semantic/CycleDetector.cpp
     
     # Code Generation

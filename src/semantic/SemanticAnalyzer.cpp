@@ -1,6 +1,10 @@
 #include "tsc/semantic/SemanticAnalyzer.h"
 #include "tsc/semantic/GenericConstraintChecker.h"
+#include "tsc/lexer/Lexer.h"
+#include "tsc/parser/Parser.h"
+#include "tsc/parser/VectorTokenStream.h"
 #include <iostream>
+#include <fstream>
 
 namespace tsc {
 
@@ -10,6 +14,9 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     typeSystem_ = make_unique<TypeSystem>();
     context_ = make_unique<SemanticContext>(*symbolTable_, *typeSystem_, diagnostics_);
     constraintChecker_ = make_unique<GenericConstraintChecker>(diagnostics_, *typeSystem_);
+    moduleResolver_ = make_unique<ModuleResolver>(diagnostics_);
+    dependencyScanner_ = make_unique<DependencyScanner>(*moduleResolver_, diagnostics_);
+    moduleSymbolManager_ = make_unique<ModuleSymbolManager>(diagnostics_, symbolTable_.get());
     cycleDetector_ = make_unique<semantic::CycleDetector>(symbolTable_.get());
     
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
@@ -20,8 +27,12 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
 SemanticAnalyzer::~SemanticAnalyzer() = default;
 
 bool SemanticAnalyzer::analyze(Module& module) {
+    std::cout << "DEBUG: *** ANALYZE METHOD CALLED *** for module" << std::endl;
+    std::cout.flush();
     try {
         // Multi-phase semantic analysis
+        std::cout << "DEBUG: *** CALLING performSymbolResolution ***" << std::endl;
+        std::cout.flush();
         performSymbolResolution(module);
         resolveDeferredSuperExpressions();
         resolveDeferredSuperPropertyAccesses();
@@ -39,6 +50,121 @@ bool SemanticAnalyzer::analyze(Module& module) {
         
     } catch (const std::exception& e) {
         reportError("Internal semantic analysis error: " + String(e.what()), SourceLocation());
+        return false;
+    }
+}
+
+bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
+    try {
+        std::cout << "DEBUG: Starting multi-module analysis for " << modulePaths.size() << " modules" << std::endl;
+        
+        // Phase 1: Scan dependencies and detect circular dependencies
+        auto dependencyGraph = dependencyScanner_->scanProjectWithValidation(modulePaths);
+        if (!dependencyGraph) {
+            diagnostics_.error("Failed to scan project dependencies", SourceLocation());
+            return false;
+        }
+        
+        // Phase 2: Create module symbol tables for each module
+        for (const String& modulePath : modulePaths) {
+            ModuleSymbolTable* moduleTable = moduleSymbolManager_->createModuleSymbolTable(modulePath);
+            if (!moduleTable) {
+                diagnostics_.error("Failed to create module symbol table for: " + modulePath, SourceLocation());
+                return false;
+            }
+        }
+        
+        // Phase 3: Analyze each module individually
+        std::vector<String> compilationOrder = dependencyGraph->getCompilationOrder();
+        std::cout << "DEBUG: Compilation order: ";
+        for (size_t i = 0; i < compilationOrder.size(); ++i) {
+            if (i > 0) std::cout << " -> ";
+            std::cout << compilationOrder[i];
+        }
+        std::cout << std::endl;
+        
+        std::cout << "DEBUG: *** STARTING LOOP *** with " << compilationOrder.size() << " modules" << std::endl;
+        std::cout.flush();
+        
+        // Store AST modules to keep them alive throughout analysis
+        std::vector<std::unique_ptr<Module>> astModules;
+        astModules.reserve(compilationOrder.size());
+        
+        for (const String& modulePath : compilationOrder) {
+            std::cout << "DEBUG: Analyzing module: " << modulePath << std::endl;
+            std::cout << "DEBUG: *** ABOUT TO READ FILE *** " << modulePath << std::endl;
+            std::cout.flush();
+            
+            // Parse the module
+            std::ifstream file(modulePath);
+            if (!file.is_open()) {
+                diagnostics_.error("Cannot open file: " + modulePath, SourceLocation());
+                return false;
+            }
+            
+            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            file.close();
+            
+            std::cout << "DEBUG: *** FILE READ SUCCESSFULLY *** for " << modulePath << std::endl;
+            
+            // Tokenize and parse
+            Lexer lexer(diagnostics_);
+            auto tokens = lexer.tokenize(content, modulePath);
+            if (tokens.empty()) {
+                diagnostics_.error("Failed to tokenize: " + modulePath, SourceLocation());
+                return false;
+            }
+            
+            std::cout << "DEBUG: *** TOKENIZATION SUCCESSFUL *** for " << modulePath << " (" << tokens.size() << " tokens)" << std::endl;
+            
+            std::cout << "DEBUG: *** BEFORE PARSER *** About to create parser for " << modulePath << std::endl;
+            std::cout.flush();
+            VectorTokenStream tokenStream(tokens);
+            Parser parser(diagnostics_, *typeSystem_);
+            std::cout << "DEBUG: *** PARSER INVOCATION *** About to call parser.parse() for " << modulePath << std::endl;
+            std::cout.flush();
+            auto module = parser.parse(tokens, modulePath);
+            std::cout << "DEBUG: *** PARSER RESULT *** Parser.parse() returned " << (module ? "SUCCESS" : "NULL") << " for " << modulePath << std::endl;
+            std::cout.flush();
+            if (!module) {
+                diagnostics_.error("Failed to parse: " + modulePath, SourceLocation());
+                return false;
+            }
+            
+            // Store the AST module to keep it alive
+            astModules.push_back(std::move(module));
+            
+            // Set current module path for symbol table creation
+            currentModulePath_ = modulePath;
+            
+            // Analyze the module
+            if (!analyze(*astModules.back())) {
+                diagnostics_.error("Failed to analyze module: " + modulePath, SourceLocation());
+                return false;
+            }
+        }
+        
+        // Phase 4: Perform export-to-import binding
+        std::cout << "DEBUG: Performing export-to-import binding" << std::endl;
+        std::cout << "DEBUG: *** ABOUT TO CALL bindExportsToImports ***" << std::endl;
+        bool bindingResult = moduleSymbolManager_->bindExportsToImports();
+        std::cout << "DEBUG: *** bindExportsToImports returned: " << (bindingResult ? "true" : "false") << " ***" << std::endl;
+        if (!bindingResult) {
+            diagnostics_.error("Failed to bind exports to imports", SourceLocation());
+            return false;
+        }
+        
+        // Phase 5: Validate all modules
+        if (!moduleSymbolManager_->validateAllModules()) {
+            diagnostics_.error("Module validation failed", SourceLocation());
+            return false;
+        }
+        
+        std::cout << "DEBUG: Multi-module analysis completed successfully" << std::endl;
+        return context_->getErrorCount() == 0;
+        
+    } catch (const std::exception& e) {
+        diagnostics_.error("Internal multi-module analysis error: " + String(e.what()), SourceLocation());
         return false;
     }
 }
@@ -825,11 +951,20 @@ void SemanticAnalyzer::visit(ReturnStatement& node) {
         // }
     }
     
+    // Check return type compatibility with function signature
+    if (!functionStack_.empty()) {
+        FunctionDeclaration* currentFunction = functionStack_.back();
+        if (currentFunction->getReturnType()) {
+            // Function has explicit return type - validate against it
+            auto expectedReturnType = resolveType(currentFunction->getReturnType());
+            if (!isValidAssignment(*returnType, *expectedReturnType)) {
+                reportTypeError(expectedReturnType->toString(), returnType->toString(), node.getLocation());
+            }
+        }
+    }
+    
     // Set the type of the return statement
     node.setType(returnType);
-    
-    // TODO: Check return type compatibility with function signature
-    // This will be implemented when we add proper function context tracking
 }
 
 void SemanticAnalyzer::visit(IfStatement& node) {
@@ -1186,6 +1321,8 @@ void SemanticAnalyzer::visit(Module& module) {
 
 // Analysis phase implementations
 void SemanticAnalyzer::performSymbolResolution(Module& module) {
+    std::cout << "DEBUG: *** performSymbolResolution CALLED ***" << std::endl;
+    std::cout.flush();
     // Three-pass symbol resolution:
     // Pass 1: Collect all function and class declarations
     collectFunctionDeclarations(module);
@@ -1194,7 +1331,11 @@ void SemanticAnalyzer::performSymbolResolution(Module& module) {
     resolveInheritance(module);
     
     // Pass 3: Process all statements including function bodies
+    std::cout << "DEBUG: *** CALLING module.accept(*this) ***" << std::endl;
+    std::cout.flush();
     module.accept(*this);
+    std::cout << "DEBUG: *** module.accept(*this) COMPLETED ***" << std::endl;
+    std::cout.flush();
 }
 
 void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
@@ -1209,6 +1350,43 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
             // Create class type WITHOUT base class (will be resolved in second pass)
             auto classType = typeSystem_->createClassType(classDecl->getName(), classDecl, nullptr);
             declareSymbol(classDecl->getName(), SymbolKind::Class, classType, classDecl->getLocation());
+        } else if (auto exportDecl = dynamic_cast<ExportDeclaration*>(stmt.get())) {
+            // Handle export declarations that contain function/class declarations
+            const ExportClause& clause = exportDecl->getClause();
+            if (clause.getType() == ExportClause::Default && clause.getDefaultExport()) {
+                if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(clause.getDefaultExport())) {
+                    // Collect exported function declarations
+                    std::vector<FunctionType::Parameter> paramTypes;
+                    for (const auto& param : funcDecl->getParameters()) {
+                        FunctionType::Parameter funcParam;
+                        funcParam.name = param.name;
+                        funcParam.type = param.type ? param.type : typeSystem_->getAnyType();
+                        funcParam.optional = param.optional;
+                        funcParam.rest = param.rest;
+                        paramTypes.push_back(funcParam);
+                    }
+                    
+                    auto returnType = funcDecl->getReturnType() ? funcDecl->getReturnType() : typeSystem_->getVoidType();
+                    auto functionType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
+                    
+                    if (!symbolTable_->addSymbol(funcDecl->getName(), SymbolKind::Function, functionType,
+                                               funcDecl->getLocation(), funcDecl)) {
+                        reportError("Failed to declare exported function: " + funcDecl->getName(), funcDecl->getLocation());
+                    }
+                } else if (auto classDecl = dynamic_cast<ClassDeclaration*>(clause.getDefaultExport())) {
+                    // Collect exported class declarations
+                    auto classType = typeSystem_->createClassType(classDecl->getName(), classDecl, nullptr);
+                    declareSymbol(classDecl->getName(), SymbolKind::Class, classType, classDecl->getLocation());
+                }
+            } else if (clause.getType() == ExportClause::Named) {
+                // Handle named exports (export function add() { })
+                const auto& namedExports = clause.getNamedExports();
+                for (const auto& spec : namedExports) {
+                    // For named exports, we need to find the actual declaration
+                    // This is a bit tricky since we're in the first pass
+                    // We'll handle this in the second pass when we process the export declaration
+                }
+            }
         } else if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
             // std::cout << "DEBUG: Found function declaration: " << funcDecl->getName() << std::endl;
             // Create function type
@@ -1571,14 +1749,21 @@ void SemanticAnalyzer::checkFunctionCall(const CallExpression& call) {
         return;
     }
     
-    // Handle generic function calls with constraint validation
-    // This section integrates constraint validation into the existing function call checking
+    // Handle function calls with argument type validation
     if (auto identifier = dynamic_cast<const Identifier*>(call.getCallee())) {
         Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
         if (symbol && symbol->getKind() == SymbolKind::Function) {
-            // Check if this is a generic function call by examining the function type
+            // Check if this is a function call by examining the function type
             if (auto functionType = 
                 dynamic_cast<const FunctionType*>(calleeType.get())) {
+                
+                // Validate argument types against parameter types
+                if (!validateFunctionArguments(call, *functionType)) {
+                    // Argument validation failed - mark expression as error type
+                    setExpressionType(call, typeSystem_->getErrorType());
+                    return;
+                }
+                
                 // Get the function declaration to access type parameters
                 // This is necessary because the symbol table only stores the function type,
                 // not the detailed AST information including type parameters
@@ -2196,6 +2381,184 @@ void SemanticAnalyzer::visit(TypeAliasDeclaration& node) {
     // The alias type is already stored in the symbol table above
 }
 
+void SemanticAnalyzer::visit(ImportDeclaration& node) {
+    std::cout << "DEBUG: Processing import declaration: " << node.getModuleSpecifier() << std::endl;
+    
+    // Resolve the module
+    String currentFile = currentModulePath_.empty() ? "current_file.ts" : currentModulePath_;
+    ModuleResolutionResult result = moduleResolver_->resolveModule(node.getModuleSpecifier(), currentFile);
+    
+    if (!result.isSuccess) {
+        diagnostics_.error("Failed to resolve module: " + result.errorMessage, node.getLocation());
+        return;
+    }
+    
+    std::cout << "DEBUG: Resolved module " << node.getModuleSpecifier() << " to " << result.resolvedPath << std::endl;
+    
+    // Get or create module symbol table for current module
+    ModuleSymbolTable* currentModuleTable = moduleSymbolManager_->getModuleSymbolTable(currentFile);
+    if (!currentModuleTable) {
+        currentModuleTable = moduleSymbolManager_->createModuleSymbolTable(currentFile);
+    }
+    
+    // Add module dependency
+    currentModuleTable->addModuleDependency(result.resolvedPath);
+    
+    // Process import clause based on type
+    const ImportClause& clause = node.getClause();
+    switch (clause.getType()) {
+        case ImportClause::Default: {
+            ImportedSymbol imported(clause.getDefaultBinding(), "default", result.resolvedPath, 
+                                  node.getLocation(), SymbolKind::Variable);
+            currentModuleTable->addImportedSymbol(imported);
+            break;
+        }
+        case ImportClause::Named: {
+            const auto& namedImports = clause.getNamedImports();
+            for (const auto& spec : namedImports) {
+                ImportedSymbol imported(spec.getLocalName(), spec.getImportedName(), result.resolvedPath,
+                                      node.getLocation(), SymbolKind::Variable);
+                currentModuleTable->addImportedSymbol(imported);
+            }
+            break;
+        }
+        case ImportClause::Namespace: {
+            ImportedSymbol imported(clause.getNamespaceBinding(), "*", result.resolvedPath,
+                                  node.getLocation(), SymbolKind::Module);
+            currentModuleTable->addImportedSymbol(imported);
+            break;
+        }
+        case ImportClause::Mixed: {
+            // Default import
+            ImportedSymbol defaultImported(clause.getDefaultBinding(), "default", result.resolvedPath,
+                                         node.getLocation(), SymbolKind::Variable);
+            currentModuleTable->addImportedSymbol(defaultImported);
+            
+            // Named imports
+            const auto& namedImports = clause.getNamedImports();
+            for (const auto& spec : namedImports) {
+                ImportedSymbol imported(spec.getLocalName(), spec.getImportedName(), result.resolvedPath,
+                                      node.getLocation(), SymbolKind::Variable);
+                currentModuleTable->addImportedSymbol(imported);
+            }
+            break;
+        }
+    }
+}
+
+void SemanticAnalyzer::visit(ExportDeclaration& node) {
+    std::cout << "DEBUG: *** EXPORT DECLARATION VISITED *** Processing export declaration: " << node.getModuleSpecifier() << std::endl;
+    std::cout.flush();
+    
+    String currentFile = currentModulePath_.empty() ? "current_file.ts" : currentModulePath_;
+    
+    // Get or create module symbol table for current module
+    ModuleSymbolTable* currentModuleTable = moduleSymbolManager_->getModuleSymbolTable(currentFile);
+    if (!currentModuleTable) {
+        currentModuleTable = moduleSymbolManager_->createModuleSymbolTable(currentFile);
+    }
+    
+    // Handle re-exports (exports with 'from' clause)
+    if (!node.getModuleSpecifier().empty()) {
+        ModuleResolutionResult result = moduleResolver_->resolveModule(node.getModuleSpecifier(), currentFile);
+        
+        if (!result.isSuccess) {
+            diagnostics_.error("Failed to resolve re-export module: " + result.errorMessage, node.getLocation());
+            return;
+        }
+        
+        std::cout << "DEBUG: Resolved re-export module " << node.getModuleSpecifier() << " to " << result.resolvedPath << std::endl;
+        
+        // Add module dependency
+        currentModuleTable->addModuleDependency(result.resolvedPath);
+        
+        // Process re-export clause
+        const ExportClause& clause = node.getClause();
+        switch (clause.getType()) {
+            case ExportClause::ReExport:
+            case ExportClause::All: {
+                // Re-export all symbols from the module
+                ExportedSymbol reExport("*", "*", node.getLocation(), SymbolKind::Module, true, result.resolvedPath);
+                currentModuleTable->addExportedSymbol(reExport);
+                break;
+            }
+            case ExportClause::Named: {
+                // Re-export specific named symbols
+                const auto& namedExports = clause.getNamedExports();
+                for (const auto& spec : namedExports) {
+                    ExportedSymbol reExport(spec.getExportedName(), spec.getLocalName(), node.getLocation(),
+                                          SymbolKind::Variable, true, result.resolvedPath);
+                    currentModuleTable->addExportedSymbol(reExport);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    } else {
+        // Handle local exports
+        const ExportClause& clause = node.getClause();
+        switch (clause.getType()) {
+            case ExportClause::Default: {
+                std::cout << "DEBUG: Processing default export" << std::endl;
+                // Export default expression/declaration
+                if (clause.getDefaultExport()) {
+                    std::cout << "DEBUG: Default export is not null" << std::endl;
+                    // Process the declaration first
+                    if (auto decl = dynamic_cast<Declaration*>(clause.getDefaultExport())) {
+                        std::cout << "DEBUG: Default export is a Declaration: " << decl->getName() << std::endl;
+                        // Process the declaration (this will add it to the symbol table)
+                        decl->accept(*this);
+                        std::cout << "DEBUG: Declaration processed successfully" << std::endl;
+                        
+                        // Mark the symbol as exported
+                        Symbol* symbol = symbolTable_->lookupSymbol(decl->getName());
+                        if (symbol) {
+                            symbol->setExported(true);
+                            
+                            // Add to module's exported symbols
+                            // For export function/class/var declarations, export with the actual name, not "default"
+                            ExportedSymbol exported(decl->getName(), decl->getName(), node.getLocation(), symbol->getKind());
+                            currentModuleTable->addExportedSymbol(exported);
+                            
+                            std::cout << "DEBUG: Added named export: " << decl->getName() << " as '" << decl->getName() << "'" << std::endl;
+                        } else {
+                            std::cout << "DEBUG: Symbol not found for: " << decl->getName() << std::endl;
+                        }
+                    } else if (auto expr = dynamic_cast<Expression*>(clause.getDefaultExport())) {
+                        std::cout << "DEBUG: Default export is an Expression" << std::endl;
+                        // Process the expression
+                        expr->accept(*this);
+                        
+                        // For expressions, we'll export them as "default"
+                        ExportedSymbol exported("default", "default", node.getLocation(), SymbolKind::Variable);
+                        currentModuleTable->addExportedSymbol(exported);
+                        
+                        std::cout << "DEBUG: Added default export expression as 'default'" << std::endl;
+                    } else {
+                        std::cout << "DEBUG: Default export is neither Declaration nor Expression" << std::endl;
+                    }
+                } else {
+                    std::cout << "DEBUG: Default export is null" << std::endl;
+                }
+                break;
+            }
+            case ExportClause::Named: {
+                // Export named symbols
+                const auto& namedExports = clause.getNamedExports();
+                for (const auto& spec : namedExports) {
+                    ExportedSymbol exported(spec.getExportedName(), spec.getLocalName(), node.getLocation(),
+                                          SymbolKind::Variable);
+                    currentModuleTable->addExportedSymbol(exported);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
+}
+
 shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
     if (!type) {
         return type;
@@ -2572,6 +2935,32 @@ FunctionDeclaration* SemanticAnalyzer::getFunctionDeclaration(const String& func
  * @param functionType The function type (used for type checking)
  * @return true if all constraints are satisfied, false otherwise
  */
+bool SemanticAnalyzer::validateFunctionArguments(const CallExpression& call, 
+                                                 const FunctionType& functionType) {
+    const auto& parameters = functionType.getParameters();
+    const auto& arguments = call.getArguments();
+    
+    // Check if we have the right number of arguments
+    if (arguments.size() != parameters.size()) {
+        reportError("Expected " + std::to_string(parameters.size()) + " arguments, but got " + 
+                   std::to_string(arguments.size()), call.getLocation());
+        return false;
+    }
+    
+    // Check each argument type against its corresponding parameter type
+    for (size_t i = 0; i < arguments.size(); ++i) {
+        auto argType = getExpressionType(*arguments[i]);
+        auto paramType = parameters[i].type;
+        
+        if (!isValidAssignment(*argType, *paramType)) {
+            reportTypeError(paramType->toString(), argType->toString(), arguments[i]->getLocation());
+            return false;
+        }
+    }
+    
+    return true;
+}
+
 bool SemanticAnalyzer::validateGenericFunctionCall(const CallExpression& call, 
                                                    const FunctionDeclaration& funcDecl, 
                                                    const FunctionType& functionType) {

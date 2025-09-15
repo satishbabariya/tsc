@@ -39,6 +39,7 @@ Parser::Parser(utils::EnhancedDiagnosticEngine& enhancedDiagnostics, const TypeS
 Parser::~Parser() = default;
 
 unique_ptr<Module> Parser::parse(const std::vector<Token>& tokens, const String& filename) {
+    std::cout << "DEBUG: Parser::parse() called with " << tokens.size() << " tokens for file: " << filename << std::endl;
     // Create a token stream from the vector
     auto tokenStream = make_unique<VectorTokenStream>(tokens);
     return parse(std::move(tokenStream), filename);
@@ -57,14 +58,21 @@ unique_ptr<Module> Parser::parse(unique_ptr<TokenStream> tokenStream, const Stri
 }
 
 unique_ptr<Module> Parser::parseModule() {
+    std::cout << "DEBUG: Parser::parseModule() called" << std::endl;
     std::vector<unique_ptr<Statement>> statements;
     
+    std::cout << "DEBUG: Starting parseModule loop, isAtEnd(): " << isAtEnd() << std::endl;
     while (!isAtEnd()) {
+        std::cout << "DEBUG: parseModule loop iteration, calling parseStatement()" << std::endl;
         try {
             if (auto stmt = parseStatement()) {
+                std::cout << "DEBUG: parseStatement returned a statement" << std::endl;
                 statements.push_back(std::move(stmt));
+            } else {
+                std::cout << "DEBUG: parseStatement returned null" << std::endl;
             }
         } catch (const CompilerError&) {
+            std::cout << "DEBUG: parseStatement threw CompilerError" << std::endl;
             synchronize();
         }
     }
@@ -73,6 +81,39 @@ unique_ptr<Module> Parser::parseModule() {
 }
 
 unique_ptr<Statement> Parser::parseStatement() {
+    std::cout << "DEBUG: parseStatement() called" << std::endl;
+    
+    // Handle import declarations
+    if (match(TokenType::Import)) {
+        return parseImportDeclaration();
+    }
+    
+    // Handle export declarations
+    if (match(TokenType::Export)) {
+        std::cout << "DEBUG: Parser found export declaration" << std::endl;
+        return parseExportDeclaration();
+    }
+    
+    // Debug: Check what token we're looking at
+    if (check(TokenType::Export)) {
+        std::cout << "DEBUG: Found Export token, but match() returned false" << std::endl;
+    }
+    
+    // Debug: Show current token when parsing statements
+    if (!tokens_->isAtEnd()) {
+        Token current = tokens_->peek();
+        if (current.getType() == TokenType::Export) {
+            std::cout << "DEBUG: Current token IS Export, but not matched" << std::endl;
+        }
+        std::cout << "DEBUG: Current token in parseStatement: " << static_cast<int>(current.getType()) << std::endl;
+    }
+    
+    // Debug: Show current token
+    if (!tokens_->isAtEnd()) {
+        Token current = tokens_->peek();
+        std::cout << "DEBUG: Current token: " << current.toString() << std::endl;
+    }
+    
     // Handle variable declarations
     if (match({TokenType::Var, TokenType::Let, TokenType::Const})) {
         std::cout << "DEBUG: Parser found variable declaration" << std::endl;
@@ -652,6 +693,188 @@ unique_ptr<Statement> Parser::parseTypeAliasDeclaration() {
     consume(TokenType::Semicolon, "Expected ';' after type alias declaration");
     
     return make_unique<TypeAliasDeclaration>(name, aliasedType, location);
+}
+
+unique_ptr<Statement> Parser::parseImportDeclaration() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Parse import clause
+    ImportClause clause = parseImportClause();
+    
+    // Parse 'from' keyword
+    consume(TokenType::From, "Expected 'from' after import clause");
+    
+    // Parse module specifier
+    String moduleSpecifier = parseModuleSpecifier();
+    
+    // Expect semicolon
+    consume(TokenType::Semicolon, "Expected ';' after import declaration");
+    
+    return make_unique<ImportDeclaration>(std::move(clause), moduleSpecifier, location);
+}
+
+unique_ptr<Statement> Parser::parseExportDeclaration() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Parse export clause
+    ExportClause clause = parseExportClause();
+    
+    // Parse optional 'from' clause for re-exports
+    String moduleSpecifier = "";
+    if (match(TokenType::From)) {
+        moduleSpecifier = parseModuleSpecifier();
+    }
+    
+    // Only expect semicolon for export statements (not export declarations)
+    // Export declarations like "export function add() {}" don't need semicolons
+    if (clause.getType() == ExportClause::Named || clause.getType() == ExportClause::ReExport || clause.getType() == ExportClause::All) {
+        consume(TokenType::Semicolon, "Expected ';' after export statement");
+    }
+    
+    return make_unique<ExportDeclaration>(std::move(clause), moduleSpecifier, location);
+}
+
+ImportClause Parser::parseImportClause() {
+    // Check for default import
+    if (check(TokenType::Identifier)) {
+        Token defaultToken = consume(TokenType::Identifier, "Expected identifier");
+        String defaultBinding = defaultToken.getStringValue();
+        
+        // Check if this is followed by a comma (mixed import)
+        if (match(TokenType::Comma)) {
+            // Mixed import: import Button, { ButtonProps } from "./Button"
+            std::vector<ImportSpec> namedImports = parseNamedImports();
+            return ImportClause(ImportClause::Mixed, defaultBinding, namedImports);
+        } else {
+            // Default import: import Button from "./Button"
+            return ImportClause(ImportClause::Default, defaultBinding);
+        }
+    }
+    
+    // Check for named imports
+    if (check(TokenType::LeftBrace)) {
+        // Named imports: import { add, subtract } from "./math"
+        std::vector<ImportSpec> namedImports = parseNamedImports();
+        return ImportClause(ImportClause::Named, "", namedImports);
+    }
+    
+    // Check for namespace import
+    if (match(TokenType::Star)) {
+        // Namespace import: import * as utils from "./utils"
+        consume(TokenType::As, "Expected 'as' after '*'");
+        Token namespaceToken = consume(TokenType::Identifier, "Expected namespace identifier");
+        String namespaceBinding = namespaceToken.getStringValue();
+        return ImportClause(ImportClause::Namespace, "", {}, namespaceBinding);
+    }
+    
+    // If we get here, it's an error
+    throw CompilerError("Invalid import clause", getCurrentLocation());
+}
+
+std::vector<ImportSpec> Parser::parseNamedImports() {
+    std::vector<ImportSpec> namedImports;
+    
+    // Consume the opening brace
+    consume(TokenType::LeftBrace, "Expected '{' before named imports");
+    
+    do {
+        // Parse import spec
+        Token importedToken = consume(TokenType::Identifier, "Expected imported name");
+        String importedName = importedToken.getStringValue();
+        String localName = importedName; // Default to same name
+        
+        // Check for 'as' clause
+        if (match(TokenType::As)) {
+            Token localToken = consume(TokenType::Identifier, "Expected local name after 'as'");
+            localName = localToken.getStringValue();
+        }
+        
+        namedImports.emplace_back(importedName, localName);
+        
+    } while (match(TokenType::Comma));
+    
+    consume(TokenType::RightBrace, "Expected '}' after named imports");
+    
+    return namedImports;
+}
+
+ExportClause Parser::parseExportClause() {
+    // Check for default export
+    if (match(TokenType::Default)) {
+        // Default export: export default class Button
+        unique_ptr<Expression> defaultExport = parseExpression();
+        return ExportClause(ExportClause::Default, {}, std::move(defaultExport));
+    }
+    
+    // Check for named exports
+    if (match(TokenType::LeftBrace)) {
+        // Named exports: export { add, subtract }
+        std::vector<ExportSpec> namedExports = parseNamedExports();
+        return ExportClause(ExportClause::Named, namedExports);
+    }
+    
+    // Check for re-export all
+    if (match(TokenType::Star)) {
+        // Re-export all: export * from "./math"
+        return ExportClause(ExportClause::All, {});
+    }
+    
+    // If we get here, it's an export declaration (export function add() { })
+    // Parse the declaration and create a default export
+    if (check(TokenType::Function)) {
+        // Export function declaration
+        std::cout << "DEBUG: Parsing export function declaration" << std::endl;
+        auto functionDecl = parseFunctionDeclaration();
+        return ExportClause(ExportClause::Default, {}, std::move(functionDecl));
+    } else if (check(TokenType::Class)) {
+        // Export class declaration
+        auto classDecl = parseClassDeclaration();
+        return ExportClause(ExportClause::Default, {}, std::move(classDecl));
+    } else if (check(TokenType::Interface)) {
+        // Export interface declaration
+        auto interfaceDecl = parseInterfaceDeclaration();
+        return ExportClause(ExportClause::Default, {}, std::move(interfaceDecl));
+    } else if (check(TokenType::Const) || check(TokenType::Let) || check(TokenType::Var)) {
+        // Export variable declaration
+        // Consume the keyword first
+        Token keyword = advance();
+        auto varDecl = parseVariableStatement();
+        return ExportClause(ExportClause::Default, {}, std::move(varDecl));
+    } else {
+        // Export expression or other declaration
+        unique_ptr<Expression> expr = parseExpression();
+        return ExportClause(ExportClause::Default, {}, std::move(expr));
+    }
+}
+
+std::vector<ExportSpec> Parser::parseNamedExports() {
+    std::vector<ExportSpec> namedExports;
+    
+    do {
+        // Parse export spec
+        Token localToken = consume(TokenType::Identifier, "Expected local name");
+        String localName = localToken.getStringValue();
+        String exportedName = localName; // Default to same name
+        
+        // Check for 'as' clause
+        if (match(TokenType::As)) {
+            Token exportedToken = consume(TokenType::Identifier, "Expected exported name after 'as'");
+            exportedName = exportedToken.getStringValue();
+        }
+        
+        namedExports.emplace_back(localName, exportedName);
+        
+    } while (match(TokenType::Comma));
+    
+    consume(TokenType::RightBrace, "Expected '}' after named exports");
+    
+    return namedExports;
+}
+
+String Parser::parseModuleSpecifier() {
+    // Module specifier should be a string literal
+    Token specifierToken = consume(TokenType::StringLiteral, "Expected module specifier");
+    return specifierToken.getStringValue();
 }
 
 unique_ptr<Statement> Parser::parseBlockStatement() {

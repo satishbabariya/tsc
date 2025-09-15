@@ -3,6 +3,7 @@
 #include "tsc/lexer/Lexer.h"
 #include "tsc/parser/Parser.h"
 #include "tsc/semantic/TypeChecker.h"
+#include "tsc/semantic/SemanticAnalyzer.h"
 #include "tsc/codegen/LLVMCodeGen.h"
 #include "tsc/utils/DiagnosticEngine.h"
 #include <cstdlib>  // For system() and std::remove()
@@ -147,12 +148,29 @@ CompilationResult Compiler::compileString(const String& source, const String& fi
 CompilationResult Compiler::compileModule(const std::vector<String>& sourceFiles) {
     CompilationResult result;
     
-    // TODO: Implement separate compilation model
-    // For now, compile files individually and link
-    std::vector<String> objectFiles;
+    // Phase 1: Cross-module analysis using SemanticAnalyzer
+    std::cout << "DEBUG: Starting cross-module analysis for " << sourceFiles.size() << " modules" << std::endl;
     
-    for (const auto& sourceFile : sourceFiles) {
-        auto fileResult = compile(sourceFile);
+    // Create SemanticAnalyzer for cross-module analysis
+    SemanticAnalyzer analyzer(*diagnostics_);
+    
+    // Perform cross-module analysis (dependency scanning, symbol resolution, export-to-import binding)
+    if (!analyzer.analyzeProject(sourceFiles)) {
+        result.errorMessage = "Cross-module analysis failed";
+        return result;
+    }
+    
+    std::cout << "DEBUG: Cross-module analysis completed successfully" << std::endl;
+    
+    // Phase 2: Code generation for each module with resolved symbols
+    std::vector<String> objectFiles;
+    for (size_t i = 0; i < sourceFiles.size(); ++i) {
+        const auto& sourceFile = sourceFiles[i];
+        bool isEntryPoint = (i == sourceFiles.size() - 1); // Last module is entry point
+        std::cout << "DEBUG: Generating code for module: " << sourceFile 
+                  << (isEntryPoint ? " (entry point)" : "") << std::endl;
+        
+        auto fileResult = compileWithResolvedSymbols(sourceFile, analyzer, isEntryPoint);
         if (!fileResult.success) {
             return fileResult; // Propagate error
         }
@@ -162,8 +180,9 @@ CompilationResult Compiler::compileModule(const std::vector<String>& sourceFiles
         }
     }
     
-    // Link all object files
+    // Phase 3: Link all object files
     if (!objectFiles.empty() && !options_.outputFile.empty()) {
+        std::cout << "DEBUG: Linking " << objectFiles.size() << " object files" << std::endl;
         if (!linkExecutable(objectFiles, options_.outputFile)) {
             result.errorMessage = "Module linking failed";
             return result;
@@ -172,6 +191,77 @@ CompilationResult Compiler::compileModule(const std::vector<String>& sourceFiles
     }
     
     result.success = true;
+    return result;
+}
+
+CompilationResult Compiler::compileWithResolvedSymbols(const String& sourceFile, SemanticAnalyzer& analyzer, bool isEntryPoint) {
+    CompilationResult result;
+    
+    try {
+        std::cout << "DEBUG: Compiling module with resolved symbols: " << sourceFile << std::endl;
+        
+        // Read source file
+        std::ifstream file(sourceFile);
+        if (!file.is_open()) {
+            result.errorMessage = "Cannot open source file: " + sourceFile;
+            return result;
+        }
+        
+        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
+        
+        // Tokenize
+        auto tokens = lexer_->tokenize(content, sourceFile);
+        if (tokens.empty()) {
+            result.errorMessage = "Failed to tokenize: " + sourceFile;
+            return result;
+        }
+        
+        // Parse
+        auto module = parser_->parse(tokens, sourceFile);
+        if (!module) {
+            result.errorMessage = "Failed to parse: " + sourceFile;
+            return result;
+        }
+        
+        // Store AST for potential debugging
+        result.ast = std::move(module);
+        
+        // Create a new LLVMCodeGen instance for this module to avoid function accumulation
+        auto moduleCodeGenerator = createLLVMCodeGen(*diagnostics_, options_);
+        
+        // Set main function generation flag for multi-module compilation
+        moduleCodeGenerator->setGenerateMainFunction(isEntryPoint);
+        std::cout << "DEBUG: Set generateMainFunction to " << (isEntryPoint ? "true" : "false") << " for " << sourceFile << std::endl;
+        
+        // Generate LLVM IR using the resolved symbols from analyzer
+        // TODO: Modify LLVMCodeGen to use resolved symbols from SemanticAnalyzer
+        if (!moduleCodeGenerator->generateCode(*result.ast, 
+                                             typeChecker_->getSymbolTable(), 
+                                             typeChecker_->getTypeSystem())) {
+            result.errorMessage = "Failed to generate LLVM IR for: " + sourceFile;
+            return result;
+        }
+        
+        String llvmIR = moduleCodeGenerator->getLLVMIRString();
+        result.llvmIR = llvmIR;
+        
+        // Generate object file
+        String objectFile = sourceFile.substr(0, sourceFile.find_last_of('.')) + ".o";
+        if (!generateObjectFile(llvmIR, objectFile)) {
+            result.errorMessage = "Failed to generate object file for: " + sourceFile;
+            return result;
+        }
+        
+        result.objectFile = objectFile;
+        result.success = true;
+        
+        std::cout << "DEBUG: Successfully compiled module: " << sourceFile << std::endl;
+        
+    } catch (const std::exception& e) {
+        result.errorMessage = "Internal compiler error in compileWithResolvedSymbols: " + String(e.what());
+    }
+    
     return result;
 }
 

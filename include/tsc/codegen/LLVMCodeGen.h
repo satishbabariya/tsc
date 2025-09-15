@@ -379,6 +379,9 @@ public:
     llvm::Module* getLLVMModule() const { return module_.get(); }
     String getLLVMIRString() const;
     
+    // Multi-module compilation control
+    void setGenerateMainFunction(bool generate) { generateMainFunction_ = generate; }
+    
     // Nested function generation
     void generateNestedFunction(const FunctionDeclaration& node);
     
@@ -445,6 +448,8 @@ public:
     void visit(EnumMember& node) override;
     void visit(EnumDeclaration& node) override;
     void visit(TypeAliasDeclaration& node) override;
+    void visit(ImportDeclaration& node) override;
+    void visit(ExportDeclaration& node) override;
     
     void visit(Module& module) override;
 
@@ -465,6 +470,9 @@ private:
     std::stack<FunctionContext> functionContexts_;
     std::unique_ptr<BuiltinFunctionRegistry> builtinRegistry_;
     std::unique_ptr<IRAllocator> irAllocator_;
+    
+    // Multi-module compilation control
+    bool generateMainFunction_ = true;
     
     // Type caching system
     std::unordered_map<String, llvm::Type*> typeCache_;

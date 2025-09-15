@@ -11,6 +11,7 @@ class Parser;
 class TypeChecker;
 class LLVMCodeGen;
 class DiagnosticEngine;
+class SemanticAnalyzer;
 
 // Compilation phases
 enum class CompilationPhase {
@@ -84,6 +85,9 @@ private:
     bool setupTarget();
     void reportPhaseCompletion(CompilationPhase phase, const String& message);
     void reportPhaseError(CompilationPhase phase, const String& error);
+    
+    // Cross-module compilation helper
+    CompilationResult compileWithResolvedSymbols(const String& sourceFile, SemanticAnalyzer& analyzer, bool isEntryPoint = false);
 };
 
 // Utility functions

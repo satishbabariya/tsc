@@ -908,6 +908,91 @@ void FunctionExpression::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
+// ImportDeclaration implementation
+void ImportDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ImportDeclaration::toString() const {
+    std::stringstream ss;
+    ss << "import ";
+    
+    switch (clause_.getType()) {
+        case ImportClause::Default:
+            ss << clause_.getDefaultBinding();
+            break;
+        case ImportClause::Named: {
+            ss << "{ ";
+            const auto& namedImports = clause_.getNamedImports();
+            for (size_t i = 0; i < namedImports.size(); ++i) {
+                if (i > 0) ss << ", ";
+                ss << namedImports[i].getImportedName();
+                if (namedImports[i].getImportedName() != namedImports[i].getLocalName()) {
+                    ss << " as " << namedImports[i].getLocalName();
+                }
+            }
+            ss << " }";
+            break;
+        }
+        case ImportClause::Namespace:
+            ss << "* as " << clause_.getNamespaceBinding();
+            break;
+        case ImportClause::Mixed:
+            ss << clause_.getDefaultBinding() << ", { ";
+            const auto& namedImports = clause_.getNamedImports();
+            for (size_t i = 0; i < namedImports.size(); ++i) {
+                if (i > 0) ss << ", ";
+                ss << namedImports[i].getImportedName();
+                if (namedImports[i].getImportedName() != namedImports[i].getLocalName()) {
+                    ss << " as " << namedImports[i].getLocalName();
+                }
+            }
+            ss << " }";
+            break;
+    }
+    
+    ss << " from \"" << moduleSpecifier_ << "\";";
+    return ss.str();
+}
+
+// ExportDeclaration implementation
+void ExportDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ExportDeclaration::toString() const {
+    std::stringstream ss;
+    ss << "export ";
+    
+    switch (clause_.getType()) {
+        case ExportClause::Default:
+            ss << "default " << clause_.getDefaultExport()->toString();
+            break;
+        case ExportClause::Named: {
+            ss << "{ ";
+            const auto& namedExports = clause_.getNamedExports();
+            for (size_t i = 0; i < namedExports.size(); ++i) {
+                if (i > 0) ss << ", ";
+                ss << namedExports[i].getLocalName();
+                if (namedExports[i].getLocalName() != namedExports[i].getExportedName()) {
+                    ss << " as " << namedExports[i].getExportedName();
+                }
+            }
+            ss << " }";
+            break;
+        }
+        case ExportClause::ReExport:
+            ss << "* from \"" << clause_.getModuleSpecifier() << "\"";
+            break;
+        case ExportClause::All:
+            ss << "* from \"" << clause_.getModuleSpecifier() << "\"";
+            break;
+    }
+    
+    ss << ";";
+    return ss.str();
+}
+
 String FunctionExpression::toString() const {
     std::ostringstream oss;
     

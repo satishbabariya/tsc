@@ -4,6 +4,9 @@
 #include "tsc/AST.h"
 #include "tsc/semantic/SymbolTable.h"
 #include "tsc/semantic/TypeSystem.h"
+#include "tsc/semantic/ModuleResolver.h"
+#include "tsc/semantic/DependencyScanner.h"
+#include "tsc/semantic/ModuleSymbolTable.h"
 #include "tsc/semantic/CycleDetector.h"
 #include "tsc/utils/DiagnosticEngine.h"
 
@@ -54,6 +57,9 @@ public:
     // Main analysis entry point
     bool analyze(Module& module);
     
+    // Multi-module analysis entry point
+    bool analyzeProject(const std::vector<String>& modulePaths);
+    
     // Type information access
     shared_ptr<Type> getExpressionType(const Expression& expr) const;
     shared_ptr<Type> getDeclarationType(const Declaration& decl) const;
@@ -62,6 +68,7 @@ public:
     // Analysis results
     SymbolTable& getSymbolTable() { return *symbolTable_; }
     const TypeSystem& getTypeSystem() const { return *typeSystem_; }
+    ModuleSymbolManager* getModuleSymbolManager() { return moduleSymbolManager_.get(); }
     
     // Cycle detection
     void runCycleDetection();
@@ -128,6 +135,8 @@ public:
     void visit(EnumMember& node) override;
     void visit(EnumDeclaration& node) override;
     void visit(TypeAliasDeclaration& node) override;
+    void visit(ImportDeclaration& node) override;
+    void visit(ExportDeclaration& node) override;
     
     void visit(Module& node) override;
 
@@ -144,6 +153,12 @@ private:
     unique_ptr<TypeSystem> typeSystem_;
     unique_ptr<SemanticContext> context_;
     unique_ptr<GenericConstraintChecker> constraintChecker_;
+    unique_ptr<ModuleResolver> moduleResolver_;
+    unique_ptr<DependencyScanner> dependencyScanner_;
+    unique_ptr<ModuleSymbolManager> moduleSymbolManager_;
+    
+    // Module context tracking
+    String currentModulePath_;
     unique_ptr<semantic::CycleDetector> cycleDetector_;
     
     // Function context tracking
@@ -243,6 +258,7 @@ private:
     
     // Generic constraint validation helpers
     FunctionDeclaration* getFunctionDeclaration(const String& functionName);
+    bool validateFunctionArguments(const CallExpression& call, const FunctionType& functionType);
     bool validateGenericFunctionCall(const CallExpression& call, const FunctionDeclaration& funcDecl, const FunctionType& functionType);
     
     // ARC Memory Management Analysis
