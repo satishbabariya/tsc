@@ -359,8 +359,12 @@ enable_testing()
 
 # Create runtime library
 add_library(tsc_runtime STATIC
-    runtime.c
-    runtime_exceptions.c
+    runtime/string_operations.c
+    runtime/array_operations.c
+    runtime/exception_handling.c
+    runtime/console_operations.c
+    runtime/memory_operations.c
+    runtime/global_constants.c
     runtime/arc/arc_runtime.c
     runtime/arc/weak_references.c
     runtime/arc/cycle_detection.c

@@ -1,12 +1,13 @@
-// Runtime exception handling implementation for TSC
+// Exception handling runtime for TSC
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include "arc/arc_runtime.h"
 
 // Simple exception type
 typedef struct {
     int32_t type;  // Exception type identifier
-    void* data;    // Exception data
+    void* data;     // Exception data
 } Exception;
 
 // Global exception state
@@ -14,8 +15,8 @@ static Exception* current_exception = NULL;
 
 // Runtime functions called by generated LLVM code
 void __throw_exception(int64_t exception_value) {
-    // Convert the exception value to our exception structure
-    Exception* ex = malloc(sizeof(Exception));
+    // Convert the exception value to our exception structure using ARC allocation
+    Exception* ex = (Exception*)__tsc_alloc(sizeof(Exception), NULL, NULL);
     ex->type = 1;  // Generic exception type
     ex->data = (void*)(intptr_t)exception_value;
     
@@ -53,7 +54,7 @@ int64_t __get_exception() {
 // Helper function to clear the current exception
 void __clear_exception() {
     if (current_exception) {
-        free(current_exception);
+        __tsc_release(current_exception);
         current_exception = NULL;
     }
 }
