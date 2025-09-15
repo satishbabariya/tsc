@@ -5,6 +5,7 @@
 #include "tsc/semantic/SymbolTable.h"
 #include "tsc/semantic/TypeSystem.h"
 #include "tsc/semantic/ModuleResolver.h"
+#include "tsc/semantic/DependencyScanner.h"
 #include "tsc/utils/DiagnosticEngine.h"
 
 namespace tsc {
@@ -132,6 +133,7 @@ private:
     unique_ptr<SemanticContext> context_;
     unique_ptr<GenericConstraintChecker> constraintChecker_;
     unique_ptr<ModuleResolver> moduleResolver_;
+    unique_ptr<DependencyScanner> dependencyScanner_;
     
     // Function context tracking
     int functionDepth_ = 0;

@@ -11,6 +11,7 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     context_ = make_unique<SemanticContext>(*symbolTable_, *typeSystem_, diagnostics_);
     constraintChecker_ = make_unique<GenericConstraintChecker>(diagnostics_, *typeSystem_);
     moduleResolver_ = make_unique<ModuleResolver>(diagnostics_);
+    dependencyScanner_ = make_unique<DependencyScanner>(*moduleResolver_, diagnostics_);
     
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
     
