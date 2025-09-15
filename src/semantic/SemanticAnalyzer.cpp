@@ -26,8 +26,12 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
 SemanticAnalyzer::~SemanticAnalyzer() = default;
 
 bool SemanticAnalyzer::analyze(Module& module) {
+    std::cout << "DEBUG: *** ANALYZE METHOD CALLED *** for module" << std::endl;
+    std::cout.flush();
     try {
         // Multi-phase semantic analysis
+        std::cout << "DEBUG: *** CALLING performSymbolResolution ***" << std::endl;
+        std::cout.flush();
         performSymbolResolution(module);
         resolveDeferredSuperExpressions();
         resolveDeferredSuperPropertyAccesses();
@@ -78,8 +82,12 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
         }
         std::cout << std::endl;
         
+        std::cout << "DEBUG: *** STARTING LOOP *** with " << compilationOrder.size() << " modules" << std::endl;
+        std::cout.flush();
         for (const String& modulePath : compilationOrder) {
             std::cout << "DEBUG: Analyzing module: " << modulePath << std::endl;
+            std::cout << "DEBUG: *** ABOUT TO READ FILE *** " << modulePath << std::endl;
+            std::cout.flush();
             
             // Parse the module
             std::ifstream file(modulePath);
@@ -91,6 +99,8 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
             std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
             file.close();
             
+            std::cout << "DEBUG: *** FILE READ SUCCESSFULLY *** for " << modulePath << std::endl;
+            
             // Tokenize and parse
             Lexer lexer(diagnostics_);
             auto tokens = lexer.tokenize(content, modulePath);
@@ -98,6 +108,8 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
                 diagnostics_.error("Failed to tokenize: " + modulePath, SourceLocation());
                 return false;
             }
+            
+            std::cout << "DEBUG: *** TOKENIZATION SUCCESSFUL *** for " << modulePath << " (" << tokens.size() << " tokens)" << std::endl;
             
             std::cout << "DEBUG: *** BEFORE PARSER *** About to create parser for " << modulePath << std::endl;
             std::cout.flush();
@@ -1288,6 +1300,8 @@ void SemanticAnalyzer::visit(Module& module) {
 
 // Analysis phase implementations
 void SemanticAnalyzer::performSymbolResolution(Module& module) {
+    std::cout << "DEBUG: *** performSymbolResolution CALLED ***" << std::endl;
+    std::cout.flush();
     // Three-pass symbol resolution:
     // Pass 1: Collect all function and class declarations
     collectFunctionDeclarations(module);
@@ -1296,7 +1310,11 @@ void SemanticAnalyzer::performSymbolResolution(Module& module) {
     resolveInheritance(module);
     
     // Pass 3: Process all statements including function bodies
+    std::cout << "DEBUG: *** CALLING module.accept(*this) ***" << std::endl;
+    std::cout.flush();
     module.accept(*this);
+    std::cout << "DEBUG: *** module.accept(*this) COMPLETED ***" << std::endl;
+    std::cout.flush();
 }
 
 void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
@@ -2340,7 +2358,8 @@ void SemanticAnalyzer::visit(ImportDeclaration& node) {
 }
 
 void SemanticAnalyzer::visit(ExportDeclaration& node) {
-    std::cout << "DEBUG: Processing export declaration: " << node.getModuleSpecifier() << std::endl;
+    std::cout << "DEBUG: *** EXPORT DECLARATION VISITED *** Processing export declaration: " << node.getModuleSpecifier() << std::endl;
+    std::cout.flush();
     
     String currentFile = currentModulePath_.empty() ? "current_file.ts" : currentModulePath_;
     
