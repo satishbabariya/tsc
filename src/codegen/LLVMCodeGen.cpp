@@ -2099,26 +2099,21 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
                 const auto* spreadProperty = spreadProperties[spreadOrder];
                 std::cout << "DEBUG: Processing spread property " << spreadOrder << std::endl;
                 
-                // Generate the spread expression
+                // Generate the spread expression using SpreadElement visitor
                 spreadProperty->getValue()->accept(*this);
                 llvm::Value* spreadValue = getCurrentValue();
                 
                 if (spreadValue) {
-                    // Determine the type of the spread object
+                    // The SpreadElement visitor should have handled the type detection
+                    // For object spread, we expect the result to be a struct (not a pointer)
                     llvm::Type* spreadType = nullptr;
                     if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(spreadValue)) {
                         spreadType = allocaInst->getAllocatedType();
                     } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(spreadValue)) {
                         spreadType = globalVar->getValueType();
-                    } else if (spreadValue->getType()->isPointerTy()) {
-                        if (spreadValue->getType()->getTypeID() == llvm::Type::TypedPointerTyID) {
-                            auto* typedPtrType = llvm::cast<llvm::TypedPointerType>(spreadValue->getType());
-                            spreadType = typedPtrType->getElementType();
-                        } else {
-                            // For regular pointers, we can't determine the element type in LLVM 20
-                            // We'll skip this case for now and handle it in SpreadElement visitor
-                            std::cout << "DEBUG: Regular pointer type, skipping for now" << std::endl;
-                        }
+                    } else {
+                        // If it's still a pointer, the SpreadElement visitor didn't handle it properly
+                        std::cout << "DEBUG: SpreadElement visitor returned pointer, type detection failed" << std::endl;
                     }
                     
                     if (spreadType && llvm::isa<llvm::StructType>(spreadType)) {
@@ -7577,6 +7572,8 @@ void LLVMCodeGen::visit(SpreadElement& node) {
         return;
     }
     
+    std::cout << "DEBUG: SpreadElement - spreadValue type: " << spreadValue->getType()->getTypeID() << std::endl;
+    
     // For now, we'll implement a simplified version that works with arrays
     // In a full implementation, we'd need to handle both arrays and objects
     
@@ -7586,22 +7583,68 @@ void LLVMCodeGen::visit(SpreadElement& node) {
     
     if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(spreadValue)) {
         spreadType = allocaInst->getAllocatedType();
+        std::cout << "DEBUG: SpreadElement - spreadValue is AllocaInst" << std::endl;
     } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(spreadValue)) {
-        spreadType = globalVar->getValueType();
+        std::cout << "DEBUG: SpreadElement - spreadValue is GlobalVariable: " << globalVar->getName().str() << std::endl;
+        
+        // Check if this global variable points to another global variable (struct)
+        if (globalVar->hasInitializer()) {
+            llvm::Constant* initializer = globalVar->getInitializer();
+            if (auto* targetGlobalVar = llvm::dyn_cast<llvm::GlobalVariable>(initializer)) {
+                // This is a pointer to a global variable (struct)
+                spreadType = targetGlobalVar->getValueType();
+                spreadPtr = targetGlobalVar; // Use the actual struct, not the pointer
+                std::cout << "DEBUG: SpreadElement - GlobalVariable points to struct: " << targetGlobalVar->getName().str() << std::endl;
+            } else {
+                // This is a direct struct global variable
+                spreadType = globalVar->getValueType();
+                std::cout << "DEBUG: SpreadElement - GlobalVariable is direct struct" << std::endl;
+            }
+        } else {
+            // No initializer, treat as direct struct
+            spreadType = globalVar->getValueType();
+            std::cout << "DEBUG: SpreadElement - GlobalVariable has no initializer, treating as direct struct" << std::endl;
+        }
     } else if (spreadValue->getType()->isPointerTy()) {
         // Handle pointer to struct/array
+        std::cout << "DEBUG: SpreadElement - spreadValue is a pointer, type ID: " << spreadValue->getType()->getTypeID() << std::endl;
         if (spreadValue->getType()->getTypeID() == llvm::Type::TypedPointerTyID) {
             // It's a TypedPointerType
             auto* typedPtrType = llvm::cast<llvm::TypedPointerType>(spreadValue->getType());
             spreadType = typedPtrType->getElementType();
             spreadPtr = spreadValue; // Use the pointer directly
+            std::cout << "DEBUG: SpreadElement - TypedPointerType, element type: " << spreadType->getTypeID() << std::endl;
         } else {
             // It's a regular PointerType - in LLVM 20, we can't get element type directly
-            // For now, we'll assume it's a pointer to a struct and try to infer the type
-            std::cout << "DEBUG: SpreadElement - regular PointerType, cannot get element type directly" << std::endl;
-            // We'll need to handle this differently - for now, return null
-            setCurrentValue(createNullValue(getAnyType()));
-            return;
+            // But we can try to infer the type by looking at the global variable it points to
+            std::cout << "DEBUG: SpreadElement - regular PointerType, trying to infer type from global variable" << std::endl;
+            
+            // Check if this is a global variable that points to a struct
+            if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(spreadValue)) {
+                std::cout << "DEBUG: SpreadElement - found global variable: " << globalVar->getName().str() << std::endl;
+                if (globalVar->hasInitializer()) {
+                    llvm::Constant* initializer = globalVar->getInitializer();
+                    std::cout << "DEBUG: SpreadElement - initializer type: " << initializer->getType()->getTypeID() << std::endl;
+                    if (auto* globalVarPtr = llvm::dyn_cast<llvm::GlobalVariable>(initializer)) {
+                        // This is a pointer to a global variable
+                        spreadType = globalVarPtr->getValueType();
+                        spreadPtr = globalVarPtr; // Use the actual struct, not the pointer
+                        std::cout << "DEBUG: SpreadElement - inferred struct type from global variable: " << spreadType->getTypeID() << std::endl;
+                    } else {
+                        std::cout << "DEBUG: SpreadElement - initializer is not a global variable" << std::endl;
+                    }
+                } else {
+                    std::cout << "DEBUG: SpreadElement - global variable has no initializer" << std::endl;
+                }
+            } else {
+                std::cout << "DEBUG: SpreadElement - spreadValue is not a global variable" << std::endl;
+            }
+            
+            if (!spreadType) {
+                std::cout << "DEBUG: SpreadElement - could not infer type, returning null" << std::endl;
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
         }
     }
     
