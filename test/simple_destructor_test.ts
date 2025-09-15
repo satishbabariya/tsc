@@ -1,25 +1,19 @@
-// Simple Destructor Test
-class SimpleClass {
-    private name: string;
-    
-    constructor(name: string) {
-        this.name = name;
-        console.log(`Created: ${name}`);
+// Simple destructor test without complex property access
+
+class SimpleResource {
+    constructor() {
+        console.log("SimpleResource constructor");
     }
     
-    ~SimpleClass() {
-        console.log(`Destroyed: ${this.name}`);
-    }
-    
-    getName(): string {
-        return this.name;
+    ~SimpleResource() {
+        console.log("SimpleResource destructor");
     }
 }
 
-function testDestructor(): void {
-    console.log("Testing destructor syntax");
-    let obj = new SimpleClass("test");
-    console.log(`Object name: ${obj.getName()}`);
+function testSimpleDestructor() {
+    console.log("Creating resource");
+    let resource = new SimpleResource();
+    console.log("Resource created, exiting function");
 }
 
-testDestructor();
+testSimpleDestructor();

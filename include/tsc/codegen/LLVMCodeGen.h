@@ -56,6 +56,11 @@ public:
     void exitFunction();
     llvm::Function* getCurrentFunction() const;
     
+    // Class context
+    void enterClass(const String& className);
+    void exitClass();
+    String getCurrentClassName() const;
+    
     // Block context for break/continue
     void enterLoop(llvm::BasicBlock* continueBlock, llvm::BasicBlock* breakBlock);
     void exitLoop();
@@ -85,6 +90,9 @@ private:
     
     // Function context stack
     std::stack<llvm::Function*> functionStack_;
+    
+    // Class context stack
+    std::stack<String> classStack_;
     
     // Loop context for break/continue
     struct LoopContext {
@@ -519,6 +527,7 @@ private:
     
     // ARC Runtime functions
     llvm::Function* getOrCreateARCRetainFunction();
+public:
     llvm::Function* getOrCreateARCReleaseFunction();
     llvm::Function* getOrCreateARCAllocFunction();
     

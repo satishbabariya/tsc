@@ -66,6 +66,20 @@ llvm::Function* CodeGenContext::getCurrentFunction() const {
     return functionStack_.empty() ? nullptr : functionStack_.top();
 }
 
+void CodeGenContext::enterClass(const String& className) {
+    classStack_.push(className);
+}
+
+void CodeGenContext::exitClass() {
+    if (!classStack_.empty()) {
+        classStack_.pop();
+    }
+}
+
+String CodeGenContext::getCurrentClassName() const {
+    return classStack_.empty() ? "" : classStack_.top();
+}
+
 void CodeGenContext::enterScope() {
     symbolStack_.push_back(std::unordered_map<String, llvm::Value*>());
 }
@@ -571,8 +585,8 @@ void LLVMCodeGen::visit(NewExpression& node) {
             constructorArgs.push_back(argValue);
         }
         
-        // Call the constructor
-        String constructorName = "constructor";
+        // Call the constructor with class-specific name
+        String constructorName = className + "_constructor";
         if (node.hasExplicitTypeArguments()) {
             // For generic classes, use the mangled constructor name
             auto genericType = typeSystem_->createGenericType(classType, node.getTypeArguments());
@@ -3641,8 +3655,8 @@ void LLVMCodeGen::visit(Module& module) {
                 // Load the global variable value (the object pointer)
                 llvm::Value* objectPtr = builder_->CreateLoad(deferredCall.globalVar->getValueType(), deferredCall.globalVar, deferredCall.globalVar->getName().str() + "_obj");
                 
-                // Find the constructor function
-                String constructorName = "constructor";
+                // Find the constructor function with class-specific name
+                String constructorName = deferredCall.className + "_constructor";
                 if (!deferredCall.typeArguments.empty()) {
                     // For generic classes, use the mangled constructor name
                     Symbol* classSymbol = symbolTable_->lookupSymbol(deferredCall.className);
@@ -4819,6 +4833,9 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
         }
     }
     
+    // Generate cleanup for ARC-managed objects before adding return statement
+    codeGenContext_->generateScopeCleanup(this);
+    
     // Add cleanup for malloc'd objects before return
     // TODO: Implement proper tracking of malloc'd objects for cleanup
     // For now, this is a simplified approach that doesn't track individual allocations
@@ -4868,9 +4885,6 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     for (auto& block : *function) {
         std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
     }
-    
-    // Generate cleanup for ARC-managed objects before exiting scope
-    codeGenContext_->generateScopeCleanup(this);
     
     // Exit function context
     codeGenContext_->exitScope();
@@ -5401,7 +5415,13 @@ void LLVMCodeGen::visit(MethodDeclaration& node) {
     // Create function with mangled name (simplified: just use method name for now)
     String functionName = node.getName();
     if (node.getName() == "constructor") {
-        functionName = "constructor"; // Special handling for constructors
+        // Generate unique constructor name based on class context
+        String className = codeGenContext_->getCurrentClassName();
+        if (!className.empty()) {
+            functionName = className + "_constructor";
+        } else {
+            functionName = "constructor"; // Fallback if no class context
+        }
     }
     
     std::cout << "DEBUG: Generating method: " << functionName << std::endl;
@@ -5503,6 +5523,9 @@ void LLVMCodeGen::visit(DestructorDeclaration& node) {
 }
 
 void LLVMCodeGen::visit(ClassDeclaration& node) {
+    // Enter class context
+    codeGenContext_->enterClass(node.getName());
+    
     // Handle generic classes differently from regular classes
     if (!node.getTypeParameters().empty()) {
         // For generic classes, we don't create a concrete struct type here
@@ -5517,6 +5540,7 @@ void LLVMCodeGen::visit(ClassDeclaration& node) {
         
         // For generic classes, we don't set a current value
         // The actual type will be created during instantiation
+        codeGenContext_->exitClass();
         return;
     }
     
@@ -5549,11 +5573,16 @@ void LLVMCodeGen::visit(ClassDeclaration& node) {
     if (node.getDestructor()) {
         std::cout << "DEBUG: Generating destructor for class: " << node.getName() << std::endl;
         node.getDestructor()->accept(*this);
+    } else {
+        std::cout << "DEBUG: No destructor found for class: " << node.getName() << std::endl;
     }
     
     // Store class type information (simplified)
     // In a full implementation, we'd store this in a class registry
     setCurrentValue(llvm::Constant::getNullValue(llvm::PointerType::get(classStruct, 0)));
+    
+    // Exit class context
+    codeGenContext_->exitClass();
 }
 
 void LLVMCodeGen::visit(InterfaceDeclaration& node) {
