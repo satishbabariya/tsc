@@ -2131,6 +2131,24 @@ void SemanticAnalyzer::visit(TypeAliasDeclaration& node) {
     // The alias type is already stored in the symbol table above
 }
 
+void SemanticAnalyzer::visit(ImportDeclaration& node) {
+    // Import declarations are handled during module resolution
+    // For now, we'll just validate the syntax and store the import information
+    std::cout << "DEBUG: Processing import declaration: " << node.getModuleSpecifier() << std::endl;
+    
+    // TODO: Implement proper import resolution and symbol binding
+    // This will be implemented when we add module resolution
+}
+
+void SemanticAnalyzer::visit(ExportDeclaration& node) {
+    // Export declarations are handled during module resolution
+    // For now, we'll just validate the syntax and store the export information
+    std::cout << "DEBUG: Processing export declaration: " << node.getModuleSpecifier() << std::endl;
+    
+    // TODO: Implement proper export resolution and symbol marking
+    // This will be implemented when we add module resolution
+}
+
 shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
     if (!type) {
         return type;

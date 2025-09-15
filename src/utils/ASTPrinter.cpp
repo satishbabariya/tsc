@@ -992,6 +992,16 @@ void ASTPrinter::visit(TypeAliasDeclaration& node) {
             << " = " << node.getAliasedType()->toString() << std::endl;
 }
 
+void ASTPrinter::visit(ImportDeclaration& node) {
+    printIndent();
+    output_ << "ImportDeclaration: " << node.toString() << std::endl;
+}
+
+void ASTPrinter::visit(ExportDeclaration& node) {
+    printIndent();
+    output_ << "ExportDeclaration: " << node.toString() << std::endl;
+}
+
 void ASTPrinter::visit(FunctionExpression& node) {
     printIndent();
     output_ << "FunctionExpression";

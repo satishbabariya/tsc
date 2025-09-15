@@ -112,6 +112,8 @@ public:
     void visit(EnumMember& node) override;
     void visit(EnumDeclaration& node) override;
     void visit(TypeAliasDeclaration& node) override;
+    void visit(ImportDeclaration& node) override;
+    void visit(ExportDeclaration& node) override;
     
     void visit(Module& node) override;
 

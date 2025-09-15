@@ -1303,6 +1303,123 @@ private:
     SourceLocation location_;
 };
 
+// Import/Export Specs
+class ImportSpec {
+public:
+    ImportSpec(const String& importedName, const String& localName, bool isTypeOnly = false)
+        : importedName_(importedName), localName_(localName), isTypeOnly_(isTypeOnly) {}
+    
+    const String& getImportedName() const { return importedName_; }
+    const String& getLocalName() const { return localName_; }
+    bool isTypeOnly() const { return isTypeOnly_; }
+
+private:
+    String importedName_;
+    String localName_;
+    bool isTypeOnly_;
+};
+
+class ExportSpec {
+public:
+    ExportSpec(const String& localName, const String& exportedName, bool isTypeOnly = false)
+        : localName_(localName), exportedName_(exportedName), isTypeOnly_(isTypeOnly) {}
+    
+    const String& getLocalName() const { return localName_; }
+    const String& getExportedName() const { return exportedName_; }
+    bool isTypeOnly() const { return isTypeOnly_; }
+
+private:
+    String localName_;
+    String exportedName_;
+    bool isTypeOnly_;
+};
+
+// Import/Export Clauses
+class ImportClause {
+public:
+    enum Type { Default, Named, Namespace, Mixed };
+    
+    ImportClause(Type type, const String& defaultBinding = "",
+                std::vector<ImportSpec> namedImports = {},
+                const String& namespaceBinding = "")
+        : type_(type), defaultBinding_(defaultBinding), 
+          namedImports_(std::move(namedImports)), namespaceBinding_(namespaceBinding) {}
+    
+    Type getType() const { return type_; }
+    const String& getDefaultBinding() const { return defaultBinding_; }
+    const std::vector<ImportSpec>& getNamedImports() const { return namedImports_; }
+    const String& getNamespaceBinding() const { return namespaceBinding_; }
+
+private:
+    Type type_;
+    String defaultBinding_;
+    std::vector<ImportSpec> namedImports_;
+    String namespaceBinding_;
+};
+
+class ExportClause {
+public:
+    enum Type { Named, Default, ReExport, All };
+    
+    ExportClause(Type type, std::vector<ExportSpec> namedExports = {},
+                Expression* defaultExport = nullptr, const String& moduleSpecifier = "")
+        : type_(type), namedExports_(std::move(namedExports)), 
+          defaultExport_(defaultExport), moduleSpecifier_(moduleSpecifier) {}
+    
+    Type getType() const { return type_; }
+    const std::vector<ExportSpec>& getNamedExports() const { return namedExports_; }
+    Expression* getDefaultExport() const { return defaultExport_; }
+    const String& getModuleSpecifier() const { return moduleSpecifier_; }
+
+private:
+    Type type_;
+    std::vector<ExportSpec> namedExports_;
+    Expression* defaultExport_;
+    String moduleSpecifier_;
+};
+
+// Import Declaration
+class ImportDeclaration : public Statement {
+public:
+    ImportDeclaration(ImportClause clause, const String& moduleSpecifier, 
+                     const SourceLocation& loc)
+        : clause_(std::move(clause)), moduleSpecifier_(moduleSpecifier), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Declaration; }
+    String toString() const override;
+    
+    const ImportClause& getClause() const { return clause_; }
+    const String& getModuleSpecifier() const { return moduleSpecifier_; }
+
+private:
+    ImportClause clause_;
+    String moduleSpecifier_;
+    SourceLocation location_;
+};
+
+// Export Declaration
+class ExportDeclaration : public Statement {
+public:
+    ExportDeclaration(ExportClause clause, const String& moduleSpecifier, 
+                     const SourceLocation& loc)
+        : clause_(std::move(clause)), moduleSpecifier_(moduleSpecifier), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Declaration; }
+    String toString() const override;
+    
+    const ExportClause& getClause() const { return clause_; }
+    const String& getModuleSpecifier() const { return moduleSpecifier_; }
+
+private:
+    ExportClause clause_;
+    String moduleSpecifier_;
+    SourceLocation location_;
+};
+
 // Module/File AST node
 class Module : public ASTNode {
 public:
@@ -1382,6 +1499,10 @@ public:
     
     // Module
     virtual void visit(Module& node) = 0;
+    
+    // Import/Export declarations
+    virtual void visit(ImportDeclaration& node) = 0;
+    virtual void visit(ExportDeclaration& node) = 0;
 };
 
 } // namespace tsc

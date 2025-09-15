@@ -4913,6 +4913,8 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(ArrowFunction& node) override {}
         void visit(FunctionExpression& node) override {}
         void visit(Module& node) override {}
+        void visit(ImportDeclaration& node) override {}
+        void visit(ExportDeclaration& node) override {}
     };
     
     ReturnStatementChecker checker;
@@ -5431,6 +5433,18 @@ void LLVMCodeGen::visit(TypeAliasDeclaration& node) {
     
     // No-op for now
     setCurrentValue(llvm::Constant::getNullValue(getAnyType()));
+}
+
+void LLVMCodeGen::visit(ImportDeclaration& node) {
+    // Import declarations are handled during module resolution
+    // No runtime code generation needed for imports
+    std::cout << "DEBUG: Processing import declaration: " << node.getModuleSpecifier() << std::endl;
+}
+
+void LLVMCodeGen::visit(ExportDeclaration& node) {
+    // Export declarations are handled during module resolution
+    // No runtime code generation needed for exports
+    std::cout << "DEBUG: Processing export declaration: " << node.getModuleSpecifier() << std::endl;
 }
 
 // Memory management functions
