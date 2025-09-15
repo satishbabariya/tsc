@@ -1426,9 +1426,10 @@ unique_ptr<Expression> Parser::parseObjectLiteral() {
         if (match(TokenType::DotDotDot)) {
             auto expression = parseExpression();
             if (expression) {
-                // For now, we'll treat spread in object literals as a special property
-                // In a full implementation, this would need special handling
-                properties.emplace_back("...", std::move(expression), getCurrentLocation());
+                // Create a SpreadElement for object spread
+                auto spreadElement = make_unique<SpreadElement>(std::move(expression), getCurrentLocation());
+                // Store the SpreadElement as a property with special key "..."
+                properties.emplace_back("...", std::move(spreadElement), getCurrentLocation());
             }
         } else {
             // Parse property key (for now, only identifiers and string literals)

@@ -2061,77 +2061,143 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
         return;
     }
     
-    // For simplicity, create a basic object representation
-    // In a full implementation, we'd create proper struct types
-    // For now, store properties in a simple array-like structure
-    
     llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
     if (!currentFunc) {
         // Global scope - create a global object
         std::cout << "DEBUG: Creating object literal for global context" << std::endl;
         
-        // For simplicity, create a struct with named fields
-        // This is a simplified approach - in a full implementation we'd use a more sophisticated object model
+        // Separate regular properties from spread properties
+        std::vector<const ObjectLiteral::Property*> regularProperties;
+        std::vector<const ObjectLiteral::Property*> spreadProperties;
+        
+        for (const auto& property : properties) {
+            if (property.getKey() == "...") {
+                spreadProperties.push_back(&property);
+            } else {
+                regularProperties.push_back(&property);
+            }
+        }
+        
+        // Handle spread properties first to determine the base object structure
+        llvm::Value* baseObject = nullptr;
+        llvm::Type* baseObjectType = nullptr;
+        
+        if (!spreadProperties.empty()) {
+            std::cout << "DEBUG: Processing " << spreadProperties.size() << " spread properties" << std::endl;
+            
+            // For now, handle only the first spread property
+            // In a full implementation, we'd merge multiple spread properties
+            const auto& firstSpread = spreadProperties[0];
+            
+            // Generate the spread expression
+            firstSpread->getValue()->accept(*this);
+            baseObject = getCurrentValue();
+            
+            if (baseObject) {
+                // Determine the type of the spread object
+                if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(baseObject)) {
+                    baseObjectType = allocaInst->getAllocatedType();
+                } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(baseObject)) {
+                    baseObjectType = globalVar->getValueType();
+                }
+                
+                std::cout << "DEBUG: Spread object type: " << (baseObjectType ? baseObjectType->getTypeID() : -1) << std::endl;
+            }
+        }
+        
+        // Create struct type with fields for regular properties
         std::vector<llvm::Type*> fieldTypes;
         std::vector<String> fieldNames;
         
-        // Determine element type from first property
-        if (!properties.empty()) {
-            properties[0].getValue()->accept(*this);
+        // Add fields from spread object if available
+        if (baseObjectType && llvm::isa<llvm::StructType>(baseObjectType)) {
+            auto* spreadStructType = llvm::cast<llvm::StructType>(baseObjectType);
+            for (unsigned i = 0; i < spreadStructType->getNumElements(); ++i) {
+                fieldTypes.push_back(spreadStructType->getElementType(i));
+                fieldNames.push_back("spread_field_" + std::to_string(i));
+            }
+        }
+        
+        // Add fields for regular properties
+        if (!regularProperties.empty()) {
+            // Determine element type from first regular property
+            regularProperties[0]->getValue()->accept(*this);
             llvm::Value* firstValue = getCurrentValue();
             if (firstValue) {
                 llvm::Type* elementType = firstValue->getType();
                 
-                // Create struct type with fields for each property
-                for (size_t i = 0; i < properties.size(); ++i) {
+                for (const auto* property : regularProperties) {
                     fieldTypes.push_back(elementType);
-                    fieldNames.push_back(properties[i].getKey());
+                    fieldNames.push_back(property->getKey());
                 }
-                
-                llvm::StructType* objectStructType = llvm::StructType::create(*context_, fieldTypes, "ObjectStruct");
-                
-                // Create global variable for the object
-                llvm::GlobalVariable* globalObject = new llvm::GlobalVariable(
-                    *module_,
-                    objectStructType,
-                    false, // not constant
-                    llvm::GlobalValue::PrivateLinkage,
-                    nullptr, // no initializer for now
-                    "object_global"
-                );
-                
-                // Generate element values for initialization
-                std::vector<llvm::Constant*> fieldValues;
-                for (size_t i = 0; i < properties.size(); ++i) {
-                    properties[i].getValue()->accept(*this);
-                    llvm::Value* elementValue = getCurrentValue();
-                    
-                    if (!elementValue) {
-                        reportError("Failed to generate object property", properties[i].getLocation());
-                        setCurrentValue(createNullValue(getAnyType()));
-                        return;
-                    }
-                    
-                    // Convert to constant if possible
-                    if (auto* constValue = llvm::dyn_cast<llvm::Constant>(elementValue)) {
-                        fieldValues.push_back(constValue);
-                    } else {
-                        // For non-constant values, use a default value
-                        fieldValues.push_back(llvm::Constant::getNullValue(elementType));
-                    }
-                }
-                
-                // Initialize the object structure
-                llvm::Constant* objectConst = llvm::ConstantStruct::get(objectStructType, fieldValues);
-                globalObject->setInitializer(objectConst);
-                
-                setCurrentValue(globalObject);
-                return;
             }
         }
         
-        // Fallback: create null value
-        setCurrentValue(createNullValue(getAnyType()));
+        if (fieldTypes.empty()) {
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
+        
+        llvm::StructType* objectStructType = llvm::StructType::create(*context_, fieldTypes, "ObjectStruct");
+        
+        // Create global variable for the object
+        llvm::GlobalVariable* globalObject = new llvm::GlobalVariable(
+            *module_,
+            objectStructType,
+            false, // not constant
+            llvm::GlobalValue::PrivateLinkage,
+            nullptr, // no initializer for now
+            "object_global"
+        );
+        
+        // Generate field values for initialization
+        std::vector<llvm::Constant*> fieldValues;
+        
+        // Copy values from spread object
+        if (baseObject && baseObjectType && llvm::isa<llvm::StructType>(baseObjectType)) {
+            auto* spreadStructType = llvm::cast<llvm::StructType>(baseObjectType);
+            for (unsigned i = 0; i < spreadStructType->getNumElements(); ++i) {
+                // Access spread object field
+                std::vector<llvm::Value*> indices = {
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Field index
+                };
+                llvm::Value* fieldPtr = builder_->CreateGEP(baseObjectType, baseObject, indices, "spread_field_ptr");
+                llvm::Value* fieldValue = builder_->CreateLoad(spreadStructType->getElementType(i), fieldPtr, "spread_field_value");
+                
+                // Convert to constant if possible
+                if (auto* constValue = llvm::dyn_cast<llvm::Constant>(fieldValue)) {
+                    fieldValues.push_back(constValue);
+                } else {
+                    fieldValues.push_back(llvm::Constant::getNullValue(spreadStructType->getElementType(i)));
+                }
+            }
+        }
+        
+        // Add values for regular properties
+        for (const auto* property : regularProperties) {
+            property->getValue()->accept(*this);
+            llvm::Value* elementValue = getCurrentValue();
+            
+            if (!elementValue) {
+                reportError("Failed to generate object property", property->getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+            
+            // Convert to constant if possible
+            if (auto* constValue = llvm::dyn_cast<llvm::Constant>(elementValue)) {
+                fieldValues.push_back(constValue);
+            } else {
+                fieldValues.push_back(llvm::Constant::getNullValue(elementValue->getType()));
+            }
+        }
+        
+        // Initialize the object structure
+        llvm::Constant* objectConst = llvm::ConstantStruct::get(objectStructType, fieldValues);
+        globalObject->setInitializer(objectConst);
+        
+        setCurrentValue(globalObject);
         return;
     }
     
@@ -7469,12 +7535,29 @@ void LLVMCodeGen::visit(SpreadElement& node) {
     // For now, we'll implement a simplified version that works with arrays
     // In a full implementation, we'd need to handle both arrays and objects
     
-    // Check if the spread value is an array (has our array structure)
+    // Check if the spread value is an array or object
     llvm::Type* spreadType = nullptr;
+    llvm::Value* spreadPtr = spreadValue;
+    
     if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(spreadValue)) {
         spreadType = allocaInst->getAllocatedType();
     } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(spreadValue)) {
         spreadType = globalVar->getValueType();
+    } else if (spreadValue->getType()->isPointerTy()) {
+        // Handle pointer to struct/array
+        if (spreadValue->getType()->getTypeID() == llvm::Type::TypedPointerTyID) {
+            // It's a TypedPointerType
+            auto* typedPtrType = llvm::cast<llvm::TypedPointerType>(spreadValue->getType());
+            spreadType = typedPtrType->getElementType();
+            spreadPtr = spreadValue; // Use the pointer directly
+        } else {
+            // It's a regular PointerType - in LLVM 20, we can't get element type directly
+            // For now, we'll assume it's a pointer to a struct and try to infer the type
+            std::cout << "DEBUG: SpreadElement - regular PointerType, cannot get element type directly" << std::endl;
+            // We'll need to handle this differently - for now, return null
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
     }
     
     if (spreadType && llvm::isa<llvm::StructType>(spreadType)) {
@@ -7515,7 +7598,7 @@ void LLVMCodeGen::visit(SpreadElement& node) {
                             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
                             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Element index
                         };
-                        llvm::Value* sourceElementPtr = builder_->CreateGEP(structType, spreadValue, indices, "source_element_ptr");
+                        llvm::Value* sourceElementPtr = builder_->CreateGEP(structType, spreadPtr, indices, "source_element_ptr");
                         llvm::Value* sourceElement = builder_->CreateLoad(elementType, sourceElementPtr, "source_element");
                         
                         // Convert to constant if possible
@@ -7562,7 +7645,7 @@ void LLVMCodeGen::visit(SpreadElement& node) {
                             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
                             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Element index
                         };
-                        llvm::Value* sourceElementPtr = builder_->CreateGEP(structType, spreadValue, sourceIndices, "source_element_ptr");
+                        llvm::Value* sourceElementPtr = builder_->CreateGEP(structType, spreadPtr, sourceIndices, "source_element_ptr");
                         llvm::Value* sourceElement = builder_->CreateLoad(elementType, sourceElementPtr, "source_element");
                         
                         // Store in new array
@@ -7578,6 +7661,76 @@ void LLVMCodeGen::visit(SpreadElement& node) {
                     setCurrentValue(newArrayStorage);
                     return;
                 }
+            }
+        } else {
+            // This is an object struct (not an array)
+            std::cout << "DEBUG: Spreading object with " << structType->getNumElements() << " fields" << std::endl;
+            
+            // For object spread, we'll create a new struct with the same fields
+            llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+            if (!currentFunc) {
+                // Global scope - create a global object
+                llvm::GlobalVariable* newObject = new llvm::GlobalVariable(
+                    *module_,
+                    structType,
+                    false, // not constant
+                    llvm::GlobalValue::PrivateLinkage,
+                    nullptr, // no initializer for now
+                    "spread_object_global"
+                );
+                
+                // Copy fields from source object to new object
+                std::vector<llvm::Constant*> copiedFields;
+                for (unsigned i = 0; i < structType->getNumElements(); ++i) {
+                    // Access source object field
+                    std::vector<llvm::Value*> indices = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Field index
+                    };
+                    llvm::Value* fieldPtr = builder_->CreateGEP(structType, spreadPtr, indices, "source_field_ptr");
+                    llvm::Value* fieldValue = builder_->CreateLoad(structType->getElementType(i), fieldPtr, "source_field_value");
+                    
+                    // Convert to constant if possible
+                    if (auto* constValue = llvm::dyn_cast<llvm::Constant>(fieldValue)) {
+                        copiedFields.push_back(constValue);
+                    } else {
+                        copiedFields.push_back(llvm::Constant::getNullValue(structType->getElementType(i)));
+                    }
+                }
+                
+                // Initialize the new object structure
+                llvm::Constant* objectConst = llvm::ConstantStruct::get(structType, copiedFields);
+                newObject->setInitializer(objectConst);
+                
+                setCurrentValue(newObject);
+                return;
+            } else {
+                // Local scope - create a local object
+                llvm::IRBuilder<> allocaBuilder(&currentFunc->getEntryBlock(), 
+                                               currentFunc->getEntryBlock().begin());
+                llvm::AllocaInst* newObjectStorage = allocaBuilder.CreateAlloca(structType, nullptr, "spread_object");
+                
+                // Copy fields from source object to new object
+                for (unsigned i = 0; i < structType->getNumElements(); ++i) {
+                    // Access source object field
+                    std::vector<llvm::Value*> sourceIndices = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Field index
+                    };
+                    llvm::Value* sourceFieldPtr = builder_->CreateGEP(structType, spreadPtr, sourceIndices, "source_field_ptr");
+                    llvm::Value* sourceFieldValue = builder_->CreateLoad(structType->getElementType(i), sourceFieldPtr, "source_field_value");
+                    
+                    // Store in new object
+                    std::vector<llvm::Value*> newIndices = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Field index
+                    };
+                    llvm::Value* newFieldPtr = builder_->CreateGEP(structType, newObjectStorage, newIndices, "new_field_ptr");
+                    builder_->CreateStore(sourceFieldValue, newFieldPtr);
+                }
+                
+                setCurrentValue(newObjectStorage);
+                return;
             }
         }
     }
