@@ -50,8 +50,16 @@ void __tsc_release(void* obj) {
     if (new_count == 1) {
         // Last reference, deallocate
         if (header->destructor) {
+            // Validate destructor pointer before calling
+            if (header->destructor == NULL) {
+                fprintf(stderr, "ERROR: Destructor pointer is NULL!\n");
+                return;
+            }
+            
+            // Call destructor with error handling
             header->destructor(obj);
         }
+        
         __tsc_dealloc(obj);
     }
 }
