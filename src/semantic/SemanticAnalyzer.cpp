@@ -84,6 +84,11 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
         
         std::cout << "DEBUG: *** STARTING LOOP *** with " << compilationOrder.size() << " modules" << std::endl;
         std::cout.flush();
+        
+        // Store AST modules to keep them alive throughout analysis
+        std::vector<std::unique_ptr<Module>> astModules;
+        astModules.reserve(compilationOrder.size());
+        
         for (const String& modulePath : compilationOrder) {
             std::cout << "DEBUG: Analyzing module: " << modulePath << std::endl;
             std::cout << "DEBUG: *** ABOUT TO READ FILE *** " << modulePath << std::endl;
@@ -125,11 +130,14 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
                 return false;
             }
             
+            // Store the AST module to keep it alive
+            astModules.push_back(std::move(module));
+            
             // Set current module path for symbol table creation
             currentModulePath_ = modulePath;
             
             // Analyze the module
-            if (!analyze(*module)) {
+            if (!analyze(*astModules.back())) {
                 diagnostics_.error("Failed to analyze module: " + modulePath, SourceLocation());
                 return false;
             }
