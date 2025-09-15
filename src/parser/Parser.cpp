@@ -33,10 +33,14 @@ static const std::unordered_map<TokenType, int> operatorPrecedence = {
 };
 
 Parser::Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) 
-    : diagnostics_(diagnostics), enhancedDiagnostics_(nullptr), typeSystem_(typeSystem) {}
+    : diagnostics_(diagnostics), enhancedDiagnostics_(nullptr), typeSystem_(typeSystem) {
+    errorReporter_ = make_unique<EnhancedErrorReporting>(diagnostics_);
+}
 
 Parser::Parser(utils::EnhancedDiagnosticEngine& enhancedDiagnostics, const TypeSystem& typeSystem) 
-    : diagnostics_(enhancedDiagnostics), enhancedDiagnostics_(&enhancedDiagnostics), typeSystem_(typeSystem) {}
+    : diagnostics_(enhancedDiagnostics), enhancedDiagnostics_(&enhancedDiagnostics), typeSystem_(typeSystem) {
+    errorReporter_ = make_unique<EnhancedErrorReporting>(diagnostics_);
+}
 
 Parser::~Parser() = default;
 
@@ -267,7 +271,8 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 setContext(ParsingContext::Type);
                 constraint = parseUnionType();
                 if (!constraint) {
-                    reportError("Expected constraint type after 'extends'", getCurrentLocation());
+                    errorReporter_->reportExpectedToken(getCurrentLocation(), "constraint type", "'extends'", 
+                                                       "Add a type constraint after 'extends'");
                     constraint = typeSystem_.getErrorType();
                 }
                 setContext(oldContext);
@@ -295,7 +300,8 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
         
         baseClass = parseUnionType();
         if (!baseClass) {
-            reportError("Expected base class type after 'extends'", getCurrentLocation());
+            errorReporter_->reportExpectedToken(getCurrentLocation(), "base class type", "'extends'", 
+                                               "Add a base class type after 'extends'");
             baseClass = typeSystem_.getErrorType();
         }
         
@@ -461,7 +467,8 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 ));
             }
         } else {
-            reportError("Expected class member", getCurrentLocation());
+            errorReporter_->reportInvalidDeclaration(getCurrentLocation(), 
+                                                    "Expected class member (method, property, constructor, or destructor)");
             synchronize();
         }
     }
@@ -904,7 +911,8 @@ unique_ptr<CaseClause> Parser::parseCaseClause() {
         // Default case (test remains null)
         consume(TokenType::Colon, "Expected ':' after 'default'");
     } else {
-        reportError("Expected 'case' or 'default'", getCurrentLocation());
+        errorReporter_->reportExpectedToken(getCurrentLocation(), "'case' or 'default'", "switch case", 
+                                           "Add 'case value:' or 'default:'");
         return nullptr;
     }
     
@@ -1651,9 +1659,28 @@ void Parser::reportError(const String& message, const SourceLocation& location,
                         const String& context, const String& suggestion) {
     SourceLocation loc = location.isValid() ? location : getCurrentLocation();
     
-    // Use enhanced diagnostic engine if available
-    if (enhancedDiagnostics_) {
-        enhancedDiagnostics_->error(message, loc, context, suggestion);
+    // Use enhanced error reporting system
+    if (errorReporter_) {
+        // Determine error code based on context
+        String errorCode = ErrorCodes::Syntax::INVALID_EXPRESSION; // Default
+        
+        if (context.find("token") != String::npos) {
+            errorCode = ErrorCodes::Syntax::UNEXPECTED_TOKEN;
+        } else if (context.find("semicolon") != String::npos) {
+            errorCode = ErrorCodes::Syntax::MISSING_SEMICOLON;
+        } else if (context.find("brace") != String::npos) {
+            errorCode = ErrorCodes::Syntax::MISSING_BRACE;
+        } else if (context.find("parenthesis") != String::npos) {
+            errorCode = ErrorCodes::Syntax::MISSING_PARENTHESIS;
+        } else if (context.find("bracket") != String::npos) {
+            errorCode = ErrorCodes::Syntax::MISSING_BRACKET;
+        } else if (context.find("declaration") != String::npos) {
+            errorCode = ErrorCodes::Syntax::INVALID_DECLARATION;
+        } else if (context.find("statement") != String::npos) {
+            errorCode = ErrorCodes::Syntax::INVALID_STATEMENT;
+        }
+        
+        errorReporter_->reportSyntaxError(errorCode, loc, message, suggestion);
     } else {
         // Fallback to basic diagnostic engine
         if (!context.empty()) {

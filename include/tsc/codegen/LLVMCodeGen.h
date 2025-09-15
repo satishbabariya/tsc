@@ -5,6 +5,7 @@
 #include "tsc/semantic/SymbolTable.h"
 #include "tsc/semantic/TypeSystem.h"
 #include "tsc/utils/DiagnosticEngine.h"
+#include "tsc/utils/EnhancedErrorReporting.h"
 
 // LLVM includes
 #include "llvm/IR/LLVMContext.h"
@@ -90,6 +91,7 @@ private:
     llvm::Module& module_;
     llvm::IRBuilder<>& builder_;
     DiagnosticEngine& diagnostics_;
+    unique_ptr<EnhancedErrorReporting> errorReporter_;
     
     // Symbol table for LLVM values
     std::vector<std::unordered_map<String, llvm::Value*>> symbolStack_;
@@ -663,6 +665,16 @@ public:
     // Error handling
     void reportError(const String& message, const SourceLocation& location);
     void reportWarning(const String& message, const SourceLocation& location);
+
+private:
+    DiagnosticEngine& diagnostics_;
+    unique_ptr<EnhancedErrorReporting> errorReporter_;
+    unique_ptr<CodeGenContext> codeGenContext_;
+    unique_ptr<llvm::LLVMContext> llvmContext_;
+    unique_ptr<llvm::Module> module_;
+    unique_ptr<llvm::IRBuilder<>> builder_;
+    llvm::Value* currentValue_ = nullptr;
+    const CompilerOptions& options_;
 };
 
 // Code generation result

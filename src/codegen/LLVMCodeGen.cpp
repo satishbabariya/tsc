@@ -24,6 +24,9 @@ namespace tsc {
 CodeGenContext::CodeGenContext(llvm::LLVMContext& llvmContext, llvm::Module& module, 
                                llvm::IRBuilder<>& builder, DiagnosticEngine& diagnostics)
     : llvmContext_(llvmContext), module_(module), builder_(builder), diagnostics_(diagnostics) {
+    // Initialize enhanced error reporting
+    errorReporter_ = make_unique<EnhancedErrorReporting>(diagnostics_);
+    
     // Initialize with global scope
     symbolStack_.push_back(std::unordered_map<String, llvm::Value*>());
     

@@ -4,6 +4,7 @@
 #include "tsc/AST.h"
 #include "tsc/Token.h"
 #include "tsc/utils/EnhancedDiagnosticEngine.h"
+#include "tsc/utils/EnhancedErrorReporting.h"
 #include "tsc/utils/ASTAllocator.h"
 #include <vector>
 
@@ -40,6 +41,7 @@ public:
 private:
     DiagnosticEngine& diagnostics_;
     utils::EnhancedDiagnosticEngine* enhancedDiagnostics_;
+    unique_ptr<EnhancedErrorReporting> errorReporter_;
     const TypeSystem& typeSystem_;
     unique_ptr<TokenStream> tokens_;
     String filename_;

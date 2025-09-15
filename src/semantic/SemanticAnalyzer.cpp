@@ -11,6 +11,7 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     context_ = make_unique<SemanticContext>(*symbolTable_, *typeSystem_, diagnostics_);
     constraintChecker_ = make_unique<GenericConstraintChecker>(diagnostics_, *typeSystem_);
     cycleDetector_ = make_unique<semantic::CycleDetector>(symbolTable_.get());
+    errorReporter_ = make_unique<EnhancedErrorReporting>(diagnostics_);
     
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
     
@@ -1644,28 +1645,50 @@ void SemanticAnalyzer::checkUnaryOperation(UnaryExpression& expr) {
 
 // Error reporting
 void SemanticAnalyzer::reportError(const String& message, const SourceLocation& location) {
-    diagnostics_.error(message, location);
+    if (errorReporter_) {
+        errorReporter_->reportSemanticError(ErrorCodes::Semantic::CANNOT_FIND_NAME, location, message);
+    } else {
+        diagnostics_.error(message, location);
+    }
     context_->incrementErrorCount();
 }
 
 void SemanticAnalyzer::reportWarning(const String& message, const SourceLocation& location) {
-    diagnostics_.warning(message, location);
+    if (errorReporter_) {
+        errorReporter_->reportWarning(ErrorCodes::Warning::UNUSED_VARIABLE, location, message);
+    } else {
+        diagnostics_.warning(message, location);
+    }
 }
 
 void SemanticAnalyzer::reportTypeError(const String& expected, const String& actual, 
                                       const SourceLocation& location) {
-    reportError("Type mismatch: expected " + expected + ", got " + actual, location);
+    if (errorReporter_) {
+        errorReporter_->reportTypeMismatch(location, expected, actual, 
+                                          "Consider using type '" + expected + "' instead of '" + actual + "'");
+    } else {
+        reportError("Type mismatch: expected " + expected + ", got " + actual, location);
+    }
 }
 
 void SemanticAnalyzer::reportUndefinedSymbol(const String& name, const SourceLocation& location) {
-    reportError("Undefined symbol: " + name, location);
+    if (errorReporter_) {
+        errorReporter_->reportCannotFindName(location, name, "Check the spelling or declare the symbol");
+    } else {
+        reportError("Undefined symbol: " + name, location);
+    }
 }
 
 void SemanticAnalyzer::reportRedefinitionError(const String& name, const SourceLocation& location, 
                                               const SourceLocation& originalLocation) {
-    reportError("Redefinition of symbol: " + name + 
-               " (originally defined at " + originalLocation.getFilename() + ":" + 
-               std::to_string(originalLocation.getLine()) + ":" + std::to_string(originalLocation.getColumn()) + ")", location);
+    if (errorReporter_) {
+        errorReporter_->reportDuplicateIdentifier(location, name, 
+                                                 "Rename one of the identifiers to make them unique");
+    } else {
+        reportError("Redefinition of symbol: " + name + 
+                   " (originally defined at " + originalLocation.getFilename() + ":" + 
+                   std::to_string(originalLocation.getLine()) + ":" + std::to_string(originalLocation.getColumn()) + ")", location);
+    }
 }
 
 // Utility methods
