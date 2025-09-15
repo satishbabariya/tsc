@@ -115,6 +115,7 @@ private:
     shared_ptr<Type> parseTypeAnnotation();
     shared_ptr<Type> parseUnionType();
     shared_ptr<Type> parsePrimaryType();
+    shared_ptr<Type> parseArrayType(shared_ptr<Type> baseType);
     shared_ptr<Type> parseTupleType();
     shared_ptr<Type> parseObjectType();
     

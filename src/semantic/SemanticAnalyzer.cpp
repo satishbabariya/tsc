@@ -412,6 +412,12 @@ void SemanticAnalyzer::visit(ArrayLiteral& node) {
         if (!allSameType) {
             elementType = typeSystem_->getAnyType();
         }
+    } else {
+        // For empty arrays, we need to be more careful about type inference
+        // Check if this array literal is in an assignment context
+        // If so, we'll let the assignment checker handle the type compatibility
+        // For now, use 'any' as the default element type for empty arrays
+        elementType = typeSystem_->getAnyType();
     }
     
     auto arrayType = typeSystem_->createArrayType(elementType);
@@ -558,8 +564,22 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
             reportError("Class '" + classType.getName() + "' has no member '" + memberName + "'", node.getLocation());
             setExpressionType(node, typeSystem_->getErrorType());
             return;
+        } else if (baseType->getKind() == TypeKind::Interface) {
+            const auto& interfaceType = static_cast<const InterfaceType&>(*baseType);
+            String memberName = node.getProperty();
+            
+            // Check if the interface has this member
+            if (auto memberType = findInterfaceMember(interfaceType, memberName)) {
+                setExpressionType(node, memberType);
+                return;
+            }
+            
+            // If we get here, the member wasn't found
+            reportError("Interface '" + interfaceType.getName() + "' has no member '" + memberName + "'", node.getLocation());
+            setExpressionType(node, typeSystem_->getErrorType());
+            return;
         } else {
-            reportError("Generic type base is not a class", node.getLocation());
+            reportError("Generic type base is not a class or interface", node.getLocation());
             setExpressionType(node, typeSystem_->getErrorType());
             return;
         }
@@ -601,13 +621,46 @@ void SemanticAnalyzer::visit(PropertyAccess& node) {
         }
     }
     
-    // Check if this is array property access (e.g., arr.length)
+    // Check if this is array property access (e.g., arr.length, arr.push)
     if (objectType->getKind() == TypeKind::Array) {
         String propertyName = node.getProperty();
         
         if (propertyName == "length") {
             // Array length property returns number
             setExpressionType(node, typeSystem_->getNumberType());
+            return;
+        } else if (propertyName == "push" || propertyName == "pop" || 
+                   propertyName == "shift" || propertyName == "unshift" ||
+                   propertyName == "concat" || propertyName == "slice" ||
+                   propertyName == "splice" || propertyName == "indexOf" ||
+                   propertyName == "forEach" || propertyName == "map" ||
+                   propertyName == "filter" || propertyName == "reduce") {
+            // Array methods - create appropriate function types
+            if (propertyName == "push" || propertyName == "unshift") {
+                // push/unshift take variable arguments and return number (new length)
+                std::vector<FunctionType::Parameter> params;
+                auto elementType = typeSystem_->getArrayElementType(objectType);
+                if (elementType) {
+                    FunctionType::Parameter param;
+                    param.name = "item";
+                    param.type = elementType;
+                    param.optional = false;
+                    param.rest = true; // Variable number of arguments
+                    params.push_back(param);
+                }
+                auto funcType = typeSystem_->createFunctionType(std::move(params), typeSystem_->getNumberType());
+                setExpressionType(node, funcType);
+            } else if (propertyName == "pop" || propertyName == "shift") {
+                // pop/shift return the element type or undefined
+                auto elementType = typeSystem_->getArrayElementType(objectType);
+                auto returnType = elementType ? elementType : typeSystem_->getAnyType();
+                auto funcType = typeSystem_->createFunctionType({}, returnType);
+                setExpressionType(node, funcType);
+            } else {
+                // For other methods, return a generic function type for now
+                auto funcType = typeSystem_->createFunctionType({}, typeSystem_->getAnyType());
+                setExpressionType(node, funcType);
+            }
             return;
         } else {
             // Unknown property on array
@@ -1402,6 +1455,86 @@ void SemanticAnalyzer::checkAssignment(const Expression& left, const Expression&
     auto leftType = getExpressionType(left);
     auto rightType = getExpressionType(right);
     
+    
+    // Special handling for array literal assignments
+    if (auto arrayLiteral = dynamic_cast<const ArrayLiteral*>(&right)) {
+        if (leftType->getKind() == TypeKind::Array && rightType->getKind() == TypeKind::Array) {
+            auto leftArrayType = static_cast<const ArrayType*>(leftType.get());
+            auto rightArrayType = static_cast<const ArrayType*>(rightType.get());
+            
+            // If the right side is an empty array (any[]), and the left side is a generic array (T[]),
+            // allow the assignment since empty arrays can be assigned to any array type
+            
+            if (arrayLiteral->getElements().empty() && 
+                rightArrayType->getElementType()->getKind() == TypeKind::Any &&
+                (leftArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::Unresolved)) {
+                // This is a valid assignment: [] can be assigned to T[]
+                return;
+            }
+            
+            // If both sides are generic arrays with the same generic type parameter,
+            // allow the assignment even if they're different instances
+            if ((leftArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::Unresolved) &&
+                (rightArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                 rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                 rightArrayType->getElementType()->getKind() == TypeKind::Unresolved)) {
+                
+                // For TypeParameter types, we can directly compare the toString() values
+                if (leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter &&
+                    rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter) {
+                    if (leftArrayType->getElementType()->toString() == rightArrayType->getElementType()->toString()) {
+                        // This is a valid assignment: T[] can be assigned to T[]
+                        return;
+                    }
+                }
+                
+                // Handle mixed Generic, TypeParameter, and Unresolved types
+                if ((leftArrayType->getElementType()->getKind() == TypeKind::Generic && 
+                     (rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                      rightArrayType->getElementType()->getKind() == TypeKind::Unresolved)) ||
+                    (leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter && 
+                     (rightArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                      rightArrayType->getElementType()->getKind() == TypeKind::Unresolved)) ||
+                    (leftArrayType->getElementType()->getKind() == TypeKind::Unresolved && 
+                     (rightArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                      rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter))) {
+                    // Compare the string representations
+                    if (leftArrayType->getElementType()->toString() == rightArrayType->getElementType()->toString()) {
+                        // This is a valid assignment: T[] can be assigned to T[]
+                        return;
+                    }
+                }
+                
+                // Handle Unresolved types on both sides
+                if (leftArrayType->getElementType()->getKind() == TypeKind::Unresolved &&
+                    rightArrayType->getElementType()->getKind() == TypeKind::Unresolved) {
+                    if (leftArrayType->getElementType()->toString() == rightArrayType->getElementType()->toString()) {
+                        // This is a valid assignment: T[] can be assigned to T[]
+                        return;
+                    }
+                }
+                
+                // For Generic types, check the base type
+                if (leftArrayType->getElementType()->getKind() == TypeKind::Generic &&
+                    rightArrayType->getElementType()->getKind() == TypeKind::Generic) {
+                    auto leftGenericType = static_cast<const GenericType*>(leftArrayType->getElementType().get());
+                    auto rightGenericType = static_cast<const GenericType*>(rightArrayType->getElementType().get());
+                    
+                    
+                    // Check if they have the same generic type parameter name
+                    if (leftGenericType->getBaseType()->toString() == rightGenericType->getBaseType()->toString()) {
+                        // This is a valid assignment: T[] can be assigned to T[]
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    
     if (!isValidAssignment(*rightType, *leftType)) {
         reportTypeError(leftType->toString(), rightType->toString(), location);
     }
@@ -1838,10 +1971,56 @@ void SemanticAnalyzer::visit(InterfaceDeclaration& node) {
     // Enter interface scope (using Class scope type since interfaces are similar)
     enterScope(Scope::ScopeType::Class, node.getName());
     
+    // Process type parameters AFTER entering interface scope
+    std::vector<shared_ptr<Type>> typeParameters;
+    for (const auto& typeParam : node.getTypeParameters()) {
+        std::cout << "DEBUG: Processing interface type parameter: " << typeParam->getName() << std::endl;
+        std::cout << "DEBUG: Current scope when adding interface type parameter: " << symbolTable_->getCurrentScope() << std::endl;
+        
+        // Validate type parameter constraint if present
+        if (typeParam->getConstraint()) {
+            std::cout << "DEBUG: Validating constraint for type parameter: " << typeParam->getName() << std::endl;
+            auto constraintType = typeParam->getConstraint();
+            std::cout << "DEBUG: Constraint type: " << constraintType->toString() << std::endl;
+            
+            // For now, we validate that the constraint is a valid type
+            // In a full implementation, we'd check that the constraint is a valid base type
+            if (constraintType->isError()) {
+                reportError("Invalid constraint type for type parameter '" + typeParam->getName() + "'", 
+                           typeParam->getLocation());
+            }
+        }
+        
+        auto paramType = typeSystem_->createTypeParameter(typeParam->getName(), typeParam->getConstraint());
+        typeParameters.push_back(paramType);
+        
+        // Add type parameter to interface scope so it can be referenced within the interface
+        std::cout << "DEBUG: Declaring interface type parameter symbol: " << typeParam->getName() << std::endl;
+        declareSymbol(typeParam->getName(), SymbolKind::Type, paramType, typeParam->getLocation());
+    }
+    
     // Analyze extended interfaces if present
     for (const auto& extended : node.getExtends()) {
-        // Interface extension validation would go here
-        // For now, we assume they're valid
+        std::cout << "DEBUG: Processing interface extension: " << extended->toString() << std::endl;
+        
+        // Validate that the extended type is a valid interface type
+        if (extended->isError()) {
+            reportError("Invalid interface type in extends clause", node.getLocation());
+            continue;
+        }
+        
+        // For generic interfaces with type arguments, validate that the type arguments
+        // satisfy the constraints of the base interface
+        if (auto genericType = dynamic_cast<GenericType*>(extended.get())) {
+            std::cout << "DEBUG: Extended interface is generic with " << genericType->getTypeArguments().size() << " type arguments" << std::endl;
+            
+            // TODO: Validate that type arguments satisfy constraints
+            // This would require looking up the base interface and checking its constraints
+        }
+        
+        // TODO: Implement full interface inheritance validation
+        // This would include checking that the extended interface exists,
+        // validating type argument constraints, and ensuring compatibility
     }
     
     // Analyze property signatures
@@ -2035,6 +2214,64 @@ shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
     
     // If not found, return error type
     return typeSystem_->getErrorType();
+}
+
+shared_ptr<Type> SemanticAnalyzer::findInterfaceMember(const InterfaceType& interfaceType, const String& memberName) {
+    
+    InterfaceDeclaration* interfaceDecl = interfaceType.getDeclaration();
+    
+    // If the InterfaceType doesn't have a declaration pointer, try to find it in the symbol table
+    if (!interfaceDecl) {
+        Symbol* symbol = resolveSymbol(interfaceType.getName(), SourceLocation());
+        if (symbol && symbol->getKind() == SymbolKind::Type && symbol->getDeclaration()) {
+            interfaceDecl = dynamic_cast<InterfaceDeclaration*>(symbol->getDeclaration());
+        }
+    }
+    
+    if (!interfaceDecl) {
+        return nullptr;
+    }
+    
+    // Look for property in current interface
+    for (const auto& property : interfaceDecl->getProperties()) {
+        if (property->getName() == memberName) {
+            return getDeclarationType(*property);
+        }
+    }
+    
+    // Look for method in current interface
+    for (const auto& method : interfaceDecl->getMethods()) {
+        if (method->getName() == memberName) {
+            return getDeclarationType(*method);
+        }
+    }
+    
+    // If not found in current interface, look in extended interfaces
+    for (const auto& extendedInterface : interfaceDecl->getExtends()) {
+        auto resolvedExtendedType = resolveType(extendedInterface);
+        if (resolvedExtendedType) {
+            if (resolvedExtendedType->getKind() == TypeKind::Interface) {
+                const auto& extendedInterfaceType = static_cast<const InterfaceType&>(*resolvedExtendedType);
+                auto memberType = findInterfaceMember(extendedInterfaceType, memberName);
+                if (memberType) {
+                    return memberType;
+                }
+            } else if (resolvedExtendedType->getKind() == TypeKind::Generic) {
+                // Handle generic extended interfaces (e.g., ExtendedInterface<T>)
+                const auto& genericExtendedType = static_cast<const GenericType&>(*resolvedExtendedType);
+                auto baseType = genericExtendedType.getBaseType();
+                if (baseType->getKind() == TypeKind::Interface) {
+                    const auto& extendedInterfaceType = static_cast<const InterfaceType&>(*baseType);
+                    auto memberType = findInterfaceMember(extendedInterfaceType, memberName);
+                    if (memberType) {
+                        return memberType;
+                    }
+                }
+            }
+        }
+    }
+    
+    return nullptr;
 }
 
 shared_ptr<Type> SemanticAnalyzer::findClassMember(const ClassType& classType, const String& memberName) {

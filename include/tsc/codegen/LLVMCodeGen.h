@@ -473,6 +473,18 @@ private:
     // Deferred global variable initializations (for non-constant values)
     std::vector<std::pair<llvm::GlobalVariable*, llvm::Value*>> deferredGlobalInitializations_;
     
+    // Deferred constructor calls (for global objects that need constructor initialization)
+    struct DeferredConstructorCall {
+        llvm::GlobalVariable* globalVar;
+        String className;
+        std::vector<std::shared_ptr<Type>> typeArguments;
+        std::vector<llvm::Value*> constructorArgs;
+    };
+    std::vector<DeferredConstructorCall> deferredConstructorCalls_;
+    
+    // Deferred method calls (for method calls on global variables)
+    std::vector<std::pair<CallExpression*, llvm::GlobalVariable*>> deferredMethodCalls_;
+    
     // Deferred external symbol references (for Infinity, NaN, etc.)
     std::unordered_map<String, llvm::GlobalVariable*> deferredExternalSymbols_;
     
@@ -500,6 +512,10 @@ private:
     String generateMangledMethodName(const GenericType& genericType, const String& methodName);
     void generateMonomorphizedMethods(const GenericType& genericType, Symbol* classSymbol);
     void generateMonomorphizedMethod(const MethodDeclaration& method, const GenericType& genericType, const String& mangledName);
+    
+    // Generic method lookup for constrained types
+    llvm::Function* genericMethodLookup(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location);
+    llvm::Function* createBuiltinMethodFunction(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location);
     
     // Value operations
     llvm::Value* createNumberLiteral(double value);

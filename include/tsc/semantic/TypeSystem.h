@@ -44,6 +44,9 @@ enum class TypeKind {
     
     // TypeScript-specific
     Literal,
+    StringLiteral,
+    NumericLiteral,
+    BooleanLiteral,
     Enum,
     Interface,
     Class,

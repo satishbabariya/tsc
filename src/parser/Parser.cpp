@@ -202,7 +202,11 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     // Parse optional type parameters
     std::vector<unique_ptr<TypeParameter>> typeParameters;
     if (check(TokenType::Less)) {
+        // Set type context for type parameter parsing to handle union types correctly
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
         typeParameters = parseTypeParameterList();
+        setContext(oldContext);
     }
     
     consume(TokenType::LeftParen, "Expected '(' after function name");
@@ -251,11 +255,15 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
             // Parse constraint (optional)
             shared_ptr<Type> constraint = nullptr;
             if (match(TokenType::Extends)) {
-                constraint = parseTypeAnnotation();
+                // Set type context for constraint parsing to handle union types correctly
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                constraint = parseUnionType();
                 if (!constraint) {
                     reportError("Expected constraint type after 'extends'", getCurrentLocation());
                     constraint = typeSystem_.getErrorType();
                 }
+                setContext(oldContext);
             }
             
             auto typeParam = make_unique<TypeParameter>(
@@ -273,12 +281,19 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     // Optional base class (extends clause)
     shared_ptr<Type> baseClass = nullptr;
     if (match(TokenType::Extends)) {
-        // Parse full type annotation to support generic base classes like Container<T>
-        baseClass = parseTypeAnnotation();
+        // Parse type without colon (extends doesn't use colon syntax)
+        // Set type context for better disambiguation
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
+        
+        baseClass = parseUnionType();
         if (!baseClass) {
             reportError("Expected base class type after 'extends'", getCurrentLocation());
             baseClass = typeSystem_.getErrorType();
         }
+        
+        // Restore previous context
+        setContext(oldContext);
     }
     
     // Optional interfaces (implements clause)
@@ -378,13 +393,19 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                     ));
                 } else {
                     // This is a property declaration
+                    // Check for optional initializer
+                    unique_ptr<Expression> initializer = nullptr;
+                    if (match(TokenType::Equal)) {
+                        initializer = parseExpression();
+                    }
+                    
                     // Optional semicolon for property declarations
                     if (match(TokenType::Semicolon)) {
                         // Semicolon consumed
                     }
                     
                     properties.push_back(make_unique<PropertyDeclaration>(
-                        memberName, returnType, nullptr, memberToken.getLocation(),
+                        memberName, returnType, std::move(initializer), memberToken.getLocation(),
                         isStatic, isPrivate, isProtected, isReadonly
                     ));
                 }
@@ -428,13 +449,52 @@ unique_ptr<Statement> Parser::parseInterfaceDeclaration() {
     Token nameToken = consume(TokenType::Identifier, "Expected interface name");
     String name = nameToken.getStringValue();
     
+    // Optional type parameters
+    std::vector<unique_ptr<TypeParameter>> typeParameters;
+    if (match(TokenType::Less)) {
+        do {
+            // Parse variance annotation (optional)
+            Variance variance = Variance::Invariant;
+            if (match(TokenType::Out)) {
+                variance = Variance::Covariant;
+            } else if (match(TokenType::In)) {
+                variance = Variance::Contravariant;
+            }
+            
+            Token typeParamToken = consume(TokenType::Identifier, "Expected type parameter name");
+            
+            // Optional constraint (extends clause)
+            shared_ptr<Type> constraint = nullptr;
+            if (match(TokenType::Extends)) {
+                // Set type context for better disambiguation
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                constraint = parseUnionType();
+                setContext(oldContext);
+            }
+            
+            auto typeParam = make_unique<TypeParameter>(
+                typeParamToken.getStringValue(),
+                constraint,
+                variance,
+                getCurrentLocation()
+            );
+            typeParameters.push_back(std::move(typeParam));
+        } while (match(TokenType::Comma));
+        
+        consume(TokenType::Greater, "Expected '>' after type parameters");
+    }
+    
     // Optional extends clause
     std::vector<shared_ptr<Type>> extends;
     if (match(TokenType::Extends)) {
         do {
-            Token extendsToken = consume(TokenType::Identifier, "Expected interface name");
-            // Create placeholder type - will be resolved in semantic analysis
-            extends.push_back(typeSystem_.createInterfaceType(extendsToken.getStringValue()));
+            // Parse interface type (which may include generic type arguments)
+            ParsingContext oldContext = currentContext_;
+            setContext(ParsingContext::Type);
+            auto extendsType = parseUnionType();
+            setContext(oldContext);
+            extends.push_back(extendsType);
         } while (match(TokenType::Comma));
     }
     
@@ -457,7 +517,11 @@ unique_ptr<Statement> Parser::parseInterfaceDeclaration() {
             // Return type is required for interface methods
             shared_ptr<Type> returnType = typeSystem_.getVoidType();
             if (match(TokenType::Colon)) {
-                returnType = parseTypeAnnotation();
+                // Parse type directly without colon (colon already consumed)
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                returnType = parseUnionType();
+                setContext(oldContext);
             }
             
             consume(TokenType::Semicolon, "Expected ';' after interface method signature");
@@ -469,16 +533,27 @@ unique_ptr<Statement> Parser::parseInterfaceDeclaration() {
             ));
         } else {
             // Property signature
+            bool isOptional = false;
+            
+            // Check for optional property syntax: name?: type
+            if (match(TokenType::Question)) {
+                isOptional = true;
+            }
+            
             shared_ptr<Type> propertyType = nullptr;
             if (match(TokenType::Colon)) {
-                propertyType = parseTypeAnnotation();
+                // Parse type directly without colon (colon already consumed)
+                ParsingContext oldContext = currentContext_;
+                setContext(ParsingContext::Type);
+                propertyType = parseUnionType();
+                setContext(oldContext);
             }
             
             consume(TokenType::Semicolon, "Expected ';' after interface property");
             
             properties.push_back(make_unique<PropertyDeclaration>(
                 memberName, propertyType, nullptr, memberToken.getLocation(),
-                false, false, false, false
+                false, false, false, isOptional
             ));
         }
     }
@@ -486,7 +561,7 @@ unique_ptr<Statement> Parser::parseInterfaceDeclaration() {
     consume(TokenType::RightBrace, "Expected '}' after interface body");
     
     return make_unique<InterfaceDeclaration>(
-        name, std::move(extends), std::move(properties), std::move(methods), location
+        name, std::move(typeParameters), std::move(extends), std::move(properties), std::move(methods), location
     );
 }
 
@@ -1585,6 +1660,16 @@ shared_ptr<Type> Parser::parseUnionType() {
     return typeSystem_.createUnionType(std::move(unionTypes));
 }
 
+shared_ptr<Type> Parser::parseArrayType(shared_ptr<Type> baseType) {
+    // Handle recursive array syntax: T[], T[][], T[][][], etc.
+    while (check(TokenType::LeftBracket)) {
+        advance(); // consume '['
+        consume(TokenType::RightBracket, "Expected ']' after array type");
+        baseType = typeSystem_.createArrayType(baseType);
+    }
+    return baseType;
+}
+
 shared_ptr<Type> Parser::parsePrimaryType() {
     // Handle TypeScript type keywords
     shared_ptr<Type> baseType = nullptr;
@@ -1619,12 +1704,24 @@ shared_ptr<Type> Parser::parsePrimaryType() {
     
     // If we parsed a primitive type, check for array syntax
     if (baseType) {
-        if (check(TokenType::LeftBracket)) {
-            advance(); // consume '['
-            consume(TokenType::RightBracket, "Expected ']' after array type");
-            return typeSystem_.createArrayType(baseType);
-        }
-        return baseType;
+        return parseArrayType(baseType);
+    }
+    
+    // Handle literal types (string literals, numeric literals, boolean literals)
+    if (check(TokenType::StringLiteral)) {
+        Token literalToken = advance();
+        String literalValue = literalToken.getStringValue();
+        return typeSystem_.createLiteralType(TypeKind::StringLiteral, literalValue);
+    } else if (check(TokenType::NumericLiteral)) {
+        Token literalToken = advance();
+        String literalValue = literalToken.getStringValue();
+        return typeSystem_.createLiteralType(TypeKind::NumericLiteral, literalValue);
+    } else if (check(TokenType::True)) {
+        advance(); // consume 'true'
+        return typeSystem_.createLiteralType(TypeKind::BooleanLiteral, "true");
+    } else if (check(TokenType::False)) {
+        advance(); // consume 'false'
+        return typeSystem_.createLiteralType(TypeKind::BooleanLiteral, "false");
     }
     
     // Handle regular identifiers (for custom types, interfaces, etc.)
@@ -1674,14 +1771,8 @@ shared_ptr<Type> Parser::parsePrimaryType() {
         // Create unresolved type for unknown identifiers (will be resolved in semantic analysis)
         auto baseType = typeSystem_.createUnresolvedType(typeName);
         
-        // Check for array syntax: TypeName[]
-        if (check(TokenType::LeftBracket)) {
-            advance(); // consume '['
-            consume(TokenType::RightBracket, "Expected ']' after array type");
-            return typeSystem_.createArrayType(baseType);
-        }
-        
-        return baseType;
+        // Check for array syntax: TypeName[] (can be recursive for multi-dimensional arrays)
+        return parseArrayType(baseType);
     }
     
     // Handle array types like "number[]"
@@ -1736,6 +1827,11 @@ std::vector<MethodDeclaration::Parameter> Parser::parseMethodParameterList() {
                 setContext(oldContext);
             }
             
+            // Parse optional default value
+            if (match(TokenType::Equal)) {
+                param.defaultValue = parseExpression();
+            }
+            
             parameters.push_back(std::move(param));
         } while (match(TokenType::Comma));
     }
@@ -1787,7 +1883,7 @@ unique_ptr<TypeParameter> Parser::parseTypeParameter() {
         ParsingContext oldContext = currentContext_;
         setContext(ParsingContext::Type);
         
-        constraint = parsePrimaryType();
+        constraint = parseUnionType();
         if (!constraint) {
             reportError("Expected constraint type after 'extends'", getCurrentLocation());
             constraint = typeSystem_.getErrorType();

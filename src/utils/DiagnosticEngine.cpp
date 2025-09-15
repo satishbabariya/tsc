@@ -129,7 +129,12 @@ void DiagnosticEngine::addDiagnostic(DiagnosticLevel level, const String& messag
     if (level == DiagnosticLevel::Error || level == DiagnosticLevel::Fatal) {
         errorCount_++;
         if (errorCount_ >= maxErrors_) {
-            fatal("Too many errors, stopping compilation", location);
+            // Prevent infinite recursion by directly adding the fatal diagnostic
+            // instead of calling fatal() which would call addDiagnostic() again
+            diagnostics_.emplace_back(DiagnosticLevel::Fatal, 
+                                    "Too many errors, stopping compilation", location);
+            errorCount_++;
+            throw CompilerError("Too many errors, stopping compilation", location);
         }
     } else if (level == DiagnosticLevel::Warning) {
         warningCount_++;

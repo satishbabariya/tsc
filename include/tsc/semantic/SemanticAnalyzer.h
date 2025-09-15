@@ -177,6 +177,7 @@ private:
     Symbol* resolveSymbol(const String& name, const SourceLocation& location);
     
     // Class member lookup (with inheritance)
+    shared_ptr<Type> findInterfaceMember(const InterfaceType& interfaceType, const String& memberName);
     shared_ptr<Type> findClassMember(const ClassType& classType, const String& memberName);
     
     // Type checking helpers

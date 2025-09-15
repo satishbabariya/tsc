@@ -1210,11 +1210,12 @@ private:
 class InterfaceDeclaration : public Declaration {
 public:
     InterfaceDeclaration(const String& name,
+                        std::vector<unique_ptr<TypeParameter>> typeParameters,
                         std::vector<shared_ptr<Type>> extends,
                         std::vector<unique_ptr<PropertyDeclaration>> properties,
                         std::vector<unique_ptr<MethodDeclaration>> methods,
                         const SourceLocation& loc)
-        : name_(name), extends_(std::move(extends)),
+        : name_(name), typeParameters_(std::move(typeParameters)), extends_(std::move(extends)),
           properties_(std::move(properties)), methods_(std::move(methods)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
@@ -1222,12 +1223,15 @@ public:
     String getName() const override { return name_; }
     String toString() const override;
     
+    const std::vector<unique_ptr<TypeParameter>>& getTypeParameters() const { return typeParameters_; }
     const std::vector<shared_ptr<Type>>& getExtends() const { return extends_; }
     const std::vector<unique_ptr<PropertyDeclaration>>& getProperties() const { return properties_; }
     const std::vector<unique_ptr<MethodDeclaration>>& getMethods() const { return methods_; }
+    bool isGeneric() const { return !typeParameters_.empty(); }
 
 private:
     String name_;
+    std::vector<unique_ptr<TypeParameter>> typeParameters_;
     std::vector<shared_ptr<Type>> extends_;
     std::vector<unique_ptr<PropertyDeclaration>> properties_;
     std::vector<unique_ptr<MethodDeclaration>> methods_;
