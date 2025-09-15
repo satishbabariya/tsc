@@ -1,0 +1,164 @@
+TSC Compiler - Coverage Validation Report
+==========================================
+
+Summary Statistics:
+------------------
+Total Files: 13
+Passed Files: 0
+Failed Files: 13
+Success Rate: 0%
+Average Expected Coverage: 87.1538%
+Average Actual Coverage: 0%
+
+Detailed Results:
+----------------
+
+File: src/parser/Parser.cpp
+Status: FAILED
+Expected Coverage: 85%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 85.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/parser/Parser.h
+Status: FAILED
+Expected Coverage: 90%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 90.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/lexer/Lexer.cpp
+Status: FAILED
+Expected Coverage: 90%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 90.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/lexer/Lexer.h
+Status: FAILED
+Expected Coverage: 95%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 95.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/semantic/SemanticAnalyzer.cpp
+Status: FAILED
+Expected Coverage: 80%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 80.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/semantic/SemanticAnalyzer.h
+Status: FAILED
+Expected Coverage: 85%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 85.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/semantic/TypeChecker.h
+Status: FAILED
+Expected Coverage: 85%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 85.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/codegen/LLVMCodeGen.cpp
+Status: FAILED
+Expected Coverage: 75%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 75.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/codegen/LLVMCodeGen.h
+Status: FAILED
+Expected Coverage: 80%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 80.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/testing/CodeTransformationFramework.cpp
+Status: FAILED
+Expected Coverage: 95%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 95.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/testing/CodeTransformationFramework.h
+Status: FAILED
+Expected Coverage: 98%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 98.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/testing/TestCaseGenerator.cpp
+Status: FAILED
+Expected Coverage: 90%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 90.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+File: src/testing/ErrorReportingValidator.cpp
+Status: FAILED
+Expected Coverage: 85%
+Actual Coverage: 0%
+Discrepancies:
+  - Significant coverage difference: expected 85.000000%, actual 0.000000%
+  - No coverage data found for file
+Recommendations:
+  - Add comprehensive tests for this file
+  - Verify file is included in coverage analysis
+
+Overall Recommendations:
+----------------------
+- Focus on improving coverage for 13 files that failed validation
+- Overall coverage is below target - consider increasing test suite size
+- Regularly validate coverage accuracy to ensure reliable measurements
+- Consider implementing coverage targets for individual files

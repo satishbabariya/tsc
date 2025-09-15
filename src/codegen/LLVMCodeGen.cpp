@@ -24,6 +24,9 @@ namespace tsc {
 CodeGenContext::CodeGenContext(llvm::LLVMContext& llvmContext, llvm::Module& module, 
                                llvm::IRBuilder<>& builder, DiagnosticEngine& diagnostics)
     : llvmContext_(llvmContext), module_(module), builder_(builder), diagnostics_(diagnostics) {
+    // Initialize enhanced error reporting
+    errorReporter_ = make_unique<EnhancedErrorReporting>(diagnostics_);
+    
     // Initialize with global scope
     symbolStack_.push_back(std::unordered_map<String, llvm::Value*>());
     
@@ -133,6 +136,49 @@ void CodeGenContext::generateScopeCleanup(class LLVMCodeGen* codeGen) {
 void CodeGenContext::reportError(const String& message, const SourceLocation& location) {
     diagnostics_.error(message, location);
     errorCount_++;
+}
+
+// Switch context management
+void CodeGenContext::enterSwitch(llvm::BasicBlock* exitBlock) {
+    switchStack_.push({exitBlock});
+}
+
+void CodeGenContext::exitSwitch() {
+    if (!switchStack_.empty()) {
+        switchStack_.pop();
+    }
+}
+
+llvm::BasicBlock* CodeGenContext::getCurrentSwitchExitBlock() const {
+    if (!switchStack_.empty()) {
+        return switchStack_.top().exitBlock;
+    }
+    return nullptr;
+}
+
+// Loop context management
+void CodeGenContext::enterLoop(llvm::BasicBlock* continueBlock, llvm::BasicBlock* breakBlock) {
+    loopStack_.push({continueBlock, breakBlock});
+}
+
+void CodeGenContext::exitLoop() {
+    if (!loopStack_.empty()) {
+        loopStack_.pop();
+    }
+}
+
+llvm::BasicBlock* CodeGenContext::getCurrentLoopContinueBlock() const {
+    if (!loopStack_.empty()) {
+        return loopStack_.top().continueBlock;
+    }
+    return nullptr;
+}
+
+llvm::BasicBlock* CodeGenContext::getCurrentLoopBreakBlock() const {
+    if (!loopStack_.empty()) {
+        return loopStack_.top().breakBlock;
+    }
+    return nullptr;
 }
 
 // LLVMCodeGen implementation
@@ -1867,10 +1913,10 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
         // For global scope, create a proper array structure
         std::cout << "DEBUG: Creating array literal for global context" << std::endl;
         
-        // Create array structure: { i32 length, ptr data }
+        // Create array structure: { i32 length, [size x elementType] data }
         llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
             llvm::Type::getInt32Ty(*context_),  // length
-            llvm::Type::getInt8Ty(*context_)->getPointerTo()  // data (pointer to dynamically allocated array)
+            llvm::ArrayType::get(elementType, arraySize)  // data
         });
         
         // Create a global variable for the array structure
@@ -1883,9 +1929,31 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
             "array_global"
         );
         
+        // Generate element values for initialization
+        std::vector<llvm::Constant*> elementValues;
+        for (size_t i = 0; i < elements.size(); ++i) {
+            elements[i]->accept(*this);
+            llvm::Value* elementValue = getCurrentValue();
+            
+            if (!elementValue) {
+                reportError("Failed to generate array element", elements[i]->getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+            
+            // Convert to constant if possible
+            if (auto* constValue = llvm::dyn_cast<llvm::Constant>(elementValue)) {
+                elementValues.push_back(constValue);
+            } else {
+                // For non-constant values, we'll need to initialize them at runtime
+                // For now, use a default value
+                elementValues.push_back(llvm::Constant::getNullValue(elementType));
+            }
+        }
+        
         // Initialize the array structure with proper values
         llvm::Constant* lengthConst = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), arraySize);
-        llvm::Constant* dataConst = llvm::ConstantPointerNull::get(llvm::Type::getInt8Ty(*context_)->getPointerTo());
+        llvm::Constant* dataConst = llvm::ConstantArray::get(llvm::cast<llvm::ArrayType>(arrayStructType->getStructElementType(1)), elementValues);
         
         llvm::Constant* arrayConst = llvm::ConstantStruct::get(
             llvm::cast<llvm::StructType>(arrayStructType),
@@ -2039,14 +2107,198 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
         return;
     }
     
-    // For simplicity, create a basic object representation
-    // In a full implementation, we'd create proper struct types
-    // For now, store properties in a simple array-like structure
-    
     llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
     if (!currentFunc) {
-        reportError("Object literals not supported at global scope", node.getLocation());
-        setCurrentValue(createNullValue(getAnyType()));
+        // Global scope - create a global object
+        std::cout << "DEBUG: Creating object literal for global context" << std::endl;
+        
+        // Separate regular properties from spread properties
+        std::vector<const ObjectLiteral::Property*> regularProperties;
+        std::vector<const ObjectLiteral::Property*> spreadProperties;
+        
+        for (const auto& property : properties) {
+            if (property.getKey() == "...") {
+                spreadProperties.push_back(&property);
+            } else {
+                regularProperties.push_back(&property);
+            }
+        }
+        
+        // Handle spread properties with property conflict resolution (last-in-wins semantics)
+        struct PropertyInfo {
+            llvm::Type* type;
+            String name;
+            llvm::Value* spreadValue;
+            llvm::Type* spreadType;
+            unsigned fieldIndex;
+            int spreadOrder; // Order in which this property was defined (for conflict resolution)
+        };
+        
+        // Map property names to their latest definition
+        std::unordered_map<String, PropertyInfo> propertyMap;
+        
+        if (!spreadProperties.empty()) {
+            std::cout << "DEBUG: Processing " << spreadProperties.size() << " spread properties with conflict resolution" << std::endl;
+            
+            // Process each spread property in order to implement last-in-wins semantics
+            for (int spreadOrder = 0; spreadOrder < static_cast<int>(spreadProperties.size()); ++spreadOrder) {
+                const auto* spreadProperty = spreadProperties[spreadOrder];
+                std::cout << "DEBUG: Processing spread property " << spreadOrder << std::endl;
+                
+                // Generate the spread expression using SpreadElement visitor
+                spreadProperty->getValue()->accept(*this);
+                llvm::Value* spreadValue = getCurrentValue();
+                
+                if (spreadValue) {
+                    // The SpreadElement visitor should have handled the type detection
+                    // For object spread, we expect the result to be a struct (not a pointer)
+                    llvm::Type* spreadType = nullptr;
+                    if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(spreadValue)) {
+                        spreadType = allocaInst->getAllocatedType();
+                    } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(spreadValue)) {
+                        spreadType = globalVar->getValueType();
+                    } else {
+                        // If it's still a pointer, the SpreadElement visitor didn't handle it properly
+                        std::cout << "DEBUG: SpreadElement visitor returned pointer, type detection failed" << std::endl;
+                    }
+                    
+                    if (spreadType && llvm::isa<llvm::StructType>(spreadType)) {
+                        auto* structType = llvm::cast<llvm::StructType>(spreadType);
+                        std::cout << "DEBUG: Spread object has " << structType->getNumElements() << " fields" << std::endl;
+                        
+                        // Add fields from this spread object, implementing last-in-wins semantics
+                        for (unsigned i = 0; i < structType->getNumElements(); ++i) {
+                            // Generate a property name based on field index
+                            // In a real implementation, we'd need to track actual property names
+                            String propertyName = "field_" + std::to_string(i);
+                            
+                            PropertyInfo propInfo = {
+                                structType->getElementType(i),
+                                propertyName,
+                                spreadValue,
+                                spreadType,
+                                i,
+                                spreadOrder
+                            };
+                            
+                            // Last-in-wins: later spread objects override earlier ones
+                            propertyMap[propertyName] = propInfo;
+                            std::cout << "DEBUG: Property " << propertyName << " defined by spread " << spreadOrder << std::endl;
+                        }
+                    } else {
+                        std::cout << "DEBUG: Spread object type not supported: " << (spreadType ? spreadType->getTypeID() : -1) << std::endl;
+                    }
+                }
+            }
+        }
+        
+        // Create struct type with fields from resolved properties
+        std::vector<llvm::Type*> fieldTypes;
+        std::vector<String> fieldNames;
+        std::vector<PropertyInfo> resolvedProperties;
+        
+        // Add fields from resolved spread properties (last-in-wins semantics applied)
+        for (const auto& [propertyName, propInfo] : propertyMap) {
+            fieldTypes.push_back(propInfo.type);
+            fieldNames.push_back(propInfo.name);
+            resolvedProperties.push_back(propInfo);
+            std::cout << "DEBUG: Resolved property " << propertyName << " from spread " << propInfo.spreadOrder << std::endl;
+        }
+        
+        // Add fields for regular properties (each property can have its own type)
+        for (const auto* property : regularProperties) {
+            property->getValue()->accept(*this);
+            llvm::Value* propertyValue = getCurrentValue();
+            if (propertyValue) {
+                llvm::Type* propertyType = propertyValue->getType();
+                fieldTypes.push_back(propertyType);
+                fieldNames.push_back(property->getKey());
+                std::cout << "DEBUG: Regular property " << property->getKey() << " has type: " << propertyType->getTypeID() << std::endl;
+            }
+        }
+        
+        if (fieldTypes.empty()) {
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
+        
+        llvm::StructType* objectStructType = getOrCreateStructType(fieldTypes);
+        
+        // Create global variable for the object
+        llvm::GlobalVariable* globalObject = new llvm::GlobalVariable(
+            *module_,
+            objectStructType,
+            false, // not constant
+            llvm::GlobalValue::PrivateLinkage,
+            nullptr, // no initializer for now
+            "object_global"
+        );
+        
+        // Generate field values for initialization
+        std::vector<llvm::Constant*> fieldValues;
+        
+        // Copy values from resolved spread properties (last-in-wins semantics applied)
+        // Optimization: For global objects, directly access constant values instead of generating GEP/Load instructions
+        for (const auto& propInfo : resolvedProperties) {
+            llvm::Constant* fieldValue = nullptr;
+            
+            // Check if the spread value is a global variable with constant initializer
+            if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(propInfo.spreadValue)) {
+                if (globalVar->hasInitializer()) {
+                    auto* initializer = globalVar->getInitializer();
+                    if (auto* structConst = llvm::dyn_cast<llvm::ConstantStruct>(initializer)) {
+                        if (propInfo.fieldIndex < structConst->getNumOperands()) {
+                            fieldValue = llvm::cast<llvm::Constant>(structConst->getOperand(propInfo.fieldIndex));
+                        }
+                    }
+                }
+            }
+            
+            // Fallback to runtime access if not a constant
+            if (!fieldValue) {
+                std::vector<llvm::Value*> indices = {
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), propInfo.fieldIndex)   // Field index
+                };
+                llvm::Value* fieldPtr = builder_->CreateGEP(propInfo.spreadType, propInfo.spreadValue, indices, "spread_field_ptr");
+                llvm::Value* runtimeValue = builder_->CreateLoad(propInfo.type, fieldPtr, "spread_field_value");
+                
+                // Convert to constant if possible
+                if (auto* constValue = llvm::dyn_cast<llvm::Constant>(runtimeValue)) {
+                    fieldValue = constValue;
+                } else {
+                    fieldValue = llvm::Constant::getNullValue(propInfo.type);
+                }
+            }
+            
+            fieldValues.push_back(fieldValue);
+            std::cout << "DEBUG: Copied value for property " << propInfo.name << " from spread " << propInfo.spreadOrder << std::endl;
+        }
+        
+        // Add values for regular properties
+        for (const auto* property : regularProperties) {
+            property->getValue()->accept(*this);
+            llvm::Value* elementValue = getCurrentValue();
+            
+            if (!elementValue) {
+                reportError("Failed to generate object property", property->getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+            
+            // Convert to constant if possible
+            if (auto* constValue = llvm::dyn_cast<llvm::Constant>(elementValue)) {
+                fieldValues.push_back(constValue);
+            } else {
+                fieldValues.push_back(llvm::Constant::getNullValue(elementValue->getType()));
+            }
+        }
+        
+        // Initialize the object structure
+        llvm::Constant* objectConst = llvm::ConstantStruct::get(objectStructType, fieldValues);
+        globalObject->setInitializer(objectConst);
+        
+        setCurrentValue(globalObject);
         return;
     }
     
@@ -3121,6 +3373,9 @@ void LLVMCodeGen::visit(DoWhileStatement& node) {
     llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context_, "do.cond", currentFunc);
     llvm::BasicBlock* endBlock = llvm::BasicBlock::Create(*context_, "do.end", currentFunc);
     
+    // Enter loop context for break/continue support
+    codeGenContext_->enterLoop(conditionBlock, endBlock);
+    
     // Jump to body block (do-while executes body at least once)
     builder_->CreateBr(bodyBlock);
     
@@ -3155,6 +3410,9 @@ void LLVMCodeGen::visit(DoWhileStatement& node) {
     
     // Create conditional branch (continue if true, exit if false)
     builder_->CreateCondBr(conditionValue, bodyBlock, endBlock);
+    
+    // Exit loop context
+    codeGenContext_->exitLoop();
     
     // Continue with end block
     builder_->SetInsertPoint(endBlock);
@@ -3323,6 +3581,7 @@ void LLVMCodeGen::visit(ForOfStatement& node) {
 }
 
 void LLVMCodeGen::visit(SwitchStatement& node) {
+    std::cout << "DEBUG: SwitchStatement visitor called" << std::endl;
     llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
     if (!currentFunc) {
         reportError("Switch statement outside function", node.getLocation());
@@ -3338,15 +3597,30 @@ void LLVMCodeGen::visit(SwitchStatement& node) {
         return;
     }
     
-    // Convert discriminant to integer if it's a floating point
+    // Convert discriminant to integer based on type
     if (discriminantValue->getType()->isDoubleTy()) {
+        // Floating point to integer
         discriminantValue = builder_->CreateFPToSI(discriminantValue, 
             llvm::Type::getInt32Ty(*context_), "switch.discriminant.int");
+    } else if (discriminantValue->getType()->isIntegerTy(1)) {
+        // Boolean to integer (extend from i1 to i32)
+        discriminantValue = builder_->CreateZExt(discriminantValue, 
+            llvm::Type::getInt32Ty(*context_), "switch.discriminant.bool");
+    } else if (discriminantValue->getType()->isPointerTy()) {
+        // String to hash (simplified approach)
+        // Note: This is a simplified implementation. In practice, we'd need
+        // to call a runtime function to compute the string hash
+        // For now, we'll assume string discriminants are pre-hashed
+        reportError("String switch discriminants not fully supported yet", node.getDiscriminant()->getLocation());
+        return;
     }
     
     // Create basic blocks
     llvm::BasicBlock* endBlock = llvm::BasicBlock::Create(*context_, "switch.end", currentFunc);
     llvm::BasicBlock* defaultBlock = endBlock;  // Default to end block if no default case
+    
+    // Enter switch context for break statement handling
+    enterSwitch(endBlock);
     
     // Create blocks for each case
     std::vector<std::pair<llvm::ConstantInt*, llvm::BasicBlock*>> caseBlocks;
@@ -3360,11 +3634,25 @@ void LLVMCodeGen::visit(SwitchStatement& node) {
             llvm::BasicBlock* caseBlock = llvm::BasicBlock::Create(*context_, 
                 "switch.case" + std::to_string(i), currentFunc);
             
-            // For now, assume case values are integer constants
-            // TODO: Add proper constant evaluation
+            // Handle different constant types
             if (auto numLit = dynamic_cast<NumericLiteral*>(caseClause->getTest())) {
+                // Numeric literal
                 llvm::ConstantInt* caseValue = llvm::ConstantInt::get(
                     llvm::Type::getInt32Ty(*context_), (int)numLit->getValue());
+                caseBlocks.push_back({caseValue, caseBlock});
+            } else if (auto boolLit = dynamic_cast<BooleanLiteral*>(caseClause->getTest())) {
+                // Boolean literal - convert to integer (0 for false, 1 for true)
+                llvm::ConstantInt* caseValue = llvm::ConstantInt::get(
+                    llvm::Type::getInt32Ty(*context_), boolLit->getValue() ? 1 : 0);
+                caseBlocks.push_back({caseValue, caseBlock});
+            } else if (auto strLit = dynamic_cast<StringLiteral*>(caseClause->getTest())) {
+                // String literal - convert to hash for switch (simplified approach)
+                // Note: This is a simplified implementation. In practice, string switches
+                // would need more sophisticated handling (e.g., string interning, hash tables)
+                std::hash<std::string> hasher;
+                size_t hash = hasher(strLit->getValue());
+                llvm::ConstantInt* caseValue = llvm::ConstantInt::get(
+                    llvm::Type::getInt32Ty(*context_), (int32_t)hash);
                 caseBlocks.push_back({caseValue, caseBlock});
             }
         }
@@ -3399,19 +3687,55 @@ void LLVMCodeGen::visit(SwitchStatement& node) {
         builder_->SetInsertPoint(caseBlock);
         caseClause->accept(*this);
         
-        // If no terminator was added (no break/return), fall through to next case
+        // If no terminator was added (no break/return), implement fallthrough
         if (!builder_->GetInsertBlock()->getTerminator()) {
-            if (i + 1 < node.getCases().size()) {
-                // Fall through to next case (simplified - should find next case block)
+            // Check if this case has a break statement
+            bool hasBreak = false;
+            for (const auto& stmt : caseClause->getStatements()) {
+                if (dynamic_cast<BreakStatement*>(stmt.get())) {
+                    hasBreak = true;
+                    break;
+                }
+            }
+            
+            if (hasBreak) {
+                // Break statement should jump to switch end
                 builder_->CreateBr(endBlock);
             } else {
-                builder_->CreateBr(endBlock);
+                // No break, fall through to next case
+                if (i + 1 < node.getCases().size()) {
+                    // Find the next case block
+                    const auto& nextCase = node.getCases()[i + 1];
+                    llvm::BasicBlock* nextCaseBlock;
+                    
+                    if (nextCase->isDefault()) {
+                        nextCaseBlock = defaultBlock;
+                    } else {
+                        // Find the corresponding case block for the next case
+                        auto it = std::find_if(caseBlocks.begin(), caseBlocks.end(),
+                            [i](const auto& pair) { return pair.second->getName().contains(std::to_string(i + 1)); });
+                        if (it != caseBlocks.end()) {
+                            nextCaseBlock = it->second;
+                        } else {
+                            // Fallback to end block if next case block not found
+                            nextCaseBlock = endBlock;
+                        }
+                    }
+                    
+                    builder_->CreateBr(nextCaseBlock);
+                } else {
+                    // Last case, fall through to end
+                    builder_->CreateBr(endBlock);
+                }
             }
         }
     }
     
     // Continue with end block
     builder_->SetInsertPoint(endBlock);
+    
+    // Exit switch context
+    exitSwitch();
 }
 
 void LLVMCodeGen::visit(CaseClause& node) {
@@ -3422,15 +3746,49 @@ void LLVMCodeGen::visit(CaseClause& node) {
 }
 
 void LLVMCodeGen::visit(BreakStatement& node) {
-    // TODO: Implement proper break handling with loop/switch context tracking
-    // For now, just create an unreachable instruction as placeholder
-    builder_->CreateUnreachable();
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    if (!currentFunc) {
+        reportError("Break statement outside function", node.getLocation());
+        return;
+    }
+    
+    // Check if we're in a switch context
+    llvm::BasicBlock* switchExitBlock = getCurrentSwitchExitBlock();
+    if (switchExitBlock) {
+        // Break from switch statement
+        builder_->CreateBr(switchExitBlock);
+        return;
+    }
+    
+    // Check if we're in a loop context
+    llvm::BasicBlock* loopBreakBlock = codeGenContext_->getCurrentLoopBreakBlock();
+    if (loopBreakBlock) {
+        // Break from loop statement
+        builder_->CreateBr(loopBreakBlock);
+        return;
+    }
+    
+    // If not in switch or loop context, report error
+    reportError("Break statement must be inside a switch or loop", node.getLocation());
 }
 
 void LLVMCodeGen::visit(ContinueStatement& node) {
-    // TODO: Implement proper continue handling with loop context tracking
-    // For now, just create an unreachable instruction as placeholder
-    builder_->CreateUnreachable();
+    llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+    if (!currentFunc) {
+        reportError("Continue statement outside function", node.getLocation());
+        return;
+    }
+    
+    // Check if we're in a loop context
+    llvm::BasicBlock* loopContinueBlock = codeGenContext_->getCurrentLoopContinueBlock();
+    if (loopContinueBlock) {
+        // Continue to loop condition/continue block
+        builder_->CreateBr(loopContinueBlock);
+        return;
+    }
+    
+    // If not in loop context, report error
+    reportError("Continue statement must be inside a loop", node.getLocation());
 }
 
 void LLVMCodeGen::visit(TryStatement& node) {
@@ -5249,6 +5607,17 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(ImportDeclaration& node) override {}
         void visit(ExportDeclaration& node) override {}
         void visit(MoveExpression& node) override {}
+        
+        // Destructuring visitor methods
+        void visit(DestructuringPattern& node) override {}
+        void visit(ArrayDestructuringPattern& node) override {}
+        void visit(ObjectDestructuringPattern& node) override {}
+        void visit(IdentifierPattern& node) override {}
+        void visit(DestructuringAssignment& node) override {}
+        void visit(OptionalPropertyAccess& node) override {}
+        void visit(OptionalIndexAccess& node) override {}
+        void visit(OptionalCallExpr& node) override {}
+        void visit(SpreadElement& node) override {}
     };
     
     ReturnStatementChecker checker;
@@ -5375,6 +5744,17 @@ bool LLVMCodeGen::hasReturnStatementsWithValues(const FunctionDeclaration& funcD
                     void visit(FunctionExpression& node) override {}
                     void visit(Module& node) override {}
                     void visit(MoveExpression& node) override {}
+                    
+                    // Destructuring visitor methods
+                    void visit(DestructuringPattern& node) override {}
+                    void visit(ArrayDestructuringPattern& node) override {}
+                    void visit(ObjectDestructuringPattern& node) override {}
+                    void visit(IdentifierPattern& node) override {}
+                    void visit(DestructuringAssignment& node) override {}
+                    void visit(OptionalPropertyAccess& node) override {}
+                    void visit(OptionalIndexAccess& node) override {}
+                    void visit(OptionalCallExpr& node) override {}
+                    void visit(SpreadElement& node) override {}
     };
     
     ReturnStatementWithValueChecker checker;
@@ -6534,6 +6914,26 @@ llvm::Type* LLVMCodeGen::generateObjectType(const shared_ptr<Type>& type) {
     return structType;
 }
 
+llvm::StructType* LLVMCodeGen::getOrCreateStructType(const std::vector<llvm::Type*>& fieldTypes) {
+    // Create a unique key for this struct type based on field types
+    std::string key = "struct_";
+    for (auto* type : fieldTypes) {
+        key += std::to_string(type->getTypeID()) + "_";
+    }
+    
+    // Check cache first
+    auto cached = structTypeCache_.find(key);
+    if (cached != structTypeCache_.end()) {
+        return cached->second;
+    }
+    
+    // Create new struct type
+    llvm::StructType* structType = llvm::StructType::create(*context_, fieldTypes, "ObjectStruct_" + std::to_string(structTypeCache_.size()));
+    structTypeCache_[key] = structType;
+    
+    return structType;
+}
+
 llvm::Type* LLVMCodeGen::generateFunctionType(const shared_ptr<Type>& type) {
     auto functionType = std::dynamic_pointer_cast<FunctionType>(type);
     if (!functionType) return nullptr;
@@ -6931,6 +7331,721 @@ void LLVMCodeGen::visit(MoveExpression& node) {
     setCurrentValue(operandValue);
 }
 
+// Destructuring visitor methods
+void LLVMCodeGen::visit(DestructuringPattern& node) {
+    // This is a base class - should not be called directly
+    reportError("DestructuringPattern base class should not be visited directly", node.getLocation());
+}
+
+void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
+    std::cout << "DEBUG: ArrayDestructuringPattern visitor called with " << node.getElements().size() << " elements" << std::endl;
+    
+    // Get the source array value from the current context
+    // This should have been set by the DestructuringAssignment
+    llvm::Value* sourceArray = getCurrentValue();
+    
+    if (!sourceArray) {
+        reportError("No source array available for array destructuring", node.getLocation());
+        return;
+    }
+    
+    const auto& elements = node.getElements();
+    
+    // For each element in the destructuring pattern
+    for (size_t i = 0; i < elements.size(); i++) {
+        const auto& element = elements[i];
+        
+        if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(element.get())) {
+            // Simple identifier pattern: let [a, b] = array; or let [a = default] = array;
+            std::cout << "DEBUG: Processing identifier pattern: " << identifierPattern->getName();
+            if (identifierPattern->hasDefaultValue()) {
+                std::cout << " (with default value)";
+            }
+            std::cout << std::endl;
+            
+            // Generate code to access array[i]
+            llvm::Value* indexValue = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i);
+            
+            // Use the same logic as IndexExpression for array access
+            llvm::Type* arrayType = nullptr;
+            llvm::Type* elementType = getAnyType(); // Default fallback
+            llvm::Value* arrayPtr = sourceArray;
+            
+            // Try to get the array type from the alloca instruction or global variable
+            if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(sourceArray)) {
+                arrayType = allocaInst->getAllocatedType();
+            } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(sourceArray)) {
+                arrayType = globalVar->getValueType();
+            }
+            
+            if (arrayType) {
+                if (auto* structType = llvm::dyn_cast<llvm::StructType>(arrayType)) {
+                    // This is our new array structure: { i32 length, [size x elementType] data }
+                    if (structType->getNumElements() == 2) {
+                        auto* dataArrayType = llvm::dyn_cast<llvm::ArrayType>(structType->getElementType(1));
+                        if (dataArrayType) {
+                            elementType = dataArrayType->getElementType();
+                            
+                            // Create GEP to access array element in the data field (field 1)
+                            std::vector<llvm::Value*> indices = {
+                                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
+                                indexValue  // Element index
+                            };
+                            llvm::Value* elementPtr = builder_->CreateGEP(arrayType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
+                            llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
+                            
+                            // Handle default value if present
+                            llvm::Value* finalValue = elementValue;
+                            if (identifierPattern->hasDefaultValue()) {
+                                // Check if array has enough elements (i < array.length)
+                                // Load array length from field 0
+                                llvm::Value* lengthPtr = builder_->CreateGEP(arrayType, arrayPtr, {
+                                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)
+                                }, "length_ptr");
+                                llvm::Value* arrayLength = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "array_length");
+                                
+                                // Compare index with length: i < length
+                                llvm::Value* indexLessThanLength = builder_->CreateICmpULT(indexValue, arrayLength, "index_lt_length");
+                                
+                                // Generate default value
+                                llvm::Value* defaultValue = nullptr;
+                                if (identifierPattern->getDefaultValue()) {
+                                    identifierPattern->getDefaultValue()->accept(*this);
+                                    defaultValue = getCurrentValue();
+                                }
+                                
+                                // Select between element value and default value
+                                finalValue = builder_->CreateSelect(indexLessThanLength, elementValue, defaultValue, "selected_value_" + std::to_string(i));
+                                
+                                std::cout << "DEBUG: Generated default value logic for " << identifierPattern->getName() << std::endl;
+                            }
+                            
+                            // Create the variable storage first
+                            llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
+                            
+                            // Store the final value in the variable
+                            builder_->CreateStore(finalValue, variableStorage);
+                            
+                            std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                            continue; // Successfully processed this element
+                        }
+                    }
+                } else if (auto* arrType = llvm::dyn_cast<llvm::ArrayType>(arrayType)) {
+                    // Legacy array type (for backward compatibility)
+                    elementType = arrType->getElementType();
+                    
+                    std::vector<llvm::Value*> indices = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                        indexValue  // Element index
+                    };
+                    llvm::Value* elementPtr = builder_->CreateGEP(arrayType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
+                    llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
+                    
+                    // Handle default value if present
+                    llvm::Value* finalValue = elementValue;
+                    if (identifierPattern->hasDefaultValue()) {
+                        // For legacy arrays, we assume they have a fixed size
+                        // We could add bounds checking here if needed
+                        // For now, just use the element value
+                        
+                        // Generate default value
+                        llvm::Value* defaultValue = nullptr;
+                        if (identifierPattern->getDefaultValue()) {
+                            identifierPattern->getDefaultValue()->accept(*this);
+                            defaultValue = getCurrentValue();
+                        }
+                        
+                        // For legacy arrays, we'll use the element value (no bounds checking for now)
+                        finalValue = elementValue;
+                        
+                        std::cout << "DEBUG: Generated default value logic for legacy array " << identifierPattern->getName() << std::endl;
+                    }
+                    
+                    // Create the variable storage first
+                    llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
+                    
+                    // Store the final value in the variable
+                    builder_->CreateStore(finalValue, variableStorage);
+                    
+                    std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                    continue; // Successfully processed this element
+                }
+            } else {
+                // objectValue might be a loaded pointer to an array
+                // For now, assume it's a pointer to a double array (simplified)
+                elementType = getNumberType(); // Assume double elements
+                
+                // For global arrays, we need to handle them differently
+                if (llvm::isa<llvm::GlobalVariable>(arrayPtr)) {
+                    // This is a global array - access it directly
+                    std::vector<llvm::Value*> indices = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                        indexValue  // Element index
+                    };
+                    llvm::Value* elementPtr = builder_->CreateGEP(elementType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
+                    llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
+                    
+                    // Handle default value if present
+                    llvm::Value* finalValue = elementValue;
+                    if (identifierPattern->hasDefaultValue()) {
+                        // For global arrays, we can add bounds checking
+                        // Get the array size from the global variable type
+                        auto* globalVar = llvm::cast<llvm::GlobalVariable>(arrayPtr);
+                        llvm::Type* arrayType = globalVar->getValueType();
+                        
+                        if (auto* arrType = llvm::dyn_cast<llvm::ArrayType>(arrayType)) {
+                            llvm::Value* arraySize = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), arrType->getNumElements());
+                            
+                            // Compare index with size: i < size
+                            llvm::Value* indexLessThanSize = builder_->CreateICmpULT(indexValue, arraySize, "index_lt_size");
+                            
+                            // Generate default value
+                            llvm::Value* defaultValue = nullptr;
+                            if (identifierPattern->getDefaultValue()) {
+                                identifierPattern->getDefaultValue()->accept(*this);
+                                defaultValue = getCurrentValue();
+                            }
+                            
+                            // Select between element value and default value
+                            finalValue = builder_->CreateSelect(indexLessThanSize, elementValue, defaultValue, "selected_value_" + std::to_string(i));
+                            
+                            std::cout << "DEBUG: Generated default value logic for global array " << identifierPattern->getName() << std::endl;
+                        } else {
+                            // Fallback: use element value
+                            finalValue = elementValue;
+                        }
+                    }
+                    
+                    // Create the variable storage first
+                    llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
+                    
+                    // Store the final value in the variable
+                    builder_->CreateStore(finalValue, variableStorage);
+                    
+                    std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                    continue; // Successfully processed this element
+                } else {
+                    // Non-global array - use pointer arithmetic
+                    llvm::Type* elementPtrType = elementType->getPointerTo();
+                    
+                    std::vector<llvm::Value*> indices = {
+                        indexValue  // Element index
+                    };
+                    llvm::Value* elementPtr = builder_->CreateGEP(elementPtrType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
+                    llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
+                    
+                    // Handle default value if present
+                    llvm::Value* finalValue = elementValue;
+                    if (identifierPattern->hasDefaultValue()) {
+                        // For pointer arrays, we don't have length information readily available
+                        // We could add bounds checking here if needed
+                        // For now, just use the element value
+                        
+                        // Generate default value
+                        llvm::Value* defaultValue = nullptr;
+                        if (identifierPattern->getDefaultValue()) {
+                            identifierPattern->getDefaultValue()->accept(*this);
+                            defaultValue = getCurrentValue();
+                        }
+                        
+                        // For pointer arrays, we'll use the element value (no bounds checking for now)
+                        finalValue = elementValue;
+                        
+                        std::cout << "DEBUG: Generated default value logic for pointer array " << identifierPattern->getName() << std::endl;
+                    }
+                    
+                    // Create the variable storage first
+                    llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
+                    
+                    // Store the final value in the variable
+                    builder_->CreateStore(finalValue, variableStorage);
+                }
+                
+                std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                continue; // Successfully processed this element
+            }
+            
+            // If we get here, we couldn't determine the array type
+            reportError("Could not determine array type for destructuring", node.getLocation());
+            return;
+        } else {
+            // Handle other pattern types (nested patterns, etc.)
+            std::cout << "DEBUG: Processing complex pattern at index " << i << std::endl;
+            // TODO: Implement nested destructuring patterns
+            reportError("Complex destructuring patterns not yet implemented", node.getLocation());
+        }
+    }
+    
+    std::cout << "DEBUG: ArrayDestructuringPattern completed" << std::endl;
+}
+
+void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
+    std::cout << "DEBUG: ObjectDestructuringPattern visitor called with " << node.getProperties().size() << " properties" << std::endl;
+    
+    llvm::Value* sourceObject = getCurrentValue();
+    
+    if (!sourceObject) {
+        reportError("No source object available for object destructuring", node.getLocation());
+        return;
+    }
+    
+    const auto& properties = node.getProperties();
+    
+    // For each property in the destructuring pattern
+    for (size_t i = 0; i < properties.size(); i++) {
+        const auto& property = properties[i];
+        
+        std::cout << "DEBUG: Processing object property: " << property.getKey() << std::endl;
+        
+        // Get the object type to determine field access
+        llvm::Type* objectType = nullptr;
+        llvm::Type* fieldType = nullptr;
+        
+        if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(sourceObject)) {
+            // Local object (AllocaInst)
+            objectType = allocaInst->getAllocatedType();
+        } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(sourceObject)) {
+            // Global object (GlobalVariable)
+            objectType = globalVar->getValueType();
+        } else {
+            reportError("Unsupported object type for destructuring", node.getLocation());
+            return;
+        }
+        
+        // Extract field type from object structure
+        if (auto* structType = llvm::dyn_cast<llvm::StructType>(objectType)) {
+            // For now, assume all fields have the same type and access by index
+            // This is a simplified approach - in a full implementation we'd use property names
+            if (i < structType->getNumElements()) {
+                fieldType = structType->getElementType(i);
+            } else {
+                // Property doesn't exist in the object - use default value if available
+                if (property.hasDefaultValue()) {
+                    std::cout << "DEBUG: Property " << property.getKey() << " not found, using default value" << std::endl;
+                    
+                    // Generate default value
+                    llvm::Value* defaultValue = nullptr;
+                    if (property.getDefaultValue()) {
+                        property.getDefaultValue()->accept(*this);
+                        defaultValue = getCurrentValue();
+                        fieldType = defaultValue->getType();
+                    }
+                    
+                    // Handle the destructuring pattern
+                    if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(property.getPattern())) {
+                        String variableName = identifierPattern->getName();
+                        
+                        // Create the variable storage
+                        llvm::Value* variableStorage = allocateVariable(variableName, fieldType, node.getLocation());
+                        
+                        // Store the default value in the variable
+                        builder_->CreateStore(defaultValue, variableStorage);
+                        
+                        std::cout << "DEBUG: Stored default value for property " << property.getKey() << " in variable " << variableName << std::endl;
+                        continue; // Skip the rest of the processing for this property
+                    } else {
+                        reportError("Complex object destructuring patterns not yet implemented", node.getLocation());
+                        return;
+                    }
+                } else {
+                    reportError("Property index out of bounds for object destructuring", node.getLocation());
+                    return;
+                }
+            }
+        } else {
+            reportError("Could not determine object structure for destructuring", node.getLocation());
+            return;
+        }
+        
+        // Access object field using GEP: object[i]
+        std::vector<llvm::Value*> indices = {
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Field index
+        };
+        llvm::Value* fieldPtr = builder_->CreateGEP(objectType, sourceObject, indices, "field_ptr_" + std::to_string(i));
+        llvm::Value* fieldValue = builder_->CreateLoad(fieldType, fieldPtr, "field_value_" + std::to_string(i));
+        
+        // Handle default value if present
+        llvm::Value* finalValue = fieldValue;
+        if (property.hasDefaultValue()) {
+            // For object destructuring, we need to check if the property exists
+            // For now, we'll assume the property exists if we can access it
+            // In a full implementation, we'd check for undefined/null values
+            
+            // Generate default value
+            llvm::Value* defaultValue = nullptr;
+            if (property.getDefaultValue()) {
+                property.getDefaultValue()->accept(*this);
+                defaultValue = getCurrentValue();
+            }
+            
+            // For now, use the field value (property exists)
+            // TODO: Add proper property existence checking
+            finalValue = fieldValue;
+            
+            std::cout << "DEBUG: Generated default value logic for object property " << property.getKey() << std::endl;
+        }
+        
+        // Handle the destructuring pattern (could be renaming)
+        if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(property.getPattern())) {
+            // Simple identifier pattern: { x } or { x: newName }
+            String variableName = identifierPattern->getName();
+            
+            // Create the variable storage
+            llvm::Value* variableStorage = allocateVariable(variableName, fieldType, node.getLocation());
+            
+            // Store the final value in the variable
+            builder_->CreateStore(finalValue, variableStorage);
+            
+            std::cout << "DEBUG: Stored object property " << property.getKey() << " in variable " << variableName << std::endl;
+        } else {
+            std::cout << "DEBUG: Processing complex object pattern for property " << property.getKey() << std::endl;
+            reportError("Complex object destructuring patterns not yet implemented", node.getLocation());
+        }
+    }
+    
+    std::cout << "DEBUG: ObjectDestructuringPattern completed" << std::endl;
+}
+
+void LLVMCodeGen::visit(IdentifierPattern& node) {
+    std::cout << "DEBUG: IdentifierPattern visitor called for: " << node.getName() << std::endl;
+    
+    // For identifier patterns, we need to create a variable storage
+    // This is typically called from within a destructuring pattern context
+    
+    // Get the current value (should be set by the parent destructuring pattern)
+    llvm::Value* value = getCurrentValue();
+    
+    if (!value) {
+        reportError("No value available for identifier pattern: " + node.getName(), node.getLocation());
+        return;
+    }
+    
+    // Create the variable storage first
+    llvm::Value* variableStorage = allocateVariable(node.getName(), value->getType(), node.getLocation());
+    
+    // Store the value in the variable
+    builder_->CreateStore(value, variableStorage);
+    
+    std::cout << "DEBUG: Stored value in variable: " << node.getName() << std::endl;
+}
+
+void LLVMCodeGen::visit(DestructuringAssignment& node) {
+    std::cout << "DEBUG: DestructuringAssignment visitor called" << std::endl;
+    
+    // Generate the right-hand side value (the source)
+    node.getValue()->accept(*this);
+    llvm::Value* sourceValue = getCurrentValue();
+    
+    if (!sourceValue) {
+        reportError("Failed to generate source value for destructuring assignment", node.getLocation());
+        return;
+    }
+    
+    // Handle the destructuring pattern
+    node.getPattern()->accept(*this);
+    
+    std::cout << "DEBUG: DestructuringAssignment completed" << std::endl;
+}
+
+void LLVMCodeGen::visit(OptionalPropertyAccess& node) {
+    // TODO: Implement optional property access code generation
+    reportError("OptionalPropertyAccess code generation not yet implemented", node.getLocation());
+}
+
+void LLVMCodeGen::visit(OptionalIndexAccess& node) {
+    // TODO: Implement optional index access code generation
+    reportError("OptionalIndexAccess code generation not yet implemented", node.getLocation());
+}
+
+void LLVMCodeGen::visit(OptionalCallExpr& node) {
+    // TODO: Implement optional call expression code generation
+    reportError("OptionalCallExpr code generation not yet implemented", node.getLocation());
+}
+
+void LLVMCodeGen::visit(SpreadElement& node) {
+    std::cout << "DEBUG: SpreadElement visitor called" << std::endl;
+    
+    // Generate the expression being spread
+    node.getExpression()->accept(*this);
+    llvm::Value* spreadValue = getCurrentValue();
+    
+    if (!spreadValue) {
+        reportError("Failed to generate spread expression", node.getLocation());
+        return;
+    }
+    
+    std::cout << "DEBUG: SpreadElement - spreadValue type: " << spreadValue->getType()->getTypeID() << std::endl;
+    
+    // For now, we'll implement a simplified version that works with arrays
+    // In a full implementation, we'd need to handle both arrays and objects
+    
+    // Check if the spread value is an array or object
+    llvm::Type* spreadType = nullptr;
+    llvm::Value* spreadPtr = spreadValue;
+    
+    if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(spreadValue)) {
+        spreadType = allocaInst->getAllocatedType();
+        std::cout << "DEBUG: SpreadElement - spreadValue is AllocaInst" << std::endl;
+    } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(spreadValue)) {
+        std::cout << "DEBUG: SpreadElement - spreadValue is GlobalVariable: " << globalVar->getName().str() << std::endl;
+        
+        // Check if this global variable points to another global variable (struct)
+        if (globalVar->hasInitializer()) {
+            llvm::Constant* initializer = globalVar->getInitializer();
+            if (auto* targetGlobalVar = llvm::dyn_cast<llvm::GlobalVariable>(initializer)) {
+                // This is a pointer to a global variable (struct)
+                spreadType = targetGlobalVar->getValueType();
+                spreadPtr = targetGlobalVar; // Use the actual struct, not the pointer
+                std::cout << "DEBUG: SpreadElement - GlobalVariable points to struct: " << targetGlobalVar->getName().str() << std::endl;
+                
+                // For object literal implementation, return the dereferenced struct
+                setCurrentValue(targetGlobalVar);
+                return;
+            } else {
+                // This is a direct struct global variable
+                spreadType = globalVar->getValueType();
+                spreadPtr = globalVar;
+                std::cout << "DEBUG: SpreadElement - GlobalVariable is direct struct" << std::endl;
+                
+                // For object literal implementation, return the struct directly
+                setCurrentValue(globalVar);
+                return;
+            }
+        } else {
+            // No initializer, treat as direct struct
+            spreadType = globalVar->getValueType();
+            spreadPtr = globalVar;
+            std::cout << "DEBUG: SpreadElement - GlobalVariable has no initializer, treating as direct struct" << std::endl;
+            
+            // For object literal implementation, return the struct directly
+            setCurrentValue(globalVar);
+            return;
+        }
+    } else if (spreadValue->getType()->isPointerTy()) {
+        // Handle pointer to struct/array
+        std::cout << "DEBUG: SpreadElement - spreadValue is a pointer, type ID: " << spreadValue->getType()->getTypeID() << std::endl;
+        if (spreadValue->getType()->getTypeID() == llvm::Type::TypedPointerTyID) {
+            // It's a TypedPointerType
+            auto* typedPtrType = llvm::cast<llvm::TypedPointerType>(spreadValue->getType());
+            spreadType = typedPtrType->getElementType();
+            spreadPtr = spreadValue; // Use the pointer directly
+            std::cout << "DEBUG: SpreadElement - TypedPointerType, element type: " << spreadType->getTypeID() << std::endl;
+        } else {
+            // It's a regular PointerType - in LLVM 20, we can't get element type directly
+            // But we can try to infer the type by looking at the global variable it points to
+            std::cout << "DEBUG: SpreadElement - regular PointerType, trying to infer type from global variable" << std::endl;
+            
+            // Check if this is a global variable that points to a struct
+            if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(spreadValue)) {
+                std::cout << "DEBUG: SpreadElement - found global variable: " << globalVar->getName().str() << std::endl;
+                if (globalVar->hasInitializer()) {
+                    llvm::Constant* initializer = globalVar->getInitializer();
+                    std::cout << "DEBUG: SpreadElement - initializer type: " << initializer->getType()->getTypeID() << std::endl;
+                    if (auto* globalVarPtr = llvm::dyn_cast<llvm::GlobalVariable>(initializer)) {
+                        // This is a pointer to a global variable
+                        spreadType = globalVarPtr->getValueType();
+                        spreadPtr = globalVarPtr; // Use the actual struct, not the pointer
+                        std::cout << "DEBUG: SpreadElement - inferred struct type from global variable: " << spreadType->getTypeID() << std::endl;
+                    } else {
+                        std::cout << "DEBUG: SpreadElement - initializer is not a global variable" << std::endl;
+                    }
+                } else {
+                    std::cout << "DEBUG: SpreadElement - global variable has no initializer" << std::endl;
+                }
+            } else {
+                std::cout << "DEBUG: SpreadElement - spreadValue is not a global variable" << std::endl;
+            }
+            
+            if (!spreadType) {
+                std::cout << "DEBUG: SpreadElement - could not infer type, returning null" << std::endl;
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+        }
+    }
+    
+    if (spreadType && llvm::isa<llvm::StructType>(spreadType)) {
+        auto* structType = llvm::cast<llvm::StructType>(spreadType);
+        if (structType->getNumElements() == 2) {
+            // This is our array structure: { i32 length, [size x elementType] data }
+            auto* dataArrayType = llvm::dyn_cast<llvm::ArrayType>(structType->getElementType(1));
+            if (dataArrayType) {
+                llvm::Type* elementType = dataArrayType->getElementType();
+                size_t arraySize = dataArrayType->getNumElements();
+                
+                std::cout << "DEBUG: Spreading array with " << arraySize << " elements of type " << elementType->getTypeID() << std::endl;
+                
+                // Create a new array with the same structure
+                llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+                if (!currentFunc) {
+                    // Global scope - create a global array
+                    llvm::Type* newArrayStructType = llvm::StructType::get(*context_, {
+                        llvm::Type::getInt32Ty(*context_),  // length
+                        llvm::ArrayType::get(elementType, arraySize)  // data
+                    });
+                    
+                    llvm::GlobalVariable* newArray = new llvm::GlobalVariable(
+                        *module_,
+                        newArrayStructType,
+                        false, // not constant
+                        llvm::GlobalValue::PrivateLinkage,
+                        nullptr, // no initializer for now
+                        "spread_array_global"
+                    );
+                    
+                    // Copy elements from source array to new array
+                    std::vector<llvm::Constant*> copiedElements;
+                    for (size_t i = 0; i < arraySize; ++i) {
+                        // Access source array element
+                        std::vector<llvm::Value*> indices = {
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Element index
+                        };
+                        llvm::Value* sourceElementPtr = builder_->CreateGEP(structType, spreadPtr, indices, "source_element_ptr");
+                        llvm::Value* sourceElement = builder_->CreateLoad(elementType, sourceElementPtr, "source_element");
+                        
+                        // Convert to constant if possible
+                        if (auto* constValue = llvm::dyn_cast<llvm::Constant>(sourceElement)) {
+                            copiedElements.push_back(constValue);
+                        } else {
+                            // For non-constant values, use a default value
+                            copiedElements.push_back(llvm::Constant::getNullValue(elementType));
+                        }
+                    }
+                    
+                    // Initialize the new array structure
+                    llvm::Constant* lengthConst = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), arraySize);
+                    llvm::Constant* dataConst = llvm::ConstantArray::get(llvm::cast<llvm::ArrayType>(newArrayStructType->getStructElementType(1)), copiedElements);
+                    
+                    llvm::Constant* arrayConst = llvm::ConstantStruct::get(
+                        llvm::cast<llvm::StructType>(newArrayStructType),
+                        {lengthConst, dataConst}
+                    );
+                    
+                    newArray->setInitializer(arrayConst);
+                    setCurrentValue(newArray);
+                    return;
+                } else {
+                    // Local scope - create a local array
+                    llvm::Type* newArrayStructType = llvm::StructType::get(*context_, {
+                        llvm::Type::getInt32Ty(*context_),  // length
+                        llvm::ArrayType::get(elementType, arraySize)  // data
+                    });
+                    
+                    llvm::IRBuilder<> allocaBuilder(&currentFunc->getEntryBlock(), 
+                                                   currentFunc->getEntryBlock().begin());
+                    llvm::AllocaInst* newArrayStorage = allocaBuilder.CreateAlloca(newArrayStructType, nullptr, "spread_array");
+                    
+                    // Set the length field
+                    llvm::Value* lengthPtr = builder_->CreateStructGEP(newArrayStructType, newArrayStorage, 0, "length.ptr");
+                    builder_->CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), arraySize), lengthPtr);
+                    
+                    // Copy elements from source array to new array
+                    for (size_t i = 0; i < arraySize; ++i) {
+                        // Access source array element
+                        std::vector<llvm::Value*> sourceIndices = {
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Element index
+                        };
+                        llvm::Value* sourceElementPtr = builder_->CreateGEP(structType, spreadPtr, sourceIndices, "source_element_ptr");
+                        llvm::Value* sourceElement = builder_->CreateLoad(elementType, sourceElementPtr, "source_element");
+                        
+                        // Store in new array
+                        std::vector<llvm::Value*> newIndices = {
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Element index
+                        };
+                        llvm::Value* newElementPtr = builder_->CreateGEP(newArrayStructType, newArrayStorage, newIndices, "new_element_ptr");
+                        builder_->CreateStore(sourceElement, newElementPtr);
+                    }
+                    
+                    setCurrentValue(newArrayStorage);
+                    return;
+                }
+            }
+        } else {
+            // This is an object struct (not an array)
+            std::cout << "DEBUG: Spreading object with " << structType->getNumElements() << " fields" << std::endl;
+            
+            // For object spread, we'll create a new struct with the same fields
+            llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
+            if (!currentFunc) {
+                // Global scope - create a global object
+                llvm::GlobalVariable* newObject = new llvm::GlobalVariable(
+                    *module_,
+                    structType,
+                    false, // not constant
+                    llvm::GlobalValue::PrivateLinkage,
+                    nullptr, // no initializer for now
+                    "spread_object_global"
+                );
+                
+                // Copy fields from source object to new object
+                std::vector<llvm::Constant*> copiedFields;
+                for (unsigned i = 0; i < structType->getNumElements(); ++i) {
+                    // Access source object field
+                    std::vector<llvm::Value*> indices = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Field index
+                    };
+                    llvm::Value* fieldPtr = builder_->CreateGEP(structType, spreadPtr, indices, "source_field_ptr");
+                    llvm::Value* fieldValue = builder_->CreateLoad(structType->getElementType(i), fieldPtr, "source_field_value");
+                    
+                    // Convert to constant if possible
+                    if (auto* constValue = llvm::dyn_cast<llvm::Constant>(fieldValue)) {
+                        copiedFields.push_back(constValue);
+                    } else {
+                        copiedFields.push_back(llvm::Constant::getNullValue(structType->getElementType(i)));
+                    }
+                }
+                
+                // Initialize the new object structure
+                llvm::Constant* objectConst = llvm::ConstantStruct::get(structType, copiedFields);
+                newObject->setInitializer(objectConst);
+                
+                setCurrentValue(newObject);
+                return;
+            } else {
+                // Local scope - create a local object
+                llvm::IRBuilder<> allocaBuilder(&currentFunc->getEntryBlock(), 
+                                               currentFunc->getEntryBlock().begin());
+                llvm::AllocaInst* newObjectStorage = allocaBuilder.CreateAlloca(structType, nullptr, "spread_object");
+                
+                // Copy fields from source object to new object
+                for (unsigned i = 0; i < structType->getNumElements(); ++i) {
+                    // Access source object field
+                    std::vector<llvm::Value*> sourceIndices = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Field index
+                    };
+                    llvm::Value* sourceFieldPtr = builder_->CreateGEP(structType, spreadPtr, sourceIndices, "source_field_ptr");
+                    llvm::Value* sourceFieldValue = builder_->CreateLoad(structType->getElementType(i), sourceFieldPtr, "source_field_value");
+                    
+                    // Store in new object
+                    std::vector<llvm::Value*> newIndices = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Field index
+                    };
+                    llvm::Value* newFieldPtr = builder_->CreateGEP(structType, newObjectStorage, newIndices, "new_field_ptr");
+                    builder_->CreateStore(sourceFieldValue, newFieldPtr);
+                }
+                
+                setCurrentValue(newObjectStorage);
+                return;
+            }
+        }
+    }
+    
+    // Fallback: if we can't determine the type, create a null value
+    reportError("SpreadElement: unsupported spread type", node.getLocation());
+    setCurrentValue(createNullValue(getAnyType()));
+}
+
 // Helper function to check if a type is ARC-managed
 bool LLVMCodeGen::isARCManagedType(shared_ptr<Type> type) const {
     if (!type) return false;
@@ -6979,6 +8094,19 @@ void LLVMCodeGen::generateAutomaticCleanup(const String& className) {
     }
     
     std::cout << "DEBUG: Automatic cleanup generation completed for: " << className << std::endl;
+}
+
+// Switch context management
+void LLVMCodeGen::enterSwitch(llvm::BasicBlock* exitBlock) {
+    codeGenContext_->enterSwitch(exitBlock);
+}
+
+void LLVMCodeGen::exitSwitch() {
+    codeGenContext_->exitSwitch();
+}
+
+llvm::BasicBlock* LLVMCodeGen::getCurrentSwitchExitBlock() const {
+    return codeGenContext_->getCurrentSwitchExitBlock();
 }
 
 // Factory function

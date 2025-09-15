@@ -4,6 +4,7 @@
 #include "tsc/AST.h"
 #include "tsc/Token.h"
 #include "tsc/utils/EnhancedDiagnosticEngine.h"
+#include "tsc/utils/EnhancedErrorReporting.h"
 #include "tsc/utils/ASTAllocator.h"
 #include <vector>
 
@@ -40,6 +41,7 @@ public:
 private:
     DiagnosticEngine& diagnostics_;
     utils::EnhancedDiagnosticEngine* enhancedDiagnostics_;
+    unique_ptr<EnhancedErrorReporting> errorReporter_;
     const TypeSystem& typeSystem_;
     unique_ptr<TokenStream> tokens_;
     String filename_;
@@ -65,6 +67,7 @@ private:
     unique_ptr<Statement> parseImportDeclaration();
     unique_ptr<Statement> parseExportDeclaration();
     unique_ptr<Statement> parseVariableStatement();
+    unique_ptr<Statement> parseDestructuringVariableStatement();
     unique_ptr<Statement> parseFunctionDeclaration();
     unique_ptr<Statement> parseClassDeclaration();
     unique_ptr<Statement> parseInterfaceDeclaration();
@@ -116,10 +119,17 @@ private:
     // TypeScript-specific
     shared_ptr<Type> parseTypeAnnotation();
     shared_ptr<Type> parseUnionType();
+    shared_ptr<Type> parseIntersectionType();
     shared_ptr<Type> parsePrimaryType();
     shared_ptr<Type> parseArrayType(shared_ptr<Type> baseType);
     shared_ptr<Type> parseTupleType();
     shared_ptr<Type> parseObjectType();
+    
+    // Destructuring patterns
+    unique_ptr<DestructuringPattern> parseDestructuringPattern();
+    unique_ptr<DestructuringPattern> parseArrayDestructuringPattern();
+    unique_ptr<DestructuringPattern> parseObjectDestructuringPattern();
+    unique_ptr<DestructuringPattern> parseIdentifierPattern();
     
     // Function and class parsing
     std::vector<FunctionDeclaration::Parameter> parseParameterList();
@@ -166,7 +176,7 @@ private:
     // Operator precedence
     int getBinaryOperatorPrecedence(TokenType type) const;
     BinaryExpression::Operator tokenToBinaryOperator(TokenType type) const;
-    UnaryExpression::Operator tokenToUnaryOperator(TokenType type) const;
+    UnaryExpression::Operator tokenToUnaryOperator(TokenType type, bool isPrefix = true) const;
     AssignmentExpression::Operator tokenToAssignmentOperator(TokenType type) const;
     
     // Lookahead helpers

@@ -18,6 +18,7 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     dependencyScanner_ = make_unique<DependencyScanner>(*moduleResolver_, diagnostics_);
     moduleSymbolManager_ = make_unique<ModuleSymbolManager>(diagnostics_, symbolTable_.get());
     cycleDetector_ = make_unique<semantic::CycleDetector>(symbolTable_.get());
+    errorReporter_ = make_unique<EnhancedErrorReporting>(diagnostics_);
     
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
     
@@ -1836,28 +1837,50 @@ void SemanticAnalyzer::checkUnaryOperation(UnaryExpression& expr) {
 
 // Error reporting
 void SemanticAnalyzer::reportError(const String& message, const SourceLocation& location) {
-    diagnostics_.error(message, location);
+    if (errorReporter_) {
+        errorReporter_->reportSemanticError(ErrorCodes::Semantic::CANNOT_FIND_NAME, location, message);
+    } else {
+        diagnostics_.error(message, location);
+    }
     context_->incrementErrorCount();
 }
 
 void SemanticAnalyzer::reportWarning(const String& message, const SourceLocation& location) {
-    diagnostics_.warning(message, location);
+    if (errorReporter_) {
+        errorReporter_->reportWarning(ErrorCodes::Warning::UNUSED_VARIABLE, location, message);
+    } else {
+        diagnostics_.warning(message, location);
+    }
 }
 
 void SemanticAnalyzer::reportTypeError(const String& expected, const String& actual, 
                                       const SourceLocation& location) {
-    reportError("Type mismatch: expected " + expected + ", got " + actual, location);
+    if (errorReporter_) {
+        errorReporter_->reportTypeMismatch(location, expected, actual, 
+                                          "Consider using type '" + expected + "' instead of '" + actual + "'");
+    } else {
+        reportError("Type mismatch: expected " + expected + ", got " + actual, location);
+    }
 }
 
 void SemanticAnalyzer::reportUndefinedSymbol(const String& name, const SourceLocation& location) {
-    reportError("Undefined symbol: " + name, location);
+    if (errorReporter_) {
+        errorReporter_->reportCannotFindName(location, name, "Check the spelling or declare the symbol");
+    } else {
+        reportError("Undefined symbol: " + name, location);
+    }
 }
 
 void SemanticAnalyzer::reportRedefinitionError(const String& name, const SourceLocation& location, 
                                               const SourceLocation& originalLocation) {
-    reportError("Redefinition of symbol: " + name + 
-               " (originally defined at " + originalLocation.getFilename() + ":" + 
-               std::to_string(originalLocation.getLine()) + ":" + std::to_string(originalLocation.getColumn()) + ")", location);
+    if (errorReporter_) {
+        errorReporter_->reportDuplicateIdentifier(location, name, 
+                                                 "Rename one of the identifiers to make them unique");
+    } else {
+        reportError("Redefinition of symbol: " + name + 
+                   " (originally defined at " + originalLocation.getFilename() + ":" + 
+                   std::to_string(originalLocation.getLine()) + ":" + std::to_string(originalLocation.getColumn()) + ")", location);
+    }
 }
 
 // Utility methods
@@ -3309,6 +3332,63 @@ void SemanticAnalyzer::validateDestructorSafety(const DestructorDeclaration& des
     
     std::cout << "   ✓ Destructor safety validation completed" << std::endl;
     std::cout << "✅ Destructor safety validation completed for: " << destructor.getClassName() << std::endl;
+}
+
+// Destructuring visitor method implementations
+void SemanticAnalyzer::visit(DestructuringPattern& node) {
+    // TODO: Implement destructuring pattern semantic analysis
+}
+
+void SemanticAnalyzer::visit(ArrayDestructuringPattern& node) {
+    // TODO: Implement array destructuring pattern semantic analysis
+    for (const auto& element : node.getElements()) {
+        element->accept(*this);
+    }
+}
+
+void SemanticAnalyzer::visit(ObjectDestructuringPattern& node) {
+    // TODO: Implement object destructuring pattern semantic analysis
+    for (const auto& property : node.getProperties()) {
+        property.getPattern()->accept(*this);
+        if (property.getDefaultValue()) {
+            property.getDefaultValue()->accept(*this);
+        }
+    }
+}
+
+void SemanticAnalyzer::visit(IdentifierPattern& node) {
+    // TODO: Implement identifier pattern semantic analysis
+    // This should create a symbol for the identifier
+}
+
+void SemanticAnalyzer::visit(DestructuringAssignment& node) {
+    // TODO: Implement destructuring assignment semantic analysis
+    node.getPattern()->accept(*this);
+    node.getValue()->accept(*this);
+}
+
+void SemanticAnalyzer::visit(OptionalPropertyAccess& node) {
+    // TODO: Implement optional property access semantic analysis
+    node.getObject()->accept(*this);
+}
+
+void SemanticAnalyzer::visit(OptionalIndexAccess& node) {
+    // TODO: Implement optional index access semantic analysis
+    node.getObject()->accept(*this);
+    node.getIndex()->accept(*this);
+}
+
+void SemanticAnalyzer::visit(OptionalCallExpr& node) {
+    // TODO: Implement optional call expression semantic analysis
+    node.getCallee()->accept(*this);
+    for (const auto& arg : node.getArguments()) {
+        arg->accept(*this);
+    }
+}
+
+void SemanticAnalyzer::visit(SpreadElement& node) {
+    // TODO: Implement spread element semantic analysis
+    node.getExpression()->accept(*this);
 }
 
 // Factory function

@@ -5,6 +5,7 @@
 #include "tsc/semantic/SymbolTable.h"
 #include "tsc/semantic/TypeSystem.h"
 #include "tsc/utils/DiagnosticEngine.h"
+#include "tsc/utils/EnhancedErrorReporting.h"
 
 // LLVM includes
 #include "llvm/IR/LLVMContext.h"
@@ -64,8 +65,14 @@ public:
     // Block context for break/continue
     void enterLoop(llvm::BasicBlock* continueBlock, llvm::BasicBlock* breakBlock);
     void exitLoop();
-    llvm::BasicBlock* getCurrentContinueBlock() const;
-    llvm::BasicBlock* getCurrentBreakBlock() const;
+    llvm::BasicBlock* getCurrentLoopContinueBlock() const;
+    llvm::BasicBlock* getCurrentLoopBreakBlock() const;
+    
+    // Switch context for break statements
+    void enterSwitch(llvm::BasicBlock* exitBlock);
+    void exitSwitch();
+    llvm::BasicBlock* getCurrentSwitchExitBlock() const;
+    
     
     // Scope management
     void enterScope();
@@ -84,12 +91,16 @@ private:
     llvm::Module& module_;
     llvm::IRBuilder<>& builder_;
     DiagnosticEngine& diagnostics_;
+    unique_ptr<EnhancedErrorReporting> errorReporter_;
     
     // Symbol table for LLVM values
     std::vector<std::unordered_map<String, llvm::Value*>> symbolStack_;
     
     // Function context stack
     std::stack<llvm::Function*> functionStack_;
+    
+    // Performance optimization: struct type cache
+    std::unordered_map<String, llvm::StructType*> structTypeCache_;
     
     // Class context stack
     std::stack<String> classStack_;
@@ -100,6 +111,12 @@ private:
         llvm::BasicBlock* breakBlock;
     };
     std::stack<LoopContext> loopStack_;
+    
+    // Switch context for break statements
+    struct SwitchContext {
+        llvm::BasicBlock* exitBlock;
+    };
+    std::stack<SwitchContext> switchStack_;
     
     // ARC object tracking
     struct ARCManagedObject {
@@ -419,6 +436,10 @@ public:
     void visit(ArrowFunction& node) override;
     void visit(FunctionExpression& node) override;
     void visit(MoveExpression& node) override;
+    void visit(OptionalPropertyAccess& node) override;
+    void visit(OptionalIndexAccess& node) override;
+    void visit(OptionalCallExpr& node) override;
+    void visit(SpreadElement& node) override;
     void visit(ForOfStatement& node) override;
     
     void visit(ExpressionStatement& node) override;
@@ -452,6 +473,13 @@ public:
     void visit(ExportDeclaration& node) override;
     
     void visit(Module& module) override;
+    
+    // Destructuring visitor methods
+    void visit(DestructuringPattern& node) override;
+    void visit(ArrayDestructuringPattern& node) override;
+    void visit(ObjectDestructuringPattern& node) override;
+    void visit(IdentifierPattern& node) override;
+    void visit(DestructuringAssignment& node) override;
 
 private:
     DiagnosticEngine& diagnostics_;
@@ -547,6 +575,14 @@ public:
     // Type conversion
     llvm::Type* convertTypeToLLVM(shared_ptr<Type> type);
     
+    // Performance optimization: struct type caching
+    llvm::StructType* getOrCreateStructType(const std::vector<llvm::Type*>& fieldTypes);
+    
+    // Switch context for break statements
+    void enterSwitch(llvm::BasicBlock* exitBlock);
+    void exitSwitch();
+    llvm::BasicBlock* getCurrentSwitchExitBlock() const;
+    
     // Generic type monomorphization
     llvm::Type* createMonomorphizedType(const GenericType& genericType);
     String generateMangledName(const GenericType& genericType);
@@ -598,7 +634,6 @@ public:
     void declareBuiltinFunctions();
     void declareBuiltinGlobals();
     llvm::Value* createDeferredExternalSymbolMarker(llvm::GlobalVariable* externalVar, const String& name);
-    llvm::Function* getOrCreatePrintFunction();
     llvm::Function* getOrCreateStringConcatFunction();
     llvm::Function* getOrCreateNumberToStringFunction();
     llvm::Function* getOrCreateBooleanToStringFunction();
@@ -638,6 +673,16 @@ public:
     // Error handling
     void reportError(const String& message, const SourceLocation& location);
     void reportWarning(const String& message, const SourceLocation& location);
+
+private:
+    DiagnosticEngine& diagnostics_;
+    unique_ptr<EnhancedErrorReporting> errorReporter_;
+    unique_ptr<CodeGenContext> codeGenContext_;
+    unique_ptr<llvm::LLVMContext> llvmContext_;
+    unique_ptr<llvm::Module> module_;
+    unique_ptr<llvm::IRBuilder<>> builder_;
+    llvm::Value* currentValue_ = nullptr;
+    const CompilerOptions& options_;
 };
 
 // Code generation result

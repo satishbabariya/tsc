@@ -69,6 +69,19 @@ public:
     
     // Module
     void visit(Module& node) override;
+    
+    // Optional chaining and spread
+    void visit(OptionalPropertyAccess& node) override;
+    void visit(OptionalIndexAccess& node) override;
+    void visit(OptionalCallExpr& node) override;
+    void visit(SpreadElement& node) override;
+    
+    // Destructuring patterns
+    void visit(DestructuringPattern& node) override;
+    void visit(ArrayDestructuringPattern& node) override;
+    void visit(ObjectDestructuringPattern& node) override;
+    void visit(IdentifierPattern& node) override;
+    void visit(DestructuringAssignment& node) override;
 
 private:
     std::ostream& output_;

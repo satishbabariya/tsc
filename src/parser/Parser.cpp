@@ -16,6 +16,7 @@ namespace tsc {
 // because they are handled by parseAssignmentExpression(), not parseBinaryExpression()
 static const std::unordered_map<TokenType, int> operatorPrecedence = {
     {TokenType::PipePipe, 3},
+    {TokenType::QuestionQuestion, 4}, // Nullish coalescing has same precedence as logical OR
     {TokenType::AmpersandAmpersand, 4},
     {TokenType::EqualEqual, 8},
     {TokenType::NotEqual, 8},
@@ -28,13 +29,18 @@ static const std::unordered_map<TokenType, int> operatorPrecedence = {
     {TokenType::Star, 12},
     {TokenType::Slash, 12},
     {TokenType::Percent, 12},  // Modulo operator has same precedence as multiplication/division
+    {TokenType::StarStar, 13}, // Exponentiation has higher precedence than multiplication/division
 };
 
 Parser::Parser(DiagnosticEngine& diagnostics, const TypeSystem& typeSystem) 
-    : diagnostics_(diagnostics), enhancedDiagnostics_(nullptr), typeSystem_(typeSystem) {}
+    : diagnostics_(diagnostics), enhancedDiagnostics_(nullptr), typeSystem_(typeSystem) {
+    errorReporter_ = make_unique<EnhancedErrorReporting>(diagnostics_);
+}
 
 Parser::Parser(utils::EnhancedDiagnosticEngine& enhancedDiagnostics, const TypeSystem& typeSystem) 
-    : diagnostics_(enhancedDiagnostics), enhancedDiagnostics_(&enhancedDiagnostics), typeSystem_(typeSystem) {}
+    : diagnostics_(enhancedDiagnostics), enhancedDiagnostics_(&enhancedDiagnostics), typeSystem_(typeSystem) {
+    errorReporter_ = make_unique<EnhancedErrorReporting>(diagnostics_);
+}
 
 Parser::~Parser() = default;
 
@@ -205,7 +211,12 @@ unique_ptr<Statement> Parser::parseStatement() {
 }
 
 unique_ptr<Statement> Parser::parseVariableStatement() {
-    // Parse identifier
+    // Check if this is a destructuring assignment: let [a, b] = array;
+    if (check(TokenType::LeftBracket) || check(TokenType::LeftBrace)) {
+        return parseDestructuringVariableStatement();
+    }
+    
+    // Parse regular variable declaration: let name = value;
     Token nameToken = consume(TokenType::Identifier, "Expected variable name");
     String name = nameToken.getStringValue();
     
@@ -301,7 +312,8 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 setContext(ParsingContext::Type);
                 constraint = parseUnionType();
                 if (!constraint) {
-                    reportError("Expected constraint type after 'extends'", getCurrentLocation());
+                    errorReporter_->reportExpectedToken(getCurrentLocation(), "constraint type", "'extends'", 
+                                                       "Add a type constraint after 'extends'");
                     constraint = typeSystem_.getErrorType();
                 }
                 setContext(oldContext);
@@ -329,7 +341,8 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
         
         baseClass = parseUnionType();
         if (!baseClass) {
-            reportError("Expected base class type after 'extends'", getCurrentLocation());
+            errorReporter_->reportExpectedToken(getCurrentLocation(), "base class type", "'extends'", 
+                                               "Add a base class type after 'extends'");
             baseClass = typeSystem_.getErrorType();
         }
         
@@ -495,7 +508,8 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 ));
             }
         } else {
-            reportError("Expected class member", getCurrentLocation());
+            errorReporter_->reportInvalidDeclaration(getCurrentLocation(), 
+                                                    "Expected class member (method, property, constructor, or destructor)");
             synchronize();
         }
     }
@@ -1120,7 +1134,8 @@ unique_ptr<CaseClause> Parser::parseCaseClause() {
         // Default case (test remains null)
         consume(TokenType::Colon, "Expected ':' after 'default'");
     } else {
-        reportError("Expected 'case' or 'default'", getCurrentLocation());
+        errorReporter_->reportExpectedToken(getCurrentLocation(), "'case' or 'default'", "switch case", 
+                                           "Add 'case value:' or 'default:'");
         return nullptr;
     }
     
@@ -1319,13 +1334,14 @@ unique_ptr<Expression> Parser::parseBinaryExpression(int minPrecedence) {
 
 unique_ptr<Expression> Parser::parseUnaryExpression() {
     if (check(TokenType::Plus) || check(TokenType::Minus) || 
-        check(TokenType::Exclamation)) {
+        check(TokenType::Exclamation) || check(TokenType::PlusPlus) || 
+        check(TokenType::MinusMinus)) {
         
         Token opToken = advance();
         auto operand = parseUnaryExpression();
         
         return make_unique<UnaryExpression>(
-            tokenToUnaryOperator(opToken.getType()),
+            tokenToUnaryOperator(opToken.getType(), true),
             std::move(operand),
             opToken.getLocation(),
             true
@@ -1346,6 +1362,21 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
             
             SourceLocation location = getCurrentLocation();
             expr = make_unique<IndexExpression>(
+                std::move(expr),
+                std::move(index),
+                location
+            );
+        }
+        else if (check(TokenType::QuestionDot) && peekAhead(1).getType() == TokenType::LeftBracket) {
+            // Parse optional index access: expr?.[index]
+            advance(); // consume '?.'
+            consume(TokenType::LeftBracket, "Expected '[' after '?.'");
+            
+            auto index = parseExpression();
+            consume(TokenType::RightBracket, "Expected ']' after optional array index");
+            
+            SourceLocation location = getCurrentLocation();
+            expr = make_unique<OptionalIndexAccess>(
                 std::move(expr),
                 std::move(index),
                 location
@@ -1399,6 +1430,56 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
                 );
             }
         }
+        else if (check(TokenType::QuestionDot) && peekAhead(1).getType() == TokenType::LeftParen) {
+            // Parse optional function call: expr?.method()
+            advance(); // consume '?.'
+            
+            // Parse optional type arguments if present
+            std::vector<shared_ptr<Type>> typeArguments;
+            if (check(TokenType::Less) && isTypeArgumentList()) {
+                advance(); // consume '<'
+                if (!check(TokenType::Greater)) {
+                    do {
+                        typeArguments.push_back(parseTypeAnnotation());
+                    } while (match(TokenType::Comma));
+                }
+                consume(TokenType::Greater, "Expected '>' after type arguments");
+            }
+            
+            // Parse the function call
+            consume(TokenType::LeftParen, "Expected '(' after '?.'");
+            std::vector<unique_ptr<Expression>> arguments;
+            
+            // Parse arguments if not empty
+            if (!check(TokenType::RightParen)) {
+                do {
+                    auto arg = parseExpression();
+                    if (!arg) {
+                        reportError("Expected expression in optional function call argument", getCurrentLocation());
+                        return nullptr;
+                    }
+                    arguments.push_back(std::move(arg));
+                } while (match(TokenType::Comma));
+            }
+            
+            consume(TokenType::RightParen, "Expected ')' after optional function call arguments");
+            
+            SourceLocation location = getCurrentLocation();
+            if (typeArguments.empty()) {
+                expr = make_unique<OptionalCallExpr>(
+                    std::move(expr),
+                    std::move(arguments),
+                    location
+                );
+            } else {
+                expr = make_unique<OptionalCallExpr>(
+                    std::move(expr),
+                    std::move(typeArguments),
+                    std::move(arguments),
+                    location
+                );
+            }
+        }
         else if (match(TokenType::Dot)) {
             // Parse property access: expr.property
             if (!check(TokenType::Identifier)) {
@@ -1412,6 +1493,33 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
                 std::move(expr),
                 propertyToken.getStringValue(),
                 location
+            );
+        }
+        else if (match(TokenType::QuestionDot)) {
+            // Parse optional property access: expr?.property
+            if (!check(TokenType::Identifier)) {
+                reportError("Expected property name after '?.'", getCurrentLocation());
+                return nullptr;
+            }
+            
+            Token propertyToken = advance();
+            SourceLocation location = getCurrentLocation();
+            expr = make_unique<OptionalPropertyAccess>(
+                std::move(expr),
+                propertyToken.getStringValue(),
+                location
+            );
+        }
+        else if (check(TokenType::PlusPlus) || check(TokenType::MinusMinus)) {
+            // Parse postfix increment/decrement: expr++ or expr--
+            TokenType opType = peek().getType(); // Get the token type before consuming
+            advance(); // consume the operator
+            SourceLocation location = getCurrentLocation();
+            expr = make_unique<UnaryExpression>(
+                tokenToUnaryOperator(opType, false),
+                std::move(expr),
+                location,
+                false // postfix
             );
         }
         else {
@@ -1511,9 +1619,17 @@ unique_ptr<Expression> Parser::parseArrayLiteral() {
             break; // Trailing comma case: [1, 2, ]
         }
         
-        auto element = parseExpression();
-        if (element) {
-            elements.push_back(std::move(element));
+        // Check for spread element: ...expr
+        if (match(TokenType::DotDotDot)) {
+            auto expression = parseExpression();
+            if (expression) {
+                elements.push_back(make_unique<SpreadElement>(std::move(expression), getCurrentLocation()));
+            }
+        } else {
+            auto element = parseExpression();
+            if (element) {
+                elements.push_back(std::move(element));
+            }
         }
     } while (match(TokenType::Comma));
     
@@ -1537,30 +1653,41 @@ unique_ptr<Expression> Parser::parseObjectLiteral() {
             break; // Trailing comma case: {a: 1, }
         }
         
-        // Parse property key (for now, only identifiers and string literals)
-        String key;
-        if (check(TokenType::Identifier)) {
-            Token keyToken = advance();
-            key = keyToken.getStringValue();
-        } else if (check(TokenType::StringLiteral)) {
-            Token keyToken = advance();
-            key = keyToken.getStringValue();
+        // Check for spread element: ...expr
+        if (match(TokenType::DotDotDot)) {
+            auto expression = parseExpression();
+            if (expression) {
+                // Create a SpreadElement for object spread
+                auto spreadElement = make_unique<SpreadElement>(std::move(expression), getCurrentLocation());
+                // Store the SpreadElement as a property with special key "..."
+                properties.emplace_back("...", std::move(spreadElement), getCurrentLocation());
+            }
         } else {
-            reportError("Expected property name", getCurrentLocation());
-            return nullptr;
+            // Parse property key (for now, only identifiers and string literals)
+            String key;
+            if (check(TokenType::Identifier)) {
+                Token keyToken = advance();
+                key = keyToken.getStringValue();
+            } else if (check(TokenType::StringLiteral)) {
+                Token keyToken = advance();
+                key = keyToken.getStringValue();
+            } else {
+                reportError("Expected property name", getCurrentLocation());
+                return nullptr;
+            }
+            
+            // Expect colon
+            consume(TokenType::Colon, "Expected ':' after property name");
+            
+            // Parse property value
+            auto value = parseExpression();
+            if (!value) {
+                reportError("Expected property value", getCurrentLocation());
+                return nullptr;
+            }
+            
+            properties.emplace_back(key, std::move(value), getCurrentLocation());
         }
-        
-        // Expect colon
-        consume(TokenType::Colon, "Expected ':' after property name");
-        
-        // Parse property value
-        auto value = parseExpression();
-        if (!value) {
-            reportError("Expected property value", getCurrentLocation());
-            return nullptr;
-        }
-        
-        properties.emplace_back(key, std::move(value), getCurrentLocation());
         
     } while (match(TokenType::Comma));
     
@@ -1720,6 +1847,7 @@ BinaryExpression::Operator Parser::tokenToBinaryOperator(TokenType type) const {
         case TokenType::Plus: return BinaryExpression::Operator::Add;
         case TokenType::Minus: return BinaryExpression::Operator::Subtract;
         case TokenType::Star: return BinaryExpression::Operator::Multiply;
+        case TokenType::StarStar: return BinaryExpression::Operator::Power;
         case TokenType::Slash: return BinaryExpression::Operator::Divide;
         case TokenType::Percent: return BinaryExpression::Operator::Modulo;
         case TokenType::EqualEqual: return BinaryExpression::Operator::Equal;
@@ -1730,16 +1858,21 @@ BinaryExpression::Operator Parser::tokenToBinaryOperator(TokenType type) const {
         case TokenType::GreaterEqual: return BinaryExpression::Operator::GreaterEqual;
         case TokenType::AmpersandAmpersand: return BinaryExpression::Operator::LogicalAnd;
         case TokenType::PipePipe: return BinaryExpression::Operator::LogicalOr;
+        case TokenType::QuestionQuestion: return BinaryExpression::Operator::NullishCoalescing;
         default:
             return BinaryExpression::Operator::Add;
     }
 }
 
-UnaryExpression::Operator Parser::tokenToUnaryOperator(TokenType type) const {
+UnaryExpression::Operator Parser::tokenToUnaryOperator(TokenType type, bool isPrefix) const {
     switch (type) {
         case TokenType::Plus: return UnaryExpression::Operator::Plus;
         case TokenType::Minus: return UnaryExpression::Operator::Minus;
         case TokenType::Exclamation: return UnaryExpression::Operator::LogicalNot;
+        case TokenType::PlusPlus: 
+            return isPrefix ? UnaryExpression::Operator::PreIncrement : UnaryExpression::Operator::PostIncrement;
+        case TokenType::MinusMinus: 
+            return isPrefix ? UnaryExpression::Operator::PreDecrement : UnaryExpression::Operator::PostDecrement;
         default:
             return UnaryExpression::Operator::Plus;
     }
@@ -1749,9 +1882,28 @@ void Parser::reportError(const String& message, const SourceLocation& location,
                         const String& context, const String& suggestion) {
     SourceLocation loc = location.isValid() ? location : getCurrentLocation();
     
-    // Use enhanced diagnostic engine if available
-    if (enhancedDiagnostics_) {
-        enhancedDiagnostics_->error(message, loc, context, suggestion);
+    // Use enhanced error reporting system
+    if (errorReporter_) {
+        // Determine error code based on context
+        String errorCode = ErrorCodes::Syntax::INVALID_EXPRESSION; // Default
+        
+        if (context.find("token") != String::npos) {
+            errorCode = ErrorCodes::Syntax::UNEXPECTED_TOKEN;
+        } else if (context.find("semicolon") != String::npos) {
+            errorCode = ErrorCodes::Syntax::MISSING_SEMICOLON;
+        } else if (context.find("brace") != String::npos) {
+            errorCode = ErrorCodes::Syntax::MISSING_BRACE;
+        } else if (context.find("parenthesis") != String::npos) {
+            errorCode = ErrorCodes::Syntax::MISSING_PARENTHESIS;
+        } else if (context.find("bracket") != String::npos) {
+            errorCode = ErrorCodes::Syntax::MISSING_BRACKET;
+        } else if (context.find("declaration") != String::npos) {
+            errorCode = ErrorCodes::Syntax::INVALID_DECLARATION;
+        } else if (context.find("statement") != String::npos) {
+            errorCode = ErrorCodes::Syntax::INVALID_STATEMENT;
+        }
+        
+        errorReporter_->reportSyntaxError(errorCode, loc, message, suggestion);
     } else {
         // Fallback to basic diagnostic engine
         if (!context.empty()) {
@@ -1881,7 +2033,7 @@ shared_ptr<Type> Parser::parseTypeAnnotation() {
 }
 
 shared_ptr<Type> Parser::parseUnionType() {
-    auto firstType = parsePrimaryType();
+    auto firstType = parseIntersectionType();
     if (!firstType) {
         return nullptr;
     }
@@ -1891,7 +2043,7 @@ shared_ptr<Type> Parser::parseUnionType() {
     unionTypes.push_back(firstType);
     
     while (match(TokenType::Pipe)) {
-        auto nextType = parsePrimaryType();
+        auto nextType = parseIntersectionType();
         if (!nextType) {
             reportError("Expected type after '|' in union type", getCurrentLocation());
             return typeSystem_.getErrorType();
@@ -1908,6 +2060,34 @@ shared_ptr<Type> Parser::parseUnionType() {
     return typeSystem_.createUnionType(std::move(unionTypes));
 }
 
+shared_ptr<Type> Parser::parseIntersectionType() {
+    auto firstType = parsePrimaryType();
+    if (!firstType) {
+        return nullptr;
+    }
+    
+    // Check if this is an intersection type (has '&' operator)
+    std::vector<shared_ptr<Type>> intersectionTypes;
+    intersectionTypes.push_back(firstType);
+    
+    while (match(TokenType::Ampersand)) {
+        auto nextType = parsePrimaryType();
+        if (!nextType) {
+            reportError("Expected type after '&' in intersection type", getCurrentLocation());
+            return typeSystem_.getErrorType();
+        }
+        intersectionTypes.push_back(nextType);
+    }
+    
+    // If we only have one type, return it directly
+    if (intersectionTypes.size() == 1) {
+        return intersectionTypes[0];
+    }
+    
+    // Create intersection type
+    return typeSystem_.createIntersectionType(std::move(intersectionTypes));
+}
+
 shared_ptr<Type> Parser::parseArrayType(shared_ptr<Type> baseType) {
     // Handle recursive array syntax: T[], T[][], T[][][], etc.
     while (check(TokenType::LeftBracket)) {
@@ -1916,6 +2096,108 @@ shared_ptr<Type> Parser::parseArrayType(shared_ptr<Type> baseType) {
         baseType = typeSystem_.createArrayType(baseType);
     }
     return baseType;
+}
+
+shared_ptr<Type> Parser::parseTupleType() {
+    SourceLocation location = getCurrentLocation();
+    advance(); // consume '['
+    
+    std::vector<shared_ptr<Type>> elementTypes;
+    
+    // Handle empty tuple: []
+    if (check(TokenType::RightBracket)) {
+        advance(); // consume ']'
+        return typeSystem_.createTupleType(std::move(elementTypes));
+    }
+    
+    // Parse tuple elements
+    do {
+        if (check(TokenType::RightBracket)) {
+            break; // Trailing comma case: [string, number, ]
+        }
+        
+        auto elementType = parseUnionType();
+        if (!elementType) {
+            reportError("Expected type in tuple element", getCurrentLocation());
+            return typeSystem_.getErrorType();
+        }
+        
+        elementTypes.push_back(elementType);
+    } while (match(TokenType::Comma));
+    
+    consume(TokenType::RightBracket, "Expected ']' after tuple elements");
+    
+    return typeSystem_.createTupleType(std::move(elementTypes));
+}
+
+shared_ptr<Type> Parser::parseObjectType() {
+    SourceLocation location = getCurrentLocation();
+    advance(); // consume '{'
+    
+    std::vector<ObjectType::Property> properties;
+    
+    // Handle empty object type: {}
+    if (check(TokenType::RightBrace)) {
+        advance(); // consume '}'
+        return typeSystem_.createObjectType(std::move(properties));
+    }
+    
+    // Parse object properties
+    do {
+        if (check(TokenType::RightBrace)) {
+            break; // Trailing comma case: { name: string; age: number; }
+        }
+        
+        // Parse property modifiers (readonly, optional)
+        bool readonly = false;
+        bool optional = false;
+        
+        if (match(TokenType::Readonly)) {
+            readonly = true;
+        }
+        
+        // Parse property name
+        String propertyName;
+        if (check(TokenType::Identifier)) {
+            Token nameToken = advance();
+            propertyName = nameToken.getStringValue();
+        } else if (check(TokenType::StringLiteral)) {
+            Token nameToken = advance();
+            propertyName = nameToken.getStringValue();
+        } else {
+            reportError("Expected property name in object type", getCurrentLocation());
+            return typeSystem_.getErrorType();
+        }
+        
+        // Check for optional property
+        if (match(TokenType::Question)) {
+            optional = true;
+        }
+        
+        // Expect colon
+        consume(TokenType::Colon, "Expected ':' after property name");
+        
+        // Parse property type
+        auto propertyType = parseUnionType();
+        if (!propertyType) {
+            reportError("Expected type after ':' in object type property", getCurrentLocation());
+            return typeSystem_.getErrorType();
+        }
+        
+        // Create property
+        ObjectType::Property property;
+        property.name = propertyName;
+        property.type = propertyType;
+        property.optional = optional;
+        property.readonly = readonly;
+        
+        properties.push_back(std::move(property));
+        
+    } while (match(TokenType::Semicolon) || match(TokenType::Comma));
+    
+    consume(TokenType::RightBrace, "Expected '}' after object type properties");
+    
+    return typeSystem_.createObjectType(std::move(properties));
 }
 
 shared_ptr<Type> Parser::parsePrimaryType() {
@@ -2041,11 +2323,14 @@ shared_ptr<Type> Parser::parsePrimaryType() {
         return parseArrayType(baseType);
     }
     
-    // Handle array types like "number[]"
+    // Handle tuple types like "[string, number]"
     if (check(TokenType::LeftBracket)) {
-        // This should not happen here - array syntax should be handled after parsing the base type
-        reportError("Unexpected '[' in type annotation", getCurrentLocation());
-        return typeSystem_.getErrorType();
+        return parseTupleType();
+    }
+    
+    // Handle object types like "{ name: string; age: number }"
+    if (check(TokenType::LeftBrace)) {
+        return parseObjectType();
     }
     
     reportError("Expected type name", getCurrentLocation());
@@ -2442,6 +2727,193 @@ unique_ptr<Parser> createParser(DiagnosticEngine& diagnostics, const TypeSystem&
 
 unique_ptr<Parser> createEnhancedParser(utils::EnhancedDiagnosticEngine& diagnostics, const TypeSystem& typeSystem) {
     return make_unique<Parser>(diagnostics, typeSystem);
+}
+
+// Destructuring assignment parsing methods
+unique_ptr<Statement> Parser::parseDestructuringVariableStatement() {
+    SourceLocation location = getCurrentLocation();
+    
+    // Parse the destructuring pattern
+    auto pattern = parseDestructuringPattern();
+    if (!pattern) {
+        reportError("Expected destructuring pattern", getCurrentLocation());
+        return nullptr;
+    }
+    
+    // Optional type annotation
+    shared_ptr<Type> typeAnnotation = nullptr;
+    if (match(TokenType::Colon)) {
+        ParsingContext oldContext = currentContext_;
+        setContext(ParsingContext::Type);
+        typeAnnotation = parseUnionType();
+        setContext(oldContext);
+    }
+    
+    // Required initializer for destructuring
+    if (!match(TokenType::Equal)) {
+        reportError("Expected '=' after destructuring pattern", getCurrentLocation());
+        return nullptr;
+    }
+    
+    auto initializer = parseExpression();
+    if (!initializer) {
+        reportError("Expected expression after '=' in destructuring assignment", getCurrentLocation());
+        return nullptr;
+    }
+    
+    consume(TokenType::Semicolon, "Expected ';' after destructuring assignment");
+    
+    // Create a destructuring assignment expression
+    auto destructuringAssignment = make_unique<DestructuringAssignment>(
+        std::move(pattern), std::move(initializer), location
+    );
+    
+    // Wrap in expression statement
+    return make_unique<ExpressionStatement>(std::move(destructuringAssignment), location);
+}
+
+unique_ptr<DestructuringPattern> Parser::parseDestructuringPattern() {
+    if (check(TokenType::LeftBracket)) {
+        return parseArrayDestructuringPattern();
+    } else if (check(TokenType::LeftBrace)) {
+        return parseObjectDestructuringPattern();
+    } else if (check(TokenType::Identifier)) {
+        return parseIdentifierPattern();
+    } else {
+        reportError("Expected destructuring pattern", getCurrentLocation());
+        return nullptr;
+    }
+}
+
+unique_ptr<DestructuringPattern> Parser::parseArrayDestructuringPattern() {
+    SourceLocation location = getCurrentLocation();
+    advance(); // consume '['
+    
+    std::vector<unique_ptr<DestructuringPattern>> elements;
+    
+    // Handle empty array: []
+    if (check(TokenType::RightBracket)) {
+        advance(); // consume ']'
+        return make_unique<ArrayDestructuringPattern>(std::move(elements), location);
+    }
+    
+    // Parse array elements
+    do {
+        if (check(TokenType::RightBracket)) {
+            break; // Trailing comma case: [a, b, ]
+        }
+        
+        // Check for spread element: ...rest
+        if (match(TokenType::DotDotDot)) {
+            auto restPattern = parseDestructuringPattern();
+            if (restPattern) {
+                // For now, we'll treat spread as a regular element
+                // In a full implementation, this would need special handling
+                elements.push_back(std::move(restPattern));
+            }
+        } else {
+            // Parse the pattern element
+            auto element = parseDestructuringPattern();
+            if (element) {
+                // Check if this is an identifier pattern with a default value
+                if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(element.get())) {
+                    // Check for default value: [a = default]
+                    if (match(TokenType::Equal)) {
+                        auto defaultValue = parseExpression();
+                        if (!defaultValue) {
+                            reportError("Expected default value after '='", getCurrentLocation());
+                            return nullptr;
+                        }
+                        // Create a new IdentifierPattern with the default value
+                        auto newPattern = make_unique<IdentifierPattern>(
+                            identifierPattern->getName(), 
+                            std::move(defaultValue), 
+                            identifierPattern->getLocation()
+                        );
+                        elements.push_back(std::move(newPattern));
+                    } else {
+                        elements.push_back(std::move(element));
+                    }
+                } else {
+                    elements.push_back(std::move(element));
+                }
+            }
+        }
+    } while (match(TokenType::Comma));
+    
+    consume(TokenType::RightBracket, "Expected ']' after array destructuring pattern");
+    
+    return make_unique<ArrayDestructuringPattern>(std::move(elements), location);
+}
+
+unique_ptr<DestructuringPattern> Parser::parseObjectDestructuringPattern() {
+    SourceLocation location = getCurrentLocation();
+    advance(); // consume '{'
+    
+    std::vector<ObjectDestructuringPattern::Property> properties;
+    
+    // Handle empty object: {}
+    if (check(TokenType::RightBrace)) {
+        advance(); // consume '}'
+        return make_unique<ObjectDestructuringPattern>(std::move(properties), location);
+    }
+    
+    // Parse object properties
+    do {
+        if (check(TokenType::RightBrace)) {
+            break; // Trailing comma case: { a, b, }
+        }
+        
+        // Parse property key (identifier or string literal)
+        String key;
+        if (check(TokenType::Identifier)) {
+            Token keyToken = advance();
+            key = keyToken.getStringValue();
+        } else if (check(TokenType::StringLiteral)) {
+            Token keyToken = advance();
+            key = keyToken.getStringValue();
+        } else {
+            reportError("Expected property name in object destructuring pattern", getCurrentLocation());
+            return nullptr;
+        }
+        
+        // Parse pattern (can be identifier or nested destructuring)
+        unique_ptr<DestructuringPattern> pattern = nullptr;
+        
+        if (match(TokenType::Colon)) {
+            // Shorthand: { a: b } - parse the pattern after colon
+            pattern = parseDestructuringPattern();
+            if (!pattern) {
+                reportError("Expected destructuring pattern after ':'", getCurrentLocation());
+                return nullptr;
+            }
+        } else {
+            // Shorthand: { a } - same as { a: a }
+            pattern = make_unique<IdentifierPattern>(key, getCurrentLocation());
+        }
+        
+        // Parse default value: { a = default }
+        unique_ptr<Expression> defaultValue = nullptr;
+        if (match(TokenType::Equal)) {
+            defaultValue = parseExpression();
+            if (!defaultValue) {
+                reportError("Expected default value after '='", getCurrentLocation());
+                return nullptr;
+            }
+        }
+        
+        properties.emplace_back(key, std::move(pattern), std::move(defaultValue), getCurrentLocation());
+        
+    } while (match(TokenType::Comma));
+    
+    consume(TokenType::RightBrace, "Expected '}' after object destructuring pattern");
+    
+    return make_unique<ObjectDestructuringPattern>(std::move(properties), location);
+}
+
+unique_ptr<DestructuringPattern> Parser::parseIdentifierPattern() {
+    Token token = consume(TokenType::Identifier, "Expected identifier in destructuring pattern");
+    return make_unique<IdentifierPattern>(token.getStringValue(), token.getLocation());
 }
 
 } // namespace tsc

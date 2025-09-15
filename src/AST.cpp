@@ -1048,4 +1048,73 @@ String MoveExpression::toString() const {
     return "std::move(" + operand_->toString() + ")";
 }
 
+// Destructuring pattern implementations
+void DestructuringPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+void ArrayDestructuringPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+void ObjectDestructuringPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+void IdentifierPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+void DestructuringAssignment::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String DestructuringAssignment::toString() const {
+    return "DestructuringAssignment";
+}
+
+String ArrayDestructuringPattern::toString() const {
+    return "ArrayDestructuringPattern";
+}
+
+String ObjectDestructuringPattern::toString() const {
+    return "ObjectDestructuringPattern";
+}
+
+String IdentifierPattern::toString() const {
+    return "IdentifierPattern";
+}
+
+String OptionalPropertyAccess::toString() const {
+    return "OptionalPropertyAccess";
+}
+
+void OptionalPropertyAccess::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String SpreadElement::toString() const {
+    return "SpreadElement";
+}
+
+void SpreadElement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String OptionalCallExpr::toString() const {
+    return "OptionalCallExpr";
+}
+
+void OptionalCallExpr::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String OptionalIndexAccess::toString() const {
+    return "OptionalIndexAccess";
+}
+
+void OptionalIndexAccess::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
 } // namespace tsc

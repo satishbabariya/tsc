@@ -473,6 +473,37 @@ private:
     SourceLocation location_;
 };
 
+// Optional call expression (obj?.method())
+class OptionalCallExpr : public Expression {
+public:
+    OptionalCallExpr(unique_ptr<Expression> callee,
+                    std::vector<unique_ptr<Expression>> arguments,
+                    const SourceLocation& loc)
+        : callee_(std::move(callee)), arguments_(std::move(arguments)), location_(loc) {}
+    
+    OptionalCallExpr(unique_ptr<Expression> callee,
+                    std::vector<shared_ptr<Type>> typeArguments,
+                    std::vector<unique_ptr<Expression>> arguments,
+                    const SourceLocation& loc)
+        : callee_(std::move(callee)), typeArguments_(std::move(typeArguments)), arguments_(std::move(arguments)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    Expression* getCallee() const { return callee_.get(); }
+    const std::vector<shared_ptr<Type>>& getTypeArguments() const { return typeArguments_; }
+    const std::vector<unique_ptr<Expression>>& getArguments() const { return arguments_; }
+    bool hasTypeArguments() const { return !typeArguments_.empty(); }
+
+private:
+    unique_ptr<Expression> callee_;
+    std::vector<shared_ptr<Type>> typeArguments_;
+    std::vector<unique_ptr<Expression>> arguments_;
+    SourceLocation location_;
+};
+
 // Array literal expression
 class ArrayLiteral : public Expression {
 public:
@@ -491,6 +522,24 @@ private:
     SourceLocation location_;
 };
 
+// Spread element expression (...expr)
+class SpreadElement : public Expression {
+public:
+    SpreadElement(unique_ptr<Expression> expression, const SourceLocation& loc)
+        : expression_(std::move(expression)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    Expression* getExpression() const { return expression_.get(); }
+
+private:
+    unique_ptr<Expression> expression_;
+    SourceLocation location_;
+};
+
 // Index expression (array access)
 class IndexExpression : public Expression {
 public:
@@ -501,6 +550,27 @@ public:
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::LValue; }  // Can be assigned to
+    String toString() const override;
+    
+    Expression* getObject() const { return object_.get(); }
+    Expression* getIndex() const { return index_.get(); }
+
+private:
+    unique_ptr<Expression> object_;
+    unique_ptr<Expression> index_;
+    SourceLocation location_;
+};
+
+// Optional index access expression (obj?.[index])
+class OptionalIndexAccess : public Expression {
+public:
+    OptionalIndexAccess(unique_ptr<Expression> object, unique_ptr<Expression> index,
+                        const SourceLocation& loc)
+        : object_(std::move(object)), index_(std::move(index)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }  // Cannot be assigned to
     String toString() const override;
     
     Expression* getObject() const { return object_.get(); }
@@ -555,6 +625,26 @@ public:
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::LValue; }  // Can be assigned to
+    String toString() const override;
+    
+    Expression* getObject() const { return object_.get(); }
+    const String& getProperty() const { return property_; }
+
+private:
+    unique_ptr<Expression> object_;
+    String property_;
+    SourceLocation location_;
+};
+
+// Optional property access expression (obj?.property)
+class OptionalPropertyAccess : public Expression {
+public:
+    OptionalPropertyAccess(unique_ptr<Expression> object, String property, const SourceLocation& loc)
+        : object_(std::move(object)), property_(property), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }  // Cannot be assigned to
     String toString() const override;
     
     Expression* getObject() const { return object_.get(); }
@@ -964,6 +1054,114 @@ public:
 
 private:
     unique_ptr<Expression> expression_;
+    SourceLocation location_;
+};
+
+// Destructuring pattern base class
+class DestructuringPattern : public Expression {
+public:
+    DestructuringPattern(const SourceLocation& loc) : location_(loc) {}
+    
+    virtual ~DestructuringPattern() = default;
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::LValue; } // Can be assigned to
+
+protected:
+    SourceLocation location_;
+};
+
+// Array destructuring pattern: [a, b, c]
+class ArrayDestructuringPattern : public DestructuringPattern {
+public:
+    ArrayDestructuringPattern(std::vector<unique_ptr<DestructuringPattern>> elements,
+                             const SourceLocation& loc)
+        : DestructuringPattern(loc), elements_(std::move(elements)) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    String toString() const override;
+    
+    const std::vector<unique_ptr<DestructuringPattern>>& getElements() const { return elements_; }
+
+private:
+    std::vector<unique_ptr<DestructuringPattern>> elements_;
+};
+
+// Object destructuring pattern: { a, b: c, d = default }
+class ObjectDestructuringPattern : public DestructuringPattern {
+public:
+    // Property in object destructuring pattern
+    class Property {
+    public:
+        Property(String key, unique_ptr<DestructuringPattern> pattern, 
+                unique_ptr<Expression> defaultValue, const SourceLocation& loc)
+            : key_(key), pattern_(std::move(pattern)), defaultValue_(std::move(defaultValue)), location_(loc) {}
+        
+        const String& getKey() const { return key_; }
+        DestructuringPattern* getPattern() const { return pattern_.get(); }
+        Expression* getDefaultValue() const { return defaultValue_.get(); }
+        SourceLocation getLocation() const { return location_; }
+        bool hasDefaultValue() const { return defaultValue_ != nullptr; }
+        
+    private:
+        String key_;
+        unique_ptr<DestructuringPattern> pattern_;
+        unique_ptr<Expression> defaultValue_;
+        SourceLocation location_;
+    };
+    
+    ObjectDestructuringPattern(std::vector<Property> properties, const SourceLocation& loc)
+        : DestructuringPattern(loc), properties_(std::move(properties)) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    String toString() const override;
+    
+    const std::vector<Property>& getProperties() const { return properties_; }
+
+private:
+    std::vector<Property> properties_;
+};
+
+// Identifier pattern: variable name
+class IdentifierPattern : public DestructuringPattern {
+public:
+    IdentifierPattern(const String& name, const SourceLocation& loc)
+        : DestructuringPattern(loc), name_(name), defaultValue_(nullptr) {}
+    
+    IdentifierPattern(const String& name, unique_ptr<Expression> defaultValue, const SourceLocation& loc)
+        : DestructuringPattern(loc), name_(name), defaultValue_(std::move(defaultValue)) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    String toString() const override;
+    
+    const String& getName() const { return name_; }
+    Expression* getDefaultValue() const { return defaultValue_.get(); }
+    bool hasDefaultValue() const { return defaultValue_ != nullptr; }
+
+private:
+    String name_;
+    unique_ptr<Expression> defaultValue_;
+};
+
+// Destructuring assignment: let [a, b] = array;
+class DestructuringAssignment : public Expression {
+public:
+    DestructuringAssignment(unique_ptr<DestructuringPattern> pattern,
+                           unique_ptr<Expression> value,
+                           const SourceLocation& loc)
+        : pattern_(std::move(pattern)), value_(std::move(value)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    DestructuringPattern* getPattern() const { return pattern_.get(); }
+    Expression* getValue() const { return value_.get(); }
+
+private:
+    unique_ptr<DestructuringPattern> pattern_;
+    unique_ptr<Expression> value_;
     SourceLocation location_;
 };
 
@@ -1510,6 +1708,17 @@ public:
     virtual void visit(ArrowFunction& node) = 0;
     virtual void visit(FunctionExpression& node) = 0;
     virtual void visit(MoveExpression& node) = 0;
+    virtual void visit(OptionalPropertyAccess& node) = 0;
+    virtual void visit(OptionalIndexAccess& node) = 0;
+    virtual void visit(OptionalCallExpr& node) = 0;
+    virtual void visit(SpreadElement& node) = 0;
+    
+    // Destructuring patterns
+    virtual void visit(DestructuringPattern& node) = 0;
+    virtual void visit(ArrayDestructuringPattern& node) = 0;
+    virtual void visit(ObjectDestructuringPattern& node) = 0;
+    virtual void visit(IdentifierPattern& node) = 0;
+    virtual void visit(DestructuringAssignment& node) = 0;
     
     // Statements
     virtual void visit(ExpressionStatement& node) = 0;
