@@ -6943,12 +6943,120 @@ void LLVMCodeGen::visit(DestructuringPattern& node) {
 }
 
 void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
-    // TODO: Implement array destructuring code generation
-    // This would involve:
-    // 1. Generating code to access array elements
-    // 2. Creating variables for each pattern element
-    // 3. Handling spread elements (...rest)
-    reportError("Array destructuring code generation not yet implemented", node.getLocation());
+    std::cout << "DEBUG: ArrayDestructuringPattern visitor called with " << node.getElements().size() << " elements" << std::endl;
+    
+    // Get the source array value from the current context
+    // This should have been set by the DestructuringAssignment
+    llvm::Value* sourceArray = getCurrentValue();
+    
+    if (!sourceArray) {
+        reportError("No source array available for array destructuring", node.getLocation());
+        return;
+    }
+    
+    const auto& elements = node.getElements();
+    
+    // For each element in the destructuring pattern
+    for (size_t i = 0; i < elements.size(); i++) {
+        const auto& element = elements[i];
+        
+        if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(element.get())) {
+            // Simple identifier pattern: let [a, b] = array;
+            std::cout << "DEBUG: Processing identifier pattern: " << identifierPattern->getName() << std::endl;
+            
+            // Generate code to access array[i]
+            llvm::Value* indexValue = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i);
+            
+            // Use the same logic as IndexExpression for array access
+            llvm::Type* arrayType = nullptr;
+            llvm::Type* elementType = getAnyType(); // Default fallback
+            llvm::Value* arrayPtr = sourceArray;
+            
+            // Try to get the array type from the alloca instruction
+            if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(sourceArray)) {
+                arrayType = allocaInst->getAllocatedType();
+                if (auto* structType = llvm::dyn_cast<llvm::StructType>(arrayType)) {
+                    // This is our new array structure: { i32 length, [size x elementType] data }
+                    if (structType->getNumElements() == 2) {
+                        auto* dataArrayType = llvm::dyn_cast<llvm::ArrayType>(structType->getElementType(1));
+                        if (dataArrayType) {
+                            elementType = dataArrayType->getElementType();
+                            
+                            // Create GEP to access array element in the data field (field 1)
+                            std::vector<llvm::Value*> indices = {
+                                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1),  // Data field
+                                indexValue  // Element index
+                            };
+                            llvm::Value* elementPtr = builder_->CreateGEP(arrayType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
+                            llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
+                            
+                            // Create the variable storage first
+                            llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
+                            
+                            // Store the element value in the variable
+                            builder_->CreateStore(elementValue, variableStorage);
+                            
+                            std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                            continue; // Successfully processed this element
+                        }
+                    }
+                } else if (auto* arrType = llvm::dyn_cast<llvm::ArrayType>(arrayType)) {
+                    // Legacy array type (for backward compatibility)
+                    elementType = arrType->getElementType();
+                    
+                    std::vector<llvm::Value*> indices = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Array base
+                        indexValue  // Element index
+                    };
+                    llvm::Value* elementPtr = builder_->CreateGEP(arrayType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
+                    llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
+                    
+                    // Create the variable storage first
+                    llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
+                    
+                    // Store the element value in the variable
+                    builder_->CreateStore(elementValue, variableStorage);
+                    
+                    std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                    continue; // Successfully processed this element
+                }
+            } else {
+                // objectValue might be a loaded pointer to an array
+                // For now, assume it's a pointer to a double array (simplified)
+                elementType = getNumberType(); // Assume double elements
+                
+                // Create a pointer to the element type
+                llvm::Type* elementPtrType = elementType->getPointerTo();
+                
+                std::vector<llvm::Value*> indices = {
+                    indexValue  // Element index
+                };
+                llvm::Value* elementPtr = builder_->CreateGEP(elementPtrType, arrayPtr, indices, "element_ptr_" + std::to_string(i));
+                llvm::Value* elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value_" + std::to_string(i));
+                
+                // Create the variable storage first
+                llvm::Value* variableStorage = allocateVariable(identifierPattern->getName(), elementType, node.getLocation());
+                
+                // Store the element value in the variable
+                builder_->CreateStore(elementValue, variableStorage);
+                
+                std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                continue; // Successfully processed this element
+            }
+            
+            // If we get here, we couldn't determine the array type
+            reportError("Could not determine array type for destructuring", node.getLocation());
+            return;
+        } else {
+            // Handle other pattern types (nested patterns, etc.)
+            std::cout << "DEBUG: Processing complex pattern at index " << i << std::endl;
+            // TODO: Implement nested destructuring patterns
+            reportError("Complex destructuring patterns not yet implemented", node.getLocation());
+        }
+    }
+    
+    std::cout << "DEBUG: ArrayDestructuringPattern completed" << std::endl;
 }
 
 void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
@@ -6961,13 +7069,44 @@ void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
 }
 
 void LLVMCodeGen::visit(IdentifierPattern& node) {
-    // TODO: Implement identifier pattern code generation
-    reportError("IdentifierPattern code generation not yet implemented", node.getLocation());
+    std::cout << "DEBUG: IdentifierPattern visitor called for: " << node.getName() << std::endl;
+    
+    // For identifier patterns, we need to create a variable storage
+    // This is typically called from within a destructuring pattern context
+    
+    // Get the current value (should be set by the parent destructuring pattern)
+    llvm::Value* value = getCurrentValue();
+    
+    if (!value) {
+        reportError("No value available for identifier pattern: " + node.getName(), node.getLocation());
+        return;
+    }
+    
+    // Create the variable storage first
+    llvm::Value* variableStorage = allocateVariable(node.getName(), value->getType(), node.getLocation());
+    
+    // Store the value in the variable
+    builder_->CreateStore(value, variableStorage);
+    
+    std::cout << "DEBUG: Stored value in variable: " << node.getName() << std::endl;
 }
 
 void LLVMCodeGen::visit(DestructuringAssignment& node) {
-    // TODO: Implement destructuring assignment code generation
-    reportError("DestructuringAssignment code generation not yet implemented", node.getLocation());
+    std::cout << "DEBUG: DestructuringAssignment visitor called" << std::endl;
+    
+    // Generate the right-hand side value (the source)
+    node.getValue()->accept(*this);
+    llvm::Value* sourceValue = getCurrentValue();
+    
+    if (!sourceValue) {
+        reportError("Failed to generate source value for destructuring assignment", node.getLocation());
+        return;
+    }
+    
+    // Handle the destructuring pattern
+    node.getPattern()->accept(*this);
+    
+    std::cout << "DEBUG: DestructuringAssignment completed" << std::endl;
 }
 
 void LLVMCodeGen::visit(OptionalPropertyAccess& node) {
