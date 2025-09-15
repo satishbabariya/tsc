@@ -11,8 +11,8 @@ extern "C" {
 
 // ARC object header structure
 typedef struct {
-    uint32_t ref_count;        // Reference count (atomic)
-    uint32_t weak_count;       // Weak reference count (atomic)
+    _Atomic uint32_t ref_count;        // Reference count (atomic)
+    _Atomic uint32_t weak_count;       // Weak reference count (atomic)
     void (*destructor)(void*); // Destructor function
     void* type_info;          // Type information for debugging
 } ARC_ObjectHeader;

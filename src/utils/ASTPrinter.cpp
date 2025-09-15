@@ -1038,4 +1038,17 @@ void ASTPrinter::visit(FunctionExpression& node) {
     decreaseIndent();
 }
 
+void ASTPrinter::visit(MoveExpression& node) {
+    printIndent();
+    output_ << "MoveExpression:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Operand:" << std::endl;
+    increaseIndent();
+    node.getOperand()->accept(*this);
+    decreaseIndent();
+    decreaseIndent();
+}
+
 } // namespace tsc

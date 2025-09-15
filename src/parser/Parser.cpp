@@ -1754,6 +1754,24 @@ shared_ptr<Type> Parser::parsePrimaryType() {
                     return typeSystem_.getErrorType();
                 }
                 return typeSystem_.createArrayType(typeArguments[0]);
+            } else if (typeName == "unique_ptr") {
+                if (typeArguments.size() != 1) {
+                    reportError("unique_ptr type requires exactly one type argument", typeToken.getLocation());
+                    return typeSystem_.getErrorType();
+                }
+                return typeSystem_.createUniquePtrType(typeArguments[0]);
+            } else if (typeName == "shared_ptr") {
+                if (typeArguments.size() != 1) {
+                    reportError("shared_ptr type requires exactly one type argument", typeToken.getLocation());
+                    return typeSystem_.getErrorType();
+                }
+                return typeSystem_.createSharedPtrType(typeArguments[0]);
+            } else if (typeName == "weak_ptr") {
+                if (typeArguments.size() != 1) {
+                    reportError("weak_ptr type requires exactly one type argument", typeToken.getLocation());
+                    return typeSystem_.getErrorType();
+                }
+                return typeSystem_.createWeakPtrType(typeArguments[0]);
             }
             
             // For other generic types, create a generic type

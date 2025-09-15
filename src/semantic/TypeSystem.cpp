@@ -713,7 +713,7 @@ bool SmartPointerType::isAssignableTo(const Type& other) const {
     
     if (auto* otherSmartPtr = dynamic_cast<const SmartPointerType*>(&other)) {
         // Smart pointers are assignable if they have the same kind and element types are assignable
-        return kind_ == other.getKind() && elementType_->isAssignableTo(*otherSmartPtr->elementType_);
+        return kind_ == otherSmartPtr->kind_ && elementType_->isAssignableTo(*otherSmartPtr->elementType_);
     }
     
     return false;
@@ -721,7 +721,7 @@ bool SmartPointerType::isAssignableTo(const Type& other) const {
 
 bool SmartPointerType::isEquivalentTo(const Type& other) const {
     if (auto* otherSmartPtr = dynamic_cast<const SmartPointerType*>(&other)) {
-        return kind_ == other.getKind() && elementType_->isEquivalentTo(*otherSmartPtr->elementType_);
+        return kind_ == otherSmartPtr->kind_ && elementType_->isEquivalentTo(*otherSmartPtr->elementType_);
     }
     return false;
 }

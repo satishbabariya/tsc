@@ -4955,6 +4955,7 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(ArrowFunction& node) override {}
         void visit(FunctionExpression& node) override {}
         void visit(Module& node) override {}
+        void visit(MoveExpression& node) override {}
     };
     
     ReturnStatementChecker checker;

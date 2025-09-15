@@ -1614,6 +1614,7 @@ PrimaryType<NoQuest> -> TsType /* interface */:
   | TupleType
   | TypeQuery
   | ImportType
+  | SmartPointerType
   | 'this'                                   -> TsThisType
   | PrimaryType .noLineBreak '!'             -> TsNonNullableType
   | [!NoQuest] PrimaryType .noLineBreak '?'  -> TsNullableType
