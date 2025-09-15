@@ -931,4 +931,13 @@ String ForOfStatement::toString() const {
     return oss.str();
 }
 
+// MoveExpression implementation
+void MoveExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String MoveExpression::toString() const {
+    return "std::move(" + operand_->toString() + ")";
+}
+
 } // namespace tsc

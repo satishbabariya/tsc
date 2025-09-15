@@ -148,6 +148,13 @@ invalid_token: /#?({identifierStart}{identifierPart}*)?{brokenEscapeSequence}/
 'never': /never/
 'object': /object/
 
+# ARC Memory Management Keywords
+'unique_ptr': /unique_ptr/
+'shared_ptr': /shared_ptr/
+'weak_ptr': /weak_ptr/
+'std': /std/
+'move': /move/
+
 # The following keywords have special meaning in certain contexts, but are
 # valid identifiers:
 'abstract':    /abstract/
@@ -599,6 +606,7 @@ PrimaryExpression<Yield, Await, NoAsync> -> Expr /* interface */:
   | [!NoFuncClass] AsyncGeneratorExpression
   | RegularExpressionLiteral -> Regexp
   | TemplateLiteral
+  | MoveExpression
   | (?= !StartOfArrowFunction) Parenthesized
 ;
 
@@ -606,6 +614,9 @@ Parenthesized<Yield, Await> -> Parenthesized:
     '(' Expression<+In> ')'
   | '(' BrokenExpr ')'
 ;
+
+MoveExpression<Yield, Await> -> MoveExpression:
+    'std' '.' 'move' '(' Expression<+In> ')' ;
 
 Literal -> Literal:
     'null'
@@ -1478,6 +1489,9 @@ ExportElement -> ExportElement /* interface */:
 Decorator<Yield, Await> -> Decorator /* interface */:
     '@' DecoratorMemberExpression  -> DecoratorExpr
   | '@' DecoratorCallExpression    -> DecoratorCall
+  | '@' 'manual_memory'           -> ManualMemoryDecorator
+  | '@' 'stack_allocated'          -> StackAllocatedDecorator
+  | '@' 'immutable'                -> ImmutableDecorator
 ;
 
 DecoratorMemberExpression<Yield, Await>:
@@ -1544,7 +1558,13 @@ Constraint -> TsTypeConstraint:
 # helper functions, or parentheses) when using < in expressions within
 # functions that have generic type parameters.
 TypeArguments -> TsTypeArguments:
-    '<' (Type separator ',')+ '>' ;
+    '<' (Type separator ',')+ '>'
+  | '<' SmartPointerType '>' ;
+
+SmartPointerType -> TsSmartPointerType:
+    'unique_ptr' '<' Type '>'
+  | 'shared_ptr' '<' Type '>'
+  | 'weak_ptr' '<' Type '>' ;
 
 # More restrictive type arguments that only work in type contexts
 TypeArgumentsInTypeContext -> TsTypeArguments:

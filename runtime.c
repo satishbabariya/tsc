@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdbool.h>
 
+// Include ARC runtime
+#include "arc/arc_runtime.h"
+
 // String concatenation function
 // Signature: char* string_concat(char* str1, char* str2)
 // Returns: A newly allocated string containing str1 + str2

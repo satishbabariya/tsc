@@ -437,25 +437,52 @@ void LLVMCodeGen::visit(NewExpression& node) {
             std::cout << "DEBUG: Object type is not pointer, using objectType directly" << std::endl;
         }
         
-        // Allocate memory on the heap using malloc
-        llvm::Function* mallocFunc = getOrCreateMallocFunction();
-        llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
-        
-        // Calculate size of the struct
-        llvm::Value* objectSize = nullptr;
-        if (pointeeType->isStructTy()) {
-            llvm::StructType* structType = llvm::cast<llvm::StructType>(pointeeType);
-            objectSize = llvm::ConstantInt::get(sizeType, 
-                module_->getDataLayout().getTypeAllocSize(structType));
-            std::cout << "DEBUG: Allocating " << module_->getDataLayout().getTypeAllocSize(structType) << " bytes for struct type" << std::endl;
+        // Allocate memory using ARC if the type is ARC-managed
+        llvm::Value* objectPtr = nullptr;
+        if (isARCManagedType(node.getType())) {
+            // Use ARC allocation
+            llvm::Function* arcAllocFunc = getOrCreateARCAllocFunction();
+            llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
+            
+            // Calculate size of the struct
+            llvm::Value* objectSize = nullptr;
+            if (pointeeType->isStructTy()) {
+                llvm::StructType* structType = llvm::cast<llvm::StructType>(pointeeType);
+                objectSize = llvm::ConstantInt::get(sizeType, 
+                    module_->getDataLayout().getTypeAllocSize(structType));
+                std::cout << "DEBUG: ARC allocating " << module_->getDataLayout().getTypeAllocSize(structType) << " bytes for struct type" << std::endl;
+            } else {
+                // For the hardcoded struct type, calculate the size manually
+                objectSize = llvm::ConstantInt::get(sizeType, 16);
+                std::cout << "DEBUG: ARC allocating 16 bytes for struct type { i32, ptr }" << std::endl;
+            }
+            
+            // Create destructor function pointer (null for now)
+            llvm::Value* destructorPtr = llvm::ConstantPointerNull::get(llvm::PointerType::get(*context_, 0));
+            // Create type info pointer (null for now)
+            llvm::Value* typeInfoPtr = llvm::ConstantPointerNull::get(llvm::PointerType::get(*context_, 0));
+            
+            objectPtr = builder_->CreateCall(arcAllocFunc, {objectSize, destructorPtr, typeInfoPtr}, "arc_allocated_object");
         } else {
-            // For the hardcoded struct type, calculate the size manually
-            // { i32, ptr } = 4 + 8 = 12 bytes, but aligned to 16 bytes
-            objectSize = llvm::ConstantInt::get(sizeType, 16);
-            std::cout << "DEBUG: Using hardcoded allocation of 16 bytes for struct type { i32, ptr }" << std::endl;
+            // Use regular malloc for non-ARC types
+            llvm::Function* mallocFunc = getOrCreateMallocFunction();
+            llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
+            
+            // Calculate size of the struct
+            llvm::Value* objectSize = nullptr;
+            if (pointeeType->isStructTy()) {
+                llvm::StructType* structType = llvm::cast<llvm::StructType>(pointeeType);
+                objectSize = llvm::ConstantInt::get(sizeType, 
+                    module_->getDataLayout().getTypeAllocSize(structType));
+                std::cout << "DEBUG: Allocating " << module_->getDataLayout().getTypeAllocSize(structType) << " bytes for struct type" << std::endl;
+            } else {
+                // For the hardcoded struct type, calculate the size manually
+                objectSize = llvm::ConstantInt::get(sizeType, 16);
+                std::cout << "DEBUG: Using hardcoded allocation of 16 bytes for struct type { i32, ptr }" << std::endl;
+            }
+            
+            objectPtr = builder_->CreateCall(mallocFunc, {objectSize}, "malloced_object");
         }
-        
-        llvm::Value* objectPtr = builder_->CreateCall(mallocFunc, {objectSize}, "malloced_object");
         
         // Cast the void* to the object type
         objectPtr = builder_->CreateBitCast(objectPtr, llvm::PointerType::get(pointeeType, 0), "object_ptr");
@@ -568,8 +595,23 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
     llvm::Value* value = getCurrentValue();
     std::cout << "DEBUG: AssignmentExpression right-hand side value: " << (value ? "found" : "null") << std::endl;
     
+    // Insert ARC retain for the new value if it's ARC-managed
+    if (value && isARCManagedType(node.getRight()->getType())) {
+        llvm::Function* retainFunc = getOrCreateARCRetainFunction();
+        value = builder_->CreateCall(retainFunc, {value}, "retained_value");
+        std::cout << "DEBUG: Inserted ARC retain for assignment" << std::endl;
+    }
+    
     // Handle left-hand side
     if (auto identifier = dynamic_cast<Identifier*>(node.getLeft())) {
+        // Release the old value if it's ARC-managed
+        llvm::Value* oldValue = loadVariable(identifier->getName(), node.getLocation());
+        if (oldValue && isARCManagedType(node.getLeft()->getType())) {
+            llvm::Function* releaseFunc = getOrCreateARCReleaseFunction();
+            builder_->CreateCall(releaseFunc, {oldValue}, "release_old_value");
+            std::cout << "DEBUG: Inserted ARC release for old value" << std::endl;
+        }
+        
         // Simple variable assignment
         storeVariable(identifier->getName(), value, node.getLocation());
         setCurrentValue(value); // Assignment returns the assigned value
@@ -5149,8 +5191,34 @@ void LLVMCodeGen::optimizeModule() {
         return; // No optimization
     }
     
+    // Run ARC-specific optimizations
+    runARCOptimizations();
+    
     // Basic optimization for now
     // Full optimization passes would be added here
+}
+
+void LLVMCodeGen::runARCOptimizations() {
+    // ARC optimization passes
+    std::cout << "DEBUG: Running ARC optimizations" << std::endl;
+    
+    // For now, this is a placeholder implementation
+    // In a full implementation, this would:
+    // 1. Run reference counting elimination passes
+    // 2. Optimize weak reference access patterns
+    // 3. Remove redundant ARC calls
+    // 4. Optimize memory layout for ARC
+    
+    // Example of what would be implemented:
+    // llvm::PassManagerBuilder builder;
+    // builder.OptLevel = 2;
+    // builder.addExtension(PassManagerBuilder::EP_EarlyAsPossible, 
+    //                     [](PassManagerBase& PM) {
+    //                         PM.add(createARCRetainReleaseOptPass());
+    //                         PM.add(createARCWeakOptPass());
+    //                     });
+    
+    std::cout << "DEBUG: ARC optimizations completed" << std::endl;
 }
 
 // Target setup implementation
@@ -5480,6 +5548,80 @@ llvm::Function* LLVMCodeGen::getOrCreateFreeFunction() {
     
     builtinFunctions_["free"] = freeFunc;
     return freeFunc;
+}
+
+// ARC Runtime function declarations
+llvm::Function* LLVMCodeGen::getOrCreateARCRetainFunction() {
+    if (builtinFunctions_.find("__tsc_retain") != builtinFunctions_.end()) {
+        return builtinFunctions_["__tsc_retain"];
+    }
+    
+    // Create __tsc_retain function declaration
+    llvm::Type* ptrType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    llvm::FunctionType* retainType = llvm::FunctionType::get(
+        ptrType, // Return type: void*
+        {ptrType}, // Parameter: void*
+        false // Not variadic
+    );
+    
+    llvm::Function* retainFunc = llvm::Function::Create(
+        retainType,
+        llvm::Function::ExternalLinkage,
+        "__tsc_retain",
+        module_.get()
+    );
+    
+    builtinFunctions_["__tsc_retain"] = retainFunc;
+    return retainFunc;
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateARCReleaseFunction() {
+    if (builtinFunctions_.find("__tsc_release") != builtinFunctions_.end()) {
+        return builtinFunctions_["__tsc_release"];
+    }
+    
+    // Create __tsc_release function declaration
+    llvm::Type* ptrType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    llvm::FunctionType* releaseType = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(*context_), // Return type: void
+        {ptrType}, // Parameter: void*
+        false // Not variadic
+    );
+    
+    llvm::Function* releaseFunc = llvm::Function::Create(
+        releaseType,
+        llvm::Function::ExternalLinkage,
+        "__tsc_release",
+        module_.get()
+    );
+    
+    builtinFunctions_["__tsc_release"] = releaseFunc;
+    return releaseFunc;
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateARCAllocFunction() {
+    if (builtinFunctions_.find("__tsc_alloc") != builtinFunctions_.end()) {
+        return builtinFunctions_["__tsc_alloc"];
+    }
+    
+    // Create __tsc_alloc function declaration
+    llvm::Type* ptrType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
+    llvm::FunctionType* allocType = llvm::FunctionType::get(
+        ptrType, // Return type: void*
+        {sizeType, ptrType, ptrType}, // Parameters: size_t, destructor, type_info
+        false // Not variadic
+    );
+    
+    llvm::Function* allocFunc = llvm::Function::Create(
+        allocType,
+        llvm::Function::ExternalLinkage,
+        "__tsc_alloc",
+        module_.get()
+    );
+    
+    builtinFunctions_["__tsc_alloc"] = allocFunc;
+    return allocFunc;
 }
 
 // Closure support methods
@@ -6239,6 +6381,38 @@ void LLVMCodeGen::BuiltinFunctionRegistry::registerArrayFunctions() {
         arrayLengthType, llvm::Function::ExternalLinkage, "array_length", module_
     );
     builtinFunctions_["Array.length"] = arrayLengthFunc;
+}
+
+// MoveExpression visitor implementation
+void LLVMCodeGen::visit(MoveExpression& node) {
+    // Generate code for the operand
+    node.getOperand()->accept(*this);
+    llvm::Value* operandValue = getCurrentValue();
+    
+    if (!operandValue) {
+        reportError("Failed to generate code for move expression operand", node.getLocation());
+        return;
+    }
+    
+    // For now, move semantics is implemented as a simple transfer
+    // In a full implementation, this would:
+    // 1. Check if the operand is a unique_ptr
+    // 2. Transfer ownership without copying
+    // 3. Set the source to null
+    
+    // For ARC, move semantics means transferring the reference without incrementing the count
+    // This is a simplified implementation
+    setCurrentValue(operandValue);
+}
+
+// Helper function to check if a type is ARC-managed
+bool LLVMCodeGen::isARCManagedType(shared_ptr<Type> type) const {
+    if (!type) return false;
+    
+    return type->getKind() == TypeKind::UniquePtr || 
+           type->getKind() == TypeKind::SharedPtr || 
+           type->getKind() == TypeKind::WeakPtr ||
+           type->getKind() == TypeKind::Class; // Classes are ARC-managed by default
 }
 
 // Factory function

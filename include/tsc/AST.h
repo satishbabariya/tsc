@@ -633,6 +633,24 @@ private:
     SourceLocation location_;
 };
 
+// Move expression for ARC move semantics
+class MoveExpression : public Expression {
+public:
+    MoveExpression(unique_ptr<Expression> operand, const SourceLocation& loc)
+        : operand_(std::move(operand)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::XValue; }
+    String toString() const override;
+    
+    Expression* getOperand() const { return operand_.get(); }
+
+private:
+    unique_ptr<Expression> operand_;
+    SourceLocation location_;
+};
+
 // Block statement
 class BlockStatement : public Statement {
 public:
@@ -1350,6 +1368,7 @@ public:
     virtual void visit(PropertyAccess& node) = 0;
     virtual void visit(ArrowFunction& node) = 0;
     virtual void visit(FunctionExpression& node) = 0;
+    virtual void visit(MoveExpression& node) = 0;
     
     // Statements
     virtual void visit(ExpressionStatement& node) = 0;

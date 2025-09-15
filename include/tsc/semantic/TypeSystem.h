@@ -56,6 +56,11 @@ enum class TypeKind {
     Conditional,
     Alias,
     
+    // ARC Memory Management Types
+    UniquePtr,
+    SharedPtr,
+    WeakPtr,
+    
     // Special
     Error  // For error recovery
 };
@@ -394,6 +399,42 @@ private:
     String name_;
 };
 
+// ARC Memory Management Types
+class SmartPointerType : public Type {
+public:
+    enum class Kind {
+        Unique,
+        Shared,
+        Weak
+    };
+    
+    SmartPointerType(Kind kind, shared_ptr<Type> elementType) 
+        : Type(kind == Kind::Unique ? TypeKind::UniquePtr : 
+               kind == Kind::Shared ? TypeKind::SharedPtr : TypeKind::WeakPtr),
+          kind_(kind), elementType_(elementType) {}
+    
+    Kind getSmartPointerKind() const { return kind_; }
+    shared_ptr<Type> getElementType() const { return elementType_; }
+    
+    String toString() const override {
+        String prefix;
+        switch (kind_) {
+            case Kind::Unique: prefix = "unique_ptr"; break;
+            case Kind::Shared: prefix = "shared_ptr"; break;
+            case Kind::Weak: prefix = "weak_ptr"; break;
+        }
+        return prefix + "<" + elementType_->toString() + ">";
+    }
+    
+    bool isAssignableTo(const Type& other) const override;
+    bool isEquivalentTo(const Type& other) const override;
+    bool isSubtypeOf(const Type& other) const override;
+
+private:
+    Kind kind_;
+    shared_ptr<Type> elementType_;
+};
+
 class ErrorType : public Type {
 public:
     ErrorType() : Type(TypeKind::Error) {}
@@ -447,6 +488,11 @@ public:
     
     // Type alias creation
     shared_ptr<Type> createAliasType(const String& name, shared_ptr<Type> aliasedType, TypeAliasDeclaration* declaration = nullptr) const;
+    
+    // ARC Memory Management type creation
+    shared_ptr<Type> createUniquePtrType(shared_ptr<Type> elementType) const;
+    shared_ptr<Type> createSharedPtrType(shared_ptr<Type> elementType) const;
+    shared_ptr<Type> createWeakPtrType(shared_ptr<Type> elementType) const;
     
     // Type operations
     bool areTypesCompatible(const Type& from, const Type& to) const;

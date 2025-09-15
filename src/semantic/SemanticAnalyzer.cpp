@@ -2554,6 +2554,121 @@ bool SemanticAnalyzer::validateGenericFunctionCall(const CallExpression& call,
     return true; // All constraints satisfied
 }
 
+// ARC Memory Management Analysis Implementation
+void SemanticAnalyzer::analyzeOwnership(const Expression& expr) {
+    // Analyze ownership patterns in expressions
+    if (auto* moveExpr = dynamic_cast<const MoveExpression*>(&expr)) {
+        analyzeMoveSemantics(*moveExpr);
+    } else if (auto* assignExpr = dynamic_cast<const AssignmentExpression*>(&expr)) {
+        analyzeAssignmentOwnership(*assignExpr);
+    }
+}
+
+void SemanticAnalyzer::analyzeMoveSemantics(const MoveExpression& moveExpr) {
+    // Analyze move semantics
+    auto operandType = getExpressionType(*moveExpr.getOperand());
+    
+    if (!isMoveable(*operandType)) {
+        reportError("Cannot move non-moveable type: " + operandType->toString(), 
+                   moveExpr.getLocation());
+        return;
+    }
+    
+    // Check if the operand is a unique_ptr or has move semantics
+    if (operandType->getKind() == TypeKind::UniquePtr) {
+        // Move semantics for unique_ptr - this is valid
+        std::cout << "DEBUG: Move semantics applied to unique_ptr" << std::endl;
+    } else if (operandType->getKind() == TypeKind::SharedPtr) {
+        // Move semantics for shared_ptr - this transfers ownership
+        std::cout << "DEBUG: Move semantics applied to shared_ptr" << std::endl;
+    } else {
+        // For other types, move semantics might not be meaningful
+        reportWarning("Move semantics applied to non-smart-pointer type: " + operandType->toString(),
+                     moveExpr.getLocation());
+    }
+}
+
+void SemanticAnalyzer::analyzeAssignmentOwnership(const AssignmentExpression& assignExpr) {
+    // Analyze assignment ownership patterns
+    auto leftType = getExpressionType(*assignExpr.getLeft());
+    auto rightType = getExpressionType(*assignExpr.getRight());
+    
+    // Check for ownership transfer patterns
+    if (isARCManaged(*leftType) && isARCManaged(*rightType)) {
+        // Both sides are ARC-managed
+        if (leftType->getKind() == TypeKind::UniquePtr && rightType->getKind() == TypeKind::UniquePtr) {
+            // unique_ptr assignment - should use move semantics
+            reportWarning("unique_ptr assignment should use move semantics: " + 
+                         leftType->toString() + " = std::move(" + rightType->toString() + ")",
+                         assignExpr.getLocation());
+        }
+    }
+}
+
+void SemanticAnalyzer::detectCycles(const ClassDeclaration& classDecl) {
+    // Detect potential reference cycles in class definitions
+    // This is a simplified implementation - a full implementation would
+    // analyze the class structure for circular references
+    
+    std::cout << "DEBUG: Analyzing class " << classDecl.getName() << " for cycles" << std::endl;
+    
+    // For now, just check for obvious patterns
+    // In a full implementation, this would:
+    // 1. Analyze class properties
+    // 2. Check for circular references
+    // 3. Suggest weak references where appropriate
+}
+
+void SemanticAnalyzer::suggestWeakReferences(const ClassDeclaration& classDecl) {
+    // Suggest weak references to break cycles
+    // This is a placeholder implementation
+    
+    std::cout << "DEBUG: Suggesting weak references for class " << classDecl.getName() << std::endl;
+    
+    // In a full implementation, this would:
+    // 1. Analyze the class structure
+    // 2. Identify potential cycles
+    // 3. Suggest converting strong references to weak references
+}
+
+bool SemanticAnalyzer::isARCManaged(const Type& type) const {
+    // Check if a type is ARC-managed
+    return type.getKind() == TypeKind::UniquePtr || 
+           type.getKind() == TypeKind::SharedPtr || 
+           type.getKind() == TypeKind::WeakPtr ||
+           type.getKind() == TypeKind::Class; // Classes are ARC-managed by default
+}
+
+bool SemanticAnalyzer::isMoveable(const Type& type) const {
+    // Check if a type supports move semantics
+    return type.getKind() == TypeKind::UniquePtr || 
+           type.getKind() == TypeKind::SharedPtr ||
+           type.getKind() == TypeKind::Class; // Classes support move semantics
+}
+
+bool SemanticAnalyzer::hasDestructor(const Type& type) const {
+    // Check if a type has a destructor (needed for ARC)
+    return type.getKind() == TypeKind::Class || 
+           type.getKind() == TypeKind::UniquePtr || 
+           type.getKind() == TypeKind::SharedPtr;
+}
+
+// MoveExpression visitor implementation
+void SemanticAnalyzer::visit(MoveExpression& node) {
+    // Analyze the operand first
+    node.getOperand()->accept(*this);
+    
+    // Get the type of the operand
+    auto operandType = getExpressionType(*node.getOperand());
+    
+    // Analyze move semantics
+    analyzeMoveSemantics(node);
+    
+    // Set the type of the move expression to be the same as the operand
+    // Move expressions don't change the type, just the ownership semantics
+    setExpressionType(node, operandType);
+}
+
 // Factory function
 unique_ptr<SemanticAnalyzer> createSemanticAnalyzer(DiagnosticEngine& diagnostics) {
     return make_unique<SemanticAnalyzer>(diagnostics);

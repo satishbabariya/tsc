@@ -707,6 +707,40 @@ shared_ptr<Type> TypeSystem::createUnresolvedType(const String& name) const {
     return make_shared<UnresolvedType>(name);
 }
 
+// SmartPointerType implementation
+bool SmartPointerType::isAssignableTo(const Type& other) const {
+    if (other.getKind() == TypeKind::Any) return true;
+    
+    if (auto* otherSmartPtr = dynamic_cast<const SmartPointerType*>(&other)) {
+        // Smart pointers are assignable if they have the same kind and element types are assignable
+        return kind_ == other.getKind() && elementType_->isAssignableTo(*otherSmartPtr->elementType_);
+    }
+    
+    return false;
+}
 
+bool SmartPointerType::isEquivalentTo(const Type& other) const {
+    if (auto* otherSmartPtr = dynamic_cast<const SmartPointerType*>(&other)) {
+        return kind_ == other.getKind() && elementType_->isEquivalentTo(*otherSmartPtr->elementType_);
+    }
+    return false;
+}
+
+bool SmartPointerType::isSubtypeOf(const Type& other) const {
+    return isAssignableTo(other);
+}
+
+// Smart pointer type creation methods
+shared_ptr<Type> TypeSystem::createUniquePtrType(shared_ptr<Type> elementType) const {
+    return make_shared<SmartPointerType>(SmartPointerType::Kind::Unique, elementType);
+}
+
+shared_ptr<Type> TypeSystem::createSharedPtrType(shared_ptr<Type> elementType) const {
+    return make_shared<SmartPointerType>(SmartPointerType::Kind::Shared, elementType);
+}
+
+shared_ptr<Type> TypeSystem::createWeakPtrType(shared_ptr<Type> elementType) const {
+    return make_shared<SmartPointerType>(SmartPointerType::Kind::Weak, elementType);
+}
 
 } // namespace tsc

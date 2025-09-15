@@ -361,6 +361,9 @@ enable_testing()
 add_library(tsc_runtime STATIC
     runtime.c
     runtime_exceptions.c
+    runtime/arc/arc_runtime.c
+    runtime/arc/weak_references.c
+    runtime/arc/cycle_detection.c
 )
 
 # Create main executable

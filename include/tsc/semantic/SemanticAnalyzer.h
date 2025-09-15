@@ -84,6 +84,7 @@ public:
     void visit(PropertyAccess& node) override;
     void visit(ArrowFunction& node) override;
     void visit(FunctionExpression& node) override;
+    void visit(MoveExpression& node) override;
     void visit(ForOfStatement& node) override;
     
     void visit(ExpressionStatement& node) override;
@@ -227,6 +228,16 @@ private:
     // Generic constraint validation helpers
     FunctionDeclaration* getFunctionDeclaration(const String& functionName);
     bool validateGenericFunctionCall(const CallExpression& call, const FunctionDeclaration& funcDecl, const FunctionType& functionType);
+    
+    // ARC Memory Management Analysis
+    void analyzeOwnership(const Expression& expr);
+    void analyzeMoveSemantics(const MoveExpression& moveExpr);
+    void analyzeAssignmentOwnership(const AssignmentExpression& assignExpr);
+    void detectCycles(const ClassDeclaration& classDecl);
+    void suggestWeakReferences(const ClassDeclaration& classDecl);
+    bool isARCManaged(const Type& type) const;
+    bool isMoveable(const Type& type) const;
+    bool hasDestructor(const Type& type) const;
 };
 
 // Semantic analysis result

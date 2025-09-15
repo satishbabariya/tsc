@@ -344,6 +344,7 @@ public:
     void runFunctionOptimizations();
     void runModuleOptimizations();
     void runMemoryOptimizations();
+    void runARCOptimizations();
     
     // Memory management
     void reportMemoryUsage() const;
@@ -394,6 +395,7 @@ public:
     void visit(PropertyAccess& node) override;
     void visit(ArrowFunction& node) override;
     void visit(FunctionExpression& node) override;
+    void visit(MoveExpression& node) override;
     void visit(ForOfStatement& node) override;
     
     void visit(ExpressionStatement& node) override;
@@ -501,6 +503,14 @@ private:
     // Memory management functions
     llvm::Function* getOrCreateMallocFunction();
     llvm::Function* getOrCreateFreeFunction();
+    
+    // ARC Runtime functions
+    llvm::Function* getOrCreateARCRetainFunction();
+    llvm::Function* getOrCreateARCReleaseFunction();
+    llvm::Function* getOrCreateARCAllocFunction();
+    
+    // ARC helper functions
+    bool isARCManagedType(shared_ptr<Type> type) const;
     
     // Type conversion
     llvm::Type* convertTypeToLLVM(shared_ptr<Type> type);
