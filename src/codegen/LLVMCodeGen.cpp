@@ -439,9 +439,22 @@ void LLVMCodeGen::visit(NewExpression& node) {
         
         // Allocate memory using ARC if the type is ARC-managed
         llvm::Value* objectPtr = nullptr;
-        if (isARCManagedType(node.getType())) {
+        
+        // Determine if this is an ARC-managed type
+        bool isARCManaged = false;
+        if (node.hasExplicitTypeArguments()) {
+            // For generic types, check if the base class type is ARC-managed
+            isARCManaged = isARCManagedType(classType);
+        } else {
+            // For non-generic types, check the class type directly
+            isARCManaged = isARCManagedType(classType);
+        }
+        
+        if (isARCManaged) {
             // Use ARC allocation
+            std::cout << "DEBUG: Using ARC allocation for type: " << classType->toString() << std::endl;
             llvm::Function* arcAllocFunc = getOrCreateARCAllocFunction();
+            std::cout << "DEBUG: ARC alloc function: " << (arcAllocFunc ? "created" : "null") << std::endl;
             llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
             
             // Calculate size of the struct
@@ -463,8 +476,10 @@ void LLVMCodeGen::visit(NewExpression& node) {
             llvm::Value* typeInfoPtr = llvm::ConstantPointerNull::get(llvm::PointerType::get(*context_, 0));
             
             objectPtr = builder_->CreateCall(arcAllocFunc, {objectSize, destructorPtr, typeInfoPtr}, "arc_allocated_object");
+            std::cout << "DEBUG: ARC allocation call created: " << (objectPtr ? "success" : "failed") << std::endl;
         } else {
             // Use regular malloc for non-ARC types
+            std::cout << "DEBUG: Using regular malloc for type: " << classType->toString() << std::endl;
             llvm::Function* mallocFunc = getOrCreateMallocFunction();
             llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
             
