@@ -110,7 +110,7 @@ echo "   Passed: $PASSED_TESTS"
 echo "   Failed: $FAILED_TESTS"
 
 if [ $TOTAL_TESTS -gt 0 ]; then
-    local success_rate=$((PASSED_TESTS * 100 / TOTAL_TESTS))
+    success_rate=$((PASSED_TESTS * 100 / TOTAL_TESTS))
     echo "   Success Rate: $success_rate%"
 fi
 

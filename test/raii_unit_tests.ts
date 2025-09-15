@@ -11,7 +11,7 @@ class SimpleResource {
     }
     
     ~SimpleResource() {
-        console.log(`Resource '${name}' released`);
+        console.log(`Resource '${this.name}' released`);
     }
     
     getName(): string {
@@ -239,7 +239,11 @@ class SmartPointerResource {
     }
     
     getValue(): string {
-        return this.ptr ? this.ptr.get() : "";
+        if (this.ptr) {
+            return this.ptr.get();
+        } else {
+            return "";
+        }
     }
 }
 
@@ -378,5 +382,4 @@ function runAllTests(): void {
     console.log("✅ All RAII Unit Tests Completed");
 }
 
-// Export for testing
-export { runAllTests };
+// Export for testing - removed export statement for compatibility
