@@ -165,7 +165,7 @@ private:
     // Operator precedence
     int getBinaryOperatorPrecedence(TokenType type) const;
     BinaryExpression::Operator tokenToBinaryOperator(TokenType type) const;
-    UnaryExpression::Operator tokenToUnaryOperator(TokenType type) const;
+    UnaryExpression::Operator tokenToUnaryOperator(TokenType type, bool isPrefix = true) const;
     AssignmentExpression::Operator tokenToAssignmentOperator(TokenType type) const;
     
     // Lookahead helpers

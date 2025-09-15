@@ -1136,7 +1136,7 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
                 location
             );
         }
-        else if (check(TokenType::QuestionDot) && peek(1).getType() == TokenType::LeftBracket) {
+        else if (check(TokenType::QuestionDot) && peekAhead(1).getType() == TokenType::LeftBracket) {
             // Parse optional index access: expr?.[index]
             advance(); // consume '?.'
             consume(TokenType::LeftBracket, "Expected '[' after '?.'");
@@ -1199,7 +1199,7 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
                 );
             }
         }
-        else if (check(TokenType::QuestionDot) && peek(1).getType() == TokenType::LeftParen) {
+        else if (check(TokenType::QuestionDot) && peekAhead(1).getType() == TokenType::LeftParen) {
             // Parse optional function call: expr?.method()
             advance(); // consume '?.'
             
@@ -1279,12 +1279,13 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
                 location
             );
         }
-        else if (match(TokenType::PlusPlus) || match(TokenType::MinusMinus)) {
+        else if (check(TokenType::PlusPlus) || check(TokenType::MinusMinus)) {
             // Parse postfix increment/decrement: expr++ or expr--
-            Token opToken = peek(-1); // Get the token we just consumed
+            TokenType opType = peek().getType(); // Get the token type before consuming
+            advance(); // consume the operator
             SourceLocation location = getCurrentLocation();
             expr = make_unique<UnaryExpression>(
-                tokenToUnaryOperator(opToken.getType(), false),
+                tokenToUnaryOperator(opType, false),
                 std::move(expr),
                 location,
                 false // postfix

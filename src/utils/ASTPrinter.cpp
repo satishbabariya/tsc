@@ -1067,4 +1067,72 @@ void ASTPrinter::visit(MoveExpression& node) {
     decreaseIndent();
 }
 
+// Destructuring pattern visitors
+void ASTPrinter::visit(DestructuringPattern& node) {
+    printIndent();
+    output_ << "DestructuringPattern" << std::endl;
+}
+
+void ASTPrinter::visit(ArrayDestructuringPattern& node) {
+    printIndent();
+    output_ << "ArrayDestructuringPattern:" << std::endl;
+    
+    increaseIndent();
+    for (size_t i = 0; i < node.getElements().size(); i++) {
+        printIndent();
+        output_ << "Element[" << i << "]:" << std::endl;
+        increaseIndent();
+        node.getElements()[i]->accept(*this);
+        decreaseIndent();
+    }
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(ObjectDestructuringPattern& node) {
+    printIndent();
+    output_ << "ObjectDestructuringPattern:" << std::endl;
+    
+    increaseIndent();
+    for (size_t i = 0; i < node.getProperties().size(); i++) {
+        const auto& property = node.getProperties()[i];
+        printIndent();
+        output_ << "Property[" << i << "]: " << property.getKey() << std::endl;
+        increaseIndent();
+        property.getPattern()->accept(*this);
+        if (property.getDefaultValue()) {
+            printIndent();
+            output_ << "DefaultValue:" << std::endl;
+            increaseIndent();
+            property.getDefaultValue()->accept(*this);
+            decreaseIndent();
+        }
+        decreaseIndent();
+    }
+    decreaseIndent();
+}
+
+void ASTPrinter::visit(IdentifierPattern& node) {
+    printIndent();
+    output_ << "IdentifierPattern: " << node.getName() << std::endl;
+}
+
+void ASTPrinter::visit(DestructuringAssignment& node) {
+    printIndent();
+    output_ << "DestructuringAssignment:" << std::endl;
+    
+    increaseIndent();
+    printIndent();
+    output_ << "Pattern:" << std::endl;
+    increaseIndent();
+    node.getPattern()->accept(*this);
+    decreaseIndent();
+    
+    printIndent();
+    output_ << "Value:" << std::endl;
+    increaseIndent();
+    node.getValue()->accept(*this);
+    decreaseIndent();
+    decreaseIndent();
+}
+
 } // namespace tsc

@@ -1063,6 +1063,7 @@ public:
     DestructuringPattern(const SourceLocation& loc) : location_(loc) {}
     
     virtual ~DestructuringPattern() = default;
+    void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::LValue; } // Can be assigned to
 

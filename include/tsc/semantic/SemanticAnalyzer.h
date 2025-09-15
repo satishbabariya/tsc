@@ -130,6 +130,13 @@ public:
     void visit(TypeAliasDeclaration& node) override;
     
     void visit(Module& node) override;
+    
+    // Destructuring visitor methods
+    void visit(DestructuringPattern& node) override;
+    void visit(ArrayDestructuringPattern& node) override;
+    void visit(ObjectDestructuringPattern& node) override;
+    void visit(IdentifierPattern& node) override;
+    void visit(DestructuringAssignment& node) override;
 
 private:
     // Helper methods

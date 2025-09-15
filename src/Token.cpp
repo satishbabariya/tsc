@@ -368,4 +368,5 @@ bool isPunctuationToken(TokenType type) {
            static_cast<int>(type) <= static_cast<int>(TokenType::AmpersandAmpersandEqual);
 }
 
+
 } // namespace tsc

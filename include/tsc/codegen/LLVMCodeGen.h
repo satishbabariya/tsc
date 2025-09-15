@@ -447,6 +447,13 @@ public:
     void visit(TypeAliasDeclaration& node) override;
     
     void visit(Module& module) override;
+    
+    // Destructuring visitor methods
+    void visit(DestructuringPattern& node) override;
+    void visit(ArrayDestructuringPattern& node) override;
+    void visit(ObjectDestructuringPattern& node) override;
+    void visit(IdentifierPattern& node) override;
+    void visit(DestructuringAssignment& node) override;
 
 private:
     DiagnosticEngine& diagnostics_;
@@ -590,7 +597,6 @@ public:
     void declareBuiltinFunctions();
     void declareBuiltinGlobals();
     llvm::Value* createDeferredExternalSymbolMarker(llvm::GlobalVariable* externalVar, const String& name);
-    llvm::Function* getOrCreatePrintFunction();
     llvm::Function* getOrCreateStringConcatFunction();
     llvm::Function* getOrCreateNumberToStringFunction();
     llvm::Function* getOrCreateBooleanToStringFunction();

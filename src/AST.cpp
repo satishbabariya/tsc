@@ -963,4 +963,29 @@ String MoveExpression::toString() const {
     return "std::move(" + operand_->toString() + ")";
 }
 
+// Destructuring pattern implementations
+void DestructuringPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+void ArrayDestructuringPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+void ObjectDestructuringPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+void IdentifierPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+void DestructuringAssignment::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String DestructuringAssignment::toString() const {
+    return "DestructuringAssignment";
+}
+
 } // namespace tsc

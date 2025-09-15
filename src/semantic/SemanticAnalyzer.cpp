@@ -2915,6 +2915,39 @@ void SemanticAnalyzer::validateDestructorSafety(const DestructorDeclaration& des
     std::cout << "✅ Destructor safety validation completed for: " << destructor.getClassName() << std::endl;
 }
 
+// Destructuring visitor method implementations
+void SemanticAnalyzer::visit(DestructuringPattern& node) {
+    // TODO: Implement destructuring pattern semantic analysis
+}
+
+void SemanticAnalyzer::visit(ArrayDestructuringPattern& node) {
+    // TODO: Implement array destructuring pattern semantic analysis
+    for (const auto& element : node.getElements()) {
+        element->accept(*this);
+    }
+}
+
+void SemanticAnalyzer::visit(ObjectDestructuringPattern& node) {
+    // TODO: Implement object destructuring pattern semantic analysis
+    for (const auto& property : node.getProperties()) {
+        property.getPattern()->accept(*this);
+        if (property.getDefaultValue()) {
+            property.getDefaultValue()->accept(*this);
+        }
+    }
+}
+
+void SemanticAnalyzer::visit(IdentifierPattern& node) {
+    // TODO: Implement identifier pattern semantic analysis
+    // This should create a symbol for the identifier
+}
+
+void SemanticAnalyzer::visit(DestructuringAssignment& node) {
+    // TODO: Implement destructuring assignment semantic analysis
+    node.getPattern()->accept(*this);
+    node.getValue()->accept(*this);
+}
+
 // Factory function
 unique_ptr<SemanticAnalyzer> createSemanticAnalyzer(DiagnosticEngine& diagnostics) {
     return make_unique<SemanticAnalyzer>(diagnostics);

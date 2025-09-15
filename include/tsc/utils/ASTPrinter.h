@@ -67,6 +67,13 @@ public:
     
     // Module
     void visit(Module& node) override;
+    
+    // Destructuring patterns
+    void visit(DestructuringPattern& node) override;
+    void visit(ArrayDestructuringPattern& node) override;
+    void visit(ObjectDestructuringPattern& node) override;
+    void visit(IdentifierPattern& node) override;
+    void visit(DestructuringAssignment& node) override;
 
 private:
     std::ostream& output_;

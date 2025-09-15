@@ -5244,6 +5244,13 @@ bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
         void visit(FunctionExpression& node) override {}
         void visit(Module& node) override {}
         void visit(MoveExpression& node) override {}
+        
+        // Destructuring visitor methods
+        void visit(DestructuringPattern& node) override {}
+        void visit(ArrayDestructuringPattern& node) override {}
+        void visit(ObjectDestructuringPattern& node) override {}
+        void visit(IdentifierPattern& node) override {}
+        void visit(DestructuringAssignment& node) override {}
     };
     
     ReturnStatementChecker checker;
@@ -5370,6 +5377,13 @@ bool LLVMCodeGen::hasReturnStatementsWithValues(const FunctionDeclaration& funcD
                     void visit(FunctionExpression& node) override {}
                     void visit(Module& node) override {}
                     void visit(MoveExpression& node) override {}
+                    
+                    // Destructuring visitor methods
+                    void visit(DestructuringPattern& node) override {}
+                    void visit(ArrayDestructuringPattern& node) override {}
+                    void visit(ObjectDestructuringPattern& node) override {}
+                    void visit(IdentifierPattern& node) override {}
+                    void visit(DestructuringAssignment& node) override {}
     };
     
     ReturnStatementWithValueChecker checker;
@@ -6912,6 +6926,40 @@ void LLVMCodeGen::visit(MoveExpression& node) {
     // For ARC, move semantics means transferring the reference without incrementing the count
     // This is a simplified implementation
     setCurrentValue(operandValue);
+}
+
+// Destructuring visitor methods
+void LLVMCodeGen::visit(DestructuringPattern& node) {
+    // This is a base class - should not be called directly
+    reportError("DestructuringPattern base class should not be visited directly", node.getLocation());
+}
+
+void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
+    // TODO: Implement array destructuring code generation
+    // This would involve:
+    // 1. Generating code to access array elements
+    // 2. Creating variables for each pattern element
+    // 3. Handling spread elements (...rest)
+    reportError("Array destructuring code generation not yet implemented", node.getLocation());
+}
+
+void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
+    // TODO: Implement object destructuring code generation
+    // This would involve:
+    // 1. Generating code to access object properties
+    // 2. Creating variables for each pattern property
+    // 3. Handling property renaming and default values
+    reportError("Object destructuring code generation not yet implemented", node.getLocation());
+}
+
+void LLVMCodeGen::visit(IdentifierPattern& node) {
+    // TODO: Implement identifier pattern code generation
+    reportError("IdentifierPattern code generation not yet implemented", node.getLocation());
+}
+
+void LLVMCodeGen::visit(DestructuringAssignment& node) {
+    // TODO: Implement destructuring assignment code generation
+    reportError("DestructuringAssignment code generation not yet implemented", node.getLocation());
 }
 
 // Helper function to check if a type is ARC-managed
