@@ -1,9 +1,6 @@
 #pragma once
 
-#include "ASTNode.h"
-#include "Expression.h"
-#include "Statement.h"
-#include "Type.h"
+#include "tsc/AST.h"
 #include <string>
 #include <vector>
 #include <memory>

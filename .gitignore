@@ -88,3 +88,27 @@ test.ts
 demo.ts
 simple.ts
 hello.ts
+
+# Test files (organized in test_files/)
+test_files/coverage/
+test_files/parser/
+test_files/semantic/
+test_files/codegen/
+test_files/regression/
+
+# Cleanup artifacts
+*.txt
+debug_output.txt
+compile_output.txt
+failing_tests.txt
+*_report.txt
+generated_ir.ll
+history.json
+read_result.c
+
+# Documentation reports (moved to docs/reports/)
+*_REPORT.md
+*_SUMMARY.md
+*_STATUS.md
+*_ANALYSIS.md
+*_VALIDATION*.md

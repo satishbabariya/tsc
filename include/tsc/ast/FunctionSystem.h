@@ -1,8 +1,6 @@
 #pragma once
 
-#include "tsc/ast/AST.h"
-#include "tsc/ast/Expression.h"
-#include "tsc/ast/Statement.h"
+#include "tsc/AST.h"
 #include <vector>
 #include <string>
 
