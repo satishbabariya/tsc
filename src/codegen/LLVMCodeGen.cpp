@@ -7595,15 +7595,29 @@ void LLVMCodeGen::visit(SpreadElement& node) {
                 spreadType = targetGlobalVar->getValueType();
                 spreadPtr = targetGlobalVar; // Use the actual struct, not the pointer
                 std::cout << "DEBUG: SpreadElement - GlobalVariable points to struct: " << targetGlobalVar->getName().str() << std::endl;
+                
+                // For object literal implementation, return the dereferenced struct
+                setCurrentValue(targetGlobalVar);
+                return;
             } else {
                 // This is a direct struct global variable
                 spreadType = globalVar->getValueType();
+                spreadPtr = globalVar;
                 std::cout << "DEBUG: SpreadElement - GlobalVariable is direct struct" << std::endl;
+                
+                // For object literal implementation, return the struct directly
+                setCurrentValue(globalVar);
+                return;
             }
         } else {
             // No initializer, treat as direct struct
             spreadType = globalVar->getValueType();
+            spreadPtr = globalVar;
             std::cout << "DEBUG: SpreadElement - GlobalVariable has no initializer, treating as direct struct" << std::endl;
+            
+            // For object literal implementation, return the struct directly
+            setCurrentValue(globalVar);
+            return;
         }
     } else if (spreadValue->getType()->isPointerTy()) {
         // Handle pointer to struct/array
