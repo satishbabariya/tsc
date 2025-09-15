@@ -2078,44 +2078,74 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
             }
         }
         
-        // Handle spread properties first to determine the base object structure
-        llvm::Value* baseObject = nullptr;
-        llvm::Type* baseObjectType = nullptr;
+        // Handle spread properties to collect all fields from all spread objects
+        struct SpreadField {
+            llvm::Type* type;
+            String name;
+            llvm::Value* spreadValue;
+            llvm::Type* spreadType;
+            unsigned fieldIndex;
+        };
+        std::vector<SpreadField> spreadFields;
         
         if (!spreadProperties.empty()) {
             std::cout << "DEBUG: Processing " << spreadProperties.size() << " spread properties" << std::endl;
             
-            // For now, handle only the first spread property
-            // In a full implementation, we'd merge multiple spread properties
-            const auto& firstSpread = spreadProperties[0];
-            
-            // Generate the spread expression
-            firstSpread->getValue()->accept(*this);
-            baseObject = getCurrentValue();
-            
-            if (baseObject) {
-                // Determine the type of the spread object
-                if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(baseObject)) {
-                    baseObjectType = allocaInst->getAllocatedType();
-                } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(baseObject)) {
-                    baseObjectType = globalVar->getValueType();
-                }
+            // Process each spread property to collect fields
+            for (const auto* spreadProperty : spreadProperties) {
+                std::cout << "DEBUG: Processing spread property" << std::endl;
                 
-                std::cout << "DEBUG: Spread object type: " << (baseObjectType ? baseObjectType->getTypeID() : -1) << std::endl;
+                // Generate the spread expression
+                spreadProperty->getValue()->accept(*this);
+                llvm::Value* spreadValue = getCurrentValue();
+                
+                if (spreadValue) {
+                    // Determine the type of the spread object
+                    llvm::Type* spreadType = nullptr;
+                    if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(spreadValue)) {
+                        spreadType = allocaInst->getAllocatedType();
+                    } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(spreadValue)) {
+                        spreadType = globalVar->getValueType();
+                    } else if (spreadValue->getType()->isPointerTy()) {
+                        if (spreadValue->getType()->getTypeID() == llvm::Type::TypedPointerTyID) {
+                            auto* typedPtrType = llvm::cast<llvm::TypedPointerType>(spreadValue->getType());
+                            spreadType = typedPtrType->getElementType();
+                        } else {
+                            // For regular pointers, we can't determine the element type in LLVM 20
+                            // We'll skip this case for now and handle it in SpreadElement visitor
+                            std::cout << "DEBUG: Regular pointer type, skipping for now" << std::endl;
+                        }
+                    }
+                    
+                    if (spreadType && llvm::isa<llvm::StructType>(spreadType)) {
+                        auto* structType = llvm::cast<llvm::StructType>(spreadType);
+                        std::cout << "DEBUG: Spread object has " << structType->getNumElements() << " fields" << std::endl;
+                        
+                        // Add fields from this spread object
+                        for (unsigned i = 0; i < structType->getNumElements(); ++i) {
+                            spreadFields.push_back({
+                                structType->getElementType(i),
+                                "spread_field_" + std::to_string(spreadFields.size()),
+                                spreadValue,
+                                spreadType,
+                                i
+                            });
+                        }
+                    } else {
+                        std::cout << "DEBUG: Spread object type not supported: " << (spreadType ? spreadType->getTypeID() : -1) << std::endl;
+                    }
+                }
             }
         }
         
-        // Create struct type with fields for regular properties
+        // Create struct type with fields from all sources
         std::vector<llvm::Type*> fieldTypes;
         std::vector<String> fieldNames;
         
-        // Add fields from spread object if available
-        if (baseObjectType && llvm::isa<llvm::StructType>(baseObjectType)) {
-            auto* spreadStructType = llvm::cast<llvm::StructType>(baseObjectType);
-            for (unsigned i = 0; i < spreadStructType->getNumElements(); ++i) {
-                fieldTypes.push_back(spreadStructType->getElementType(i));
-                fieldNames.push_back("spread_field_" + std::to_string(i));
-            }
+        // Add fields from spread objects
+        for (const auto& field : spreadFields) {
+            fieldTypes.push_back(field.type);
+            fieldNames.push_back(field.name);
         }
         
         // Add fields for regular properties
@@ -2153,24 +2183,21 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
         // Generate field values for initialization
         std::vector<llvm::Constant*> fieldValues;
         
-        // Copy values from spread object
-        if (baseObject && baseObjectType && llvm::isa<llvm::StructType>(baseObjectType)) {
-            auto* spreadStructType = llvm::cast<llvm::StructType>(baseObjectType);
-            for (unsigned i = 0; i < spreadStructType->getNumElements(); ++i) {
-                // Access spread object field
-                std::vector<llvm::Value*> indices = {
-                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
-                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Field index
-                };
-                llvm::Value* fieldPtr = builder_->CreateGEP(baseObjectType, baseObject, indices, "spread_field_ptr");
-                llvm::Value* fieldValue = builder_->CreateLoad(spreadStructType->getElementType(i), fieldPtr, "spread_field_value");
-                
-                // Convert to constant if possible
-                if (auto* constValue = llvm::dyn_cast<llvm::Constant>(fieldValue)) {
-                    fieldValues.push_back(constValue);
-                } else {
-                    fieldValues.push_back(llvm::Constant::getNullValue(spreadStructType->getElementType(i)));
-                }
+        // Copy values from spread objects
+        for (const auto& field : spreadFields) {
+            // Access spread object field
+            std::vector<llvm::Value*> indices = {
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), field.fieldIndex)   // Field index
+            };
+            llvm::Value* fieldPtr = builder_->CreateGEP(field.spreadType, field.spreadValue, indices, "spread_field_ptr");
+            llvm::Value* fieldValue = builder_->CreateLoad(field.type, fieldPtr, "spread_field_value");
+            
+            // Convert to constant if possible
+            if (auto* constValue = llvm::dyn_cast<llvm::Constant>(fieldValue)) {
+                fieldValues.push_back(constValue);
+            } else {
+                fieldValues.push_back(llvm::Constant::getNullValue(field.type));
             }
         }
         
