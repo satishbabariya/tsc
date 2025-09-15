@@ -6,6 +6,7 @@
 #include "tsc/semantic/TypeSystem.h"
 #include "tsc/semantic/ModuleResolver.h"
 #include "tsc/semantic/DependencyScanner.h"
+#include "tsc/semantic/ModuleSymbolTable.h"
 #include "tsc/utils/DiagnosticEngine.h"
 
 namespace tsc {
@@ -55,6 +56,9 @@ public:
     // Main analysis entry point
     bool analyze(Module& module);
     
+    // Multi-module analysis entry point
+    bool analyzeProject(const std::vector<String>& modulePaths);
+    
     // Type information access
     shared_ptr<Type> getExpressionType(const Expression& expr) const;
     shared_ptr<Type> getDeclarationType(const Declaration& decl) const;
@@ -63,6 +67,7 @@ public:
     // Analysis results
     SymbolTable& getSymbolTable() { return *symbolTable_; }
     const TypeSystem& getTypeSystem() const { return *typeSystem_; }
+    ModuleSymbolManager* getModuleSymbolManager() { return moduleSymbolManager_.get(); }
     
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;
@@ -134,6 +139,10 @@ private:
     unique_ptr<GenericConstraintChecker> constraintChecker_;
     unique_ptr<ModuleResolver> moduleResolver_;
     unique_ptr<DependencyScanner> dependencyScanner_;
+    unique_ptr<ModuleSymbolManager> moduleSymbolManager_;
+    
+    // Module context tracking
+    String currentModulePath_;
     
     // Function context tracking
     int functionDepth_ = 0;

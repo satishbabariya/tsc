@@ -20,6 +20,7 @@ add_library(tsc_lib STATIC
     semantic/GenericConstraintChecker.cpp
     semantic/ModuleResolver.cpp
     semantic/DependencyScanner.cpp
+    semantic/ModuleSymbolTable.cpp
     
     # Code Generation
     codegen/LLVMCodeGen.cpp

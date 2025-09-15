@@ -1,6 +1,10 @@
 #include "tsc/semantic/SemanticAnalyzer.h"
 #include "tsc/semantic/GenericConstraintChecker.h"
+#include "tsc/lexer/Lexer.h"
+#include "tsc/parser/Parser.h"
+#include "tsc/parser/VectorTokenStream.h"
 #include <iostream>
+#include <fstream>
 
 namespace tsc {
 
@@ -12,6 +16,7 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     constraintChecker_ = make_unique<GenericConstraintChecker>(diagnostics_, *typeSystem_);
     moduleResolver_ = make_unique<ModuleResolver>(diagnostics_);
     dependencyScanner_ = make_unique<DependencyScanner>(*moduleResolver_, diagnostics_);
+    moduleSymbolManager_ = make_unique<ModuleSymbolManager>(diagnostics_);
     
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
     
@@ -40,6 +45,98 @@ bool SemanticAnalyzer::analyze(Module& module) {
         
     } catch (const std::exception& e) {
         reportError("Internal semantic analysis error: " + String(e.what()), SourceLocation());
+        return false;
+    }
+}
+
+bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
+    try {
+        std::cout << "DEBUG: Starting multi-module analysis for " << modulePaths.size() << " modules" << std::endl;
+        
+        // Phase 1: Scan dependencies and detect circular dependencies
+        auto dependencyGraph = dependencyScanner_->scanProjectWithValidation(modulePaths);
+        if (!dependencyGraph) {
+            diagnostics_.error("Failed to scan project dependencies", SourceLocation());
+            return false;
+        }
+        
+        // Phase 2: Create module symbol tables for each module
+        for (const String& modulePath : modulePaths) {
+            ModuleSymbolTable* moduleTable = moduleSymbolManager_->createModuleSymbolTable(modulePath);
+            if (!moduleTable) {
+                diagnostics_.error("Failed to create module symbol table for: " + modulePath, SourceLocation());
+                return false;
+            }
+        }
+        
+        // Phase 3: Analyze each module individually
+        std::vector<String> compilationOrder = dependencyGraph->getCompilationOrder();
+        std::cout << "DEBUG: Compilation order: ";
+        for (size_t i = 0; i < compilationOrder.size(); ++i) {
+            if (i > 0) std::cout << " -> ";
+            std::cout << compilationOrder[i];
+        }
+        std::cout << std::endl;
+        
+        for (const String& modulePath : compilationOrder) {
+            std::cout << "DEBUG: Analyzing module: " << modulePath << std::endl;
+            
+            // Parse the module
+            std::ifstream file(modulePath);
+            if (!file.is_open()) {
+                diagnostics_.error("Cannot open file: " + modulePath, SourceLocation());
+                return false;
+            }
+            
+            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            file.close();
+            
+            // Tokenize and parse
+            Lexer lexer(diagnostics_);
+            auto tokens = lexer.tokenize(content, modulePath);
+            if (tokens.empty()) {
+                diagnostics_.error("Failed to tokenize: " + modulePath, SourceLocation());
+                return false;
+            }
+            
+            VectorTokenStream tokenStream(tokens);
+            Parser parser(diagnostics_, *typeSystem_);
+            std::cout << "DEBUG: About to call parser.parse() for " << modulePath << std::endl;
+            auto module = parser.parse(tokens, modulePath);
+            std::cout << "DEBUG: Parser.parse() returned " << (module ? "success" : "null") << std::endl;
+            if (!module) {
+                diagnostics_.error("Failed to parse: " + modulePath, SourceLocation());
+                return false;
+            }
+            
+            // Set current module path for symbol table creation
+            currentModulePath_ = modulePath;
+            
+            // Analyze the module
+            if (!analyze(*module)) {
+                diagnostics_.error("Failed to analyze module: " + modulePath, SourceLocation());
+                return false;
+            }
+        }
+        
+        // Phase 4: Perform export-to-import binding
+        std::cout << "DEBUG: Performing export-to-import binding" << std::endl;
+        if (!moduleSymbolManager_->bindExportsToImports()) {
+            diagnostics_.error("Failed to bind exports to imports", SourceLocation());
+            return false;
+        }
+        
+        // Phase 5: Validate all modules
+        if (!moduleSymbolManager_->validateAllModules()) {
+            diagnostics_.error("Module validation failed", SourceLocation());
+            return false;
+        }
+        
+        std::cout << "DEBUG: Multi-module analysis completed successfully" << std::endl;
+        return context_->getErrorCount() == 0;
+        
+    } catch (const std::exception& e) {
+        diagnostics_.error("Internal multi-module analysis error: " + String(e.what()), SourceLocation());
         return false;
     }
 }
@@ -2137,7 +2234,7 @@ void SemanticAnalyzer::visit(ImportDeclaration& node) {
     std::cout << "DEBUG: Processing import declaration: " << node.getModuleSpecifier() << std::endl;
     
     // Resolve the module
-    String currentFile = "current_file.ts"; // TODO: Get actual current file path
+    String currentFile = currentModulePath_.empty() ? "current_file.ts" : currentModulePath_;
     ModuleResolutionResult result = moduleResolver_->resolveModule(node.getModuleSpecifier(), currentFile);
     
     if (!result.isSuccess) {
@@ -2147,16 +2244,70 @@ void SemanticAnalyzer::visit(ImportDeclaration& node) {
     
     std::cout << "DEBUG: Resolved module " << node.getModuleSpecifier() << " to " << result.resolvedPath << std::endl;
     
-    // TODO: Load the resolved module and bind its symbols
-    // This will be implemented in the next phase when we add dependency scanning
+    // Get or create module symbol table for current module
+    ModuleSymbolTable* currentModuleTable = moduleSymbolManager_->getModuleSymbolTable(currentFile);
+    if (!currentModuleTable) {
+        currentModuleTable = moduleSymbolManager_->createModuleSymbolTable(currentFile);
+    }
+    
+    // Add module dependency
+    currentModuleTable->addModuleDependency(result.resolvedPath);
+    
+    // Process import clause based on type
+    const ImportClause& clause = node.getClause();
+    switch (clause.getType()) {
+        case ImportClause::Default: {
+            ImportedSymbol imported(clause.getDefaultBinding(), "default", result.resolvedPath, 
+                                  node.getLocation(), SymbolKind::Variable);
+            currentModuleTable->addImportedSymbol(imported);
+            break;
+        }
+        case ImportClause::Named: {
+            const auto& namedImports = clause.getNamedImports();
+            for (const auto& spec : namedImports) {
+                ImportedSymbol imported(spec.getLocalName(), spec.getImportedName(), result.resolvedPath,
+                                      node.getLocation(), SymbolKind::Variable);
+                currentModuleTable->addImportedSymbol(imported);
+            }
+            break;
+        }
+        case ImportClause::Namespace: {
+            ImportedSymbol imported(clause.getNamespaceBinding(), "*", result.resolvedPath,
+                                  node.getLocation(), SymbolKind::Module);
+            currentModuleTable->addImportedSymbol(imported);
+            break;
+        }
+        case ImportClause::Mixed: {
+            // Default import
+            ImportedSymbol defaultImported(clause.getDefaultBinding(), "default", result.resolvedPath,
+                                         node.getLocation(), SymbolKind::Variable);
+            currentModuleTable->addImportedSymbol(defaultImported);
+            
+            // Named imports
+            const auto& namedImports = clause.getNamedImports();
+            for (const auto& spec : namedImports) {
+                ImportedSymbol imported(spec.getLocalName(), spec.getImportedName(), result.resolvedPath,
+                                      node.getLocation(), SymbolKind::Variable);
+                currentModuleTable->addImportedSymbol(imported);
+            }
+            break;
+        }
+    }
 }
 
 void SemanticAnalyzer::visit(ExportDeclaration& node) {
     std::cout << "DEBUG: Processing export declaration: " << node.getModuleSpecifier() << std::endl;
     
+    String currentFile = currentModulePath_.empty() ? "current_file.ts" : currentModulePath_;
+    
+    // Get or create module symbol table for current module
+    ModuleSymbolTable* currentModuleTable = moduleSymbolManager_->getModuleSymbolTable(currentFile);
+    if (!currentModuleTable) {
+        currentModuleTable = moduleSymbolManager_->createModuleSymbolTable(currentFile);
+    }
+    
     // Handle re-exports (exports with 'from' clause)
     if (!node.getModuleSpecifier().empty()) {
-        String currentFile = "current_file.ts"; // TODO: Get actual current file path
         ModuleResolutionResult result = moduleResolver_->resolveModule(node.getModuleSpecifier(), currentFile);
         
         if (!result.isSuccess) {
@@ -2165,10 +2316,83 @@ void SemanticAnalyzer::visit(ExportDeclaration& node) {
         }
         
         std::cout << "DEBUG: Resolved re-export module " << node.getModuleSpecifier() << " to " << result.resolvedPath << std::endl;
+        
+        // Add module dependency
+        currentModuleTable->addModuleDependency(result.resolvedPath);
+        
+        // Process re-export clause
+        const ExportClause& clause = node.getClause();
+        switch (clause.getType()) {
+            case ExportClause::ReExport:
+            case ExportClause::All: {
+                // Re-export all symbols from the module
+                ExportedSymbol reExport("*", "*", node.getLocation(), SymbolKind::Module, true, result.resolvedPath);
+                currentModuleTable->addExportedSymbol(reExport);
+                break;
+            }
+            case ExportClause::Named: {
+                // Re-export specific named symbols
+                const auto& namedExports = clause.getNamedExports();
+                for (const auto& spec : namedExports) {
+                    ExportedSymbol reExport(spec.getExportedName(), spec.getLocalName(), node.getLocation(),
+                                          SymbolKind::Variable, true, result.resolvedPath);
+                    currentModuleTable->addExportedSymbol(reExport);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    } else {
+        // Handle local exports
+        const ExportClause& clause = node.getClause();
+        switch (clause.getType()) {
+            case ExportClause::Default: {
+                // Export default expression/declaration
+                if (clause.getDefaultExport()) {
+                    // Process the declaration first
+                    if (auto decl = dynamic_cast<Declaration*>(clause.getDefaultExport())) {
+                        // Process the declaration (this will add it to the symbol table)
+                        decl->accept(*this);
+                        
+                        // Mark the symbol as exported
+                        Symbol* symbol = symbolTable_->lookupSymbol(decl->getName());
+                        if (symbol) {
+                            symbol->setExported(true);
+                            
+                            // Add to module's exported symbols
+                            ExportedSymbol exported("default", decl->getName(), node.getLocation(), symbol->getKind());
+                            currentModuleTable->addExportedSymbol(exported);
+                            
+                            std::cout << "DEBUG: Added default export: " << decl->getName() << " as 'default'" << std::endl;
+                        }
+                    } else if (auto expr = dynamic_cast<Expression*>(clause.getDefaultExport())) {
+                        // Process the expression
+                        expr->accept(*this);
+                        
+                        // For expressions, we'll export them as "default"
+                        ExportedSymbol exported("default", "default", node.getLocation(), SymbolKind::Variable);
+                        currentModuleTable->addExportedSymbol(exported);
+                        
+                        std::cout << "DEBUG: Added default export expression as 'default'" << std::endl;
+                    }
+                }
+                break;
+            }
+            case ExportClause::Named: {
+                // Export named symbols
+                const auto& namedExports = clause.getNamedExports();
+                for (const auto& spec : namedExports) {
+                    ExportedSymbol exported(spec.getExportedName(), spec.getLocalName(), node.getLocation(),
+                                          SymbolKind::Variable);
+                    currentModuleTable->addExportedSymbol(exported);
+                }
+                break;
+            }
+            default:
+                break;
+        }
     }
-    
-    // TODO: Mark symbols as exported in the symbol table
-    // This will be implemented in the next phase when we add symbol table extensions
 }
 
 shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {

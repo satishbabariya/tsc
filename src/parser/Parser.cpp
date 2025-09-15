@@ -39,6 +39,7 @@ Parser::Parser(utils::EnhancedDiagnosticEngine& enhancedDiagnostics, const TypeS
 Parser::~Parser() = default;
 
 unique_ptr<Module> Parser::parse(const std::vector<Token>& tokens, const String& filename) {
+    std::cout << "DEBUG: Parser::parse() called with " << tokens.size() << " tokens for file: " << filename << std::endl;
     // Create a token stream from the vector
     auto tokenStream = make_unique<VectorTokenStream>(tokens);
     return parse(std::move(tokenStream), filename);
@@ -57,6 +58,7 @@ unique_ptr<Module> Parser::parse(unique_ptr<TokenStream> tokenStream, const Stri
 }
 
 unique_ptr<Module> Parser::parseModule() {
+    std::cout << "DEBUG: Parser::parseModule() called" << std::endl;
     std::vector<unique_ptr<Statement>> statements;
     
     while (!isAtEnd()) {
@@ -73,6 +75,8 @@ unique_ptr<Module> Parser::parseModule() {
 }
 
 unique_ptr<Statement> Parser::parseStatement() {
+    std::cout << "DEBUG: parseStatement() called" << std::endl;
+    
     // Handle import declarations
     if (match(TokenType::Import)) {
         return parseImportDeclaration();
@@ -80,7 +84,19 @@ unique_ptr<Statement> Parser::parseStatement() {
     
     // Handle export declarations
     if (match(TokenType::Export)) {
+        std::cout << "DEBUG: Parser found export declaration" << std::endl;
         return parseExportDeclaration();
+    }
+    
+    // Debug: Check what token we're looking at
+    if (check(TokenType::Export)) {
+        std::cout << "DEBUG: Found Export token, but match() returned false" << std::endl;
+    }
+    
+    // Debug: Show current token
+    if (!tokens_->isAtEnd()) {
+        Token current = tokens_->peek();
+        std::cout << "DEBUG: Current token: " << current.toString() << std::endl;
     }
     
     // Handle variable declarations
@@ -761,8 +777,25 @@ ExportClause Parser::parseExportClause() {
     }
     
     // If we get here, it's an export declaration (export function add() { })
-    // This is handled by the caller - we need to parse the declaration
-    throw CompilerError("Export declaration not yet implemented", getCurrentLocation());
+    // Parse the declaration and create a default export
+    if (check(TokenType::Function)) {
+        // Export function declaration
+        std::cout << "DEBUG: Parsing export function declaration" << std::endl;
+        auto functionDecl = parseFunctionDeclaration();
+        return ExportClause(ExportClause::Default, {}, functionDecl.get());
+    } else if (check(TokenType::Class)) {
+        // Export class declaration
+        auto classDecl = parseClassDeclaration();
+        return ExportClause(ExportClause::Default, {}, classDecl.get());
+    } else if (check(TokenType::Const) || check(TokenType::Let) || check(TokenType::Var)) {
+        // Export variable declaration
+        auto varDecl = parseVariableStatement();
+        return ExportClause(ExportClause::Default, {}, varDecl.get());
+    } else {
+        // Export expression or other declaration
+        unique_ptr<Expression> expr = parseExpression();
+        return ExportClause(ExportClause::Default, {}, expr.get());
+    }
 }
 
 std::vector<ExportSpec> Parser::parseNamedExports() {

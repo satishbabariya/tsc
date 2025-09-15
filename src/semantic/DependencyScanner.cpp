@@ -6,6 +6,7 @@
 #include <fstream>
 #include <algorithm>
 #include <chrono>
+#include <iostream>
 
 namespace tsc {
 
@@ -42,13 +43,35 @@ std::vector<String> DependencyGraph::getCompilationOrder() const {
     std::unordered_set<String> visited;
     std::unordered_set<String> tempVisited;
     
+    std::cout << "DEBUG: Computing compilation order for " << modules_.size() << " modules" << std::endl;
+    for (const String& module : modules_) {
+        std::cout << "DEBUG: Module: " << module << std::endl;
+        auto it = dependencies_.find(module);
+        if (it != dependencies_.end()) {
+            std::cout << "DEBUG:   Dependencies: ";
+            for (size_t i = 0; i < it->second.size(); ++i) {
+                if (i > 0) std::cout << ", ";
+                std::cout << it->second[i];
+            }
+            std::cout << std::endl;
+        } else {
+            std::cout << "DEBUG:   No dependencies" << std::endl;
+        }
+    }
+    
     for (const String& module : modules_) {
         if (visited.find(module) == visited.end()) {
             topologicalSortDFS(module, visited, tempVisited, result);
         }
     }
     
-    std::reverse(result.begin(), result.end());
+    std::cout << "DEBUG: Final compilation order: ";
+    for (size_t i = 0; i < result.size(); ++i) {
+        if (i > 0) std::cout << " -> ";
+        std::cout << result[i];
+    }
+    std::cout << std::endl;
+    
     return result;
 }
 
@@ -89,12 +112,29 @@ std::vector<DependencyGraph::CircularDependencyInfo> DependencyGraph::getDetaile
     std::vector<CircularDependencyInfo> detailedCycles;
     std::unordered_set<String> visited;
     std::unordered_set<String> tempVisited;
+    std::unordered_set<String> cycleNodes; // Track nodes that are part of cycles
     
     for (const String& module : modules_) {
         if (visited.find(module) == visited.end()) {
+            std::vector<String> currentPath;
             std::vector<String> cycle;
-            if (detectCycleDFS(module, visited, tempVisited, cycle)) {
-                detailedCycles.emplace_back(cycle);
+            if (detectCycleDFSWithPath(module, visited, tempVisited, currentPath, cycle)) {
+                // Check if this cycle is already represented by checking if any node is already in cycleNodes
+                bool isDuplicate = false;
+                for (const String& cycleNode : cycle) {
+                    if (cycleNodes.find(cycleNode) != cycleNodes.end()) {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+                
+                if (!isDuplicate && !cycle.empty()) {
+                    detailedCycles.emplace_back(cycle);
+                    // Mark all nodes in this cycle as processed
+                    for (const String& cycleNode : cycle) {
+                        cycleNodes.insert(cycleNode);
+                    }
+                }
             }
         }
     }
@@ -183,6 +223,7 @@ void DependencyGraph::topologicalSortDFS(const String& module, std::unordered_se
     
     tempVisited.insert(module);
     
+    // First add dependencies to the result
     auto it = dependencies_.find(module);
     if (it != dependencies_.end()) {
         for (const String& dep : it->second) {
@@ -192,6 +233,8 @@ void DependencyGraph::topologicalSortDFS(const String& module, std::unordered_se
     
     tempVisited.erase(module);
     visited.insert(module);
+    
+    // Add this module to the result (dependencies come first)
     result.push_back(module);
 }
 
@@ -200,6 +243,8 @@ bool DependencyGraph::detectCycleDFS(const String& module, std::unordered_set<St
                                    std::vector<String>& cycle) const {
     if (tempVisited.find(module) != tempVisited.end()) {
         // Found a cycle - this module is already in the current path
+        // Find where this module appears in the current path and build the cycle from there
+        cycle.clear();
         cycle.push_back(module);
         return true;
     }
@@ -215,8 +260,8 @@ bool DependencyGraph::detectCycleDFS(const String& module, std::unordered_set<St
         for (const String& dep : it->second) {
             if (detectCycleDFS(dep, visited, tempVisited, cycle)) {
                 // Cycle found in dependency
-                if (cycle.size() == 1 || cycle[0] != cycle.back()) {
-                    // Add current module to cycle if it's not already the start of the cycle
+                // Add current module to cycle if we haven't completed the cycle yet
+                if (cycle.empty() || cycle.back() != module) {
                     cycle.push_back(module);
                 }
                 return true;
@@ -224,6 +269,51 @@ bool DependencyGraph::detectCycleDFS(const String& module, std::unordered_set<St
         }
     }
     
+    tempVisited.erase(module);
+    visited.insert(module);
+    return false;
+}
+
+// Helper for cycle detection with path tracking (DFS)
+bool DependencyGraph::detectCycleDFSWithPath(const String& module, std::unordered_set<String>& visited,
+                                           std::unordered_set<String>& tempVisited, 
+                                           std::vector<String>& currentPath,
+                                           std::vector<String>& cycle) const {
+    if (tempVisited.find(module) != tempVisited.end()) {
+        // Found a cycle - this module is already in the current path
+        // Find where this module appears in the current path and build the cycle from there
+        cycle.clear();
+        bool found = false;
+        for (const String& pathModule : currentPath) {
+            if (pathModule == module) {
+                found = true;
+            }
+            if (found) {
+                cycle.push_back(pathModule);
+            }
+        }
+        // Add the module to complete the cycle
+        cycle.push_back(module);
+        return true;
+    }
+    
+    if (visited.find(module) != visited.end()) {
+        return false; // Already processed this module
+    }
+    
+    tempVisited.insert(module);
+    currentPath.push_back(module);
+    
+    auto it = dependencies_.find(module);
+    if (it != dependencies_.end()) {
+        for (const String& dep : it->second) {
+            if (detectCycleDFSWithPath(dep, visited, tempVisited, currentPath, cycle)) {
+                return true;
+            }
+        }
+    }
+    
+    currentPath.pop_back();
     tempVisited.erase(module);
     visited.insert(module);
     return false;
@@ -288,8 +378,9 @@ std::unique_ptr<DependencyGraph> DependencyScanner::scanProject(const std::vecto
         ModuleDependencyInfo info = scanModule(modulePath);
         graph->addModule(modulePath);
         
-        // Add dependencies to graph
+        std::cout << "DEBUG: Module " << modulePath << " has " << info.directDependencies.size() << " dependencies:" << std::endl;
         for (const String& dep : info.directDependencies) {
+            std::cout << "  -> " << dep << std::endl;
             graph->addDependency(modulePath, dep);
         }
     }

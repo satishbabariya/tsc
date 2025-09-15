@@ -80,6 +80,10 @@ private:
                            std::unordered_set<String>& tempVisited, std::vector<String>& result) const;
     bool detectCycleDFS(const String& module, std::unordered_set<String>& visited,
                        std::unordered_set<String>& tempVisited, std::vector<String>& cycle) const;
+    bool detectCycleDFSWithPath(const String& module, std::unordered_set<String>& visited,
+                               std::unordered_set<String>& tempVisited, 
+                               std::vector<String>& currentPath,
+                               std::vector<String>& cycle) const;
 };
 
 // Dependency scanner for analyzing TypeScript files
