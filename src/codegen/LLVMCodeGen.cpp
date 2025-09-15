@@ -26,6 +26,9 @@ CodeGenContext::CodeGenContext(llvm::LLVMContext& llvmContext, llvm::Module& mod
     : llvmContext_(llvmContext), module_(module), builder_(builder), diagnostics_(diagnostics) {
     // Initialize with global scope
     symbolStack_.push_back(std::unordered_map<String, llvm::Value*>());
+    
+    // Initialize ARC object stack with global scope
+    arcObjectStack_.push_back(std::vector<ARCManagedObject>());
 }
 
 void CodeGenContext::setSymbolValue(const String& name, llvm::Value* value) {
@@ -71,6 +74,57 @@ void CodeGenContext::exitScope() {
     if (symbolStack_.size() > 1) {
         symbolStack_.pop_back();
     }
+    
+    // Generate cleanup for ARC-managed objects in this scope
+    // Note: We'll call generateScopeCleanup from LLVMCodeGen where we have access to the codeGen instance
+}
+
+void CodeGenContext::addARCManagedObject(const String& name, llvm::Value* object, const String& className) {
+    // Ensure we have enough scope levels
+    while (arcObjectStack_.size() < symbolStack_.size()) {
+        arcObjectStack_.push_back(std::vector<ARCManagedObject>());
+    }
+    
+    // Add the object to the current scope
+    if (!arcObjectStack_.empty()) {
+        arcObjectStack_.back().push_back({name, object, className});
+        std::cout << "DEBUG: Added ARC-managed object '" << name << "' (class: " << className << ") to scope" << std::endl;
+    }
+}
+
+void CodeGenContext::generateScopeCleanup(class LLVMCodeGen* codeGen) {
+    if (arcObjectStack_.empty()) return;
+    
+    std::vector<ARCManagedObject>& currentScope = arcObjectStack_.back();
+    
+    // Generate destructor calls and ARC release calls in reverse order
+    for (auto it = currentScope.rbegin(); it != currentScope.rend(); ++it) {
+        const ARCManagedObject& obj = *it;
+        std::cout << "DEBUG: Generating cleanup for ARC object '" << obj.name << "' (class: " << obj.className << ")" << std::endl;
+        
+        // 1. Call destructor if it exists
+        String destructorName = "~" + obj.className;
+        llvm::Function* destructorFunc = module_.getFunction(destructorName);
+        
+        if (destructorFunc) {
+            std::cout << "DEBUG: Calling destructor " << destructorName << " for object " << obj.name << std::endl;
+            builder_.CreateCall(destructorFunc, {obj.object});
+        } else {
+            std::cout << "DEBUG: No destructor found for class " << obj.className << std::endl;
+        }
+        
+        // 2. Call __tsc_release to decrement reference count
+        llvm::Function* releaseFunc = codeGen->getOrCreateARCReleaseFunction();
+        if (releaseFunc) {
+            std::cout << "DEBUG: Calling __tsc_release for object " << obj.name << std::endl;
+            builder_.CreateCall(releaseFunc, {obj.object});
+        } else {
+            std::cout << "DEBUG: Failed to create __tsc_release function" << std::endl;
+        }
+    }
+    
+    // Remove the current scope from the stack
+    arcObjectStack_.pop_back();
 }
 
 void CodeGenContext::reportError(const String& message, const SourceLocation& location) {
@@ -3358,6 +3412,13 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
                 // Local variable - store normally
                 std::cout << "DEBUG: Storing as local variable: " << node.getName() << std::endl;
                 builder_->CreateStore(initValue, storage);
+                
+                // Track ARC-managed objects for automatic cleanup
+                if (varSymbol && varSymbol->getType() && isARCManagedType(varSymbol->getType())) {
+                    String className = varSymbol->getType()->toString();
+                    std::cout << "DEBUG: Tracking ARC-managed object '" << node.getName() << "' (class: " << className << ")" << std::endl;
+                    codeGenContext_->addARCManagedObject(node.getName(), initValue, className);
+                }
             }
         } else {
             // Global variable - set initial value if it's a global variable
@@ -4808,6 +4869,9 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
         std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
     }
     
+    // Generate cleanup for ARC-managed objects before exiting scope
+    codeGenContext_->generateScopeCleanup(this);
+    
     // Exit function context
     codeGenContext_->exitScope();
     codeGenContext_->exitFunction();
@@ -5479,6 +5543,12 @@ void LLVMCodeGen::visit(ClassDeclaration& node) {
     // Generate methods
     for (const auto& method : node.getMethods()) {
         method->accept(*this);
+    }
+    
+    // Generate destructor if present
+    if (node.getDestructor()) {
+        std::cout << "DEBUG: Generating destructor for class: " << node.getName() << std::endl;
+        node.getDestructor()->accept(*this);
     }
     
     // Store class type information (simplified)

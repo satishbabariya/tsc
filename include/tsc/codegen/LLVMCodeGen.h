@@ -66,6 +66,10 @@ public:
     void enterScope();
     void exitScope();
     
+    // ARC object tracking
+    void addARCManagedObject(const String& name, llvm::Value* object, const String& className);
+    void generateScopeCleanup(class LLVMCodeGen* codeGen);
+    
     // Error handling
     void reportError(const String& message, const SourceLocation& location);
     size_t getErrorCount() const { return errorCount_; }
@@ -88,6 +92,14 @@ private:
         llvm::BasicBlock* breakBlock;
     };
     std::stack<LoopContext> loopStack_;
+    
+    // ARC object tracking
+    struct ARCManagedObject {
+        String name;
+        llvm::Value* object;
+        String className;
+    };
+    std::vector<std::vector<ARCManagedObject>> arcObjectStack_;
     
     size_t errorCount_ = 0;
 };
