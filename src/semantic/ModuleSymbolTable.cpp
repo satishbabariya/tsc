@@ -1,4 +1,5 @@
 #include "tsc/semantic/ModuleSymbolTable.h"
+#include "tsc/semantic/SymbolTable.h"
 #include <iostream>
 #include <filesystem>
 #include <algorithm>
@@ -256,15 +257,23 @@ Symbol* ModuleSymbolManager::resolveSymbolAcrossModules(const String& symbolName
 }
 
 bool ModuleSymbolManager::bindExportsToImports() {
-    bool success = true;
-    
-    std::cout << "DEBUG: Starting export-to-import binding" << std::endl;
+    try {
+        bool success = true;
+        
+        std::cout << "DEBUG: *** ENTERING bindExportsToImports ***" << std::endl;
+        std::cout << "DEBUG: Starting export-to-import binding" << std::endl;
+        std::cout << "DEBUG: Total modules to process: " << moduleTables_.size() << std::endl;
+        std::cout << "DEBUG: *** AFTER SIZE CHECK ***" << std::endl;
     
     for (const auto& pair : moduleTables_) {
         ModuleSymbolTable* moduleTable = pair.second.get();
+        std::cout << "DEBUG: Processing module: " << pair.first << std::endl;
+        std::cout << "DEBUG: Module has " << moduleTable->getImportedSymbols().size() << " imported symbols" << std::endl;
         
         // Process each imported symbol
         for (const auto& imported : moduleTable->getImportedSymbols()) {
+            std::cout << "DEBUG: Processing imported symbol: " << imported.localName 
+                      << " from " << imported.sourceModulePath << std::endl;
             // Find the source module
             ModuleSymbolTable* sourceModule = getModuleSymbolTable(imported.sourceModulePath);
             if (!sourceModule) {
@@ -275,17 +284,55 @@ bool ModuleSymbolManager::bindExportsToImports() {
             }
             
             // Look up the exported symbol in the source module
+            std::cout << "DEBUG: Looking for exported symbol '" << imported.importedName 
+                      << "' in source module " << imported.sourceModulePath << std::endl;
             Symbol* exportedSymbol = sourceModule->lookupExportedSymbol(imported.importedName);
             if (!exportedSymbol) {
+                std::cout << "DEBUG: Symbol '" << imported.importedName 
+                          << "' not found in exported symbols of " << imported.sourceModulePath << std::endl;
+                std::cout << "DEBUG: Source module has " << sourceModule->getExportedSymbols().size() 
+                          << " exported symbols" << std::endl;
                 diagnostics_.error("Cannot resolve import: symbol '" + imported.importedName + 
                                  "' not exported from " + imported.sourceModulePath, 
                                  imported.location);
                 success = false;
                 continue;
             }
+            std::cout << "DEBUG: Found exported symbol '" << imported.importedName 
+                      << "' in source module" << std::endl;
             
-            // Bind the imported symbol to the exported symbol
+            // Create or find the imported symbol in the main symbol table
             Symbol* importedSymbol = moduleTable->getSymbolTable().lookupSymbol(imported.localName);
+            if (!importedSymbol) {
+                // Create a new symbol for the imported symbol using factory functions
+                unique_ptr<Symbol> newSymbol;
+                switch (imported.kind) {
+                    case SymbolKind::Variable:
+                        newSymbol = createVariableSymbol(imported.localName, exportedSymbol->getType(), imported.location);
+                        break;
+                    case SymbolKind::Function:
+                        newSymbol = createFunctionSymbol(imported.localName, exportedSymbol->getType(), imported.location);
+                        break;
+                    case SymbolKind::Module:
+                        newSymbol = make_unique<Symbol>(imported.localName, imported.kind, exportedSymbol->getType(), imported.location, exportedSymbol->getDeclaration());
+                        break;
+                    default:
+                        newSymbol = make_unique<Symbol>(imported.localName, imported.kind, exportedSymbol->getType(), imported.location, exportedSymbol->getDeclaration());
+                        break;
+                }
+                
+                if (newSymbol) {
+                    // Add the symbol to the current scope
+                    Scope* currentScope = moduleTable->getSymbolTable().getCurrentScope();
+                    if (currentScope) {
+                        currentScope->addSymbol(std::move(newSymbol));
+                        importedSymbol = moduleTable->getSymbolTable().lookupSymbol(imported.localName);
+                        std::cout << "DEBUG: Created imported symbol " << imported.localName 
+                                  << " in symbol table" << std::endl;
+                    }
+                }
+            }
+            
             if (importedSymbol) {
                 // Copy type and other information from the exported symbol
                 importedSymbol->setType(exportedSymbol->getType());
@@ -294,11 +341,20 @@ bool ModuleSymbolManager::bindExportsToImports() {
                 std::cout << "DEBUG: Bound import " << imported.localName 
                           << " to export " << imported.importedName 
                           << " from " << imported.sourceModulePath << std::endl;
+            } else {
+                diagnostics_.error("Failed to create imported symbol: " + imported.localName, 
+                                 imported.location);
+                success = false;
             }
         }
     }
     
     return success;
+    } catch (const std::exception& e) {
+        std::cout << "DEBUG: Exception in bindExportsToImports: " << e.what() << std::endl;
+        diagnostics_.error("Exception in export-to-import binding: " + String(e.what()), SourceLocation());
+        return false;
+    }
 }
 
 bool ModuleSymbolManager::validateAllModules() const {

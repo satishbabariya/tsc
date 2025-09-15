@@ -61,12 +61,18 @@ unique_ptr<Module> Parser::parseModule() {
     std::cout << "DEBUG: Parser::parseModule() called" << std::endl;
     std::vector<unique_ptr<Statement>> statements;
     
+    std::cout << "DEBUG: Starting parseModule loop, isAtEnd(): " << isAtEnd() << std::endl;
     while (!isAtEnd()) {
+        std::cout << "DEBUG: parseModule loop iteration, calling parseStatement()" << std::endl;
         try {
             if (auto stmt = parseStatement()) {
+                std::cout << "DEBUG: parseStatement returned a statement" << std::endl;
                 statements.push_back(std::move(stmt));
+            } else {
+                std::cout << "DEBUG: parseStatement returned null" << std::endl;
             }
         } catch (const CompilerError&) {
+            std::cout << "DEBUG: parseStatement threw CompilerError" << std::endl;
             synchronize();
         }
     }
@@ -91,6 +97,15 @@ unique_ptr<Statement> Parser::parseStatement() {
     // Debug: Check what token we're looking at
     if (check(TokenType::Export)) {
         std::cout << "DEBUG: Found Export token, but match() returned false" << std::endl;
+    }
+    
+    // Debug: Show current token when parsing statements
+    if (!tokens_->isAtEnd()) {
+        Token current = tokens_->peek();
+        if (current.getType() == TokenType::Export) {
+            std::cout << "DEBUG: Current token IS Export, but not matched" << std::endl;
+        }
+        std::cout << "DEBUG: Current token in parseStatement: " << static_cast<int>(current.getType()) << std::endl;
     }
     
     // Debug: Show current token

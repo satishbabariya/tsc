@@ -125,7 +125,10 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
         
         // Phase 4: Perform export-to-import binding
         std::cout << "DEBUG: Performing export-to-import binding" << std::endl;
-        if (!moduleSymbolManager_->bindExportsToImports()) {
+        std::cout << "DEBUG: *** ABOUT TO CALL bindExportsToImports ***" << std::endl;
+        bool bindingResult = moduleSymbolManager_->bindExportsToImports();
+        std::cout << "DEBUG: *** bindExportsToImports returned: " << (bindingResult ? "true" : "false") << " ***" << std::endl;
+        if (!bindingResult) {
             diagnostics_.error("Failed to bind exports to imports", SourceLocation());
             return false;
         }
