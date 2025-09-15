@@ -49,6 +49,23 @@ public:
     bool hasCircularDependencies() const;
     std::vector<std::vector<String>> getCircularDependencies() const;
     
+    // Enhanced circular dependency detection with detailed reporting
+    struct CircularDependencyInfo {
+        std::vector<String> cycle;
+        String cycleDescription;  // Human-readable description of the cycle
+        std::vector<String> involvedModules;  // All modules involved in the cycle
+        
+        CircularDependencyInfo(const std::vector<String>& c) : cycle(c) {
+            buildDescription();
+        }
+        
+    private:
+        void buildDescription();
+    };
+    
+    std::vector<CircularDependencyInfo> getDetailedCircularDependencies() const;
+    void reportCircularDependencies(DiagnosticEngine& diagnostics) const;
+    
     // Get dependency info for a module
     const ModuleDependencyInfo* getDependencyInfo(const String& modulePath) const;
     ModuleDependencyInfo* getDependencyInfo(const String& modulePath);
@@ -75,6 +92,9 @@ public:
     
     // Scan multiple modules and build dependency graph
     std::unique_ptr<DependencyGraph> scanProject(const std::vector<String>& modulePaths);
+    
+    // Scan project and validate for circular dependencies
+    std::unique_ptr<DependencyGraph> scanProjectWithValidation(const std::vector<String>& modulePaths);
     
     // Get compilation order for a set of modules
     std::vector<String> getCompilationOrder(const std::vector<String>& modulePaths);

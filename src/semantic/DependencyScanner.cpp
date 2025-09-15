@@ -85,6 +85,80 @@ std::vector<std::vector<String>> DependencyGraph::getCircularDependencies() cons
     return cycles;
 }
 
+std::vector<DependencyGraph::CircularDependencyInfo> DependencyGraph::getDetailedCircularDependencies() const {
+    std::vector<CircularDependencyInfo> detailedCycles;
+    std::unordered_set<String> visited;
+    std::unordered_set<String> tempVisited;
+    
+    for (const String& module : modules_) {
+        if (visited.find(module) == visited.end()) {
+            std::vector<String> cycle;
+            if (detectCycleDFS(module, visited, tempVisited, cycle)) {
+                detailedCycles.emplace_back(cycle);
+            }
+        }
+    }
+    
+    return detailedCycles;
+}
+
+void DependencyGraph::reportCircularDependencies(DiagnosticEngine& diagnostics) const {
+    auto detailedCycles = getDetailedCircularDependencies();
+    
+    if (detailedCycles.empty()) {
+        return; // No circular dependencies found
+    }
+    
+    for (size_t i = 0; i < detailedCycles.size(); ++i) {
+        const auto& cycleInfo = detailedCycles[i];
+        
+        // Create a detailed error message
+        String errorMsg = "Circular dependency detected";
+        if (detailedCycles.size() > 1) {
+            errorMsg += " (" + std::to_string(i + 1) + " of " + std::to_string(detailedCycles.size()) + ")";
+        }
+        errorMsg += ": " + cycleInfo.cycleDescription;
+        
+        // Report error for the first module in the cycle
+        if (!cycleInfo.cycle.empty()) {
+            diagnostics.error(errorMsg, SourceLocation(cycleInfo.cycle[0], 0, 0));
+        }
+    }
+}
+
+void DependencyGraph::CircularDependencyInfo::buildDescription() {
+    if (cycle.empty()) {
+        cycleDescription = "empty cycle";
+        return;
+    }
+    
+    // Build human-readable cycle description
+    std::stringstream ss;
+    for (size_t i = 0; i < cycle.size(); ++i) {
+        if (i > 0) {
+            ss << " → ";
+        }
+        // Extract just the filename from the full path for cleaner output
+        String filename = cycle[i];
+        size_t lastSlash = filename.find_last_of("/\\");
+        if (lastSlash != String::npos) {
+            filename = filename.substr(lastSlash + 1);
+        }
+        ss << filename;
+    }
+    
+    // Add the cycle indicator
+    if (cycle.size() > 1) {
+        ss << " → " << cycle[0].substr(cycle[0].find_last_of("/\\") + 1);
+    }
+    
+    cycleDescription = ss.str();
+    
+    // Build list of involved modules (deduplicated)
+    std::unordered_set<String> uniqueModules(cycle.begin(), cycle.end());
+    involvedModules.assign(uniqueModules.begin(), uniqueModules.end());
+}
+
 const ModuleDependencyInfo* DependencyGraph::getDependencyInfo(const String& modulePath) const {
     auto it = dependencyInfo_.find(modulePath);
     return (it != dependencyInfo_.end()) ? it->second.get() : nullptr;
@@ -125,13 +199,13 @@ bool DependencyGraph::detectCycleDFS(const String& module, std::unordered_set<St
                                    std::unordered_set<String>& tempVisited, 
                                    std::vector<String>& cycle) const {
     if (tempVisited.find(module) != tempVisited.end()) {
-        // Found a cycle
+        // Found a cycle - this module is already in the current path
         cycle.push_back(module);
         return true;
     }
     
     if (visited.find(module) != visited.end()) {
-        return false;
+        return false; // Already processed this module
     }
     
     tempVisited.insert(module);
@@ -140,7 +214,9 @@ bool DependencyGraph::detectCycleDFS(const String& module, std::unordered_set<St
     if (it != dependencies_.end()) {
         for (const String& dep : it->second) {
             if (detectCycleDFS(dep, visited, tempVisited, cycle)) {
+                // Cycle found in dependency
                 if (cycle.size() == 1 || cycle[0] != cycle.back()) {
+                    // Add current module to cycle if it's not already the start of the cycle
                     cycle.push_back(module);
                 }
                 return true;
@@ -216,6 +292,17 @@ std::unique_ptr<DependencyGraph> DependencyScanner::scanProject(const std::vecto
         for (const String& dep : info.directDependencies) {
             graph->addDependency(modulePath, dep);
         }
+    }
+    
+    return graph;
+}
+
+std::unique_ptr<DependencyGraph> DependencyScanner::scanProjectWithValidation(const std::vector<String>& modulePaths) {
+    auto graph = scanProject(modulePaths);
+    
+    // Check for circular dependencies and report them
+    if (graph->hasCircularDependencies()) {
+        graph->reportCircularDependencies(diagnostics_);
     }
     
     return graph;
