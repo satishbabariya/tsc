@@ -473,6 +473,37 @@ private:
     SourceLocation location_;
 };
 
+// Optional call expression (obj?.method())
+class OptionalCallExpr : public Expression {
+public:
+    OptionalCallExpr(unique_ptr<Expression> callee,
+                    std::vector<unique_ptr<Expression>> arguments,
+                    const SourceLocation& loc)
+        : callee_(std::move(callee)), arguments_(std::move(arguments)), location_(loc) {}
+    
+    OptionalCallExpr(unique_ptr<Expression> callee,
+                    std::vector<shared_ptr<Type>> typeArguments,
+                    std::vector<unique_ptr<Expression>> arguments,
+                    const SourceLocation& loc)
+        : callee_(std::move(callee)), typeArguments_(std::move(typeArguments)), arguments_(std::move(arguments)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    Expression* getCallee() const { return callee_.get(); }
+    const std::vector<shared_ptr<Type>>& getTypeArguments() const { return typeArguments_; }
+    const std::vector<unique_ptr<Expression>>& getArguments() const { return arguments_; }
+    bool hasTypeArguments() const { return !typeArguments_.empty(); }
+
+private:
+    unique_ptr<Expression> callee_;
+    std::vector<shared_ptr<Type>> typeArguments_;
+    std::vector<unique_ptr<Expression>> arguments_;
+    SourceLocation location_;
+};
+
 // Array literal expression
 class ArrayLiteral : public Expression {
 public:
@@ -491,6 +522,24 @@ private:
     SourceLocation location_;
 };
 
+// Spread element expression (...expr)
+class SpreadElement : public Expression {
+public:
+    SpreadElement(unique_ptr<Expression> expression, const SourceLocation& loc)
+        : expression_(std::move(expression)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    Expression* getExpression() const { return expression_.get(); }
+
+private:
+    unique_ptr<Expression> expression_;
+    SourceLocation location_;
+};
+
 // Index expression (array access)
 class IndexExpression : public Expression {
 public:
@@ -501,6 +550,27 @@ public:
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::LValue; }  // Can be assigned to
+    String toString() const override;
+    
+    Expression* getObject() const { return object_.get(); }
+    Expression* getIndex() const { return index_.get(); }
+
+private:
+    unique_ptr<Expression> object_;
+    unique_ptr<Expression> index_;
+    SourceLocation location_;
+};
+
+// Optional index access expression (obj?.[index])
+class OptionalIndexAccess : public Expression {
+public:
+    OptionalIndexAccess(unique_ptr<Expression> object, unique_ptr<Expression> index,
+                        const SourceLocation& loc)
+        : object_(std::move(object)), index_(std::move(index)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }  // Cannot be assigned to
     String toString() const override;
     
     Expression* getObject() const { return object_.get(); }
@@ -555,6 +625,26 @@ public:
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::LValue; }  // Can be assigned to
+    String toString() const override;
+    
+    Expression* getObject() const { return object_.get(); }
+    const String& getProperty() const { return property_; }
+
+private:
+    unique_ptr<Expression> object_;
+    String property_;
+    SourceLocation location_;
+};
+
+// Optional property access expression (obj?.property)
+class OptionalPropertyAccess : public Expression {
+public:
+    OptionalPropertyAccess(unique_ptr<Expression> object, String property, const SourceLocation& loc)
+        : object_(std::move(object)), property_(property), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }  // Cannot be assigned to
     String toString() const override;
     
     Expression* getObject() const { return object_.get(); }
