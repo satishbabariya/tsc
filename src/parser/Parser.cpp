@@ -693,7 +693,7 @@ ImportClause Parser::parseImportClause() {
     }
     
     // Check for named imports
-    if (match(TokenType::LeftBrace)) {
+    if (check(TokenType::LeftBrace)) {
         // Named imports: import { add, subtract } from "./math"
         std::vector<ImportSpec> namedImports = parseNamedImports();
         return ImportClause(ImportClause::Named, "", namedImports);
@@ -714,6 +714,9 @@ ImportClause Parser::parseImportClause() {
 
 std::vector<ImportSpec> Parser::parseNamedImports() {
     std::vector<ImportSpec> namedImports;
+    
+    // Consume the opening brace
+    consume(TokenType::LeftBrace, "Expected '{' before named imports");
     
     do {
         // Parse import spec

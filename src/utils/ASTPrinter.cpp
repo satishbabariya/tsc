@@ -994,12 +994,145 @@ void ASTPrinter::visit(TypeAliasDeclaration& node) {
 
 void ASTPrinter::visit(ImportDeclaration& node) {
     printIndent();
-    output_ << "ImportDeclaration: " << node.toString() << std::endl;
+    const SourceLocation& loc = node.getLocation();
+    output_ << "ImportDeclaration (Location: " << loc.getFilename() 
+            << ":" << loc.getLine() << ":" << loc.getColumn() << "):" << std::endl;
+    
+    increaseIndent();
+    
+    // Print import clause details
+    const ImportClause& clause = node.getClause();
+    printIndent();
+    output_ << "ImportClause (Type: ";
+    switch (clause.getType()) {
+        case ImportClause::Default:
+            output_ << "Default";
+            break;
+        case ImportClause::Named:
+            output_ << "Named";
+            break;
+        case ImportClause::Namespace:
+            output_ << "Namespace";
+            break;
+        case ImportClause::Mixed:
+            output_ << "Mixed";
+            break;
+    }
+    output_ << "):" << std::endl;
+    
+    increaseIndent();
+    
+    // Print default binding if present
+    if (!clause.getDefaultBinding().empty()) {
+        printIndent();
+        output_ << "DefaultBinding: " << clause.getDefaultBinding() << std::endl;
+    }
+    
+    // Print namespace binding if present
+    if (!clause.getNamespaceBinding().empty()) {
+        printIndent();
+        output_ << "NamespaceBinding: " << clause.getNamespaceBinding() << std::endl;
+    }
+    
+    // Print named imports if present
+    const auto& namedImports = clause.getNamedImports();
+    if (!namedImports.empty()) {
+        printIndent();
+        output_ << "NamedImports (" << namedImports.size() << " items):" << std::endl;
+        increaseIndent();
+        for (size_t i = 0; i < namedImports.size(); ++i) {
+            const auto& spec = namedImports[i];
+            printIndent();
+            output_ << "[" << i << "] ImportSpec: " << spec.getImportedName();
+            if (spec.getImportedName() != spec.getLocalName()) {
+                output_ << " as " << spec.getLocalName();
+            }
+            output_ << std::endl;
+        }
+        decreaseIndent();
+    }
+    
+    decreaseIndent();
+    
+    // Print module specifier
+    printIndent();
+    output_ << "ModuleSpecifier: \"" << node.getModuleSpecifier() << "\"" << std::endl;
+    
+    decreaseIndent();
 }
 
 void ASTPrinter::visit(ExportDeclaration& node) {
     printIndent();
-    output_ << "ExportDeclaration: " << node.toString() << std::endl;
+    const SourceLocation& loc = node.getLocation();
+    output_ << "ExportDeclaration (Location: " << loc.getFilename() 
+            << ":" << loc.getLine() << ":" << loc.getColumn() << "):" << std::endl;
+    
+    increaseIndent();
+    
+    // Print export clause details
+    const ExportClause& clause = node.getClause();
+    printIndent();
+    output_ << "ExportClause (Type: ";
+    switch (clause.getType()) {
+        case ExportClause::Named:
+            output_ << "Named";
+            break;
+        case ExportClause::Default:
+            output_ << "Default";
+            break;
+        case ExportClause::ReExport:
+            output_ << "ReExport";
+            break;
+        case ExportClause::All:
+            output_ << "All";
+            break;
+    }
+    output_ << "):" << std::endl;
+    
+    increaseIndent();
+    
+    // Print default export if present
+    if (clause.getDefaultExport()) {
+        printIndent();
+        output_ << "DefaultExport:" << std::endl;
+        increaseIndent();
+        clause.getDefaultExport()->accept(*this);
+        decreaseIndent();
+    }
+    
+    // Print named exports if present
+    const auto& namedExports = clause.getNamedExports();
+    if (!namedExports.empty()) {
+        printIndent();
+        output_ << "NamedExports (" << namedExports.size() << " items):" << std::endl;
+        increaseIndent();
+        for (size_t i = 0; i < namedExports.size(); ++i) {
+            const auto& spec = namedExports[i];
+            printIndent();
+            output_ << "[" << i << "] ExportSpec: " << spec.getLocalName();
+            if (spec.getLocalName() != spec.getExportedName()) {
+                output_ << " as " << spec.getExportedName();
+            }
+            output_ << std::endl;
+        }
+        decreaseIndent();
+    }
+    
+    // Print module specifier if present (for re-exports)
+    if (!clause.getModuleSpecifier().empty()) {
+        printIndent();
+        output_ << "ModuleSpecifier: \"" << clause.getModuleSpecifier() << "\"" << std::endl;
+    }
+    
+    decreaseIndent();
+    
+    // Print the module specifier from the declaration if different
+    if (!node.getModuleSpecifier().empty() && node.getModuleSpecifier() != clause.getModuleSpecifier()) {
+        printIndent();
+        output_ << "DeclarationModuleSpecifier: \"" << node.getModuleSpecifier() << "\"" << std::endl;
+    }
+    
+    decreaseIndent();
 }
 
 void ASTPrinter::visit(FunctionExpression& node) {
