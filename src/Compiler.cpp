@@ -239,11 +239,32 @@ bool Compiler::linkExecutable(const std::vector<String>& objectFiles, const Stri
         }
         
         // Add our runtime library (if it exists)
-        String runtimePath = "build/libtsc_runtime.a";
-        std::ifstream runtimeFile(runtimePath);
-        if (runtimeFile.good()) {
+        // Try multiple possible paths for the runtime library
+        std::vector<String> possiblePaths = {
+            "build/libtsc_runtime.a",           // From project root
+            "../build/libtsc_runtime.a",        // From subdirectory
+            "../../build/libtsc_runtime.a",    // From deeper subdirectory
+            "./libtsc_runtime.a"               // Current directory
+        };
+        
+        String runtimePath;
+        for (const auto& path : possiblePaths) {
+            std::ifstream runtimeFile(path);
+            if (runtimeFile.good()) {
+                runtimePath = path;
+                runtimeFile.close();
+                break;
+            }
+        }
+        
+        if (!runtimePath.empty()) {
             command += " " + runtimePath;
-            runtimeFile.close();
+        } else {
+            // Debug: print available files to help diagnose
+            std::cerr << "WARNING: Runtime library not found. Tried paths:" << std::endl;
+            for (const auto& path : possiblePaths) {
+                std::cerr << "  - " << path << std::endl;
+            }
         }
         
         command += " -o " + outputFile;
