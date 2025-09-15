@@ -9,6 +9,8 @@ if(GTest_FOUND)
         test_ast.cpp
         test_compiler.cpp
         test_semantic_analyzer.cpp
+        test_module_resolution_fix.cpp
+        test_module_resolution_integration.cpp
         test_closure_semantic_analyzer.cpp
         test_closure_llvm_codegen.cpp
         test_closure_integration.cpp
