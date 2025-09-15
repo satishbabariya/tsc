@@ -1342,9 +1342,10 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
     // First pass: collect function signatures and class declarations, don't process bodies
     // Debug: Check how many statements we're processing
     const auto& statements = module.getStatements();
-    // std::cout << "DEBUG: collectFunctionDeclarations found " << statements.size() << " statements" << std::endl;
+    std::cout << "DEBUG: collectFunctionDeclarations found " << statements.size() << " statements" << std::endl;
     
     for (const auto& stmt : statements) {
+        std::cout << "DEBUG: Processing statement type: " << typeid(*stmt.get()).name() << std::endl;
         if (auto classDecl = dynamic_cast<ClassDeclaration*>(stmt.get())) {
             // Collect class declarations first so they're available for constructor calls
             // Create class type WITHOUT base class (will be resolved in second pass)
@@ -1352,8 +1353,11 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
             declareSymbol(classDecl->getName(), SymbolKind::Class, classType, classDecl->getLocation());
         } else if (auto exportDecl = dynamic_cast<ExportDeclaration*>(stmt.get())) {
             // Handle export declarations that contain function/class declarations
+            std::cout << "DEBUG: Found export declaration in collectFunctionDeclarations" << std::endl;
             const ExportClause& clause = exportDecl->getClause();
+            std::cout << "DEBUG: Export clause type: " << clause.getType() << std::endl;
             if (clause.getType() == ExportClause::Default && clause.getDefaultExport()) {
+                std::cout << "DEBUG: Processing default export" << std::endl;
                 if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(clause.getDefaultExport())) {
                     // Collect exported function declarations
                     std::vector<FunctionType::Parameter> paramTypes;
@@ -1369,9 +1373,12 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
                     auto returnType = funcDecl->getReturnType() ? funcDecl->getReturnType() : typeSystem_->getVoidType();
                     auto functionType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
                     
+                    std::cout << "DEBUG: Adding exported function to symbol table: " << funcDecl->getName() << std::endl;
                     if (!symbolTable_->addSymbol(funcDecl->getName(), SymbolKind::Function, functionType,
                                                funcDecl->getLocation(), funcDecl)) {
                         reportError("Failed to declare exported function: " + funcDecl->getName(), funcDecl->getLocation());
+                    } else {
+                        std::cout << "DEBUG: Successfully added exported function to symbol table: " << funcDecl->getName() << std::endl;
                     }
                 } else if (auto classDecl = dynamic_cast<ClassDeclaration*>(clause.getDefaultExport())) {
                     // Collect exported class declarations
@@ -1388,7 +1395,7 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
                 }
             }
         } else if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
-            // std::cout << "DEBUG: Found function declaration: " << funcDecl->getName() << std::endl;
+            std::cout << "DEBUG: Found function declaration: " << funcDecl->getName() << std::endl;
             // Create function type
             std::vector<FunctionType::Parameter> paramTypes;
             for (const auto& param : funcDecl->getParameters()) {
