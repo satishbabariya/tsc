@@ -1,151 +1,231 @@
 
-// Code generation integration with generic array types
-class GenericArray<T> {
-    private items: T[] = [];
+// Code generation integration with error handling
+class ErrorHandlingCodeGenerator {
+    private output: string[] = [];
+    private errorHandler: CodeGenErrorHandler;
     
-    constructor(items: T[] = []) {
-        this.items = [...items];
+    constructor(errorHandler: CodeGenErrorHandler) {
+        this.errorHandler = errorHandler;
     }
     
-    add(item: T): void {
-        this.items.push(item);
-    }
-    
-    addAll(items: T[]): void {
-        this.items.push(...items);
-    }
-    
-    remove(item: T): boolean {
-        const index = this.items.indexOf(item);
-        if (index !== -1) {
-            this.items.splice(index, 1);
-            return true;
+    generateTryStatement(node: TryStatement): void {
+        try {
+            console.log("Generating try statement");
+            
+            this.output.push("try {");
+            this.indent();
+            
+            // Generate try block
+            if (node.getTryBlock()) {
+                this.generateBlock(node.getTryBlock());
+            }
+            
+            this.unindent();
+            this.output.push("}");
+            
+            // Generate catch clauses
+            for (const catchClause of node.getCatchClauses()) {
+                this.generateCatchClause(catchClause);
+            }
+            
+            // Generate finally block
+            if (node.getFinallyBlock()) {
+                this.output.push("finally {");
+                this.indent();
+                this.generateBlock(node.getFinallyBlock());
+                this.unindent();
+                this.output.push("}");
+            }
+        } catch (error: Error) {
+            this.errorHandler.addError(new CodeGenError(
+                `Error generating try statement: ${error.message}`,
+                node.getLocation()
+            ));
         }
-        return false;
     }
     
-    get(index: number): T | undefined {
-        return this.items[index];
-    }
-    
-    set(index: number, item: T): boolean {
-        if (index >= 0 && index < this.items.length) {
-            this.items[index] = item;
-            return true;
+    generateCatchClause(node: CatchClause): void {
+        try {
+            console.log("Generating catch clause:", node.getParameterName());
+            
+            this.output.push("catch (");
+            if (node.hasParameter()) {
+                this.output.push(node.getParameterName());
+                if (node.hasParameterType()) {
+                    this.output.push(": " + node.getParameterType().getName());
+                }
+            }
+            this.output.push(") {");
+            this.indent();
+            
+            // Generate catch body
+            if (node.getBody()) {
+                this.generateBlock(node.getBody());
+            }
+            
+            this.unindent();
+            this.output.push("}");
+        } catch (error: Error) {
+            this.errorHandler.addError(new CodeGenError(
+                `Error generating catch clause: ${error.message}`,
+                node.getLocation()
+            ));
         }
-        return false;
     }
     
-    length(): number {
-        return this.items.length;
+    generateThrowStatement(node: ThrowStatement): void {
+        try {
+            console.log("Generating throw statement");
+            
+            this.output.push("throw");
+            if (node.getExpression()) {
+                this.output.push(" ");
+                this.generateExpression(node.getExpression());
+            }
+            this.output.push(";");
+        } catch (error: Error) {
+            this.errorHandler.addError(new CodeGenError(
+                `Error generating throw statement: ${error.message}`,
+                node.getLocation()
+            ));
+        }
     }
     
-    isEmpty(): boolean {
-        return this.items.length === 0;
+    generatePanicStatement(node: PanicStatement): void {
+        try {
+            console.log("Generating panic statement");
+            
+            this.output.push("panic(");
+            if (node.getExpression()) {
+                this.generateExpression(node.getExpression());
+            } else if (node.getMessage()) {
+                this.output.push(`"${node.getMessage()}"`);
+            }
+            this.output.push(");");
+        } catch (error: Error) {
+            this.errorHandler.addError(new CodeGenError(
+                `Error generating panic statement: ${error.message}`,
+                node.getLocation()
+            ));
+        }
     }
     
-    clear(): void {
-        this.items = [];
+    generateAbortStatement(node: AbortStatement): void {
+        try {
+            console.log("Generating abort statement");
+            
+            this.output.push("abort(");
+            if (node.getExpression()) {
+                this.generateExpression(node.getExpression());
+            } else if (node.getReason()) {
+                this.output.push(`"${node.getReason()}"`);
+            }
+            this.output.push(");");
+        } catch (error: Error) {
+            this.errorHandler.addError(new CodeGenError(
+                `Error generating abort statement: ${error.message}`,
+                node.getLocation()
+            ));
+        }
     }
     
-    // Functional operations
-    map<U>(fn: (item: T, index: number) => U): U[] {
-        return this.items.map(fn);
+    private generateBlock(node: ASTNode): void {
+        if (node.getType() === ASTNodeType::BlockStatement) {
+            const block = node as BlockStatement;
+            for (const statement of block.getStatements()) {
+                this.generateStatement(statement);
+            }
+        }
     }
     
-    filter(predicate: (item: T, index: number) => boolean): T[] {
-        return this.items.filter(predicate);
+    private generateExpression(node: ASTNode): void {
+        if (node.getType() === ASTNodeType::Expression) {
+            const expr = node as Expression;
+            // Expression generation logic
+            this.output.push(expr.toString());
+        }
     }
     
-    reduce<U>(fn: (acc: U, item: T, index: number) => U, initial: U): U {
-        return this.items.reduce(fn, initial);
+    private generateStatement(node: ASTNode): void {
+        switch (node.getType()) {
+            case ASTNodeType::TryStatement:
+                this.generateTryStatement(node as TryStatement);
+                break;
+            case ASTNodeType::ThrowStatement:
+                this.generateThrowStatement(node as ThrowStatement);
+                break;
+            case ASTNodeType::PanicStatement:
+                this.generatePanicStatement(node as PanicStatement);
+                break;
+            case ASTNodeType::AbortStatement:
+                this.generateAbortStatement(node as AbortStatement);
+                break;
+            default:
+                // Handle other statement types
+                break;
+        }
     }
     
-    forEach(fn: (item: T, index: number) => void): void {
-        this.items.forEach(fn);
+    private indent(): void {
+        // Indentation logic
     }
     
-    find(predicate: (item: T, index: number) => boolean): T | undefined {
-        return this.items.find(predicate);
+    private unindent(): void {
+        // Unindentation logic
     }
     
-    findIndex(predicate: (item: T, index: number) => boolean): number {
-        return this.items.findIndex(predicate);
+    getGeneratedCode(): string {
+        return this.output.join("\n");
+    }
+}
+
+class CodeGenErrorHandler {
+    private errors: CodeGenError[] = [];
+    
+    addError(error: CodeGenError): void {
+        this.errors.push(error);
     }
     
-    some(predicate: (item: T, index: number) => boolean): boolean {
-        return this.items.some(predicate);
+    getErrors(): CodeGenError[] {
+        return this.errors;
     }
     
-    every(predicate: (item: T, index: number) => boolean): boolean {
-        return this.items.every(predicate);
+    hasErrors(): boolean {
+        return this.errors.length > 0;
     }
-    
-    // Array operations
-    slice(start?: number, end?: number): T[] {
-        return this.items.slice(start, end);
-    }
-    
-    splice(start: number, deleteCount?: number, ...items: T[]): T[] {
-        return this.items.splice(start, deleteCount, ...items);
-    }
-    
-    concat(other: GenericArray<T>): GenericArray<T> {
-        return new GenericArray([...this.items, ...other.items]);
-    }
-    
-    // Sorting
-    sort(compareFn?: (a: T, b: T) => number): GenericArray<T> {
-        const sorted = [...this.items].sort(compareFn);
-        return new GenericArray(sorted);
-    }
-    
-    reverse(): GenericArray<T> {
-        const reversed = [...this.items].reverse();
-        return new GenericArray(reversed);
-    }
-    
-    // Conversion
-    toArray(): T[] {
-        return [...this.items];
-    }
-    
-    toSet(): Set<T> {
-        return new Set(this.items);
-    }
-    
-    toString(): string {
-        return this.items.toString();
+}
+
+class CodeGenError extends Error {
+    constructor(message: string, public location: SourceLocation) {
+        super(message);
+        this.name = "CodeGenError";
     }
 }
 
 // Test code generation integration
-const numberArray = new GenericArray<number>([1, 2, 3, 4, 5]);
-const stringArray = new GenericArray<string>(["a", "b", "c", "d", "e"]);
+console.log("=== Testing Code Generation Integration ===");
 
-// Test array operations
-numberArray.add(6);
-stringArray.add("f");
+const errorHandler = new CodeGenErrorHandler();
+const generator = new ErrorHandlingCodeGenerator(errorHandler);
 
-const doubled = numberArray.map(x => x * 2);
-const uppercased = stringArray.map(s => s.toUpperCase());
+// Test code generation
+try {
+    const tryStmt = new TryStatement(
+        new BlockStatement([]),
+        [new CatchClause("error", new Type("Error"), new BlockStatement([]))],
+        new BlockStatement([])
+    );
+    
+    generator.generateTryStatement(tryStmt);
+    const generatedCode = generator.getGeneratedCode();
+    console.log("Generated code:", generatedCode);
+    console.log("Code generation successful");
+} catch (error: Error) {
+    console.log("Code generation failed:", error.message);
+}
 
-const evens = numberArray.filter(x => x % 2 === 0);
-const longStrings = stringArray.filter(s => s.length > 1);
-
-const sum = numberArray.reduce((acc, x) => acc + x, 0);
-const concatenated = stringArray.reduce((acc, s) => acc + s, "");
-
-const hasEven = numberArray.some(x => x % 2 === 0);
-const allShort = stringArray.every(s => s.length <= 1);
-
-console.log("Number array:", numberArray.toArray());
-console.log("String array:", stringArray.toArray());
-console.log("Doubled:", doubled);
-console.log("Uppercased:", uppercased);
-console.log("Evens:", evens);
-console.log("Long strings:", longStrings);
-console.log("Sum:", sum);
-console.log("Concatenated:", concatenated);
-console.log("Has even:", hasEven);
-console.log("All short:", allShort);
+if (errorHandler.hasErrors()) {
+    console.log("Code generation errors found:", errorHandler.getErrors().length);
+} else {
+    console.log("No code generation errors found");
+}

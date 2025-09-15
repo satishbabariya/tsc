@@ -1,254 +1,186 @@
 
-// Performance integration with complex generic scenarios
-interface Entity {
-    id: number;
-    createdAt: Date;
-    updatedAt: Date;
+// Performance integration with error handling
+class PerformanceMonitor {
+    private startTime: number = 0;
+    private endTime: number = 0;
+    private memoryUsage: NodeJS.MemoryUsage | null = null;
+    
+    start(): void {
+        this.startTime = performance.now();
+        this.memoryUsage = process.memoryUsage();
+    }
+    
+    end(): PerformanceMetrics {
+        this.endTime = performance.now();
+        const endMemoryUsage = process.memoryUsage();
+        
+        return {
+            executionTime: this.endTime - this.startTime,
+            memoryDelta: endMemoryUsage.heapUsed - (this.memoryUsage?.heapUsed || 0),
+            peakMemory: endMemoryUsage.heapUsed,
+            startMemory: this.memoryUsage?.heapUsed || 0
+        };
+    }
 }
 
-interface User extends Entity {
-    name: string;
-    email: string;
-    age: number;
-    role: "admin" | "user" | "guest";
+interface PerformanceMetrics {
+    executionTime: number;
+    memoryDelta: number;
+    peakMemory: number;
+    startMemory: number;
 }
 
-interface Product extends Entity {
-    title: string;
-    description: string;
-    price: number;
-    category: string;
-    inStock: boolean;
-}
-
-interface Order extends Entity {
-    userId: number;
-    productId: number;
-    quantity: number;
-    status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
-}
-
-// Generic repository with performance considerations
-class Repository<T extends Entity> {
-    private items: Map<number, T> = new Map();
-    private nextId = 1;
+// Performance testing with error handling
+class ErrorHandlingPerformanceTest {
+    private monitor: PerformanceMonitor;
     
-    create(item: Omit<T, "id" | "createdAt" | "updatedAt">): T {
-        const now = new Date();
-        const newItem = {
-            ...item,
-            id: this.nextId++,
-            createdAt: now,
-            updatedAt: now
-        } as T;
-        this.items.set(newItem.id, newItem);
-        return newItem;
+    constructor() {
+        this.monitor = new PerformanceMonitor();
     }
     
-    findById(id: number): T | undefined {
-        return this.items.get(id);
-    }
-    
-    findAll(): T[] {
-        return Array.from(this.items.values());
-    }
-    
-    update(id: number, updates: Partial<Omit<T, "id" | "createdAt">>): T | undefined {
-        const item = this.items.get(id);
-        if (item) {
-            const updatedItem = {
-                ...item,
-                ...updates,
-                updatedAt: new Date()
-            };
-            this.items.set(id, updatedItem);
-            return updatedItem;
-        }
-        return undefined;
-    }
-    
-    delete(id: number): boolean {
-        return this.items.delete(id);
-    }
-    
-    // Performance-optimized query methods
-    findWhere<K extends keyof T>(key: K, value: T[K]): T[] {
-        return this.findAll().filter(item => item[key] === value);
-    }
-    
-    findWhereMultiple(predicate: (item: T) => boolean): T[] {
-        return this.findAll().filter(predicate);
-    }
-    
-    count(): number {
-        return this.items.size;
-    }
-    
-    countWhere<K extends keyof T>(key: K, value: T[K]): number {
-        return this.findWhere(key, value).length;
-    }
-    
-    // Performance-optimized transformation methods
-    map<U>(fn: (item: T) => U): U[] {
-        return this.findAll().map(fn);
-    }
-    
-    groupBy<K extends keyof T>(key: K): Map<T[K], T[]> {
-        const groups = new Map<T[K], T[]>();
-        for (const item of this.findAll()) {
-            const groupKey = item[key];
-            if (!groups.has(groupKey)) {
-                groups.set(groupKey, []);
+    testTryCatchPerformance(iterations: number): PerformanceMetrics {
+        this.monitor.start();
+        
+        for (let i = 0; i < iterations; i++) {
+            try {
+                if (i % 100 === 0) {
+                    throw new Error(`Error at iteration ${i}`);
+                }
+                // Simulate work
+                Math.random();
+            } catch (error: Error) {
+                // Handle error
+                console.log("Caught error:", error.message);
             }
-            groups.get(groupKey)!.push(item);
         }
-        return groups;
+        
+        return this.monitor.end();
+    }
+    
+    testErrorPropagationPerformance(iterations: number): PerformanceMetrics {
+        this.monitor.start();
+        
+        for (let i = 0; i < iterations; i++) {
+            const result = this.simulateErrorPropagation(i);
+            if (result.isErr()) {
+                // Handle error
+                console.log("Error propagated:", result.unwrapOr(""));
+            }
+        }
+        
+        return this.monitor.end();
+    }
+    
+    testPanicAbortPerformance(iterations: number): PerformanceMetrics {
+        this.monitor.start();
+        
+        for (let i = 0; i < iterations; i++) {
+            try {
+                if (i % 1000 === 0) {
+                    this.simulatePanic(`Panic at iteration ${i}`);
+                }
+                // Simulate work
+                Math.random();
+            } catch (error: Error) {
+                // Handle panic
+                console.log("Panic handled:", error.message);
+            }
+        }
+        
+        return this.monitor.end();
+    }
+    
+    testCustomExceptionPerformance(iterations: number): PerformanceMetrics {
+        this.monitor.start();
+        
+        for (let i = 0; i < iterations; i++) {
+            try {
+                if (i % 50 === 0) {
+                    throw new CustomPerformanceError(`Custom error at iteration ${i}`, i);
+                }
+                // Simulate work
+                Math.random();
+            } catch (error: CustomPerformanceError) {
+                // Handle custom error
+                console.log("Custom error handled:", error.message, error.code);
+            }
+        }
+        
+        return this.monitor.end();
+    }
+    
+    private simulateErrorPropagation(value: number): Result<number, string> {
+        if (value % 100 === 0) {
+            return Result.err(`Error at value ${value}`);
+        }
+        return Result.ok(value * 2);
+    }
+    
+    private simulatePanic(message: string): never {
+        throw new Error(`PANIC: ${message}`);
     }
 }
 
-// Generic service with performance considerations
-class Service<T extends Entity> {
-    constructor(private repository: Repository<T>) {}
-    
-    create(item: Omit<T, "id" | "createdAt" | "updatedAt">): T {
-        return this.repository.create(item);
-    }
-    
-    getById(id: number): T | undefined {
-        return this.repository.findById(id);
-    }
-    
-    getAll(): T[] {
-        return this.repository.findAll();
-    }
-    
-    update(id: number, updates: Partial<Omit<T, "id" | "createdAt">>): T | undefined {
-        return this.repository.update(id, updates);
-    }
-    
-    delete(id: number): boolean {
-        return this.repository.delete(id);
-    }
-    
-    findWhere<K extends keyof T>(key: K, value: T[K]): T[] {
-        return this.repository.findWhere(key, value);
-    }
-    
-    findWhereMultiple(predicate: (item: T) => boolean): T[] {
-        return this.repository.findWhereMultiple(predicate);
-    }
-    
-    count(): number {
-        return this.repository.count();
-    }
-    
-    countWhere<K extends keyof T>(key: K, value: T[K]): number {
-        return this.repository.countWhere(key, value);
-    }
-    
-    map<U>(fn: (item: T) => U): U[] {
-        return this.repository.map(fn);
-    }
-    
-    groupBy<K extends keyof T>(key: K): Map<T[K], T[]> {
-        return this.repository.groupBy(key);
+class CustomPerformanceError extends Error {
+    constructor(message: string, public code: number) {
+        super(message);
+        this.name = "CustomPerformanceError";
     }
 }
 
-// Test performance with large datasets
-const userRepository = new Repository<User>();
-const productRepository = new Repository<Product>();
-const orderRepository = new Repository<Order>();
-
-const userService = new Service(userRepository);
-const productService = new Service(productRepository);
-const orderService = new Service(orderRepository);
-
-// Create large datasets for performance testing
-const startTime = Date.now();
-
-// Create 1000 users
-for (let i = 0; i < 1000; i++) {
-    userService.create({
-        name: `User ${i}`,
-        email: `user${i}@example.com`,
-        age: 20 + (i % 50),
-        role: i % 3 === 0 ? "admin" : i % 3 === 1 ? "user" : "guest"
-    });
+// Performance comparison
+class PerformanceComparison {
+    static compareErrorHandlingMethods(iterations: number): void {
+        const test = new ErrorHandlingPerformanceTest();
+        
+        console.log("=== Performance Comparison ===");
+        console.log(`Testing with ${iterations} iterations`);
+        
+        // Test try-catch performance
+        const tryCatchMetrics = test.testTryCatchPerformance(iterations);
+        console.log("Try-Catch Performance:");
+        console.log(`  Execution time: ${tryCatchMetrics.executionTime.toFixed(2)}ms`);
+        console.log(`  Memory delta: ${tryCatchMetrics.memoryDelta} bytes`);
+        console.log(`  Peak memory: ${tryCatchMetrics.peakMemory} bytes`);
+        
+        // Test error propagation performance
+        const errorPropagationMetrics = test.testErrorPropagationPerformance(iterations);
+        console.log("Error Propagation Performance:");
+        console.log(`  Execution time: ${errorPropagationMetrics.executionTime.toFixed(2)}ms`);
+        console.log(`  Memory delta: ${errorPropagationMetrics.memoryDelta} bytes`);
+        console.log(`  Peak memory: ${errorPropagationMetrics.peakMemory} bytes`);
+        
+        // Test panic/abort performance
+        const panicAbortMetrics = test.testPanicAbortPerformance(iterations);
+        console.log("Panic/Abort Performance:");
+        console.log(`  Execution time: ${panicAbortMetrics.executionTime.toFixed(2)}ms`);
+        console.log(`  Memory delta: ${panicAbortMetrics.memoryDelta} bytes`);
+        console.log(`  Peak memory: ${panicAbortMetrics.peakMemory} bytes`);
+        
+        // Test custom exception performance
+        const customExceptionMetrics = test.testCustomExceptionPerformance(iterations);
+        console.log("Custom Exception Performance:");
+        console.log(`  Execution time: ${customExceptionMetrics.executionTime.toFixed(2)}ms`);
+        console.log(`  Memory delta: ${customExceptionMetrics.memoryDelta} bytes`);
+        console.log(`  Peak memory: ${customExceptionMetrics.peakMemory} bytes`);
+        
+        // Calculate performance ratios
+        const tryCatchTime = tryCatchMetrics.executionTime;
+        const errorPropagationTime = errorPropagationMetrics.executionTime;
+        const panicAbortTime = panicAbortMetrics.executionTime;
+        const customExceptionTime = customExceptionMetrics.executionTime;
+        
+        console.log("\nPerformance Ratios (relative to try-catch):");
+        console.log(`  Error Propagation: ${(errorPropagationTime / tryCatchTime).toFixed(2)}x`);
+        console.log(`  Panic/Abort: ${(panicAbortTime / tryCatchTime).toFixed(2)}x`);
+        console.log(`  Custom Exception: ${(customExceptionTime / tryCatchTime).toFixed(2)}x`);
+    }
 }
 
-// Create 1000 products
-for (let i = 0; i < 1000; i++) {
-    productService.create({
-        title: `Product ${i}`,
-        description: `Description for product ${i}`,
-        price: 10 + (i % 1000),
-        category: i % 5 === 0 ? "Electronics" : i % 5 === 1 ? "Books" : i % 5 === 2 ? "Clothing" : i % 5 === 3 ? "Home" : "Sports",
-        inStock: i % 2 === 0
-    });
-}
+// Run performance tests
+console.log("=== Testing Performance Integration ===");
 
-// Create 1000 orders
-for (let i = 0; i < 1000; i++) {
-    orderService.create({
-        userId: (i % 1000) + 1,
-        productId: (i % 1000) + 1,
-        quantity: 1 + (i % 10),
-        status: i % 4 === 0 ? "pending" : i % 4 === 1 ? "processing" : i % 4 === 2 ? "shipped" : "delivered"
-    });
-}
-
-const creationTime = Date.now() - startTime;
-
-// Test query performance
-const queryStartTime = Date.now();
-
-const adminUsers = userService.findWhere("role", "admin");
-const electronicsProducts = productService.findWhere("category", "Electronics");
-const pendingOrders = orderService.findWhere("status", "pending");
-
-const queryTime = Date.now() - queryStartTime;
-
-// Test aggregation performance
-const aggStartTime = Date.now();
-
-const totalUsers = userService.count();
-const totalProducts = productService.count();
-const totalOrders = orderService.count();
-
-const adminCount = userService.countWhere("role", "admin");
-const electronicsCount = productService.countWhere("category", "Electronics");
-const pendingCount = orderService.countWhere("status", "pending");
-
-const aggTime = Date.now() - aggStartTime;
-
-// Test transformation performance
-const transformStartTime = Date.now();
-
-const userNames = userService.map(user => user.name);
-const productTitles = productService.map(product => product.title);
-const orderStatuses = orderService.map(order => order.status);
-
-const usersByRole = userService.groupBy("role");
-const productsByCategory = productService.groupBy("category");
-const ordersByStatus = orderService.groupBy("status");
-
-const transformTime = Date.now() - transformStartTime;
-
-const totalTime = Date.now() - startTime;
-
-console.log("Performance Results:");
-console.log("Creation time:", creationTime, "ms");
-console.log("Query time:", queryTime, "ms");
-console.log("Aggregation time:", aggTime, "ms");
-console.log("Transformation time:", transformTime, "ms");
-console.log("Total time:", totalTime, "ms");
-
-console.log("Results:");
-console.log("Admin users:", adminUsers.length);
-console.log("Electronics products:", electronicsProducts.length);
-console.log("Pending orders:", pendingOrders.length);
-console.log("Total counts:", totalUsers, totalProducts, totalOrders);
-console.log("Specific counts:", adminCount, electronicsCount, pendingCount);
-console.log("Transformation results:", userNames.length, productTitles.length, orderStatuses.length);
-console.log("Grouping results:", usersByRole.size, productsByCategory.size, ordersByStatus.size);
+// Test with different iteration counts
+PerformanceComparison.compareErrorHandlingMethods(1000);
+PerformanceComparison.compareErrorHandlingMethods(10000);
+PerformanceComparison.compareErrorHandlingMethods(100000);
