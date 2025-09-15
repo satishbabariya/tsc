@@ -3544,10 +3544,22 @@ void LLVMCodeGen::visit(SwitchStatement& node) {
         return;
     }
     
-    // Convert discriminant to integer if it's a floating point
+    // Convert discriminant to integer based on type
     if (discriminantValue->getType()->isDoubleTy()) {
+        // Floating point to integer
         discriminantValue = builder_->CreateFPToSI(discriminantValue, 
             llvm::Type::getInt32Ty(*context_), "switch.discriminant.int");
+    } else if (discriminantValue->getType()->isIntegerTy(1)) {
+        // Boolean to integer (extend from i1 to i32)
+        discriminantValue = builder_->CreateZExt(discriminantValue, 
+            llvm::Type::getInt32Ty(*context_), "switch.discriminant.bool");
+    } else if (discriminantValue->getType()->isPointerTy()) {
+        // String to hash (simplified approach)
+        // Note: This is a simplified implementation. In practice, we'd need
+        // to call a runtime function to compute the string hash
+        // For now, we'll assume string discriminants are pre-hashed
+        reportError("String switch discriminants not fully supported yet", node.getDiscriminant()->getLocation());
+        return;
     }
     
     // Create basic blocks
@@ -3569,11 +3581,25 @@ void LLVMCodeGen::visit(SwitchStatement& node) {
             llvm::BasicBlock* caseBlock = llvm::BasicBlock::Create(*context_, 
                 "switch.case" + std::to_string(i), currentFunc);
             
-            // For now, assume case values are integer constants
-            // TODO: Add proper constant evaluation
+            // Handle different constant types
             if (auto numLit = dynamic_cast<NumericLiteral*>(caseClause->getTest())) {
+                // Numeric literal
                 llvm::ConstantInt* caseValue = llvm::ConstantInt::get(
                     llvm::Type::getInt32Ty(*context_), (int)numLit->getValue());
+                caseBlocks.push_back({caseValue, caseBlock});
+            } else if (auto boolLit = dynamic_cast<BooleanLiteral*>(caseClause->getTest())) {
+                // Boolean literal - convert to integer (0 for false, 1 for true)
+                llvm::ConstantInt* caseValue = llvm::ConstantInt::get(
+                    llvm::Type::getInt32Ty(*context_), boolLit->getValue() ? 1 : 0);
+                caseBlocks.push_back({caseValue, caseBlock});
+            } else if (auto strLit = dynamic_cast<StringLiteral*>(caseClause->getTest())) {
+                // String literal - convert to hash for switch (simplified approach)
+                // Note: This is a simplified implementation. In practice, string switches
+                // would need more sophisticated handling (e.g., string interning, hash tables)
+                std::hash<std::string> hasher;
+                size_t hash = hasher(strLit->getValue());
+                llvm::ConstantInt* caseValue = llvm::ConstantInt::get(
+                    llvm::Type::getInt32Ty(*context_), (int32_t)hash);
                 caseBlocks.push_back({caseValue, caseBlock});
             }
         }
@@ -3608,9 +3634,9 @@ void LLVMCodeGen::visit(SwitchStatement& node) {
         builder_->SetInsertPoint(caseBlock);
         caseClause->accept(*this);
         
-        // If no terminator was added (no break/return), fall through to next case
+        // If no terminator was added (no break/return), implement fallthrough
         if (!builder_->GetInsertBlock()->getTerminator()) {
-            // Check if this case has a break statement that should fall through
+            // Check if this case has a break statement
             bool hasBreak = false;
             for (const auto& stmt : caseClause->getStatements()) {
                 if (dynamic_cast<BreakStatement*>(stmt.get())) {
@@ -3623,8 +3649,31 @@ void LLVMCodeGen::visit(SwitchStatement& node) {
                 // Break statement should jump to switch end
                 builder_->CreateBr(endBlock);
             } else {
-                // No break, fall through to next case or end
-                builder_->CreateBr(endBlock);
+                // No break, fall through to next case
+                if (i + 1 < node.getCases().size()) {
+                    // Find the next case block
+                    const auto& nextCase = node.getCases()[i + 1];
+                    llvm::BasicBlock* nextCaseBlock;
+                    
+                    if (nextCase->isDefault()) {
+                        nextCaseBlock = defaultBlock;
+                    } else {
+                        // Find the corresponding case block for the next case
+                        auto it = std::find_if(caseBlocks.begin(), caseBlocks.end(),
+                            [i](const auto& pair) { return pair.second->getName().contains(std::to_string(i + 1)); });
+                        if (it != caseBlocks.end()) {
+                            nextCaseBlock = it->second;
+                        } else {
+                            // Fallback to end block if next case block not found
+                            nextCaseBlock = endBlock;
+                        }
+                    }
+                    
+                    builder_->CreateBr(nextCaseBlock);
+                } else {
+                    // Last case, fall through to end
+                    builder_->CreateBr(endBlock);
+                }
             }
         }
     }
