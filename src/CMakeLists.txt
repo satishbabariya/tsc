@@ -23,11 +23,30 @@ add_library(tsc_lib STATIC
         semantic/DependencyScanner.cpp
         semantic/ModuleSymbolTable.cpp
         semantic/CycleDetector.cpp
+        
+        # Refactored Semantic Analysis Modules
+        semantic/SemanticAnalyzerRefactored.cpp
+        semantic/resolution/SymbolResolutionEngine.cpp
+        semantic/checking/TypeCheckingEngine.cpp
+        semantic/flow/FlowAnalysisEngine.cpp
+        semantic/resolution/InheritanceResolver.cpp
 
         # Code Generation
         codegen/LLVMCodeGen.cpp
         codegen/ObjectFileGenerator.cpp
         codegen/ExecutableLinker.cpp
+        
+        # Refactored Code Generation Modules
+        codegen/LLVMCodeGenRefactored.cpp
+        codegen/context/CodeGenContext.cpp
+        codegen/types/TypeGenerator.cpp
+        codegen/expressions/ExpressionGenerator.cpp
+        codegen/statements/StatementGenerator.cpp
+        codegen/functions/FunctionGenerator.cpp
+        codegen/classes/ClassGenerator.cpp
+        codegen/builtins/BuiltinGenerator.cpp
+        codegen/optimization/OptimizationEngine.cpp
+        codegen/memory/MemoryManager.cpp
 
         # AST implementation
         AST.cpp
