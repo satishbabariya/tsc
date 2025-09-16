@@ -46,6 +46,13 @@ bool __tsc_is_arc_object(void* obj);
 size_t __tsc_get_ref_count(void* obj);
 size_t __tsc_get_weak_count(void* obj);
 
+// Weak reference table functions
+void __tsc_register_weak_ref(void* weak_ref, void* target_obj);
+void __tsc_unregister_weak_ref(void* weak_ref);
+void* __tsc_weak_ref_get_target(void* weak_ref);
+bool __tsc_is_weak_ref_valid(void* weak_ref);
+void __tsc_cleanup_weak_refs(void* target_obj);
+
 // Performance monitoring
 typedef struct {
     size_t total_allocations;
