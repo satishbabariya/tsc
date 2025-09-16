@@ -317,7 +317,7 @@ String TestCaseGenerator::generateRandomString() {
     std::uniform_int_distribution<> charDist(0, 25);
     
     int length = lengthDist(gen);
-    String str = "\"";
+    String str = "\" + ";
     
     for (int i = 0; i < length; ++i) {
         char c = 'a' + charDist(gen);

@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include "tsc/utils/Logger.h"
 
 namespace tsc {
 
@@ -149,7 +150,7 @@ CompilationResult Compiler::compileModule(const std::vector<String>& sourceFiles
     CompilationResult result;
     
     // Phase 1: Cross-module analysis using SemanticAnalyzer
-    TSC_LOG_DEBUG("Starting cross-module analysis for" + std::to_string(sourceFiles.size()) + " modules" );
+    TSC_LOG_DEBUG("Starting cross-module analysis for" + std::to_string(sourceFiles.size()) + " modules", "Compiler");
     
     // Create SemanticAnalyzer for cross-module analysis
     SemanticAnalyzer analyzer(*diagnostics_);
@@ -160,14 +161,14 @@ CompilationResult Compiler::compileModule(const std::vector<String>& sourceFiles
         return result;
     }
     
-    TSC_LOG_DEBUG("Cross-module analysis completed successfully" );
+    TSC_LOG_DEBUG("Cross-module analysis completed successfully", "Compiler");
     
     // Phase 2: Code generation for each module with resolved symbols
     std::vector<String> objectFiles;
     for (size_t i = 0; i < sourceFiles.size(); ++i) {
         const auto& sourceFile = sourceFiles[i];
         bool isEntryPoint = (i == sourceFiles.size() - 1); // Last module is entry point
-        TSC_LOG_DEBUG("Generating code for module:" + sourceFile + (isEntryPoint ? " (entry point)" : "") );
+        TSC_LOG_DEBUG("Generating code for module:" + sourceFile + (isEntryPoint ? " (entry point)" : " + "), "Compiler");
         
         auto fileResult = compileWithResolvedSymbols(sourceFile, analyzer, isEntryPoint);
         if (!fileResult.success) {
@@ -181,7 +182,7 @@ CompilationResult Compiler::compileModule(const std::vector<String>& sourceFiles
     
     // Phase 3: Link all object files
     if (!objectFiles.empty() && !options_.outputFile.empty()) {
-        TSC_LOG_DEBUG("Linking" + std::to_string(objectFiles.size()) + " object files" );
+        TSC_LOG_DEBUG("Linking" + std::to_string(objectFiles.size()) + " object files", "Compiler");
         if (!linkExecutable(objectFiles, options_.outputFile)) {
             result.errorMessage = "Module linking failed";
             return result;
@@ -197,7 +198,7 @@ CompilationResult Compiler::compileWithResolvedSymbols(const String& sourceFile,
     CompilationResult result;
     
     try {
-        TSC_LOG_DEBUG("Compiling module with resolved symbols:" + sourceFile );
+        TSC_LOG_DEBUG("Compiling module with resolved symbols:" + sourceFile, "Compiler");
         
         // Read source file
         std::ifstream file(sourceFile);
@@ -231,7 +232,7 @@ CompilationResult Compiler::compileWithResolvedSymbols(const String& sourceFile,
         
         // Set main function generation flag for multi-module compilation
         moduleCodeGenerator->setGenerateMainFunction(isEntryPoint);
-        TSC_LOG_DEBUG("Set generateMainFunction to"  + (isEntryPoint ? "true" : "false") " for " + sourceFile );
+        TSC_LOG_DEBUG("Set generateMainFunction to" + std::string(isEntryPoint ? "true" : "false") + " for " + sourceFile, "Compiler");
         
         // Generate LLVM IR using the resolved symbols from analyzer
         // TODO: Modify LLVMCodeGen to use resolved symbols from SemanticAnalyzer
@@ -255,7 +256,7 @@ CompilationResult Compiler::compileWithResolvedSymbols(const String& sourceFile,
         result.objectFile = objectFile;
         result.success = true;
         
-        TSC_LOG_DEBUG("Successfully compiled module:" + sourceFile );
+        TSC_LOG_DEBUG("Successfully compiled module:" + std::string(sourceFile), "Compiler");
         
     } catch (const std::exception& e) {
         result.errorMessage = "Internal compiler error in compileWithResolvedSymbols: " + String(e.what());
@@ -281,7 +282,7 @@ String Compiler::generateLLVMIR(const Module& module) {
     if (!codeGenerator_->generateCode(const_cast<Module&>(module), 
                                      typeChecker_->getSymbolTable(), 
                                      typeChecker_->getTypeSystem())) {
-        return ""; // Code generation failed
+        return " + "; // Code generation failed
     }
     
     return codeGenerator_->getLLVMIRString();
@@ -324,7 +325,7 @@ bool Compiler::linkExecutable(const std::vector<String>& objectFiles, const Stri
         // Build clang command
         String command = "clang";
         for (const auto& objFile : objectFiles) {
-            command += " " + objFile;
+            command += " + " + objFile;
         }
         
         // Add our runtime library (if it exists)
@@ -347,7 +348,7 @@ bool Compiler::linkExecutable(const std::vector<String>& objectFiles, const Stri
         }
         
         if (!runtimePath.empty()) {
-            command += " " + runtimePath;
+            command += " + " + runtimePath;
         } else {
             // Debug: print available files to help diagnose
             std::cerr << "WARNING: Runtime library not found. Tried paths:" << std::endl;

@@ -2,12 +2,11 @@
 
 #include "tsc/Common.h"
 #include "tsc/semantic/TypeSystem.h"
-#include "tsc/codegen/LLVMCodeGen.h"
+#include "tsc/AST.h"
 
 // LLVM includes
 #include "llvm/IR/Type.h"
-#include "llvm/IR/FunctionType.h"
-#include "llvm/IR/StructType.h"
+#include "llvm/IR/DerivedTypes.h"
 
 namespace tsc {
 
@@ -43,7 +42,7 @@ public:
     
     // Object types
     llvm::StructType* createObjectType(const String& name, const std::vector<std::pair<String, llvm::Type*>>& fields);
-    llvm::StructType* createClassType(const String& name, const std::vector<ClassMember>& members);
+    llvm::StructType* createClassType(const String& name, const std::vector<PropertyDeclaration>& members);
     
     // Function types
     llvm::FunctionType* createFunctionType(llvm::Type* returnType, const std::vector<llvm::Type*>& parameterTypes, bool isVarArg = false);

@@ -113,7 +113,7 @@ String Token::getStringValue() const {
     if (std::holds_alternative<String>(value_)) {
         return std::get<String>(value_);
     }
-    return "";
+    return " + ";
 }
 
 double Token::getNumericValue() const {

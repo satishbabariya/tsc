@@ -764,7 +764,7 @@ bool EnhancedDestructuringTypeChecker::isInheritanceCompatible(Type* type1, Type
 }
 
 std::string EnhancedDestructuringTypeChecker::getCalleeName(ASTNode* callee) {
-    if (!callee) return "";
+    if (!callee) return " + ";
     
     switch (callee->getType()) {
         case ASTNodeType::Identifier:
@@ -777,7 +777,7 @@ std::string EnhancedDestructuringTypeChecker::getCalleeName(ASTNode* callee) {
 }
 
 std::string EnhancedDestructuringTypeChecker::getMemberExpressionName(MemberExpression* memberExpr) {
-    if (!memberExpr) return "";
+    if (!memberExpr) return " + ";
     
     auto property = memberExpr->getProperty();
     if (property && property->getType() == ASTNodeType::Identifier) {

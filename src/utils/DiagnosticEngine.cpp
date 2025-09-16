@@ -113,7 +113,7 @@ void DiagnosticEngine::setSourceContent(const String& filename, const String& co
 String DiagnosticEngine::getSourceLine(const String& filename, unsigned line) const {
     auto it = sourceLines_.find(filename);
     if (it == sourceLines_.end() || line == 0 || line > it->second.size()) {
-        return "";
+        return " + ";
     }
     return it->second[line - 1]; // Convert to 0-based indexing
 }
@@ -153,7 +153,7 @@ String DiagnosticEngine::getLevelString(DiagnosticLevel level) const {
 
 String DiagnosticEngine::getContextLines(const SourceLocation& location) const {
     if (!location.isValid()) {
-        return "";
+        return " + ";
     }
     
     String sourceLine = getSourceLine(location.getFilename(), location.getLine());
@@ -166,7 +166,7 @@ String DiagnosticEngine::getContextLines(const SourceLocation& location) const {
     
     // Add caret pointing to the error location
     for (unsigned i = 1; i < location.getColumn(); ++i) {
-        ss << " ";
+        ss << " + ";
     }
     ss << "^";
     

@@ -136,7 +136,7 @@ String Scope::toString() const {
 
 void Scope::printScope(int indent) const {
     for (int i = 0; i < indent; ++i) {
-        std::cout << "  ";
+        std::cout << " + ";
     }
     
     std::cout << toString() << std::endl;

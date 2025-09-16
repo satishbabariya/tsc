@@ -2,11 +2,10 @@
 
 #include "tsc/Common.h"
 #include "tsc/AST.h"
-#include "tsc/codegen/LLVMCodeGen.h"
 
 // LLVM includes
 #include "llvm/IR/Value.h"
-#include "llvm/IR/Type.h"
+#include "llvm/IR/IRBuilder.h"
 
 namespace tsc {
 
@@ -31,8 +30,8 @@ public:
     llvm::Value* visit(Identifier& node);
     llvm::Value* visit(ThisExpression& node);
     llvm::Value* visit(SuperExpression& node);
-    llvm::Value* visit(PropertyAccessExpression& node);
-    llvm::Value* visit(ElementAccessExpression& node);
+    llvm::Value* visit(PropertyAccess& node);
+    llvm::Value* visit(IndexExpression& node);
     
     // Object and array creation
     llvm::Value* visit(NewExpression& node);
@@ -46,14 +45,11 @@ public:
     
     // Function calls
     llvm::Value* visit(CallExpression& node);
-    llvm::Value* visit(SuperCallExpression& node);
     
     // Conditional expressions
     llvm::Value* visit(ConditionalExpression& node);
     
     // Type expressions
-    llvm::Value* visit(TypeAssertionExpression& node);
-    llvm::Value* visit(AsExpression& node);
 
 private:
     CodeGenContext& context_;

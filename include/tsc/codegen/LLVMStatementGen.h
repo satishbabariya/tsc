@@ -2,12 +2,11 @@
 
 #include "tsc/Common.h"
 #include "tsc/AST.h"
-#include "tsc/codegen/LLVMCodeGen.h"
 
 // LLVM includes
 #include "llvm/IR/Value.h"
-#include "llvm/IR/Type.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Function.h"
 
 namespace tsc {
 
@@ -36,7 +35,6 @@ public:
     void visit(WhileStatement& node);
     void visit(ForStatement& node);
     void visit(ForOfStatement& node);
-    void visit(ForInStatement& node);
     void visit(SwitchStatement& node);
     void visit(DoWhileStatement& node);
     
@@ -53,13 +51,8 @@ public:
     void visit(BlockStatement& node);
     void visit(TryStatement& node);
     void visit(CatchClause& node);
-    void visit(FinallyClause& node);
     
     // Labeled statements
-    void visit(LabeledStatement& node);
-    
-    // Debugger statement
-    void visit(DebuggerStatement& node);
 
 private:
     CodeGenContext& context_;
@@ -84,7 +77,7 @@ private:
     // Variable declaration helpers
     void generateVariableDeclaration(const String& name, llvm::Type* type, llvm::Value* initialValue);
     void generateFunctionDeclaration(const String& name, llvm::FunctionType* functionType);
-    void generateClassDeclaration(const String& name, const std::vector<ClassMember>& members);
+    void generateClassDeclaration(const String& name, const std::vector<PropertyDeclaration>& members);
 };
 
 } // namespace tsc

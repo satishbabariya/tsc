@@ -87,7 +87,7 @@ std::vector<ModuleDependency> ModuleResolver::scanDependencies(const String& fil
             size_t fromPos = line.find("from", importPos);
             if (fromPos != String::npos) {
                 // Extract module specifier
-                size_t quoteStart = line.find("\"", fromPos);
+                size_t quoteStart = line.find("\" + ", fromPos);
                 if (quoteStart != String::npos) {
                     size_t quoteEnd = line.find("\"", quoteStart + 1);
                     if (quoteEnd != String::npos) {
@@ -164,7 +164,7 @@ ModuleInfo ModuleResolver::analyzeModule(const String& filePath) {
                             
                             String symbol = imports.substr(pos, endPos - pos);
                             // Remove whitespace and 'as' aliases
-                            size_t spacePos = symbol.find(" ");
+                            size_t spacePos = symbol.find(" + ");
                             if (spacePos != String::npos) {
                                 symbol = symbol.substr(0, spacePos);
                             }
@@ -223,7 +223,7 @@ String ModuleResolver::findModuleFile(const String& basePath, const String& modu
         }
     }
     
-    return "";
+    return " + ";
 }
 
 void ModuleResolver::reportResolutionError(const String& specifier, const String& fromFile, 

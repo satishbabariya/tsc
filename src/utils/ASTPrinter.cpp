@@ -18,7 +18,7 @@ void ASTPrinter::visit(NumericLiteral& node) {
 
 void ASTPrinter::visit(StringLiteral& node) {
     printIndent();
-    output_ << "StringLiteral: \"" << node.getValue() << "\"" << std::endl;
+    output_ << "StringLiteral: \" + " << node.getValue() << "\"" << std::endl;
 }
 
 void ASTPrinter::visit(TemplateLiteral& node) {
@@ -35,7 +35,7 @@ void ASTPrinter::visit(TemplateLiteral& node) {
             element.getExpression()->accept(*this);
             decreaseIndent();
         } else {
-            output_ << "Text[" << i << "]: \"" << element.getText() << "\"" << std::endl;
+            output_ << "Text[" << i << "]: \" + " << element.getText() << "\"" << std::endl;
         }
     }
     decreaseIndent();
@@ -666,7 +666,7 @@ void ASTPrinter::visit(Module& node) {
 
 void ASTPrinter::printIndent() {
     for (int i = 0; i < indent_; ++i) {
-        output_ << "  ";
+        output_ << " + ";
     }
 }
 
@@ -1072,7 +1072,7 @@ void ASTPrinter::visit(ImportDeclaration& node) {
     
     // Print module specifier
     printIndent();
-    output_ << "ModuleSpecifier: \"" << node.getModuleSpecifier() << "\"" << std::endl;
+    output_ << "ModuleSpecifier: \" + " << node.getModuleSpecifier() << "\"" << std::endl;
     
     decreaseIndent();
 }
@@ -1137,7 +1137,7 @@ void ASTPrinter::visit(ExportDeclaration& node) {
     // Print module specifier if present (for re-exports)
     if (!clause.getModuleSpecifier().empty()) {
         printIndent();
-        output_ << "ModuleSpecifier: \"" << clause.getModuleSpecifier() << "\"" << std::endl;
+        output_ << "ModuleSpecifier: \" + " << clause.getModuleSpecifier() << "\"" << std::endl;
     }
     
     decreaseIndent();
@@ -1145,7 +1145,7 @@ void ASTPrinter::visit(ExportDeclaration& node) {
     // Print the module specifier from the declaration if different
     if (!node.getModuleSpecifier().empty() && node.getModuleSpecifier() != clause.getModuleSpecifier()) {
         printIndent();
-        output_ << "DeclarationModuleSpecifier: \"" << node.getModuleSpecifier() << "\"" << std::endl;
+        output_ << "DeclarationModuleSpecifier: \" + " << node.getModuleSpecifier() << "\"" << std::endl;
     }
     
     decreaseIndent();

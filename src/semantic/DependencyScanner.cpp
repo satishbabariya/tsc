@@ -8,6 +8,7 @@
 #include <chrono>
 #include <iostream>
 #include <sstream>
+#include "tsc/utils/Logger.h"
 
 namespace tsc {
 
@@ -44,19 +45,19 @@ std::vector<String> DependencyGraph::getCompilationOrder() const {
     std::unordered_set<String> visited;
     std::unordered_set<String> tempVisited;
     
-    TSC_LOG_DEBUG("Computing compilation order for" + std::to_string(modules_.size()) + " modules" , "Semantic");
+    // TSC_LOG_DEBUG("Computing compilation order for" + std::to_string(modules_.size()) + " modules" , "Semantic");
     for (const String& module : modules_) {
-        TSC_LOG_DEBUG("Module:" + module , "Semantic");
+        // TSC_LOG_DEBUG("Module:" + module , "Semantic");
         auto it = dependencies_.find(module);
         if (it != dependencies_.end()) {
-            TSC_LOG_DEBUG("Dependencies: ", "DependencyScanner");
+            // TSC_LOG_DEBUG("Dependencies: ", "DependencyScanner");
             for (size_t i = 0; i < it->second.size(); ++i) {
                 if (i > 0) std::cout << ", ";
                 std::cout << it->second[i];
             }
             std::cout << std::endl;
         } else {
-            TSC_LOG_DEBUG("No dependencies" , "Semantic");
+            // TSC_LOG_DEBUG("No dependencies" , "Semantic");
         }
     }
     
@@ -66,7 +67,7 @@ std::vector<String> DependencyGraph::getCompilationOrder() const {
         }
     }
     
-    TSC_LOG_DEBUG("Final compilation order: ", "DependencyScanner");
+    // TSC_LOG_DEBUG("Final compilation order: ", "DependencyScanner");
     for (size_t i = 0; i < result.size(); ++i) {
         if (i > 0) std::cout << " -> ";
         std::cout << result[i];
@@ -77,22 +78,22 @@ std::vector<String> DependencyGraph::getCompilationOrder() const {
 }
 
 bool DependencyGraph::hasCircularDependencies() const {
-    TSC_LOG_DEBUG("hasCircularDependencies() called with" + std::to_string(modules_.size()) + " modules" , "Semantic");
+    // TSC_LOG_DEBUG("hasCircularDependencies() called with" + std::to_string(modules_.size()) + " modules" , "Semantic");
     std::unordered_set<String> visited;
     std::unordered_set<String> tempVisited;
     std::vector<String> cycle;
     
     for (const String& module : modules_) {
-        TSC_LOG_DEBUG("Checking module:" + module , "Semantic");
+        // TSC_LOG_DEBUG("Checking module:" + module , "Semantic");
         if (visited.find(module) == visited.end()) {
             if (detectCycleDFS(module, visited, tempVisited, cycle)) {
-                TSC_LOG_DEBUG("Cycle detected involving:" + module , "Semantic");
+                // TSC_LOG_DEBUG("Cycle detected involving:" + module , "Semantic");
                 return true;
             }
         }
     }
     
-    TSC_LOG_DEBUG("No cycles detected" , "Semantic");
+    // TSC_LOG_DEBUG("No cycles detected" , "Semantic");
     return false;
 }
 
@@ -392,7 +393,7 @@ std::unique_ptr<DependencyGraph> DependencyScanner::scanProject(const std::vecto
         ModuleDependencyInfo info = scanModule(modulePath);
         graph->addModule(modulePath);
         
-        TSC_LOG_DEBUG("Module" + modulePath + " has " + info.directDependencies.size() + " dependencies:" , "Semantic");
+        // TSC_LOG_DEBUG("Module" + modulePath + " has " + info.directDependencies.size() + " dependencies:" , "Semantic");
         for (const String& dep : info.directDependencies) {
             std::cout << "  -> " << dep << std::endl;
             graph->addDependency(modulePath, dep);
@@ -406,15 +407,15 @@ std::unique_ptr<DependencyGraph> DependencyScanner::scanProjectWithValidation(co
     auto graph = scanProject(modulePaths);
     
     // Check for circular dependencies and report them
-    TSC_LOG_DEBUG("Checking for circular dependencies..." , "Semantic");
+    // TSC_LOG_DEBUG("Checking for circular dependencies..." , "Semantic");
     bool hasCycles = graph->hasCircularDependencies();
-    TSC_LOG_DEBUG("hasCircularDependencies() returned:" + (hasCycles ? "true" : "false") , "Semantic");
+    // TSC_LOG_DEBUG("hasCircularDependencies() returned:"  + (hasCycles ? "true" : "false") , "Semantic");
     
     if (hasCycles) {
-        TSC_LOG_DEBUG("Reporting circular dependencies..." , "Semantic");
+        // TSC_LOG_DEBUG("Reporting circular dependencies..." , "Semantic");
         graph->reportCircularDependencies(diagnostics_);
     } else {
-        TSC_LOG_DEBUG("No circular dependencies found" , "Semantic");
+        // TSC_LOG_DEBUG("No circular dependencies found" , "Semantic");
     }
     
     return graph;

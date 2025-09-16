@@ -22,7 +22,7 @@ llvm::Value* LLVMExpressionGen::visit(TemplateLiteral& node) {
     TSC_LOG_DEBUG("Generating template literal", "ExpressionGen");
     
     // TODO: Implement template literal generation
-    return createStringLiteral("");
+    return createStringLiteral(" + ");
 }
 
 llvm::Value* LLVMExpressionGen::visit(BooleanLiteral& node) {
@@ -62,14 +62,14 @@ llvm::Value* LLVMExpressionGen::visit(SuperExpression& node) {
     return nullptr;
 }
 
-llvm::Value* LLVMExpressionGen::visit(PropertyAccessExpression& node) {
-    TSC_LOG_DEBUG("Generating property access: " + node.getPropertyName(), "ExpressionGen");
+llvm::Value* LLVMExpressionGen::visit(PropertyAccess& node) {
+    TSC_LOG_DEBUG("Generating property access: " + node.getProperty(), "ExpressionGen");
     
     // TODO: Implement property access generation
     return nullptr;
 }
 
-llvm::Value* LLVMExpressionGen::visit(ElementAccessExpression& node) {
+llvm::Value* LLVMExpressionGen::visit(IndexExpression& node) {
     TSC_LOG_DEBUG("Generating element access", "ExpressionGen");
     
     // TODO: Implement element access generation
@@ -102,25 +102,28 @@ llvm::Value* LLVMExpressionGen::visit(ArrayLiteral& node) {
 llvm::Value* LLVMExpressionGen::visit(BinaryExpression& node) {
     TSC_LOG_DEBUG("Generating binary expression", "ExpressionGen");
     
-    llvm::Value* left = node.getLeft()->accept(*this);
-    llvm::Value* right = node.getRight()->accept(*this);
+    // TODO: Implement binary expression generation
+    // llvm::Value* left = node.getLeft()->accept(*this);
+    // llvm::Value* right = node.getRight()->accept(*this);
     
-    if (!left || !right) {
-        return nullptr;
-    }
+    // if (!left || !right) {
+    //     return nullptr;
+    // }
     
-    return generateBinaryOperation(node, left, right);
+    // return generateBinaryOperation(node, left, right);
+    return nullptr;
 }
 
 llvm::Value* LLVMExpressionGen::visit(UnaryExpression& node) {
     TSC_LOG_DEBUG("Generating unary expression", "ExpressionGen");
     
-    llvm::Value* operand = node.getOperand()->accept(*this);
-    if (!operand) {
-        return nullptr;
-    }
+    // llvm::Value* operand = node.getOperand()->accept(*this);
+    // if (!operand) {
+    //     return nullptr;
+    // }
     
-    return generateUnaryOperation(node, operand);
+    // return generateUnaryOperation(node, operand);
+    return nullptr;
 }
 
 llvm::Value* LLVMExpressionGen::visit(AssignmentExpression& node) {
@@ -138,13 +141,6 @@ llvm::Value* LLVMExpressionGen::visit(CallExpression& node) {
     return nullptr;
 }
 
-llvm::Value* LLVMExpressionGen::visit(SuperCallExpression& node) {
-    TSC_LOG_DEBUG("Generating super call expression", "ExpressionGen");
-    
-    // TODO: Implement super call expression generation
-    return nullptr;
-}
-
 // Conditional expressions
 llvm::Value* LLVMExpressionGen::visit(ConditionalExpression& node) {
     TSC_LOG_DEBUG("Generating conditional expression", "ExpressionGen");
@@ -154,19 +150,6 @@ llvm::Value* LLVMExpressionGen::visit(ConditionalExpression& node) {
 }
 
 // Type expressions
-llvm::Value* LLVMExpressionGen::visit(TypeAssertionExpression& node) {
-    TSC_LOG_DEBUG("Generating type assertion expression", "ExpressionGen");
-    
-    // TODO: Implement type assertion expression generation
-    return nullptr;
-}
-
-llvm::Value* LLVMExpressionGen::visit(AsExpression& node) {
-    TSC_LOG_DEBUG("Generating as expression", "ExpressionGen");
-    
-    // TODO: Implement as expression generation
-    return nullptr;
-}
 
 // Helper methods
 llvm::Value* LLVMExpressionGen::createStringLiteral(const String& value) {
@@ -190,29 +173,30 @@ llvm::Value* LLVMExpressionGen::createNullLiteral() {
 }
 
 llvm::Value* LLVMExpressionGen::generateBinaryOperation(BinaryExpression& node, llvm::Value* left, llvm::Value* right) {
-    TokenType op = node.getOperator();
+    // TokenType op = node.getOperator();
     
-    switch (op) {
-        case TokenType::Plus:
-        case TokenType::Minus:
-        case TokenType::Star:
-        case TokenType::Slash:
-        case TokenType::Percent:
-            return generateArithmeticOperation(op, left, right);
-        case TokenType::EqualEqual:
-        case TokenType::NotEqual:
-        case TokenType::Less:
-        case TokenType::Greater:
-        case TokenType::LessEqual:
-        case TokenType::GreaterEqual:
-            return generateComparisonOperation(op, left, right);
-        case TokenType::AmpersandAmpersand:
-        case TokenType::PipePipe:
-            return generateLogicalOperation(op, left, right);
-        default:
-            TSC_LOG_ERROR("Unknown binary operator: " + std::to_string(static_cast<int>(op)), "ExpressionGen");
-            return nullptr;
-    }
+    // switch (op) {
+//        case TokenType::Plus:
+//        case TokenType::Minus:
+//        case TokenType::Star:
+//        case TokenType::Slash:
+//        case TokenType::Percent:
+//            return generateArithmeticOperation(op, left, right);
+//        case TokenType::EqualEqual:
+//        case TokenType::NotEqual:
+//        case TokenType::Less:
+//        case TokenType::Greater:
+//        case TokenType::LessEqual:
+//        case TokenType::GreaterEqual:
+//            return generateComparisonOperation(op, left, right);
+//        case TokenType::AmpersandAmpersand:
+//        case TokenType::PipePipe:
+//            return generateLogicalOperation(op, left, right);
+//        default:
+            // TSC_LOG_ERROR("Unknown binary operator: " + std::to_string(static_cast<int>(op)), "ExpressionGen");
+//            return nullptr;
+    //    }
+    return nullptr;
 }
 
 llvm::Value* LLVMExpressionGen::generateArithmeticOperation(TokenType op, llvm::Value* left, llvm::Value* right) {

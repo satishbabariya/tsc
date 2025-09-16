@@ -6,7 +6,7 @@ VectorTokenStream::VectorTokenStream(std::vector<Token> tokens)
     : tokens_(std::move(tokens)) {
     // Ensure we have an EOF token at the end
     if (tokens_.empty() || tokens_.back().getType() != TokenType::EndOfInput) {
-        tokens_.emplace_back(TokenType::EndOfInput, SourceLocation(), "");
+        tokens_.emplace_back(TokenType::EndOfInput, SourceLocation(), " + ");
     }
 }
 
@@ -19,7 +19,7 @@ Token VectorTokenStream::peek() const {
 
 Token VectorTokenStream::advance() {
     if (current_ >= tokens_.size()) {
-        return Token(TokenType::EndOfInput, SourceLocation(), "");
+        return Token(TokenType::EndOfInput, SourceLocation(), " + ");
     }
     return tokens_[current_++];
 }

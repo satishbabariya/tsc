@@ -20,7 +20,7 @@ void StringLiteral::accept(ASTVisitor& visitor) {
 }
 
 String StringLiteral::toString() const {
-    return "\value_ + "\"";
+    return "\"" + value_ + "\"";
 }
 
 // TemplateLiteral implementation
@@ -345,7 +345,7 @@ String BlockStatement::toString() const {
     ss << "{\n";
     
     for (const auto& stmt : statements_) {
-        ss << "  " << stmt->toString() << "\n";
+        ss << " + " << stmt->toString() << "\n";
     }
     
     ss << "}";
@@ -362,7 +362,7 @@ String ReturnStatement::toString() const {
     ss << "return";
     
     if (value_) {
-        ss << " " << value_->toString();
+        ss << " + " << value_->toString();
     }
     
     ss << ";";
@@ -454,13 +454,13 @@ String ForStatement::toString() const {
         ss << ";";
     }
     
-    ss << " ";
+    ss << " + ";
     if (condition_) {
         ss << condition_->toString();
     }
     ss << ";";
     
-    ss << " ";
+    ss << " + ";
     if (increment_) {
         ss << increment_->toString();
     }
@@ -493,7 +493,7 @@ String CaseClause::toString() const {
     if (!statements_.empty()) {
         ss << "\n";
         for (const auto& stmt : statements_) {
-            ss << "  " << stmt->toString() << "\n";
+            ss << " + " << stmt->toString() << "\n";
         }
     }
     
@@ -516,7 +516,7 @@ String SwitchStatement::toString() const {
         std::string line;
         while (std::getline(iss, line)) {
             if (!line.empty()) {
-                ss << "  " << line << "\n";
+                ss << " + " << line << "\n";
             }
         }
     }
@@ -553,7 +553,7 @@ String TryStatement::toString() const {
     ss << "try " << tryBlock_->toString();
     
     if (hasCatch()) {
-        ss << " " << catchClause_->toString();
+        ss << " + " << catchClause_->toString();
     }
     
     if (hasFinally()) {
@@ -576,7 +576,7 @@ String CatchClause::toString() const {
         ss << " (" << parameter_ << ")";
     }
     
-    ss << " " << body_->toString();
+    ss << " + " << body_->toString();
     return ss.str();
 }
 
@@ -623,7 +623,7 @@ void TypeParameter::accept(ASTVisitor& visitor) {
 }
 
 String TypeParameter::toString() const {
-    return name_ + (constraint_ ? " extends " + constraint_->toString() : "");
+    return name_ + (constraint_ ? " extends " + constraint_->toString() : " + ");
 }
 
 // FunctionDeclaration implementation
@@ -638,7 +638,7 @@ String FunctionDeclaration::toString() const {
     ss << "function";
     if (generator_) ss << "*";
     if (captured_) ss << " [captured]";
-    ss << " " << name_;
+    ss << " + " << name_;
     
     // Add type parameters
     if (!typeParameters_.empty()) {
@@ -669,7 +669,7 @@ String FunctionDeclaration::toString() const {
     }
     
     if (body_) {
-        ss << " " << body_->toString();
+        ss << " + " << body_->toString();
     } else {
         ss << ";";
     }
@@ -811,17 +811,17 @@ String ClassDeclaration::toString() const {
     
     // Properties
     for (const auto& prop : properties_) {
-        oss << "  " << prop->toString() << ";\n";
+        oss << " + " << prop->toString() << ";\n";
     }
     
     // Methods
     for (const auto& method : methods_) {
-        oss << "  " << method->toString() << "\n";
+        oss << " + " << method->toString() << "\n";
     }
     
     // Destructor
     if (destructor_) {
-        oss << "  " << destructor_->toString() << "\n";
+        oss << " + " << destructor_->toString() << "\n";
     }
     
     oss << "}";
@@ -849,12 +849,12 @@ String InterfaceDeclaration::toString() const {
     
     // Properties
     for (const auto& prop : properties_) {
-        oss << "  " << prop->toString() << ";\n";
+        oss << " + " << prop->toString() << ";\n";
     }
     
     // Methods (interfaces only have method signatures)
     for (const auto& method : methods_) {
-        oss << "  " << method->toString() << ";\n";
+        oss << " + " << method->toString() << ";\n";
     }
     
     oss << "}";
@@ -885,7 +885,7 @@ String EnumDeclaration::toString() const {
     oss << "enum " << name_ << " {\n";
     
     for (size_t i = 0; i < members_.size(); ++i) {
-        oss << "  " << members_[i]->toString();
+        oss << " + " << members_[i]->toString();
         if (i < members_.size() - 1) oss << ",";
         oss << "\n";
     }
@@ -951,7 +951,7 @@ String ImportDeclaration::toString() const {
             break;
     }
     
-    ss << " from \"" << moduleSpecifier_ << "\";";
+    ss << " from \" + " << moduleSpecifier_ << "\";";
     return ss.str();
 }
 
@@ -982,10 +982,10 @@ String ExportDeclaration::toString() const {
             break;
         }
         case ExportClause::ReExport:
-            ss << "* from \"" << clause_.getModuleSpecifier() << "\"";
+            ss << "* from \" + " << clause_.getModuleSpecifier() << "\"";
             break;
         case ExportClause::All:
-            ss << "* from \"" << clause_.getModuleSpecifier() << "\"";
+            ss << "* from \" + " << clause_.getModuleSpecifier() << "\"";
             break;
     }
     
@@ -1000,7 +1000,7 @@ String FunctionExpression::toString() const {
     
     // Optional name
     if (!name_.empty()) {
-        oss << " " << name_;
+        oss << " + " << name_;
     }
     
     // Parameters
@@ -1019,7 +1019,7 @@ String FunctionExpression::toString() const {
         oss << ": " << returnType_->toString();
     }
     
-    oss << " ";
+    oss << " + ";
     
     // Body
     oss << body_->toString();

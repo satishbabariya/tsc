@@ -1,6 +1,12 @@
 #include "tsc/codegen/LLVMTypeGen.h"
-#include "tsc/codegen/LLVMCodeGen.h"
+#include "tsc/codegen/LLVMCodeGen.h" // Include full definition of CodeGenContext
 #include "tsc/utils/Logger.h"
+#include "tsc/semantic/TypeSystem.h"
+#include "tsc/AST.h"
+
+#include "llvm/IR/Type.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/LLVMContext.h"
 
 namespace tsc {
 
@@ -11,7 +17,15 @@ llvm::Type* LLVMTypeGen::mapTypeScriptTypeToLLVM(const Type& type) {
     TSC_LOG_DEBUG("Mapping TypeScript type to LLVM: " + type.toString(), "TypeGen");
     
     switch (type.getKind()) {
-        case TypeKind::Primitive:
+        case TypeKind::Number:
+        case TypeKind::String:
+        case TypeKind::Boolean:
+        case TypeKind::Null:
+        case TypeKind::Undefined:
+        case TypeKind::Void:
+        case TypeKind::Never:
+        case TypeKind::Any:
+        case TypeKind::Unknown:
             return mapPrimitiveType(static_cast<const PrimitiveType&>(type));
         case TypeKind::Object:
             return mapObjectType(static_cast<const ObjectType&>(type));
@@ -44,16 +58,16 @@ llvm::FunctionType* LLVMTypeGen::convertFunctionTypeToLLVM(const FunctionType& f
     TSC_LOG_DEBUG("Converting function type to LLVM", "TypeGen");
     
     // Convert return type
-    llvm::Type* returnType = mapTypeScriptTypeToLLVM(functionType.getReturnType());
+    llvm::Type* returnType = mapTypeScriptTypeToLLVM(*functionType.getReturnType());
     
     // Convert parameter types
     std::vector<llvm::Type*> parameterTypes;
     for (const auto& param : functionType.getParameters()) {
-        parameterTypes.push_back(mapTypeScriptTypeToLLVM(param.type));
+        parameterTypes.push_back(mapTypeScriptTypeToLLVM(*param.type));
     }
     
     // Create function type
-    return llvm::FunctionType::get(returnType, parameterTypes, functionType.isVarArg());
+    return llvm::FunctionType::get(returnType, parameterTypes, false);
 }
 
 llvm::Type* LLVMTypeGen::getNumberType() const {
@@ -61,7 +75,7 @@ llvm::Type* LLVMTypeGen::getNumberType() const {
 }
 
 llvm::Type* LLVMTypeGen::getStringType() const {
-    return llvm::Type::getInt8PtrTy(context_.getLLVMContext());
+    return llvm::PointerType::get(context_.getLLVMContext(), 0);
 }
 
 llvm::Type* LLVMTypeGen::getBooleanType() const {
@@ -73,7 +87,7 @@ llvm::Type* LLVMTypeGen::getVoidType() const {
 }
 
 llvm::Type* LLVMTypeGen::getAnyType() const {
-    return llvm::Type::getInt8PtrTy(context_.getLLVMContext());
+    return llvm::PointerType::get(context_.getLLVMContext(), 0);
 }
 
 llvm::Type* LLVMTypeGen::createMonomorphizedType(const GenericType& genericType) {
@@ -98,7 +112,7 @@ llvm::Type* LLVMTypeGen::createArrayType(llvm::Type* elementType) {
     // Create a struct with count and data pointer
     std::vector<llvm::Type*> fields = {
         llvm::Type::getInt32Ty(context_.getLLVMContext()), // count
-        llvm::Type::getInt8PtrTy(context_.getLLVMContext()) // data pointer
+        llvm::PointerType::get(context_.getLLVMContext(), 0) // data pointer
     };
     
     return llvm::StructType::get(context_.getLLVMContext(), fields);
@@ -121,12 +135,12 @@ llvm::StructType* LLVMTypeGen::createObjectType(const String& name, const std::v
     return llvm::StructType::create(context_.getLLVMContext(), fieldTypes, name);
 }
 
-llvm::StructType* LLVMTypeGen::createClassType(const String& name, const std::vector<ClassMember>& members) {
+llvm::StructType* LLVMTypeGen::createClassType(const String& name, const std::vector<PropertyDeclaration>& members) {
     TSC_LOG_DEBUG("Creating class type: " + name, "TypeGen");
     
     std::vector<llvm::Type*> fieldTypes;
     for (const auto& member : members) {
-        if (member.isProperty()) {
+        if (true) { // All PropertyDeclaration members are properties
             // TODO: Map property type to LLVM type
             fieldTypes.push_back(getAnyType());
         }
@@ -176,14 +190,14 @@ llvm::StructType* LLVMTypeGen::getCachedStructType(const String& name) const {
 // Private helper methods
 
 llvm::Type* LLVMTypeGen::mapPrimitiveType(const PrimitiveType& type) {
-    switch (type.getPrimitiveKind()) {
-        case PrimitiveKind::Number:
+    switch (type.getKind()) {
+        case TypeKind::Number:
             return getNumberType();
-        case PrimitiveKind::String:
+        case TypeKind::String:
             return getStringType();
-        case PrimitiveKind::Boolean:
+        case TypeKind::Boolean:
             return getBooleanType();
-        case PrimitiveKind::Void:
+        case TypeKind::Void:
             return getVoidType();
         default:
             return getAnyType();
@@ -196,7 +210,7 @@ llvm::Type* LLVMTypeGen::mapObjectType(const ObjectType& type) {
 }
 
 llvm::Type* LLVMTypeGen::mapArrayType(const ArrayType& type) {
-    llvm::Type* elementType = mapTypeScriptTypeToLLVM(type.getElementType());
+    llvm::Type* elementType = mapTypeScriptTypeToLLVM(*type.getElementType());
     return createArrayType(elementType);
 }
 

@@ -28,9 +28,9 @@ void printUsage(const char* programName) {
     std::cout << "  -h, --help              Show this help message\n";
     std::cout << "  -v, --version           Show version information\n";
     std::cout << "\nExamples:\n";
-    std::cout << "  " << programName << " hello.ts\n";
-    std::cout << "  " << programName << " -o hello hello.ts\n";
-    std::cout << "  " << programName << " -O2 -g src/*.ts\n";
+    std::cout << " + " << programName << " hello.ts\n";
+    std::cout << " + " << programName << " -o hello hello.ts\n";
+    std::cout << " + " << programName << " -O2 -g src/*.ts\n";
 }
 
 void printVersion() {
@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
                 std::cout << "Supported targets:\n";
                 for (const auto& target : targets) {
                     if (target.isSupported) {
-                        std::cout << "  " << target.triple;
+                        std::cout << " + " << target.triple;
                         std::cout << " (" << target.arch.description;
                         std::cout << " - " << target.os.description << ")\n";
                     }

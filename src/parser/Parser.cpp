@@ -710,7 +710,7 @@ unique_ptr<Statement> Parser::parseExportDeclaration() {
     ExportClause clause = parseExportClause();
     
     // Parse optional 'from' clause for re-exports
-    String moduleSpecifier = "";
+    String moduleSpecifier = " + ";
     if (match(TokenType::From)) {
         moduleSpecifier = parseModuleSpecifier();
     }
@@ -745,7 +745,7 @@ ImportClause Parser::parseImportClause() {
     if (check(TokenType::LeftBrace)) {
         // Named imports: import { add, subtract } from "./math"
         std::vector<ImportSpec> namedImports = parseNamedImports();
-        return ImportClause(ImportClause::Named, "", namedImports);
+        return ImportClause(ImportClause::Named, " + ", namedImports);
     }
     
     // Check for namespace import
@@ -754,7 +754,7 @@ ImportClause Parser::parseImportClause() {
         consume(TokenType::As, "Expected 'as' after '*'");
         Token namespaceToken = consume(TokenType::Identifier, "Expected namespace identifier");
         String namespaceBinding = namespaceToken.getStringValue();
-        return ImportClause(ImportClause::Namespace, "", {}, namespaceBinding);
+        return ImportClause(ImportClause::Namespace, " + ", {}, namespaceBinding);
     }
     
     // If we get here, it's an error
@@ -1730,7 +1730,7 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
             // Handle empty expressions gracefully
             if (check(TokenType::TemplateTail)) {
                 // Empty expression: ${} - create an empty string literal
-                auto emptyExpression = make_unique<StringLiteral>("", location);
+                auto emptyExpression = make_unique<StringLiteral>(" + ", location);
                 elements.emplace_back(TemplateElement(std::move(emptyExpression)));
             } else {
                 auto expression = parseExpression();
@@ -1746,7 +1746,7 @@ unique_ptr<Expression> Parser::parseTemplateLiteral() {
             // Handle empty expressions gracefully
             if (check(TokenType::TemplateTail)) {
                 // Empty expression: ${} - create an empty string literal
-                auto emptyExpression = make_unique<StringLiteral>("", location);
+                auto emptyExpression = make_unique<StringLiteral>(" + ", location);
                 elements.emplace_back(TemplateElement(std::move(emptyExpression)));
             } else {
                 auto expression = parseExpression();
@@ -2570,7 +2570,7 @@ unique_ptr<Expression> Parser::parseFunctionExpression() {
     consume(TokenType::Function, "Expected 'function' keyword");
     
     // Optional function name (for named function expressions)
-    String functionName = "";
+    String functionName = " + ";
     if (check(TokenType::Identifier)) {
         Token nameToken = advance();
         functionName = nameToken.getStringValue();

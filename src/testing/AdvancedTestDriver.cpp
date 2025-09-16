@@ -401,7 +401,7 @@ function createDeepNestedObject(): any {
         return R"(
 // Complex function with nested control statements
 function complexNestedFunction(x: number, y: string, z: boolean): string {
-    let result = "";
+    let result = " + ";
     
     // Level 1: if-else
     if (x > 0) {
@@ -770,7 +770,7 @@ function advancedEdgeCases(): void {
     
     // String edge cases
     let stringEdgeCases = {
-        empty: "",
+        empty: " + ",
         singleChar: "a",
         unicode: "🚀🌟💫⭐✨🔥💥⚡🌈🎉🎊🎈🎁🎀🎂🍰🎪🎭🎨🎬🎵🎶🎸🎹🎺🎻🎼🎽🎾🎿🏀🏁🏂🏃🏄🏅🏆🏇🏈🏉🏊🏋🏌🏍🏎🏏🏐🏑🏒🏓🏔🏕🏖🏗🏘🏙🏚🏛🏜🏝🏞🏟🏠🏡🏢🏣🏤🏥🏦🏧🏨🏩🏪🏫🏬🏭🏮🏯🏰🏱🏲🏳🏴🏵🏶🏷🏸🏹🏺🏻🏼🏽🏾🏿",
         specialChars: "!@#$%^&*()_+-=[]{}|;':\",./<>?`~",
@@ -886,7 +886,7 @@ function advancedEdgeCases(): void {
         std::cout << "\nFailed rules:" << std::endl;
         for (const FrameworkValidation& validation : frameworkValidations_) {
             if (!validation.appliedSuccessfully) {
-                std::cout << "  " << validation.ruleName << ": " << validation.errorMessage << std::endl;
+                std::cout << " + " << validation.ruleName << ": " << validation.errorMessage << std::endl;
             }
         }
     }
@@ -926,7 +926,7 @@ function advancedEdgeCases(): void {
         
         std::cout << "\nResults by category:" << std::endl;
         for (const auto& category : categoryCounts) {
-            std::cout << "  " << category.first << ": " << category.second 
+            std::cout << " + " << category.first << ": " << category.second 
                       << " tests, " << categoryErrors[category.first] << " errors" << std::endl;
         }
     }
@@ -1012,7 +1012,7 @@ function advancedEdgeCases(): void {
             if (!result.errors.empty()) {
                 report << "Error details:\n";
                 for (const String& error : result.errors) {
-                    report << "  " << error << "\n";
+                    report << " + " << error << "\n";
                 }
             }
             report << "\n";

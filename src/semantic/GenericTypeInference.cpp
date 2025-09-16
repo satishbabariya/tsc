@@ -317,7 +317,7 @@ std::string GenericTypeInference::getCalleeName(ASTNode* callee) {
         case ASTNodeType::MemberExpression:
             return getMemberExpressionName(static_cast<MemberExpression*>(callee));
         default:
-            return "";
+            return " + ";
     }
 }
 

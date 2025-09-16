@@ -239,7 +239,7 @@ String AddTypeMismatchRule::apply(const String& code, const SourceLocation& loca
         String value = match[2].str();
         
         // Change number to string
-        String newValue = "\value + "\"";
+        String newValue = "\value + "\" + ";
         result = std::regex_replace(result, assignmentPattern, varName + " = " + newValue);
     }
     
@@ -277,7 +277,7 @@ String RenameVariableRule::apply(const String& code, const SourceLocation& locat
         String newName = varName + "_renamed_" + std::to_string(std::rand() % 1000);
         
         // Replace the declaration
-        String oldDeclaration = declaration + " " + varName;
+        String oldDeclaration = declaration + " + " + varName;
         String newDeclaration = declaration + " " + newName;
         result = std::regex_replace(result, std::regex(oldDeclaration), newDeclaration);
         
@@ -825,7 +825,7 @@ bool CodeTransformer::shouldApplyTransformation(const TransformationRule& rule) 
 
 SourceLocation CodeTransformer::findRandomLocation(const String& code) const {
     if (code.empty()) {
-        return SourceLocation("", 1, 1);
+        return SourceLocation(" + ", 1, 1);
     }
     
     std::uniform_int_distribution<size_t> posDist(0, code.length() - 1);

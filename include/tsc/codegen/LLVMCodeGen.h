@@ -85,6 +85,9 @@ public:
     // Error handling
     void reportError(const String& message, const SourceLocation& location);
     size_t getErrorCount() const { return errorCount_; }
+    
+    // LLVM context access
+    llvm::LLVMContext& getLLVMContext() const { return llvmContext_; }
 
 private:
     llvm::LLVMContext& llvmContext_;

@@ -136,7 +136,7 @@ public:
         String nestedControlFunction = R"(
 // Complex function with nested control statements
 function complexNestedFunction(x: number, y: string, z: boolean): string {
-    let result = "";
+    let result = " + ";
     
     // Level 1: if-else
     if (x > 0) {
@@ -730,7 +730,7 @@ function complexDataStructureOperations(): void {
 
 // String processing performance stress
 function stringProcessingStress(): string {
-    let result = "";
+    let result = " + ";
     
     // Generate large strings with complex operations
     for (let i = 0; i < 10000; i++) {
@@ -814,7 +814,7 @@ function advancedEdgeCases(): void {
     
     // String edge cases
     let stringEdgeCases = {
-        empty: "",
+        empty: " + ",
         singleChar: "a",
         unicode: "🚀🌟💫⭐✨🔥💥⚡🌈🎉🎊🎈🎁🎀🎂🍰🎪🎭🎨🎬🎵🎶🎸🎹🎺🎻🎼🎽🎾🎿🏀🏁🏂🏃🏄🏅🏆🏇🏈🏉🏊🏋🏌🏍🏎🏏🏐🏑🏒🏓🏔🏕🏖🏗🏘🏙🏚🏛🏜🏝🏞🏟🏠🏡🏢🏣🏤🏥🏦🏧🏨🏩🏪🏫🏬🏭🏮🏯🏰🏱🏲🏳🏴🏵🏶🏷🏸🏹🏺🏻🏼🏽🏾🏿",
         specialChars: "!@#$%^&*()_+-=[]{}|;':\",./<>?`~",

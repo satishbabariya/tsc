@@ -547,7 +547,7 @@ Type* ForOfSemanticAnalyzer::getPropertyType(Type* objectType, const std::string
 }
 
 std::string ForOfSemanticAnalyzer::getCalleeName(ASTNode* callee) {
-    if (!callee) return "";
+    if (!callee) return " + ";
     
     switch (callee->getType()) {
         case ASTNodeType::Identifier:
@@ -560,7 +560,7 @@ std::string ForOfSemanticAnalyzer::getCalleeName(ASTNode* callee) {
 }
 
 std::string ForOfSemanticAnalyzer::getMemberExpressionName(MemberExpression* memberExpr) {
-    if (!memberExpr) return "";
+    if (!memberExpr) return " + ";
     
     auto property = memberExpr->getProperty();
     if (property && property->getType() == ASTNodeType::Identifier) {

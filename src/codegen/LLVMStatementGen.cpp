@@ -81,12 +81,6 @@ void LLVMStatementGen::visit(ForOfStatement& node) {
     // TODO: Implement for-of statement generation
 }
 
-void LLVMStatementGen::visit(ForInStatement& node) {
-    TSC_LOG_DEBUG("Generating for-in statement", "StatementGen");
-    
-    // TODO: Implement for-in statement generation
-}
-
 void LLVMStatementGen::visit(SwitchStatement& node) {
     TSC_LOG_DEBUG("Generating switch statement", "StatementGen");
     
@@ -150,25 +144,7 @@ void LLVMStatementGen::visit(CatchClause& node) {
     // TODO: Implement catch clause generation
 }
 
-void LLVMStatementGen::visit(FinallyClause& node) {
-    TSC_LOG_DEBUG("Generating finally clause", "StatementGen");
-    
-    // TODO: Implement finally clause generation
-}
-
 // Labeled statements
-void LLVMStatementGen::visit(LabeledStatement& node) {
-    TSC_LOG_DEBUG("Generating labeled statement: " + node.getLabel(), "StatementGen");
-    
-    // TODO: Implement labeled statement generation
-}
-
-// Debugger statement
-void LLVMStatementGen::visit(DebuggerStatement& node) {
-    TSC_LOG_DEBUG("Generating debugger statement", "StatementGen");
-    
-    // TODO: Implement debugger statement generation
-}
 
 // Helper methods
 llvm::BasicBlock* LLVMStatementGen::createBasicBlock(const String& name) {
@@ -216,7 +192,7 @@ void LLVMStatementGen::generateFunctionDeclaration(const String& name, llvm::Fun
     // TODO: Implement function declaration generation
 }
 
-void LLVMStatementGen::generateClassDeclaration(const String& name, const std::vector<ClassMember>& members) {
+void LLVMStatementGen::generateClassDeclaration(const String& name, const std::vector<PropertyDeclaration>& members) {
     // TODO: Implement class declaration generation
 }
 

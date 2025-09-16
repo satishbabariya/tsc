@@ -442,7 +442,7 @@ bool ForOfTypeChecker::isInheritanceCompatible(Type* type1, Type* type2) {
 }
 
 std::string ForOfTypeChecker::getCalleeName(ASTNode* callee) {
-    if (!callee) return "";
+    if (!callee) return " + ";
     
     switch (callee->getType()) {
         case ASTNodeType::Identifier:
@@ -455,7 +455,7 @@ std::string ForOfTypeChecker::getCalleeName(ASTNode* callee) {
 }
 
 std::string ForOfTypeChecker::getMemberExpressionName(MemberExpression* memberExpr) {
-    if (!memberExpr) return "";
+    if (!memberExpr) return " + ";
     
     auto property = memberExpr->getProperty();
     if (property && property->getType() == ASTNodeType::Identifier) {

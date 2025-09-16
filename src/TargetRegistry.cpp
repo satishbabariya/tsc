@@ -65,7 +65,7 @@ void TargetRegistry::initializeAllTargets() {
         // Let LLVM determine the data layout dynamically
         try {
             auto targetMachine = target.createTargetMachine(
-                detectedTriple, "", "", llvm::TargetOptions(), std::nullopt);
+                detectedTriple, " + ", "", llvm::TargetOptions(), std::nullopt);
             if (targetMachine) {
                 targetInfo.dataLayout = targetMachine->createDataLayout().getStringRepresentation();
             } else {
@@ -186,7 +186,7 @@ void TargetRegistry::populateTargets() {
         if (info.isSupported) {
             llvm::TargetOptions targetOptions;
             auto targetMachine = std::unique_ptr<llvm::TargetMachine>(
-                llvmTarget->createTargetMachine(target.getName(), "generic", "", targetOptions, 
+                llvmTarget->createTargetMachine(target.getName(), "generic", " + ", targetOptions, 
                                                std::nullopt, std::nullopt));
             
             if (targetMachine) {
@@ -288,12 +288,12 @@ TargetOS TargetRegistry::parseOS(const String& os) const {
     if (os == "linux") {
         result.description = "Linux";
         result.objectFormat = "elf";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".so";
     } else if (os == "darwin" || os == "macos") {
         result.description = "macOS";
         result.objectFormat = "macho";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".dylib";
     } else if (os == "windows" || os == "win32") {
         result.description = "Windows";
@@ -303,52 +303,52 @@ TargetOS TargetRegistry::parseOS(const String& os) const {
     } else if (os == "freebsd") {
         result.description = "FreeBSD";
         result.objectFormat = "elf";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".so";
     } else if (os == "openbsd") {
         result.description = "OpenBSD";
         result.objectFormat = "elf";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".so";
     } else if (os == "netbsd") {
         result.description = "NetBSD";
         result.objectFormat = "elf";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".so";
     } else if (os == "dragonfly") {
         result.description = "DragonFly BSD";
         result.objectFormat = "elf";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".so";
     } else if (os == "solaris") {
         result.description = "Solaris";
         result.objectFormat = "elf";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".so";
     } else if (os == "haiku") {
         result.description = "Haiku";
         result.objectFormat = "elf";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".so";
     } else if (os == "fuchsia") {
         result.description = "Fuchsia";
         result.objectFormat = "elf";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".so";
     } else if (os == "hermit") {
         result.description = "Hermit";
         result.objectFormat = "elf";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".so";
     } else if (os == "none" || os == "unknown") {
         result.description = "Bare metal";
         result.objectFormat = "elf";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".so";
     } else {
         result.description = "Unknown OS";
         result.objectFormat = "elf";
-        result.executableExtension = "";
+        result.executableExtension = " + ";
         result.sharedLibExtension = ".so";
     }
     
