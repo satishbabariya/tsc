@@ -380,6 +380,17 @@ public:
     void runMemoryOptimizations();
     void runARCOptimizations();
     
+    // ARC optimization methods
+    void eliminateRedundantRetainRelease();
+    void optimizeWeakReferenceAccess();
+    void removeRedundantARCCalls();
+    void optimizeMemoryLayout();
+    bool canEliminateRetainReleasePair(llvm::CallInst* retainCall, llvm::CallInst* releaseCall);
+    void optimizeWeakAccessPattern(llvm::CallInst* weakCall);
+    bool isRedundantARCCall(llvm::CallInst* callInst, const String& functionName);
+    bool isARCManagedStruct(llvm::StructType* structType);
+    void optimizeStructLayout(llvm::StructType* structType);
+    
     // Memory management
     void reportMemoryUsage() const;
     IRAllocator::MemoryStats getMemoryStats() const;
