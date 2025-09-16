@@ -649,6 +649,19 @@ public:
     llvm::Function* getOrCreateThrowFunction();
     llvm::Function* getOrCreateRethrowFunction();
     
+    // Exception handler management
+    llvm::Function* getOrCreateSetupExceptionHandlerFunction();
+    llvm::Function* getOrCreateCleanupExceptionHandlerFunction();
+    llvm::Function* getOrCreateTryExceptionHandlerFunction();
+    llvm::Function* getOrCreateGetExceptionTypeFunction();
+    llvm::Function* getOrCreateGetExceptionMessageFunction();
+    llvm::Function* getOrCreateClearExceptionFunction();
+    llvm::Function* getOrCreateGetExceptionFunction();
+    
+    // Exception types
+    llvm::StructType* getOrCreateExceptionHandlerType();
+    llvm::StructType* getOrCreateExceptionType();
+    
     // Memory management
     llvm::Value* allocateVariable(const String& name, llvm::Type* type, const SourceLocation& location);
     llvm::Value* loadVariable(const String& name, const SourceLocation& location);

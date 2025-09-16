@@ -3993,7 +3993,6 @@ void LLVMCodeGen::visit(ContinueStatement& node) {
 }
 
 void LLVMCodeGen::visit(TryStatement& node) {
-    // Simplified try-catch-finally implementation
     llvm::Function* currentFunc = builder_->GetInsertBlock()->getParent();
     
     // Create basic blocks for try, catch, finally, and continuation
@@ -4010,8 +4009,28 @@ void LLVMCodeGen::visit(TryStatement& node) {
         finallyBlock = llvm::BasicBlock::Create(*context_, "finally", currentFunc);
     }
     
-    // Jump to try block
-    builder_->CreateBr(tryBlock);
+    // Allocate exception handler on stack
+    llvm::Type* handlerType = getOrCreateExceptionHandlerType();
+    llvm::Value* handler = builder_->CreateAlloca(handlerType, nullptr, "exception_handler");
+    
+    // Setup exception handler
+    llvm::Function* setupHandlerFunc = getOrCreateSetupExceptionHandlerFunction();
+    builder_->CreateCall(setupHandlerFunc, {handler});
+    
+    // Try block - use setjmp to catch exceptions
+    llvm::Function* tryHandlerFunc = getOrCreateTryExceptionHandlerFunction();
+    llvm::Value* setjmpResult = builder_->CreateCall(tryHandlerFunc, {handler});
+    
+    // Check if setjmp returned 0 (normal execution) or 1 (exception caught)
+    llvm::Value* isException = builder_->CreateICmpEQ(setjmpResult, 
+        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
+    
+    // Branch to try block if no exception, catch block if exception
+    if (catchBlock) {
+        builder_->CreateCondBr(isException, tryBlock, catchBlock);
+    } else {
+        builder_->CreateCondBr(isException, tryBlock, continueBlock);
+    }
     
     // Generate try block
     builder_->SetInsertPoint(tryBlock);
@@ -4026,7 +4045,7 @@ void LLVMCodeGen::visit(TryStatement& node) {
         }
     }
     
-    // Generate catch block (simplified - just jumps to finally/continue)
+    // Generate catch block
     if (catchBlock) {
         builder_->SetInsertPoint(catchBlock);
         if (node.getCatchClause()) {
@@ -4054,17 +4073,31 @@ void LLVMCodeGen::visit(TryStatement& node) {
     
     // Continue execution
     builder_->SetInsertPoint(continueBlock);
+    
+    // Cleanup exception handler
+    llvm::Function* cleanupHandlerFunc = getOrCreateCleanupExceptionHandlerFunction();
+    builder_->CreateCall(cleanupHandlerFunc, {handler});
 }
 
 void LLVMCodeGen::visit(CatchClause& node) {
-    // Simplified catch clause implementation
-    // In this simplified version, catch clauses are not executed
-    // The catch body is not generated to avoid execution
+    // Get the current exception
+    llvm::Function* getExceptionFunc = getOrCreateGetExceptionFunction();
+    llvm::Value* exceptionValue = builder_->CreateCall(getExceptionFunc);
     
-    // Note: In a full implementation, this would:
-    // - Handle the exception parameter binding
-    // - Generate code for the catch body within exception handling context
-    // - Set up proper exception type matching
+    // If there's an exception parameter, bind it to the current exception
+    if (!node.getParameter().empty()) {
+        // Store the exception value in the symbol table
+        codeGenContext_->setSymbolValue(node.getParameter(), exceptionValue);
+    }
+    
+    // Clear the current exception since we're handling it
+    llvm::Function* clearExceptionFunc = getOrCreateClearExceptionFunction();
+    builder_->CreateCall(clearExceptionFunc);
+    
+    // Generate the catch body
+    if (node.getBody()) {
+        node.getBody()->accept(*this);
+    }
 }
 
 void LLVMCodeGen::visit(ThrowStatement& node) {
@@ -4076,19 +4109,28 @@ void LLVMCodeGen::visit(ThrowStatement& node) {
         // Get or create the __throw_exception runtime function
         llvm::Function* throwFunc = getOrCreateThrowFunction();
         
-        // Convert exception value to any type (generic exception)
-        if (exceptionValue && exceptionValue->getType() != getAnyType()) {
-            exceptionValue = convertValueToType(exceptionValue, getAnyType());
+        // Convert exception value to int64_t for the runtime function
+        llvm::Value* exceptionInt64 = nullptr;
+        if (exceptionValue) {
+            if (exceptionValue->getType() == llvm::Type::getInt64Ty(*context_)) {
+                exceptionInt64 = exceptionValue;
+            } else if (exceptionValue->getType() == getStringType()) {
+                // For strings, convert pointer to int64_t
+                exceptionInt64 = builder_->CreatePtrToInt(exceptionValue, llvm::Type::getInt64Ty(*context_));
+            } else if (exceptionValue->getType()->isDoubleTy()) {
+                // For numbers, convert double to int64_t
+                exceptionInt64 = builder_->CreateFPToSI(exceptionValue, llvm::Type::getInt64Ty(*context_));
+            } else {
+                // For other types, convert to int64_t
+                exceptionInt64 = builder_->CreatePtrToInt(exceptionValue, llvm::Type::getInt64Ty(*context_));
+            }
+        } else {
+            // Throw null exception (0)
+            exceptionInt64 = llvm::ConstantInt::get(llvm::Type::getInt64Ty(*context_), 0);
         }
         
         // Call the throw function
-        if (exceptionValue) {
-            builder_->CreateCall(throwFunc, {exceptionValue});
-        } else {
-            // Throw null exception
-            llvm::Value* nullException = llvm::Constant::getNullValue(getAnyType());
-            builder_->CreateCall(throwFunc, {nullException});
-        }
+        builder_->CreateCall(throwFunc, {exceptionInt64});
     } else {
         // Re-throw current exception (bare throw)
         llvm::Function* rethrowFunc = getOrCreateRethrowFunction();
@@ -6311,9 +6353,9 @@ llvm::Function* LLVMCodeGen::getOrCreateThrowFunction() {
         return existing;
     }
     
-    // void __throw_exception(any exception_value)
+    // void __throw_exception(int64_t exception_value)
     llvm::FunctionType* throwType = llvm::FunctionType::get(
-        getVoidType(), {getAnyType()}, false);
+        getVoidType(), {llvm::Type::getInt64Ty(*context_)}, false);
     return llvm::Function::Create(throwType, llvm::Function::ExternalLinkage, "__throw_exception", module_.get());
 }
 
@@ -6326,6 +6368,87 @@ llvm::Function* LLVMCodeGen::getOrCreateRethrowFunction() {
     llvm::FunctionType* rethrowType = llvm::FunctionType::get(
         getVoidType(), {}, false);
     return llvm::Function::Create(rethrowType, llvm::Function::ExternalLinkage, "__rethrow_exception", module_.get());
+}
+
+// Exception handler management functions
+llvm::Function* LLVMCodeGen::getOrCreateSetupExceptionHandlerFunction() {
+    if (auto existing = module_->getFunction("__setup_exception_handler")) {
+        return existing;
+    }
+    
+    // void __setup_exception_handler(ExceptionHandler* handler)
+    llvm::Type* handlerType = getOrCreateExceptionHandlerType();
+    llvm::FunctionType* setupType = llvm::FunctionType::get(
+        getVoidType(), {llvm::PointerType::get(handlerType, 0)}, false);
+    return llvm::Function::Create(setupType, llvm::Function::ExternalLinkage, "__setup_exception_handler", module_.get());
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateCleanupExceptionHandlerFunction() {
+    if (auto existing = module_->getFunction("__cleanup_exception_handler")) {
+        return existing;
+    }
+    
+    // void __cleanup_exception_handler(ExceptionHandler* handler)
+    llvm::Type* handlerType = getOrCreateExceptionHandlerType();
+    llvm::FunctionType* cleanupType = llvm::FunctionType::get(
+        getVoidType(), {llvm::PointerType::get(handlerType, 0)}, false);
+    return llvm::Function::Create(cleanupType, llvm::Function::ExternalLinkage, "__cleanup_exception_handler", module_.get());
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateTryExceptionHandlerFunction() {
+    if (auto existing = module_->getFunction("__try_exception_handler")) {
+        return existing;
+    }
+    
+    // int __try_exception_handler(ExceptionHandler* handler)
+    llvm::Type* handlerType = getOrCreateExceptionHandlerType();
+    llvm::FunctionType* tryType = llvm::FunctionType::get(
+        llvm::Type::getInt32Ty(*context_), {llvm::PointerType::get(handlerType, 0)}, false);
+    return llvm::Function::Create(tryType, llvm::Function::ExternalLinkage, "__try_exception_handler", module_.get());
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateGetExceptionTypeFunction() {
+    if (auto existing = module_->getFunction("__get_exception_type")) {
+        return existing;
+    }
+    
+    // int32_t __get_exception_type()
+    llvm::FunctionType* getTypeType = llvm::FunctionType::get(
+        llvm::Type::getInt32Ty(*context_), {}, false);
+    return llvm::Function::Create(getTypeType, llvm::Function::ExternalLinkage, "__get_exception_type", module_.get());
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateGetExceptionMessageFunction() {
+    if (auto existing = module_->getFunction("__get_exception_message")) {
+        return existing;
+    }
+    
+    // const char* __get_exception_message()
+    llvm::FunctionType* getMessageType = llvm::FunctionType::get(
+        getStringType(), {}, false);
+    return llvm::Function::Create(getMessageType, llvm::Function::ExternalLinkage, "__get_exception_message", module_.get());
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateClearExceptionFunction() {
+    if (auto existing = module_->getFunction("__clear_exception")) {
+        return existing;
+    }
+    
+    // void __clear_exception()
+    llvm::FunctionType* clearType = llvm::FunctionType::get(
+        getVoidType(), {}, false);
+    return llvm::Function::Create(clearType, llvm::Function::ExternalLinkage, "__clear_exception", module_.get());
+}
+
+llvm::Function* LLVMCodeGen::getOrCreateGetExceptionFunction() {
+    if (auto existing = module_->getFunction("__get_exception")) {
+        return existing;
+    }
+    
+    // int64_t __get_exception()
+    llvm::FunctionType* getExceptionType = llvm::FunctionType::get(
+        llvm::Type::getInt64Ty(*context_), {}, false);
+    return llvm::Function::Create(getExceptionType, llvm::Function::ExternalLinkage, "__get_exception", module_.get());
 }
 
 llvm::Function* LLVMCodeGen::getOrCreateNumberToStringFunction() {
@@ -7501,6 +7624,56 @@ llvm::StructType* LLVMCodeGen::getOrCreateStructType(const std::vector<llvm::Typ
     structTypeCache_[key] = structType;
     
     return structType;
+}
+
+llvm::StructType* LLVMCodeGen::getOrCreateExceptionHandlerType() {
+    static llvm::StructType* handlerType = nullptr;
+    
+    if (!handlerType) {
+        // ExceptionHandler structure:
+        // - jmp_buf jump_buffer (array of ints, typically 16-32 ints depending on platform)
+        // - Exception* exception (pointer to Exception)
+        // - ExceptionHandler* parent (pointer to parent handler)
+        
+        std::vector<llvm::Type*> fieldTypes;
+        
+        // jmp_buf is typically an array of ints (platform dependent)
+        // We'll use a fixed size array of 32 ints to be safe
+        fieldTypes.push_back(llvm::ArrayType::get(llvm::Type::getInt32Ty(*context_), 32));
+        
+        // Exception* exception
+        llvm::StructType* exceptionType = getOrCreateExceptionType();
+        fieldTypes.push_back(llvm::PointerType::get(exceptionType, 0));
+        
+        // ExceptionHandler* parent (self-referential)
+        fieldTypes.push_back(llvm::PointerType::get(*context_, 0)); // Will be cast to ExceptionHandler*
+        
+        handlerType = llvm::StructType::create(*context_, fieldTypes, "ExceptionHandler");
+    }
+    
+    return handlerType;
+}
+
+llvm::StructType* LLVMCodeGen::getOrCreateExceptionType() {
+    static llvm::StructType* exceptionType = nullptr;
+    
+    if (!exceptionType) {
+        // Exception structure:
+        // - int32_t type
+        // - void* data
+        // - char* message
+        // - char* stack_trace
+        
+        std::vector<llvm::Type*> fieldTypes;
+        fieldTypes.push_back(llvm::Type::getInt32Ty(*context_)); // type
+        fieldTypes.push_back(llvm::PointerType::get(*context_, 0)); // data
+        fieldTypes.push_back(llvm::PointerType::get(*context_, 0)); // message
+        fieldTypes.push_back(llvm::PointerType::get(*context_, 0)); // stack_trace
+        
+        exceptionType = llvm::StructType::create(*context_, fieldTypes, "Exception");
+    }
+    
+    return exceptionType;
 }
 
 llvm::Type* LLVMCodeGen::generateFunctionType(const shared_ptr<Type>& type) {
