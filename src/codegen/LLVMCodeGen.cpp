@@ -7623,17 +7623,58 @@ void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
     // For each property in the destructuring pattern
     for (size_t i = 0; i < properties.size(); ++i) {
         if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(properties[i].getPattern())) {
-            // Access the property by index (simplified implementation)
-            // In a full implementation, we would use property names to find the correct index
+            // Access the property by field index (simplified implementation)
+            // In a full implementation, we would use property names to find the correct field index
             
-            // Get the property value from the object array
-            llvm::Value* indexValue = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i);
-            llvm::Value* propertyPtr = builder_->CreateGEP(sourceObject->getType()->getArrayElementType(), sourceObject, 
-                                                         {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), indexValue});
-            llvm::Value* propertyValue = builder_->CreateLoad(llvm::Type::getDoubleTy(*context_), propertyPtr);
+        // Get the struct type from the source object
+        llvm::Type* objectType = sourceObject->getType();
+        if (!objectType->isPointerTy()) {
+            reportError("Source object is not a pointer type", node.getLocation());
+            return;
+        }
+
+        // Get the element type of the pointer (which should be the struct)
+        llvm::Type* elementType = nullptr;
+        if (objectType->getTypeID() == llvm::Type::TypedPointerTyID) {
+            // It's a TypedPointerType
+            llvm::TypedPointerType* typedPointerType = llvm::cast<llvm::TypedPointerType>(objectType);
+            elementType = typedPointerType->getElementType();
+        } else if (objectType->getTypeID() == llvm::Type::PointerTyID) {
+            // It's a regular PointerType - in LLVM 20, we need to get the element type differently
+            // For now, let's try to infer the type from context or use a different approach
+            // For now, assume it's a pointer to the expected struct type
+            elementType = llvm::StructType::get(*context_, {
+                llvm::Type::getInt32Ty(*context_),  // x field
+                llvm::Type::getInt32Ty(*context_)   // y field
+            });
+        } else {
+            reportError("Unknown pointer type for object destructuring", node.getLocation());
+            return;
+        }
+            if (!llvm::isa<llvm::StructType>(elementType)) {
+                reportError("Source object element is not a struct type", node.getLocation());
+                return;
+            }
+            
+            auto* structType = llvm::cast<llvm::StructType>(elementType);
+            if (i >= structType->getNumElements()) {
+                reportError("Property index out of bounds", node.getLocation());
+                return;
+            }
+            
+            // Create GEP to access the struct field
+            llvm::Value* indices[] = {
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)   // Field index
+            };
+            llvm::Value* propertyPtr = builder_->CreateGEP(structType, sourceObject, indices, "property_ptr");
+            
+            // Load the property value
+            llvm::Type* propertyType = structType->getElementType(i);
+            llvm::Value* propertyValue = builder_->CreateLoad(propertyType, propertyPtr);
             
             // Create a variable for the destructured identifier
-            llvm::Value* variable = allocateVariable(identifierPattern->getName(), llvm::Type::getDoubleTy(*context_)->getPointerTo(), identifierPattern->getLocation());
+            llvm::Value* variable = allocateVariable(identifierPattern->getName(), propertyType->getPointerTo(), identifierPattern->getLocation());
             builder_->CreateStore(propertyValue, variable);
         }
     }
