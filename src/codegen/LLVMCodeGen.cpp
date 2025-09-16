@@ -7621,18 +7621,20 @@ void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
     const auto& properties = node.getProperties();
     
     // For each property in the destructuring pattern
-    for (const auto& property : properties) {
-        if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(property.getPattern())) {
-            // For now, assume object properties are accessed by index
-            // This is a simplified implementation
-            llvm::Value* propertyValue = sourceObject; // Simplified: just use the object
+    for (size_t i = 0; i < properties.size(); ++i) {
+        if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(properties[i].getPattern())) {
+            // Access the property by index (simplified implementation)
+            // In a full implementation, we would use property names to find the correct index
+            
+            // Get the property value from the object array
+            llvm::Value* indexValue = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i);
+            llvm::Value* propertyPtr = builder_->CreateGEP(sourceObject->getType()->getArrayElementType(), sourceObject, 
+                                                         {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), indexValue});
+            llvm::Value* propertyValue = builder_->CreateLoad(llvm::Type::getDoubleTy(*context_), propertyPtr);
             
             // Create a variable for the destructured identifier
-            llvm::Value* variable = allocateVariable(identifierPattern->getName(), propertyValue->getType(), identifierPattern->getLocation());
+            llvm::Value* variable = allocateVariable(identifierPattern->getName(), llvm::Type::getDoubleTy(*context_)->getPointerTo(), identifierPattern->getLocation());
             builder_->CreateStore(propertyValue, variable);
-            
-            // Store the variable in the symbol table for future reference
-            // Note: Symbol table storage is handled elsewhere in the compiler
         }
     }
 }
@@ -7674,6 +7676,35 @@ void LLVMCodeGen::visit(OptionalCallExpr& node) {
 void LLVMCodeGen::visit(SpreadElement& node) {
     // TODO: Implement spread element code generation
     reportError("SpreadElement code generation not yet implemented", node.getLocation());
+}
+
+// ARC (Automatic Reference Counting) stub implementations
+bool LLVMCodeGen::isARCManagedType(std::shared_ptr<Type> type) const {
+    // TODO: Implement proper ARC type checking
+    return false;
+}
+
+void LLVMCodeGen::generateAutomaticCleanup(const String& name) {
+    // TODO: Implement automatic cleanup generation
+}
+
+// Switch statement context management
+void LLVMCodeGen::enterSwitch(llvm::BasicBlock* exitBlock) {
+    // TODO: Implement switch context management
+}
+
+void LLVMCodeGen::exitSwitch() {
+    // TODO: Implement switch context management
+}
+
+llvm::BasicBlock* LLVMCodeGen::getCurrentSwitchExitBlock() const {
+    // TODO: Implement switch context management
+    return nullptr;
+}
+
+// Factory function for creating LLVMCodeGen instances
+unique_ptr<LLVMCodeGen> createLLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& options) {
+    return make_unique<LLVMCodeGen>(diagnostics, options);
 }
 
 } // namespace tsc

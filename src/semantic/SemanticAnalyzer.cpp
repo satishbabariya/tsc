@@ -581,9 +581,19 @@ void SemanticAnalyzer::visit(ObjectLiteral& node) {
         property.getValue()->accept(*this);
     }
     
-    // For now, infer object type as any (like a generic object)
-    // TODO: Implement proper object type inference based on properties
-    auto objectType = typeSystem_->getAnyType();
+    // Create a proper object type based on the properties
+    std::vector<ObjectType::Property> properties;
+    
+    for (const auto& property : node.getProperties()) {
+        auto propertyType = getExpressionType(*property.getValue());
+        ObjectType::Property prop;
+        prop.name = property.getKey();
+        prop.type = propertyType;
+        properties.push_back(prop);
+    }
+    
+    // Create an object type with the inferred property types
+    auto objectType = std::make_shared<ObjectType>(properties);
     setExpressionType(node, objectType);
 }
 
@@ -3364,14 +3374,14 @@ void SemanticAnalyzer::visit(DestructuringAssignment& node) {
     node.getValue()->accept(*this);
     
     // Get the type of the right-hand side
-    auto rhsType = getExpressionType(node.getValue());
+    auto rhsType = getExpressionType(*node.getValue());
     if (!rhsType) {
         reportError("Could not determine type of destructuring source", node.getLocation());
         return;
     }
     
     // Analyze the destructuring pattern with the source type
-    analyzeDestructuringPattern(node.getPattern().get(), rhsType);
+    analyzeDestructuringPattern(node.getPattern(), rhsType);
     
     // Set the expression type (destructuring assignments are typically void)
     setExpressionType(node, typeSystem_->getVoidType());
@@ -3438,16 +3448,8 @@ void SemanticAnalyzer::analyzeObjectDestructuringPattern(ObjectDestructuringPatt
 }
 
 void SemanticAnalyzer::analyzeIdentifierPattern(IdentifierPattern* pattern, shared_ptr<Type> sourceType) {
-    // Create a symbol for the identifier with the source type
-    auto symbol = make_shared<Symbol>(
-        SymbolKind::Variable,
-        pattern->getName(),
-        sourceType,
-        pattern->getLocation()
-    );
-    
     // Add to symbol table
-    if (!symbolTable_->addSymbol(symbol)) {
+    if (!symbolTable_->addSymbol(pattern->getName(), SymbolKind::Variable, sourceType, pattern->getLocation())) {
         reportError("Variable '" + pattern->getName() + "' already declared", pattern->getLocation());
     }
     

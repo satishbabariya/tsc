@@ -213,6 +213,8 @@ public:
     Property* findProperty(const String& name);
     const Property* findProperty(const String& name) const;
     
+    std::shared_ptr<Type> getPropertyType(const String& name) const;
+    
     bool isComposite() const override { return true; }
     String toString() const override;
     

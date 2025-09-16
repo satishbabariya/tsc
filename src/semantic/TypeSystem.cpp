@@ -191,6 +191,11 @@ const ObjectType::Property* ObjectType::findProperty(const String& name) const {
     return it != properties_.end() ? &(*it) : nullptr;
 }
 
+std::shared_ptr<Type> ObjectType::getPropertyType(const String& name) const {
+    const Property* prop = findProperty(name);
+    return prop ? prop->type : nullptr;
+}
+
 String ObjectType::toString() const {
     if (properties_.empty()) {
         return "{}";
