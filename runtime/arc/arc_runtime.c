@@ -304,12 +304,19 @@ void *__tsc_weak_load(void *weak_ref) {
 void __tsc_weak_store(void *weak_ref, void *obj) {
     if (!weak_ref) return;
 
-    // For now, implement simple weak references
-    // In a full implementation, this would update weak reference table
-    ARC_ObjectHeader *header = (ARC_ObjectHeader *) ((char *) weak_ref - sizeof(ARC_ObjectHeader));
-
+    // Check if there's an existing target object for this weak reference
+    void *old_target = __tsc_weak_ref_get_target(weak_ref);
+    
+    if (old_target) {
+        // Unregister the old weak reference from the table
+        // This will automatically decrement the weak count
+        __tsc_unregister_weak_ref(weak_ref);
+    }
+    
     if (obj) {
-        atomic_fetch_add(&header->weak_count, 1);
+        // Register the new weak reference in the table
+        // This will automatically increment the weak count
+        __tsc_register_weak_ref(weak_ref, obj);
     }
 }
 

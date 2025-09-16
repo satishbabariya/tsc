@@ -49,6 +49,12 @@ void __tsc_register_weak_ref(void *weak_ref, void *target_obj) {
     entry->next = weak_ref_table[hash];
     weak_ref_table[hash] = entry;
 
+    // Increment weak count on target object
+    ARC_ObjectHeader *target_header = __tsc_get_header(target_obj);
+    if (target_header) {
+        atomic_fetch_add(&target_header->weak_count, 1);
+    }
+
     // Update statistics
     g_weak_ref_stats.total_registrations++;
     g_weak_ref_stats.current_active_refs++;
@@ -72,7 +78,15 @@ void __tsc_unregister_weak_ref(void *weak_ref) {
     while (*entry_ptr) {
         if ((*entry_ptr)->weak_ref == weak_ref) {
             WeakRefEntry *to_free = *entry_ptr;
+            void *target_obj = to_free->target_obj;
             *entry_ptr = (*entry_ptr)->next;
+            
+            // Decrement weak count on target object
+            ARC_ObjectHeader *target_header = __tsc_get_header(target_obj);
+            if (target_header) {
+                atomic_fetch_sub(&target_header->weak_count, 1);
+            }
+            
             free(to_free);
 
             // Update statistics
@@ -218,4 +232,20 @@ void __tsc_print_weak_ref_stats(void) {
     printf("Current active refs: %zu\n", g_weak_ref_stats.current_active_refs);
     printf("Peak active refs: %zu\n", g_weak_ref_stats.peak_active_refs);
     printf("==================================\n");
+}
+
+// Clear all weak references (for testing)
+void __tsc_clear_all_weak_refs(void) {
+    for (size_t i = 0; i < WEAK_REF_TABLE_SIZE; i++) {
+        WeakRefEntry *entry = weak_ref_table[i];
+        while (entry) {
+            WeakRefEntry *to_free = entry;
+            entry = entry->next;
+            free(to_free);
+        }
+        weak_ref_table[i] = NULL;
+    }
+    
+    // Reset statistics
+    memset(&g_weak_ref_stats, 0, sizeof(g_weak_ref_stats));
 }
