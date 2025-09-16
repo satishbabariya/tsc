@@ -6877,14 +6877,26 @@ void LLVMCodeGen::visit(EnumDeclaration& node) {
     
     for (const auto& member : node.getMembers()) {
         llvm::Value* memberValue = nullptr;
+        llvm::Type* memberType = nullptr;
         
         if (member->hasValue()) {
             // Member has explicit value - evaluate it
             member->getValue()->accept(*this);
             memberValue = getCurrentValue();
+            
+            // Determine the type based on the value
+            if (llvm::ConstantFP* numConst = llvm::dyn_cast<llvm::ConstantFP>(memberValue)) {
+                memberType = getNumberType();
+            } else if (llvm::Constant* strConst = llvm::dyn_cast<llvm::Constant>(memberValue)) {
+                memberType = getStringType();
+            } else {
+                // Default to number type
+                memberType = getNumberType();
+            }
         } else {
             // Auto-increment numeric value
             memberValue = llvm::ConstantFP::get(getNumberType(), static_cast<double>(currentValue));
+            memberType = getNumberType();
         }
         
         // Create a global constant for the enum member
@@ -6897,11 +6909,12 @@ void LLVMCodeGen::visit(EnumDeclaration& node) {
         } else {
             // Fallback to the current auto-increment value
             constantValue = llvm::ConstantFP::get(getNumberType(), static_cast<double>(currentValue));
+            memberType = getNumberType();
         }
         
         llvm::GlobalVariable* globalVar = new llvm::GlobalVariable(
             *module_,
-            getNumberType(),
+            memberType,
             true, // isConstant
             llvm::GlobalValue::ExternalLinkage,
             constantValue,
