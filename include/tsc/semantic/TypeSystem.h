@@ -8,6 +8,7 @@
 namespace tsc {
     class BinaryExpression;
     class UnaryExpression;
+    class DiagnosticEngine;
 }
 
 namespace tsc {
@@ -520,6 +521,7 @@ public:
     
     // Generic constraint checking
     GenericConstraintChecker* getConstraintChecker() const;
+    void setDiagnosticEngine(DiagnosticEngine& diagnostics);
 
 private:
     // Built-in types
@@ -539,6 +541,9 @@ private:
     
     // Generic constraint checker for type substitution
     mutable std::unique_ptr<GenericConstraintChecker> constraintChecker_;
+    
+    // Diagnostic engine for error reporting
+    DiagnosticEngine* diagnostics_;
     
     void initializeBuiltinTypes();
     String getCacheKey(TypeKind kind, const std::vector<shared_ptr<Type>>& types) const;

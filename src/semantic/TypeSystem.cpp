@@ -273,7 +273,7 @@ namespace tsc {
     }
 
     // TypeSystem implementation
-    TypeSystem::TypeSystem() {
+    TypeSystem::TypeSystem() : diagnostics_(nullptr) {
         initializeBuiltinTypes();
     }
 
@@ -460,11 +460,16 @@ namespace tsc {
 
     shared_ptr<Type> TypeSystem::inferTypeFromBinaryExpression(const Type &leftType, const Type &rightType,
                                                                int op) const {
-        // Simplified type inference for now
-        // In a full implementation, we'd map the enum values properly
+        // Convert int op to BinaryExpression::Operator enum for proper type checking
+        BinaryExpression::Operator operatorType = static_cast<BinaryExpression::Operator>(op);
 
         // Arithmetic operations
-        if (op >= 0 && op <= 5) {
+        if (operatorType == BinaryExpression::Operator::Add ||
+            operatorType == BinaryExpression::Operator::Subtract ||
+            operatorType == BinaryExpression::Operator::Multiply ||
+            operatorType == BinaryExpression::Operator::Divide ||
+            operatorType == BinaryExpression::Operator::Modulo ||
+            operatorType == BinaryExpression::Operator::Power) {
             // Add, Subtract, Multiply, Divide, etc.
             // Check for string concatenation (including constrained type parameters)
             if (leftType.isAssignableTo(*stringType_) || rightType.isAssignableTo(*stringType_)) {
@@ -484,16 +489,39 @@ namespace tsc {
         }
 
         // Comparison operations  
-        if (op >= 6 && op <= 13) {
-            // Equal, NotEqual, StrictEqual, StrictNotEqual, Less, Greater, LessEqual, GreaterEqual
+        if (operatorType == BinaryExpression::Operator::Equal ||
+            operatorType == BinaryExpression::Operator::NotEqual ||
+            operatorType == BinaryExpression::Operator::StrictEqual ||
+            operatorType == BinaryExpression::Operator::StrictNotEqual ||
+            operatorType == BinaryExpression::Operator::Less ||
+            operatorType == BinaryExpression::Operator::Greater ||
+            operatorType == BinaryExpression::Operator::LessEqual ||
+            operatorType == BinaryExpression::Operator::GreaterEqual) {
             return booleanType_;
         }
 
         // Logical operations
-        if (op == 14 || op == 15) {
-            // LogicalAnd, LogicalOr
+        if (operatorType == BinaryExpression::Operator::LogicalAnd ||
+            operatorType == BinaryExpression::Operator::LogicalOr ||
+            operatorType == BinaryExpression::Operator::NullishCoalescing) {
             // Boolean logical operations - these should work with boolean types
             return booleanType_;
+        }
+
+        // Bitwise operations
+        if (operatorType == BinaryExpression::Operator::BitwiseAnd ||
+            operatorType == BinaryExpression::Operator::BitwiseOr ||
+            operatorType == BinaryExpression::Operator::BitwiseXor ||
+            operatorType == BinaryExpression::Operator::LeftShift ||
+            operatorType == BinaryExpression::Operator::RightShift ||
+            operatorType == BinaryExpression::Operator::UnsignedRightShift) {
+            return numberType_; // Bitwise operations return numbers
+        }
+
+        // Other operations
+        if (operatorType == BinaryExpression::Operator::In ||
+            operatorType == BinaryExpression::Operator::Instanceof) {
+            return booleanType_; // These return boolean values
         }
 
         return errorType_;
@@ -501,22 +529,40 @@ namespace tsc {
 
     shared_ptr<Type> TypeSystem::inferTypeFromUnaryExpression(const Type &operandType,
                                                               int op) const {
-        // Simplified type inference for unary operations
-        if (op == 0 || op == 1) {
-            // Plus, Minus
+        // Convert int op to UnaryExpression::Operator enum for proper type checking
+        UnaryExpression::Operator operatorType = static_cast<UnaryExpression::Operator>(op);
+
+        // Arithmetic unary operations
+        if (operatorType == UnaryExpression::Operator::Plus ||
+            operatorType == UnaryExpression::Operator::Minus) {
             return numberType_;
         }
-        if (op == 2) {
-            // LogicalNot
+
+        // Logical operations
+        if (operatorType == UnaryExpression::Operator::LogicalNot) {
             return booleanType_;
         }
-        if (op == 7) {
-            // Typeof
+
+        // Type operations
+        if (operatorType == UnaryExpression::Operator::Typeof) {
             return stringType_;
         }
 
-        // Most unary operators preserve the operand type
-        return numberType_; // Simplified - would need proper type copying
+        // Increment/decrement operations preserve the operand type
+        if (operatorType == UnaryExpression::Operator::PreIncrement ||
+            operatorType == UnaryExpression::Operator::PostIncrement ||
+            operatorType == UnaryExpression::Operator::PreDecrement ||
+            operatorType == UnaryExpression::Operator::PostDecrement) {
+            return operandType.shared_from_this();
+        }
+
+        // Bitwise operations
+        if (operatorType == UnaryExpression::Operator::BitwiseNot) {
+            return numberType_;
+        }
+
+        // Other operations (Delete, Void, Await) - simplified handling
+        return operandType.shared_from_this();
     }
 
     String TypeSystem::typeToString(const Type &type) const {
@@ -899,10 +945,21 @@ namespace tsc {
             for (const auto &otherMember: other.declaration_->getMembers()) {
                 if (member->getName() == otherMember->getName()) {
                     // For enum members, we check if both have values or both don't have values
-                    // In a full implementation, we'd also check if the values are equivalent
-                    if ((member->getValue() != nullptr) != (otherMember->getValue() != nullptr)) {
+                    bool memberHasValue = member->getValue() != nullptr;
+                    bool otherMemberHasValue = otherMember->getValue() != nullptr;
+                    
+                    if (memberHasValue != otherMemberHasValue) {
                         return false;
                     }
+                    
+                    // If both have values, check if they are equivalent
+                    if (memberHasValue && otherMemberHasValue) {
+                        // Compare the actual values - they should be equivalent expressions
+                        if (member->getValue()->toString() != otherMember->getValue()->toString()) {
+                            return false;
+                        }
+                    }
+                    
                     foundMatchingMember = true;
                     break;
                 }
@@ -997,13 +1054,24 @@ namespace tsc {
         return make_shared<SmartPointerType>(SmartPointerType::Kind::Weak, elementType);
     }
 
+    void TypeSystem::setDiagnosticEngine(DiagnosticEngine& diagnostics) {
+        diagnostics_ = &diagnostics;
+        // Reset constraint checker to use the new diagnostics
+        constraintChecker_.reset();
+    }
+
     GenericConstraintChecker *TypeSystem::getConstraintChecker() const {
         if (!constraintChecker_) {
-            // Create a dummy DiagnosticEngine for now
-            // In a full implementation, this would be passed from the caller
-            static DiagnosticEngine dummyDiagnostics;
-            constraintChecker_ = make_unique<GenericConstraintChecker>(dummyDiagnostics,
-                                                                       const_cast<TypeSystem &>(*this));
+            if (diagnostics_) {
+                // Use the provided diagnostic engine
+                constraintChecker_ = make_unique<GenericConstraintChecker>(*diagnostics_,
+                                                                           const_cast<TypeSystem &>(*this));
+            } else {
+                // Fallback to dummy diagnostics if none provided
+                static DiagnosticEngine dummyDiagnostics;
+                constraintChecker_ = make_unique<GenericConstraintChecker>(dummyDiagnostics,
+                                                                           const_cast<TypeSystem &>(*this));
+            }
         }
         return constraintChecker_.get();
     }

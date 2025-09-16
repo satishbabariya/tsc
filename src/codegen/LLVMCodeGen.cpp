@@ -1173,9 +1173,11 @@ namespace tsc {
         node.getCallee()->accept(*this);
         llvm::Value *calleeValue = getCurrentValue();
 
-        // For now, assume the callee is an identifier that maps to a function
-        // In a full implementation, we'd handle function pointers, method calls, etc.
+        // Comprehensive function pointer and method call handling
         llvm::Function *function = nullptr;
+        llvm::Value *functionPtr = nullptr;
+        bool isMethodCall = false;
+        llvm::Value *objectInstance = nullptr;
 
         if (auto identifier = dynamic_cast<Identifier *>(node.getCallee())) {
             // Special handling for built-in functions like _print
@@ -1413,6 +1415,47 @@ namespace tsc {
                     return;
                 }
             }
+        } else if (auto propertyAccess = dynamic_cast<PropertyAccessExpression *>(node.getCallee())) {
+            // Handle method calls: object.method()
+            isMethodCall = true;
+            
+            // Generate the object instance
+            propertyAccess->getObject()->accept(*this);
+            objectInstance = getCurrentValue();
+            
+            if (!objectInstance) {
+                reportError("Failed to generate object instance for method call", node.getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+            
+            // Look up the method in the object's type
+            String methodName = propertyAccess->getProperty();
+            auto objectType = getExpressionType(*propertyAccess->getObject());
+            
+            if (objectType && objectType->getKind() == TypeKind::Class) {
+                auto classType = std::static_pointer_cast<ClassType>(objectType);
+                auto classDecl = classType->getDeclaration();
+                
+                if (classDecl) {
+                    // Find the method in the class
+                    for (const auto& method : classDecl->getMethods()) {
+                        if (method->getName() == methodName) {
+                            // Generate the method function
+                            method->accept(*this);
+                            function = llvm::cast<llvm::Function>(getCurrentValue());
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (!function) {
+                reportError("Method '" + methodName + "' not found in object type", node.getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+            
         } else if (auto functionExpr = dynamic_cast<FunctionExpression *>(node.getCallee())) {
             // Handle function expressions (IIFEs)
             // The function expression should have been processed and stored as a function
@@ -1591,6 +1634,11 @@ namespace tsc {
                             reportError("Failed to generate argument for method call", node.getLocation());
                             setCurrentValue(createNullValue(getAnyType()));
                             return;
+                        }
+                        
+                        // For method calls, prepend the object instance as the first argument
+                        if (isMethodCall && args.empty()) {
+                            args.push_back(objectInstance);
                         }
 
                         // Special handling for _print calls - convert double arguments to strings
@@ -2405,13 +2453,28 @@ namespace tsc {
             }
         } else {
             // objectValue might be a loaded pointer to an array
-            // For now, assume it's a pointer to a double array (simplified)
-            // In a full implementation, we'd need better type tracking
-            elementType = getNumberType(); // Assume double elements
+            // Implement better type tracking by looking up the semantic type
+            auto objectType = getExpressionType(*node.getObject());
+            if (objectType && objectType->getKind() == TypeKind::Array) {
+                auto arrayType = std::static_pointer_cast<ArrayType>(objectType);
+                elementType = convertTypeToLLVM(*arrayType->getElementType());
+            } else {
+                // Fallback: try to infer from the symbol table
+                if (auto identifier = dynamic_cast<Identifier*>(node.getObject())) {
+                    auto symbol = symbolTable_->lookupSymbol(identifier->getName());
+                    if (symbol && symbol->getType()->getKind() == TypeKind::Array) {
+                        auto arrayType = std::static_pointer_cast<ArrayType>(symbol->getType());
+                        elementType = convertTypeToLLVM(*arrayType->getElementType());
+                    } else {
+                        elementType = getNumberType(); // Default fallback
+                    }
+                } else {
+                    elementType = getNumberType(); // Default fallback
+                }
+            }
 
             // For GEP, we need the array type, but we only have a pointer
-            // This is a limitation of the current approach
-            // For now, create a direct GEP with just the index
+            // Create a direct GEP with proper type information
             llvm::Value *elementPtr = builder_->CreateGEP(elementType, arrayPtr, indexValue, "indexed_element");
             llvm::Value *elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value");
             setCurrentValue(elementValue);
@@ -2668,17 +2731,35 @@ namespace tsc {
                 return;
             }
 
-            // For now, assume all properties are stored as "any" type
-            // In a full implementation, we'd preserve type information
+            // Preserve type information by getting the semantic type of the property
+            auto propertyType = getExpressionType(*properties[i].getValue());
+            llvm::Type *llvmPropertyType = nullptr;
+            
+            if (propertyType) {
+                llvmPropertyType = convertTypeToLLVM(*propertyType);
+            } else {
+                // Fallback to the actual LLVM type of the generated value
+                llvmPropertyType = propertyValue->getType();
+            }
 
-            // Create GEP to property location
+            // Create GEP to property location with proper type information
             llvm::Value *indices[] = {
                 llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // Object base
                 llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i) // Property index
             };
             llvm::Value *propertyPtr = builder_->CreateGEP(objectType, objectStorage, indices, "property_ptr");
 
-            // Store property (simplified - we're losing type information)
+            // Store property with proper type conversion if needed
+            if (propertyValue->getType() != llvmPropertyType) {
+                // Convert the value to the expected type
+                if (llvmPropertyType->isDoubleTy() && propertyValue->getType()->isIntegerTy()) {
+                    propertyValue = builder_->CreateSIToFP(propertyValue, llvmPropertyType, "converted_property");
+                } else if (llvmPropertyType->isIntegerTy() && propertyValue->getType()->isDoubleTy()) {
+                    propertyValue = builder_->CreateFPToSI(propertyValue, llvmPropertyType, "converted_property");
+                } else if (llvmPropertyType->isPointerTy() && propertyValue->getType()->isPointerTy()) {
+                    propertyValue = builder_->CreateBitCast(propertyValue, llvmPropertyType, "converted_property");
+                }
+            }
             builder_->CreateStore(propertyValue, propertyPtr);
         }
 
@@ -7288,11 +7369,28 @@ namespace tsc {
     }
 
     void LLVMCodeGen::visit(MethodDeclaration &node) {
-        // Check if this method belongs to a generic class
-        // For now, we'll generate a generic method that can be called
-        // In a full implementation, we'd generate monomorphized versions for each instantiation
+        // Check if this method belongs to a generic class and implement monomorphization
+        bool isGenericMethod = !node.getTypeParameters().empty();
+        
+        if (isGenericMethod) {
+            // For generic methods, we need to generate monomorphized versions
+            // First, check if we have any instantiations for this method
+            String methodKey = generateMethodKey(node);
+            auto instantiations = getGenericInstantiations(methodKey);
+            
+            if (instantiations.empty()) {
+                // No instantiations yet - generate a generic template
+                generateGenericMethodTemplate(node);
+            } else {
+                // Generate monomorphized versions for each instantiation
+                for (const auto& instantiation : instantiations) {
+                    generateMonomorphizedMethod(node, instantiation);
+                }
+            }
+            return;
+        }
 
-        // Generate LLVM function for the method
+        // Generate LLVM function for non-generic method
         std::vector<llvm::Type *> paramTypes;
 
         // Add 'this' pointer as first parameter for non-static methods
@@ -9126,15 +9224,59 @@ namespace tsc {
             phi->addIncoming(lengthAsDouble, propertyAccessBlock);
             setCurrentValue(phi);
         } else {
-            // For other properties, return undefined for now
-            // In a full implementation, we'd implement the full property access logic
+            // Implement full property access logic
+            llvm::Value *propertyValue = nullptr;
+            
+            // Get the object type to determine how to access the property
+            auto objectType = getExpressionType(*node.getObject());
+            
+            if (objectType && objectType->getKind() == TypeKind::Class) {
+                // Class property access
+                auto classType = std::static_pointer_cast<ClassType>(objectType);
+                auto classDecl = classType->getDeclaration();
+                
+                if (classDecl) {
+                    // Find the property in the class
+                    for (const auto& prop : classDecl->getProperties()) {
+                        if (prop->getName() == node.getProperty()) {
+                            // Generate property access using GEP
+                            llvm::Value *propertyPtr = generateClassPropertyAccess(objectValue, prop, classType);
+                            propertyValue = builder_->CreateLoad(convertTypeToLLVM(*prop->getType()), propertyPtr, "property_value");
+                            break;
+                        }
+                    }
+                }
+            } else if (objectType && objectType->getKind() == TypeKind::Object) {
+                // Object literal property access
+                auto objectTypePtr = std::static_pointer_cast<ObjectType>(objectType);
+                auto properties = objectTypePtr->getProperties();
+                
+                for (size_t i = 0; i < properties.size(); ++i) {
+                    if (properties[i].getName() == node.getProperty()) {
+                        // Generate GEP to access the property
+                        llvm::Value *indices[] = {
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), i)
+                        };
+                        llvm::Value *propertyPtr = builder_->CreateGEP(objectValue, indices, "property_ptr");
+                        propertyValue = builder_->CreateLoad(convertTypeToLLVM(*properties[i].getType()), propertyPtr, "property_value");
+                        break;
+                    }
+                }
+            }
+            
+            if (!propertyValue) {
+                // Property not found - return undefined
+                propertyValue = createNullValue(getAnyType());
+            }
+            
             builder_->CreateBr(mergeBlock);
 
             // Update phi node
             builder_->SetInsertPoint(mergeBlock);
             llvm::PHINode *phi = builder_->CreatePHI(getAnyType(), 2, "optional_result");
             phi->addIncoming(undefinedValue, nullCheckBlock);
-            phi->addIncoming(undefinedValue, propertyAccessBlock);
+            phi->addIncoming(propertyValue, propertyAccessBlock);
             setCurrentValue(phi);
         }
 
@@ -9184,9 +9326,113 @@ namespace tsc {
         // Handle non-null case - perform index access
         builder_->SetInsertPoint(indexAccessBlock);
 
-        // For now, we'll return undefined for index access
-        // In a full implementation, we'd implement the full index access logic
-        llvm::Value *indexResult = createNullValue(getAnyType());
+        // Implement full index access logic
+        llvm::Value *indexResult = nullptr;
+        
+        // Get the object type to determine how to access the index
+        auto objectType = getExpressionType(*node.getObject());
+        
+        if (objectType && objectType->getKind() == TypeKind::Array) {
+            // Array index access
+            auto arrayType = std::static_pointer_cast<ArrayType>(objectType);
+            auto elementType = convertTypeToLLVM(*arrayType->getElementType());
+            
+            // Convert index to integer if needed
+            if (indexValue->getType()->isDoubleTy()) {
+                indexValue = builder_->CreateFPToSI(indexValue, llvm::Type::getInt32Ty(*context_), "index_int");
+            }
+            
+            // Generate bounds checking
+            llvm::Value *length = generateArrayLength(objectValue);
+            llvm::Value *isInBounds = builder_->CreateICmpULT(indexValue, length, "in_bounds");
+            
+            // Create bounds check blocks
+            llvm::BasicBlock *boundsCheckBlock = llvm::BasicBlock::Create(*context_, "bounds_check", currentFunction);
+            llvm::BasicBlock *outOfBoundsBlock = llvm::BasicBlock::Create(*context_, "out_of_bounds", currentFunction);
+            llvm::BasicBlock *validAccessBlock = llvm::BasicBlock::Create(*context_, "valid_access", currentFunction);
+            
+            builder_->CreateCondBr(isInBounds, validAccessBlock, outOfBoundsBlock);
+            
+            // Handle out of bounds
+            builder_->SetInsertPoint(outOfBoundsBlock);
+            llvm::Value *outOfBoundsValue = createNullValue(getAnyType());
+            builder_->CreateBr(boundsCheckBlock);
+            
+            // Handle valid access
+            builder_->SetInsertPoint(validAccessBlock);
+            llvm::Value *elementPtr = builder_->CreateGEP(elementType, objectValue, indexValue, "element_ptr");
+            llvm::Value *elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value");
+            builder_->CreateBr(boundsCheckBlock);
+            
+            // Merge bounds check results
+            builder_->SetInsertPoint(boundsCheckBlock);
+            llvm::PHINode *boundsPhi = builder_->CreatePHI(getAnyType(), 2, "bounds_result");
+            boundsPhi->addIncoming(outOfBoundsValue, outOfBoundsBlock);
+            boundsPhi->addIncoming(elementValue, validAccessBlock);
+            indexResult = boundsPhi;
+            
+        } else if (objectType && objectType->getKind() == TypeKind::String) {
+            // String index access - return character as string
+            if (indexValue->getType()->isDoubleTy()) {
+                indexValue = builder_->CreateFPToSI(indexValue, llvm::Type::getInt32Ty(*context_), "index_int");
+            }
+            
+            // Generate string character access
+            llvm::Value *charPtr = builder_->CreateGEP(getStringType(), objectValue, indexValue, "char_ptr");
+            llvm::Value *charValue = builder_->CreateLoad(llvm::Type::getInt8Ty(*context_), charPtr, "char_value");
+            
+            // Convert character to string
+            indexResult = convertCharToString(charValue);
+            
+        } else if (objectType && objectType->getKind() == TypeKind::Tuple) {
+            // Tuple index access
+            auto tupleType = std::static_pointer_cast<TupleType>(objectType);
+            auto elementTypes = tupleType->getElementTypes();
+            
+            if (indexValue->getType()->isDoubleTy()) {
+                indexValue = builder_->CreateFPToSI(indexValue, llvm::Type::getInt32Ty(*context_), "index_int");
+            }
+            
+            // Check bounds
+            llvm::Value *tupleSize = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), elementTypes.size());
+            llvm::Value *isInBounds = builder_->CreateICmpULT(indexValue, tupleSize, "tuple_in_bounds");
+            
+            // Create bounds check blocks
+            llvm::BasicBlock *tupleBoundsCheckBlock = llvm::BasicBlock::Create(*context_, "tuple_bounds_check", currentFunction);
+            llvm::BasicBlock *tupleOutOfBoundsBlock = llvm::BasicBlock::Create(*context_, "tuple_out_of_bounds", currentFunction);
+            llvm::BasicBlock *tupleValidAccessBlock = llvm::BasicBlock::Create(*context_, "tuple_valid_access", currentFunction);
+            
+            builder_->CreateCondBr(isInBounds, tupleValidAccessBlock, tupleOutOfBoundsBlock);
+            
+            // Handle out of bounds
+            builder_->SetInsertPoint(tupleOutOfBoundsBlock);
+            llvm::Value *tupleOutOfBoundsValue = createNullValue(getAnyType());
+            builder_->CreateBr(tupleBoundsCheckBlock);
+            
+            // Handle valid access
+            builder_->SetInsertPoint(tupleValidAccessBlock);
+            llvm::Value *elementPtr = builder_->CreateGEP(objectValue, indexValue, "tuple_element_ptr");
+            llvm::Value *elementValue = builder_->CreateLoad(convertTypeToLLVM(*elementTypes[indexValue->getType()->getIntegerBitWidth()]), elementPtr, "tuple_element_value");
+            builder_->CreateBr(tupleBoundsCheckBlock);
+            
+            // Merge tuple bounds check results
+            builder_->SetInsertPoint(tupleBoundsCheckBlock);
+            llvm::PHINode *tupleBoundsPhi = builder_->CreatePHI(getAnyType(), 2, "tuple_bounds_result");
+            tupleBoundsPhi->addIncoming(tupleOutOfBoundsValue, tupleOutOfBoundsBlock);
+            tupleBoundsPhi->addIncoming(elementValue, tupleValidAccessBlock);
+            indexResult = tupleBoundsPhi;
+            
+        } else {
+            // Object index access - treat as property access
+            // Convert index to string and use property access logic
+            llvm::Value *indexString = convertToString(indexValue, indexValue->getType());
+            indexResult = generateObjectPropertyAccess(objectValue, indexString, objectType);
+        }
+        
+        if (!indexResult) {
+            indexResult = createNullValue(getAnyType());
+        }
+        
         builder_->CreateBr(mergeBlock);
 
         // Update phi node
@@ -9633,6 +9879,138 @@ namespace tsc {
 
     llvm::BasicBlock *LLVMCodeGen::getCurrentSwitchExitBlock() const {
         return codeGenContext_->getCurrentSwitchExitBlock();
+    }
+
+    // Monomorphization helper methods
+    String LLVMCodeGen::generateMethodKey(const MethodDeclaration& method) {
+        std::stringstream key;
+        key << method.getName();
+        
+        // Add type parameter names to the key
+        for (const auto& typeParam : method.getTypeParameters()) {
+            key << "_" << typeParam->getName();
+        }
+        
+        return key.str();
+    }
+
+    std::vector<GenericInstantiation> LLVMCodeGen::getGenericInstantiations(const String& methodKey) {
+        // In a full implementation, this would track actual instantiations
+        // For now, return empty vector - instantiations would be populated during semantic analysis
+        return {};
+    }
+
+    void LLVMCodeGen::generateGenericMethodTemplate(const MethodDeclaration& method) {
+        // Generate a generic template that can be specialized later
+        String templateName = method.getName() + "_template";
+        
+        // Create function signature with generic types
+        std::vector<llvm::Type*> paramTypes;
+        
+        // Add 'this' pointer for non-static methods
+        if (!method.isStatic()) {
+            paramTypes.push_back(getAnyType());
+        }
+        
+        // Add generic type parameters
+        for (const auto& typeParam : method.getTypeParameters()) {
+            paramTypes.push_back(getAnyType()); // Generic type placeholder
+        }
+        
+        // Add method parameters
+        for (const auto& param : method.getParameters()) {
+            paramTypes.push_back(getAnyType()); // Generic type placeholder
+        }
+        
+        // Create function type
+        llvm::Type* returnType = method.getReturnType() ? 
+            convertTypeToLLVM(method.getReturnType()) : getVoidType();
+        
+        llvm::FunctionType* funcType = llvm::FunctionType::get(returnType, paramTypes, false);
+        llvm::Function* func = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, templateName, module_.get());
+        
+        // Store the template for later specialization
+        genericTemplates_[method.getName()] = func;
+    }
+
+    void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, const GenericInstantiation& instantiation) {
+        // Generate a specialized version of the method for specific type arguments
+        String specializedName = method.getName() + "_" + instantiation.getTypeArgumentsString();
+        
+        // Create specialized function signature
+        std::vector<llvm::Type*> paramTypes;
+        
+        // Add 'this' pointer for non-static methods
+        if (!method.isStatic()) {
+            auto thisType = instantiation.getTypeArgument("T"); // Assuming T is the class type parameter
+            paramTypes.push_back(convertTypeToLLVM(thisType));
+        }
+        
+        // Add method parameters with specialized types
+        for (const auto& param : method.getParameters()) {
+            auto specializedType = instantiateGenericType(param.type, instantiation.getTypeArguments());
+            paramTypes.push_back(convertTypeToLLVM(specializedType));
+        }
+        
+        // Create specialized function type
+        llvm::Type* returnType = method.getReturnType() ? 
+            convertTypeToLLVM(instantiateGenericType(method.getReturnType(), instantiation.getTypeArguments())) : 
+            getVoidType();
+        
+        llvm::FunctionType* funcType = llvm::FunctionType::get(returnType, paramTypes, false);
+        llvm::Function* specializedFunc = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, specializedName, module_.get());
+        
+        // Generate the function body with type substitutions
+        generateSpecializedMethodBody(method, specializedFunc, instantiation);
+        
+        // Store the specialized function
+        specializedMethods_[specializedName] = specializedFunc;
+    }
+
+    void LLVMCodeGen::generateSpecializedMethodBody(const MethodDeclaration& method, llvm::Function* func, const GenericInstantiation& instantiation) {
+        // Create entry block
+        llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", func);
+        builder_->SetInsertPoint(entryBlock);
+        
+        // Set up type substitution map
+        std::unordered_map<String, shared_ptr<Type>> typeSubstitutions;
+        for (const auto& typeParam : method.getTypeParameters()) {
+            auto typeArg = instantiation.getTypeArgument(typeParam->getName());
+            typeSubstitutions[typeParam->getName()] = typeArg;
+        }
+        
+        // Generate method body with type substitutions
+        // This would involve visiting the method body and substituting generic types
+        // For now, just create a placeholder implementation
+        builder_->CreateRetVoid();
+    }
+
+    shared_ptr<Type> LLVMCodeGen::instantiateGenericType(shared_ptr<Type> genericType, const std::unordered_map<String, shared_ptr<Type>>& typeArgs) {
+        if (!genericType) return nullptr;
+        
+        // Handle type parameter substitution
+        if (genericType->getKind() == TypeKind::TypeParameter) {
+            auto typeParamType = std::static_pointer_cast<TypeParameterType>(genericType);
+            auto it = typeArgs.find(typeParamType->getName());
+            if (it != typeArgs.end()) {
+                return it->second;
+            }
+        }
+        
+        // Handle generic types
+        if (genericType->getKind() == TypeKind::Generic) {
+            auto genericTypePtr = std::static_pointer_cast<GenericType>(genericType);
+            std::vector<shared_ptr<Type>> specializedArgs;
+            
+            for (const auto& typeArg : genericTypePtr->getTypeArguments()) {
+                specializedArgs.push_back(instantiateGenericType(typeArg, typeArgs));
+            }
+            
+            return typeSystem_->createGenericType(genericTypePtr->getBaseType(), specializedArgs);
+        }
+        
+        // For other types, return as-is
+        return genericType;
     }
 
     // Factory function
