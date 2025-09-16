@@ -313,6 +313,11 @@ private:
     
     // Helper methods for exception handling
     bool isThrowableType(shared_ptr<Type> type) const;
+    
+    // Helper methods for destructuring patterns
+    void validateDestructuringCompatibility(DestructuringPattern* pattern, shared_ptr<Type> valueType, const SourceLocation& location);
+    bool isArrayLikeType(shared_ptr<Type> type) const;
+    bool isObjectLikeType(shared_ptr<Type> type) const;
 };
 
 // Semantic analysis result

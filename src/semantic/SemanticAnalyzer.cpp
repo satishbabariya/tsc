@@ -3420,42 +3420,64 @@ void SemanticAnalyzer::validateDestructorSafety(const DestructorDeclaration& des
 
 // Destructuring visitor method implementations
 void SemanticAnalyzer::visit(DestructuringPattern& node) {
-    // Analyze the pattern type
-    auto patternType = node.getPatternType();
-    if (patternType) {
-        patternType->accept(*this);
-    }
-    
-    // Set the pattern type
-    node.setType(patternType);
+    // Base destructuring pattern - set type to void
+    // Specific pattern types will override this behavior
+    node.setType(typeSystem_->getVoidType());
 }
 
 void SemanticAnalyzer::visit(ArrayDestructuringPattern& node) {
-    // TODO: Implement array destructuring pattern semantic analysis
+    // Analyze each element in the array destructuring pattern
     for (const auto& element : node.getElements()) {
         element->accept(*this);
     }
+    
+    // Array destructuring patterns are l-values that can be assigned to
+    // The type is void since destructuring is a statement-level operation
+    node.setType(typeSystem_->getVoidType());
 }
 
 void SemanticAnalyzer::visit(ObjectDestructuringPattern& node) {
-    // TODO: Implement object destructuring pattern semantic analysis
+    // Analyze each property in the object destructuring pattern
     for (const auto& property : node.getProperties()) {
+        // Analyze the pattern for this property
         property.getPattern()->accept(*this);
+        
+        // Analyze default value if present
         if (property.getDefaultValue()) {
             property.getDefaultValue()->accept(*this);
         }
     }
+    
+    // Object destructuring patterns are l-values that can be assigned to
+    // The type is void since destructuring is a statement-level operation
+    node.setType(typeSystem_->getVoidType());
 }
 
 void SemanticAnalyzer::visit(IdentifierPattern& node) {
-    // TODO: Implement identifier pattern semantic analysis
-    // This should create a symbol for the identifier
+    // Analyze default value if present
+    if (node.getDefaultValue()) {
+        node.getDefaultValue()->accept(*this);
+    }
+    
+    // Identifier patterns create new variables in the current scope
+    // The type will be inferred from the destructuring assignment or declaration
+    // For now, set to any type - it will be refined during assignment analysis
+    node.setType(typeSystem_->getAnyType());
 }
 
 void SemanticAnalyzer::visit(DestructuringAssignment& node) {
-    // TODO: Implement destructuring assignment semantic analysis
-    node.getPattern()->accept(*this);
+    // Analyze the value being destructured
     node.getValue()->accept(*this);
+    auto valueType = node.getValue()->getType();
+    
+    // Analyze the destructuring pattern
+    node.getPattern()->accept(*this);
+    
+    // Validate that the value type is compatible with the destructuring pattern
+    validateDestructuringCompatibility(node.getPattern(), valueType, node.getLocation());
+    
+    // Destructuring assignment has void type
+    node.setType(typeSystem_->getVoidType());
 }
 
 void SemanticAnalyzer::visit(OptionalPropertyAccess& node) {
@@ -3782,6 +3804,100 @@ bool SemanticAnalyzer::isThrowableType(shared_ptr<Type> type) const {
     // Any type can be thrown (but with runtime behavior)
     if (type->isAny()) {
         return true;
+    }
+    
+    return false;
+}
+
+void SemanticAnalyzer::validateDestructuringCompatibility(DestructuringPattern* pattern, shared_ptr<Type> valueType, const SourceLocation& location) {
+    if (!pattern || !valueType) {
+        return;
+    }
+    
+    // Check compatibility based on pattern type
+    if (auto arrayPattern = dynamic_cast<ArrayDestructuringPattern*>(pattern)) {
+        // For array destructuring, the value must be array-like
+        if (!isArrayLikeType(valueType)) {
+            reportError("Cannot destructure non-array type '" + valueType->toString() + "' as array", location);
+        }
+    } else if (auto objectPattern = dynamic_cast<ObjectDestructuringPattern*>(pattern)) {
+        // For object destructuring, the value must be object-like
+        if (!isObjectLikeType(valueType)) {
+            reportError("Cannot destructure non-object type '" + valueType->toString() + "' as object", location);
+        }
+    } else if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(pattern)) {
+        // For identifier patterns, any type is compatible
+        // The identifier will be typed based on the value type
+        return;
+    }
+}
+
+bool SemanticAnalyzer::isArrayLikeType(shared_ptr<Type> type) const {
+    if (!type) {
+        return false;
+    }
+    
+    // Array types are array-like
+    if (type->getKind() == TypeKind::Array) {
+        return true;
+    }
+    
+    // Tuple types are array-like
+    if (type->getKind() == TypeKind::Tuple) {
+        return true;
+    }
+    
+    // Any type is array-like (runtime behavior)
+    if (type->isAny()) {
+        return true;
+    }
+    
+    // Union types are array-like if any member is array-like
+    if (type->getKind() == TypeKind::Union) {
+        auto unionType = static_cast<UnionType*>(type.get());
+        for (const auto& memberType : unionType->getTypes()) {
+            if (isArrayLikeType(memberType)) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+bool SemanticAnalyzer::isObjectLikeType(shared_ptr<Type> type) const {
+    if (!type) {
+        return false;
+    }
+    
+    // Object types are object-like
+    if (type->getKind() == TypeKind::Object) {
+        return true;
+    }
+    
+    // Class types are object-like
+    if (type->getKind() == TypeKind::Class) {
+        return true;
+    }
+    
+    // Interface types are object-like
+    if (type->getKind() == TypeKind::Interface) {
+        return true;
+    }
+    
+    // Any type is object-like (runtime behavior)
+    if (type->isAny()) {
+        return true;
+    }
+    
+    // Union types are object-like if any member is object-like
+    if (type->getKind() == TypeKind::Union) {
+        auto unionType = static_cast<UnionType*>(type.get());
+        for (const auto& memberType : unionType->getTypes()) {
+            if (isObjectLikeType(memberType)) {
+                return true;
+            }
+        }
     }
     
     return false;
