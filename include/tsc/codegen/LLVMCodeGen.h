@@ -553,6 +553,7 @@ private:
     llvm::Type* getAnyType() const;
     llvm::Type* convertFunctionTypeToLLVM(const FunctionType& functionType);
     llvm::Value* convertValueToType(llvm::Value* value, llvm::Type* targetType);
+    llvm::Value* applyTypeConversion(llvm::Value* value, llvm::Type* currentType, shared_ptr<Type> targetType);
     
     // Memory management functions
     llvm::Function* getOrCreateMallocFunction();

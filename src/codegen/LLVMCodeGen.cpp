@@ -696,6 +696,10 @@ void LLVMCodeGen::visit(BinaryExpression& node) {
         return;
     }
     
+    // Apply type conversion if needed
+    left = applyTypeConversion(left, left->getType(), node.getLeft()->getType());
+    right = applyTypeConversion(right, right->getType(), node.getRight()->getType());
+    
     // Generate binary operation
     llvm::Value* result = generateBinaryOp(node.getOperator(), left, right, 
                                           left->getType(), right->getType());
@@ -5040,6 +5044,18 @@ llvm::Value* LLVMCodeGen::convertValueToType(llvm::Value* value, llvm::Type* tar
     // If no specific conversion is available, return the original value
     // This might still cause LLVM verification errors, but it's better than crashing
     return value;
+}
+
+llvm::Value* LLVMCodeGen::applyTypeConversion(llvm::Value* value, llvm::Type* currentType, shared_ptr<Type> targetType) {
+    if (!value || !targetType) {
+        return value;
+    }
+    
+    // Get the target LLVM type
+    llvm::Type* targetLLVMType = convertTypeToLLVM(targetType);
+    
+    // Apply the conversion
+    return convertValueToType(value, targetLLVMType);
 }
 
 // Value creation implementation

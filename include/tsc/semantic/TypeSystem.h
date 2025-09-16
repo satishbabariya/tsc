@@ -12,6 +12,15 @@ namespace tsc {
 
 namespace tsc {
 
+// Type conversion kinds
+enum class ConversionKind {
+    None,           // No conversion needed (types are identical)
+    Identity,       // Identity conversion (same type)
+    Implicit,       // Implicit conversion (automatic)
+    Explicit,       // Explicit conversion (requires cast)
+    Invalid         // Invalid conversion (not allowed)
+};
+
 // Forward declarations
 class ASTNode;
 class BinaryExpression;
@@ -505,6 +514,10 @@ public:
     shared_ptr<Type> getCommonType(const Type& type1, const Type& type2) const;
     shared_ptr<Type> widenType(const Type& type) const;
     bool isConvertibleToBoolean(shared_ptr<Type> type) const;
+    bool isConvertibleTo(shared_ptr<Type> from, shared_ptr<Type> to) const;
+    bool isImplicitlyConvertible(shared_ptr<Type> from, shared_ptr<Type> to) const;
+    bool isExplicitlyConvertible(shared_ptr<Type> from, shared_ptr<Type> to) const;
+    ConversionKind getConversionKind(shared_ptr<Type> from, shared_ptr<Type> to) const;
     bool isArrayType(shared_ptr<Type> type) const;
     shared_ptr<Type> getArrayElementType(shared_ptr<Type> arrayType) const;
     

@@ -668,6 +668,180 @@ bool TypeSystem::isConvertibleToBoolean(shared_ptr<Type> type) const {
     }
 }
 
+bool TypeSystem::isConvertibleTo(shared_ptr<Type> from, shared_ptr<Type> to) const {
+    if (!from || !to) return false;
+    
+    // Same type - no conversion needed
+    if (from->isEquivalentTo(*to)) {
+        return true;
+    }
+    
+    // Any type can be converted to any other type
+    if (from->isAny() || to->isAny()) {
+        return true;
+    }
+    
+    // Check specific conversion rules
+    return getConversionKind(from, to) != ConversionKind::Invalid;
+}
+
+bool TypeSystem::isImplicitlyConvertible(shared_ptr<Type> from, shared_ptr<Type> to) const {
+    if (!from || !to) return false;
+    
+    // Same type - implicit conversion
+    if (from->isEquivalentTo(*to)) {
+        return true;
+    }
+    
+    // Any type can be implicitly converted
+    if (from->isAny() || to->isAny()) {
+        return true;
+    }
+    
+    ConversionKind kind = getConversionKind(from, to);
+    return kind == ConversionKind::Implicit || kind == ConversionKind::Identity;
+}
+
+bool TypeSystem::isExplicitlyConvertible(shared_ptr<Type> from, shared_ptr<Type> to) const {
+    if (!from || !to) return false;
+    
+    // Any type can be explicitly converted
+    if (from->isAny() || to->isAny()) {
+        return true;
+    }
+    
+    ConversionKind kind = getConversionKind(from, to);
+    return kind == ConversionKind::Explicit || kind == ConversionKind::Implicit || kind == ConversionKind::Identity;
+}
+
+ConversionKind TypeSystem::getConversionKind(shared_ptr<Type> from, shared_ptr<Type> to) const {
+    if (!from || !to) return ConversionKind::Invalid;
+    
+    // Same type - identity conversion
+    if (from->isEquivalentTo(*to)) {
+        return ConversionKind::Identity;
+    }
+    
+    // Any type conversions
+    if (from->isAny() || to->isAny()) {
+        return ConversionKind::Implicit;
+    }
+    
+    // Primitive type conversions
+    if (from->getKind() == TypeKind::Number && to->getKind() == TypeKind::String) {
+        return ConversionKind::Implicit; // number to string
+    }
+    if (from->getKind() == TypeKind::String && to->getKind() == TypeKind::Number) {
+        return ConversionKind::Implicit; // string to number
+    }
+    if (from->getKind() == TypeKind::Boolean && to->getKind() == TypeKind::Number) {
+        return ConversionKind::Implicit; // boolean to number
+    }
+    if (from->getKind() == TypeKind::Number && to->getKind() == TypeKind::Boolean) {
+        return ConversionKind::Implicit; // number to boolean
+    }
+    if (from->getKind() == TypeKind::String && to->getKind() == TypeKind::Boolean) {
+        return ConversionKind::Implicit; // string to boolean
+    }
+    if (from->getKind() == TypeKind::Boolean && to->getKind() == TypeKind::String) {
+        return ConversionKind::Implicit; // boolean to string
+    }
+    
+    // Null/undefined conversions
+    if ((from->isNull() || from->isUndefined()) && 
+        (to->getKind() == TypeKind::Object || to->getKind() == TypeKind::Class || 
+         to->getKind() == TypeKind::Interface || to->getKind() == TypeKind::Array)) {
+        return ConversionKind::Implicit; // null/undefined to object types
+    }
+    
+    // Object type conversions
+    if (from->getKind() == TypeKind::Object && to->getKind() == TypeKind::Object) {
+        return ConversionKind::Implicit; // object to object
+    }
+    if (from->getKind() == TypeKind::Class && to->getKind() == TypeKind::Object) {
+        return ConversionKind::Implicit; // class to object
+    }
+    if (from->getKind() == TypeKind::Interface && to->getKind() == TypeKind::Object) {
+        return ConversionKind::Implicit; // interface to object
+    }
+    
+    // Array conversions
+    if (from->getKind() == TypeKind::Array && to->getKind() == TypeKind::Object) {
+        return ConversionKind::Implicit; // array to object
+    }
+    
+    // Union type conversions
+    if (to->getKind() == TypeKind::Union) {
+        auto unionType = static_cast<UnionType*>(to.get());
+        for (const auto& memberType : unionType->getTypes()) {
+            if (isImplicitlyConvertible(from, memberType)) {
+                return ConversionKind::Implicit;
+            }
+        }
+    }
+    
+    // Intersection type conversions
+    if (from->getKind() == TypeKind::Intersection) {
+        auto intersectionType = static_cast<IntersectionType*>(from.get());
+        for (const auto& memberType : intersectionType->getTypes()) {
+            if (isImplicitlyConvertible(memberType, to)) {
+                return ConversionKind::Implicit;
+            }
+        }
+    }
+    
+    // Generic type conversions
+    if (from->getKind() == TypeKind::Generic && to->getKind() == TypeKind::Generic) {
+        auto fromGeneric = static_cast<GenericType*>(from.get());
+        auto toGeneric = static_cast<GenericType*>(to.get());
+        
+        if (fromGeneric->getBaseType()->isEquivalentTo(*toGeneric->getBaseType())) {
+            auto fromArgs = fromGeneric->getTypeArguments();
+            auto toArgs = toGeneric->getTypeArguments();
+            
+            if (fromArgs.size() == toArgs.size()) {
+                bool allConvertible = true;
+                for (size_t i = 0; i < fromArgs.size(); ++i) {
+                    if (!isImplicitlyConvertible(fromArgs[i], toArgs[i])) {
+                        allConvertible = false;
+                        break;
+                    }
+                }
+                if (allConvertible) {
+                    return ConversionKind::Implicit;
+                }
+            }
+        }
+    }
+    
+    // Function type conversions
+    if (from->getKind() == TypeKind::Function && to->getKind() == TypeKind::Function) {
+        auto fromFunc = static_cast<FunctionType*>(from.get());
+        auto toFunc = static_cast<FunctionType*>(to.get());
+        
+        // Check if function types are compatible
+        if (fromFunc->getParameters().size() == toFunc->getParameters().size()) {
+            bool compatible = true;
+            for (size_t i = 0; i < fromFunc->getParameters().size(); ++i) {
+                if (!isImplicitlyConvertible(toFunc->getParameters()[i].type, fromFunc->getParameters()[i].type)) {
+                    compatible = false;
+                    break;
+                }
+            }
+            if (compatible && isImplicitlyConvertible(fromFunc->getReturnType(), toFunc->getReturnType())) {
+                return ConversionKind::Implicit;
+            }
+        }
+    }
+    
+    // If no implicit conversion is possible, check for explicit conversion
+    if (isExplicitlyConvertible(from, to)) {
+        return ConversionKind::Explicit;
+    }
+    
+    return ConversionKind::Invalid;
+}
+
 bool TypeSystem::isArrayType(shared_ptr<Type> type) const {
     return type && type->getKind() == TypeKind::Array;
 }

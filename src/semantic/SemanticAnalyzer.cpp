@@ -1800,8 +1800,15 @@ void SemanticAnalyzer::checkAssignment(const Expression& left, const Expression&
         }
     }
     
-    if (!isValidAssignment(*rightType, *leftType)) {
-        reportTypeError(leftType->toString(), rightType->toString(), location);
+    // Use the new type conversion system
+    if (!typeSystem_->isImplicitlyConvertible(rightType, leftType)) {
+        // Check if explicit conversion is possible
+        if (typeSystem_->isExplicitlyConvertible(rightType, leftType)) {
+            reportWarning("Explicit type conversion required from '" + rightType->toString() + 
+                         "' to '" + leftType->toString() + "'", location);
+        } else {
+            reportTypeError(leftType->toString(), rightType->toString(), location);
+        }
     }
 }
 
@@ -1896,8 +1903,19 @@ void SemanticAnalyzer::checkBinaryOperation(BinaryExpression& expr) {
     auto resultType = typeSystem_->inferTypeFromBinaryExpression(*leftType, *rightType, opValue);
     
     if (resultType->isError()) {
-        reportError("Invalid binary operation between " + leftType->toString() + 
-                   " and " + rightType->toString(), expr.getLocation());
+        // Check if type conversion can help
+        if (typeSystem_->isImplicitlyConvertible(leftType, rightType)) {
+            // Try with converted types
+            resultType = typeSystem_->inferTypeFromBinaryExpression(*rightType, *rightType, opValue);
+        } else if (typeSystem_->isImplicitlyConvertible(rightType, leftType)) {
+            // Try with converted types
+            resultType = typeSystem_->inferTypeFromBinaryExpression(*leftType, *leftType, opValue);
+        }
+        
+        if (resultType->isError()) {
+            reportError("Invalid binary operation between " + leftType->toString() + 
+                       " and " + rightType->toString(), expr.getLocation());
+        }
     }
     
     setExpressionType(expr, resultType);
