@@ -698,8 +698,8 @@ void SemanticAnalyzer::visit(ObjectLiteral& node) {
                 
                 // Add all properties from the spread object
                 for (const auto& spreadProp : spreadProperties) {
-                    propertyTypes.emplace_back(spreadProp.first, spreadProp.second);
-                    std::cout << "DEBUG: Added spread property: " << spreadProp.first << " with type: " << spreadProp.second->toString() << std::endl;
+                    propertyTypes.emplace_back(spreadProp.name, spreadProp.type);
+                    std::cout << "DEBUG: Added spread property: " << spreadProp.name << " with type: " << spreadProp.type->toString() << std::endl;
                 }
             } else {
                 // For non-object spreads or unknown types, add a generic property
