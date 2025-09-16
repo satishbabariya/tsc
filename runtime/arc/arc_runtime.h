@@ -52,6 +52,7 @@ void __tsc_unregister_weak_ref(void* weak_ref);
 void* __tsc_weak_ref_get_target(void* weak_ref);
 bool __tsc_is_weak_ref_valid(void* weak_ref);
 void __tsc_cleanup_weak_refs(void* target_obj);
+void __tsc_clear_all_weak_refs(void);
 
 // Performance monitoring
 typedef struct {
