@@ -2799,9 +2799,9 @@ unique_ptr<DestructuringPattern> Parser::parseArrayDestructuringPattern() {
         if (match(TokenType::DotDotDot)) {
             auto restPattern = parseDestructuringPattern();
             if (restPattern) {
-                // For now, we'll treat spread as a regular element
-                // In a full implementation, this would need special handling
-                elements.push_back(std::move(restPattern));
+                // Create a proper rest pattern that captures remaining elements
+                auto restElement = make_unique<RestPattern>(std::move(restPattern), getCurrentLocation());
+                elements.push_back(std::move(restElement));
             }
         } else {
             // Parse the pattern element

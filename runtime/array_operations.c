@@ -47,12 +47,22 @@ void arrayPush(void* array_ptr, void* item) {
     printf("DEBUG: arrayPush called with array=%p, item=%p, current_length=%d\n", 
            array_ptr, item, current_length);
     
-    // For now, this is a placeholder implementation
-    // In a full implementation, we would:
+    // Enhanced array push implementation
     // 1. Check if the array has space for another item
     // 2. Store the item at the appropriate position using data_ptr
     // 3. Increment the length
-    // For now, just increment the length as a proof of concept
+    
+    // For now, assume we have enough space (in a full implementation, we'd check capacity)
+    if (array_struct->data_ptr) {
+        // Calculate the offset for the new item (assuming 8-byte items for now)
+        size_t item_size = 8; // This should be determined by the actual element type
+        size_t offset = current_length * item_size;
+        
+        // Store the item at the calculated offset
+        memcpy((char*)array_struct->data_ptr + offset, &item, item_size);
+    }
+    
+    // Increment the length
     array_struct->length = current_length + 1;
     
     printf("DEBUG: arrayPush updated length to %d\n", array_struct->length);
@@ -78,18 +88,33 @@ void* arrayPop(void* array_ptr) {
         return NULL;
     }
     
-    // For now, this is a placeholder implementation
-    // In a full implementation, we would:
+    // Enhanced array pop implementation
     // 1. Get the item at the last position
     // 2. Decrement the length
     // 3. Return the item
-    // For now, just decrement the length and return a placeholder
-    *length_ptr = current_length - 1;
     
-    printf("DEBUG: arrayPop updated length to %d\n", *length_ptr);
+    // Calculate the offset for the last item
+    size_t item_size = 8; // This should be determined by the actual element type
+    size_t offset = (current_length - 1) * item_size;
     
-    // Return a placeholder value (in a real implementation, this would be the actual item)
-    return (void*)0x12345678; // Placeholder address
+    // Allocate space for the returned item
+    void* returned_item = malloc(item_size);
+    if (!returned_item) {
+        fprintf(stderr, "Error: Failed to allocate memory for returned item\n");
+        exit(4);
+    }
+    
+    // Copy the last item from the array
+    if (array_struct->data_ptr) {
+        memcpy(returned_item, (char*)array_struct->data_ptr + offset, item_size);
+    }
+    
+    // Decrement the length
+    array_struct->length = current_length - 1;
+    
+    printf("DEBUG: arrayPop updated length to %d\n", array_struct->length);
+    
+    return returned_item; // Placeholder address
 }
 
 // Wrapper functions for mangled arrayPush functions

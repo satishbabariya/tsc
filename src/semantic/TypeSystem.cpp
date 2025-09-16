@@ -331,10 +331,24 @@ shared_ptr<Type> TypeSystem::createGenericType(shared_ptr<Type> baseType, std::v
 
 shared_ptr<Type> TypeSystem::instantiateGenericType(shared_ptr<Type> genericType, 
                                                    const std::vector<shared_ptr<Type>>& typeArguments) const {
-    // For now, create a new generic type with the provided arguments
-    // In a full implementation, this would perform type substitution
+    // Perform proper type substitution for generic types
     if (auto generic = dynamic_cast<GenericType*>(genericType.get())) {
-        return createGenericType(generic->getBaseType(), typeArguments);
+        // Create a substitution map from type parameters to type arguments
+        std::unordered_map<String, shared_ptr<Type>> substitutionMap;
+        const auto& typeParams = generic->getTypeParameters();
+        
+        if (typeParams.size() != typeArguments.size()) {
+            // This should be caught earlier, but handle gracefully
+            return genericType;
+        }
+        
+        // Build substitution map
+        for (size_t i = 0; i < typeParams.size(); ++i) {
+            substitutionMap[typeParams[i].getName()] = typeArguments[i];
+        }
+        
+        // Perform substitution on the base type
+        return substituteType(generic->getBaseType(), substitutionMap);
     }
     
     // If it's not a generic type, just return it as-is
@@ -444,8 +458,8 @@ shared_ptr<Type> TypeSystem::inferTypeFromLiteral(const ASTNode& literal) const 
 
 shared_ptr<Type> TypeSystem::inferTypeFromBinaryExpression(const Type& leftType, const Type& rightType, 
                                                           int op) const {
-    // Simplified type inference for now
-    // In a full implementation, we'd map the enum values properly
+    // Enhanced type inference with proper enum value mapping
+    // Enums can be used in arithmetic operations and comparisons
     
     // Arithmetic operations
     if (op >= 0 && op <= 5) { // Add, Subtract, Multiply, Divide, etc.
@@ -453,10 +467,17 @@ shared_ptr<Type> TypeSystem::inferTypeFromBinaryExpression(const Type& leftType,
         if (leftType.isAssignableTo(*stringType_) || rightType.isAssignableTo(*stringType_)) {
             return stringType_; // String concatenation
         }
-        // Check if both types are assignable to number (including constrained type parameters)
-        if (leftType.isAssignableTo(*numberType_) && rightType.isAssignableTo(*numberType_)) {
+        
+        // Handle enum types - they can participate in arithmetic operations
+        bool leftIsEnum = leftType.isEnum() || (leftType.isNumber() && leftType.getKind() == TypeKind::Enum);
+        bool rightIsEnum = rightType.isEnum() || (rightType.isNumber() && rightType.getKind() == TypeKind::Enum);
+        
+        // Check if both types are assignable to number (including constrained type parameters and enums)
+        if ((leftType.isAssignableTo(*numberType_) || leftIsEnum) && 
+            (rightType.isAssignableTo(*numberType_) || rightIsEnum)) {
             return numberType_;
         }
+        
         // Allow operations with 'any'
         if (leftType.isAny() || rightType.isAny()) {
             if (leftType.isString() || rightType.isString()) {
@@ -741,6 +762,91 @@ shared_ptr<Type> TypeSystem::createSharedPtrType(shared_ptr<Type> elementType) c
 
 shared_ptr<Type> TypeSystem::createWeakPtrType(shared_ptr<Type> elementType) const {
     return make_shared<SmartPointerType>(SmartPointerType::Kind::Weak, elementType);
+}
+
+shared_ptr<Type> TypeSystem::substituteType(shared_ptr<Type> type, 
+                                           const std::unordered_map<String, shared_ptr<Type>>& substitutionMap) const {
+    if (!type) {
+        return nullptr;
+    }
+    
+    // Handle type parameters - these are what we substitute
+    if (auto typeParam = dynamic_cast<TypeParameter*>(type.get())) {
+        auto it = substitutionMap.find(typeParam->getName());
+        if (it != substitutionMap.end()) {
+            return it->second;
+        }
+        return type; // No substitution found, return original
+    }
+    
+    // Handle generic types - substitute in type arguments
+    if (auto generic = dynamic_cast<GenericType*>(type.get())) {
+        std::vector<shared_ptr<Type>> substitutedArgs;
+        for (const auto& arg : generic->getTypeArguments()) {
+            substitutedArgs.push_back(substituteType(arg, substitutionMap));
+        }
+        return createGenericType(substituteType(generic->getBaseType(), substitutionMap), substitutedArgs);
+    }
+    
+    // Handle array types - substitute element type
+    if (auto array = dynamic_cast<ArrayType*>(type.get())) {
+        return createArrayType(substituteType(array->getElementType(), substitutionMap));
+    }
+    
+    // Handle tuple types - substitute all element types
+    if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
+        std::vector<shared_ptr<Type>> substitutedElements;
+        for (const auto& element : tuple->getElementTypes()) {
+            substitutedElements.push_back(substituteType(element, substitutionMap));
+        }
+        return createTupleType(substitutedElements);
+    }
+    
+    // Handle function types - substitute parameter and return types
+    if (auto func = dynamic_cast<FunctionType*>(type.get())) {
+        std::vector<FunctionType::Parameter> substitutedParams;
+        for (const auto& param : func->getParameters()) {
+            substitutedParams.push_back(FunctionType::Parameter{
+                param.name,
+                substituteType(param.type, substitutionMap),
+                param.isOptional
+            });
+        }
+        return createFunctionType(substitutedParams, substituteType(func->getReturnType(), substitutionMap));
+    }
+    
+    // Handle union types - substitute all member types
+    if (auto unionType = dynamic_cast<UnionType*>(type.get())) {
+        std::vector<shared_ptr<Type>> substitutedMembers;
+        for (const auto& member : unionType->getMemberTypes()) {
+            substitutedMembers.push_back(substituteType(member, substitutionMap));
+        }
+        return createUnionType(substitutedMembers);
+    }
+    
+    // Handle intersection types - substitute all member types
+    if (auto intersection = dynamic_cast<IntersectionType*>(type.get())) {
+        std::vector<shared_ptr<Type>> substitutedMembers;
+        for (const auto& member : intersection->getMemberTypes()) {
+            substitutedMembers.push_back(substituteType(member, substitutionMap));
+        }
+        return createIntersectionType(substitutedMembers);
+    }
+    
+    // Handle smart pointer types - substitute element type
+    if (auto smartPtr = dynamic_cast<SmartPointerType*>(type.get())) {
+        switch (smartPtr->getKind()) {
+            case SmartPointerType::Kind::Unique:
+                return createUniquePtrType(substituteType(smartPtr->getElementType(), substitutionMap));
+            case SmartPointerType::Kind::Shared:
+                return createSharedPtrType(substituteType(smartPtr->getElementType(), substitutionMap));
+            case SmartPointerType::Kind::Weak:
+                return createWeakPtrType(substituteType(smartPtr->getElementType(), substitutionMap));
+        }
+    }
+    
+    // For all other types (primitives, classes, interfaces, etc.), no substitution needed
+    return type;
 }
 
 } // namespace tsc

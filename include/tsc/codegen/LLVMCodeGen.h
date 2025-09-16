@@ -41,6 +41,14 @@ namespace tsc {
 // Forward declarations
 class CompilerOptions;
 
+// Class registry entry for runtime type information
+struct ClassRegistryEntry {
+    String className;
+    llvm::StructType* structType;
+    bool isGeneric;
+    std::vector<String> typeParameters;
+};
+
 // Code generation context for tracking state during generation
 class CodeGenContext {
 public:
@@ -526,6 +534,12 @@ private:
     // Closure struct type cache to ensure consistent types
     std::unordered_map<String, llvm::StructType*> closureTypeCache_;
     
+    // Class registry for runtime type information
+    std::unordered_map<String, ClassRegistryEntry> classRegistry_;
+    
+    // Enum value registry for runtime enum value lookup
+    std::unordered_map<String, llvm::Constant*> enumValueRegistry_;
+    
     // Deferred global variable initializations (for non-constant values)
     std::vector<std::pair<llvm::GlobalVariable*, llvm::Value*>> deferredGlobalInitializations_;
     
@@ -574,6 +588,11 @@ public:
     
     // Performance optimization: struct type caching
     llvm::StructType* getOrCreateStructType(const std::vector<llvm::Type*>& fieldTypes);
+    llvm::StructType* getOrCreateStructType(shared_ptr<ClassType> classType);
+    int findFieldIndex(llvm::StructType* structType, const String& fieldName);
+    void registerClassType(const String& className, llvm::StructType* structType, 
+                          const std::vector<unique_ptr<TypeParameter>>& typeParams);
+    void registerEnumValue(const String& enumName, const String& memberName, llvm::Constant* value);
     
     // Switch context for break statements
     void enterSwitch(llvm::BasicBlock* exitBlock);

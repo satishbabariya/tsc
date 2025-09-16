@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <setjmp.h>
 #include "arc/arc_runtime.h"
 
 // Simple exception type
@@ -13,6 +14,17 @@ typedef struct {
 // Global exception state
 static Exception* current_exception = NULL;
 
+// Exception handling context stack
+typedef struct {
+    jmp_buf env;
+    Exception* exception;
+    int is_active;
+} exception_context_t;
+
+static exception_context_t* exception_stack = NULL;
+static int exception_stack_size = 0;
+static int exception_stack_capacity = 0;
+
 // Runtime functions called by generated LLVM code
 void __throw_exception(int64_t exception_value) {
     // Convert the exception value to our exception structure using ARC allocation
@@ -22,9 +34,19 @@ void __throw_exception(int64_t exception_value) {
     
     current_exception = ex;
     
-    // For now, just print and exit
-    // In a full implementation, this would use setjmp/longjmp or similar
-    printf("Exception thrown: %ld\n", exception_value);
+    // Enhanced exception handling with setjmp/longjmp
+    if (exception_stack_size > 0) {
+        // Find the most recent active exception context
+        for (int i = exception_stack_size - 1; i >= 0; i--) {
+            if (exception_stack[i].is_active) {
+                exception_stack[i].exception = ex;
+                longjmp(exception_stack[i].env, 1);
+            }
+        }
+    }
+    
+    // No active exception handler found, print and exit
+    printf("Unhandled exception: %ld\n", exception_value);
     exit(1);
 }
 
@@ -51,7 +73,29 @@ int64_t __get_exception() {
     return 0;
 }
 
-// Helper function to clear the current exception
+// Exception context management functions
+void __push_exception_context(jmp_buf* env) {
+    if (exception_stack_size >= exception_stack_capacity) {
+        exception_stack_capacity = exception_stack_capacity == 0 ? 16 : exception_stack_capacity * 2;
+        exception_stack = realloc(exception_stack, exception_stack_capacity * sizeof(exception_context_t));
+    }
+    
+    exception_context_t* ctx = &exception_stack[exception_stack_size++];
+    memcpy(&ctx->env, env, sizeof(jmp_buf));
+    ctx->exception = NULL;
+    ctx->is_active = 1;
+}
+
+void __pop_exception_context() {
+    if (exception_stack_size > 0) {
+        exception_stack_size--;
+    }
+}
+
+Exception* __get_current_exception() {
+    return current_exception;
+}
+
 void __clear_exception() {
     if (current_exception) {
         __tsc_release(current_exception);

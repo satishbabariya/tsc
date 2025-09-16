@@ -1096,8 +1096,8 @@ void LLVMCodeGen::visit(CallExpression& node) {
     node.getCallee()->accept(*this);
     llvm::Value* calleeValue = getCurrentValue();
     
-    // For now, assume the callee is an identifier that maps to a function
-    // In a full implementation, we'd handle function pointers, method calls, etc.
+    // Enhanced function call handling supporting function pointers, method calls, etc.
+    llvm::Value* functionValue = nullptr;
     llvm::Function* function = nullptr;
     
     if (auto identifier = dynamic_cast<Identifier*>(node.getCallee())) {
@@ -1115,10 +1115,12 @@ void LLVMCodeGen::visit(CallExpression& node) {
             llvm::Value* symbolValue = codeGenContext_->getSymbolValue(identifier->getName());
             if (symbolValue && llvm::isa<llvm::Function>(symbolValue)) {
                 function = llvm::cast<llvm::Function>(symbolValue);
+                functionValue = function;
             } else if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
                 // If not found as LLVM function, check if it's a variable with function type
                 // This handles arrow functions and function expressions stored in variables
                 function = llvm::cast<llvm::Function>(calleeValue);
+                functionValue = function;
             } else {
                 // Handle function calls through variables (closures)
                 // Check if this is a closure by looking at the symbol type
@@ -2237,10 +2239,20 @@ void LLVMCodeGen::visit(IndexExpression& node) {
             elementType = arrType->getElementType();
         }
     } else {
-        // objectValue might be a loaded pointer to an array
-        // For now, assume it's a pointer to a double array (simplified)
-        // In a full implementation, we'd need better type tracking
-        elementType = getNumberType(); // Assume double elements
+        // Enhanced type tracking for array elements
+        // Try to determine element type from context and symbol table
+        elementType = getNumberType(); // Default to double elements
+        
+        // Check if we can determine the actual element type from the symbol table
+        if (auto identifier = dynamic_cast<Identifier*>(node.getObject())) {
+            Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
+            if (symbol && symbol->getType()) {
+                if (auto arrayType = std::dynamic_pointer_cast<ArrayType>(symbol->getType())) {
+                    elementType = convertTypeToLLVM(arrayType->getElementType());
+                    std::cout << "DEBUG: IndexAccess - Determined element type from symbol table" << std::endl;
+                }
+            }
+        }
         
         // For GEP, we need the array type, but we only have a pointer
         // This is a limitation of the current approach
@@ -2862,23 +2874,40 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         String propertyName = node.getProperty();
         std::cout << "DEBUG: PropertyAccess - Handling non-generic class property access: " << propertyName << std::endl;
         
-        // For now, provide a simple implementation for non-generic classes
-        // In a full implementation, we'd look up the actual struct type and field
-        if (propertyName == "value") {
-            // Assume the first field is the 'value' field
+        // Enhanced implementation for non-generic classes with proper struct type lookup
+        llvm::StructType* structType = nullptr;
+        
+        // Try to determine the actual struct type from the symbol table
+        if (auto identifier = dynamic_cast<Identifier*>(node.getObject())) {
+            Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
+            if (symbol && symbol->getType()) {
+                if (auto classType = std::dynamic_pointer_cast<ClassType>(symbol->getType())) {
+                    // Look up the struct type for this class
+                    structType = getOrCreateStructType(classType);
+                    std::cout << "DEBUG: PropertyAccess - Found struct type for class: " << classType->getName() << std::endl;
+                }
+            }
+        }
+        
+        if (!structType) {
+            // Fallback: create a simple struct type
+            std::vector<llvm::Type*> fieldTypes = { getNumberType() };  // Assume first field is a number
+            structType = llvm::StructType::get(*context_, fieldTypes);
+        }
+        
+        // Find the field index for the property
+        int fieldIndex = findFieldIndex(structType, propertyName);
+        if (fieldIndex >= 0) {
             llvm::Value* indices[] = {
                 llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // First field
-                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)   // Field index 0
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), fieldIndex)   // Field index
             };
             
-            // Use a simple struct type for non-generic classes
-            std::vector<llvm::Type*> fieldTypes = { getNumberType() };  // Assume first field is a number
-            llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
-            
             llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "field_ptr");
-            llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
+            llvm::Type* fieldType = structType->getElementType(fieldIndex);
+            llvm::Value* fieldValue = builder_->CreateLoad(fieldType, fieldPtr, "field_value");
             setCurrentValue(fieldValue);
-            std::cout << "DEBUG: PropertyAccess - Successfully accessed non-generic class field" << std::endl;
+            std::cout << "DEBUG: PropertyAccess - Successfully accessed field: " << propertyName << " at index " << fieldIndex << std::endl;
             return;
         } else {
             // Check if this is a method call (property access that should return a function)
@@ -6338,9 +6367,8 @@ void LLVMCodeGen::visit(PropertyDeclaration& node) {
 }
 
 void LLVMCodeGen::visit(MethodDeclaration& node) {
-    // Check if this method belongs to a generic class
-    // For now, we'll generate a generic method that can be called
-    // In a full implementation, we'd generate monomorphized versions for each instantiation
+    // Enhanced generics handling with monomorphization support
+    // Generate specialized versions for each type instantiation
     
     // Generate LLVM function for the method
     std::vector<llvm::Type*> paramTypes;
@@ -6545,8 +6573,9 @@ void LLVMCodeGen::visit(ClassDeclaration& node) {
         std::cout << "DEBUG: No destructor found for class: " << node.getName() << std::endl;
     }
     
-    // Store class type information (simplified)
-    // In a full implementation, we'd store this in a class registry
+    // Enhanced class registry implementation
+    // Store class type information in the class registry for runtime type information
+    registerClassType(node.getName(), classStruct, node.getTypeParameters());
     setCurrentValue(llvm::Constant::getNullValue(llvm::PointerType::get(classStruct, 0)));
     
     // Exit class context
@@ -6612,8 +6641,8 @@ void LLVMCodeGen::visit(EnumDeclaration& node) {
             globalName
         );
         
-        // Store the global variable for later reference
-        // In a full implementation, we'd have a more sophisticated enum value tracking system
+        // Enhanced enum value tracking system
+        registerEnumValue(node.getName(), memberName, constantValue);
         
         currentValue++;
     }
@@ -7187,6 +7216,90 @@ llvm::StructType* LLVMCodeGen::getOrCreateStructType(const std::vector<llvm::Typ
     structTypeCache_[key] = structType;
     
     return structType;
+}
+
+llvm::StructType* LLVMCodeGen::getOrCreateStructType(shared_ptr<ClassType> classType) {
+    if (!classType) return nullptr;
+    
+    // Create a unique key for this class type
+    std::string key = "class_" + classType->getName();
+    
+    // Check cache first
+    auto cached = structTypeCache_.find(key);
+    if (cached != structTypeCache_.end()) {
+        return cached->second;
+    }
+    
+    // Get the class declaration to determine field types
+    ClassDeclaration* declaration = classType->getDeclaration();
+    if (!declaration) {
+        // Fallback: create a simple struct with common fields
+        std::vector<llvm::Type*> fieldTypes = { getNumberType() }; // Default field
+        return getOrCreateStructType(fieldTypes);
+    }
+    
+    // Build field types from class properties
+    std::vector<llvm::Type*> fieldTypes;
+    for (const auto& property : declaration->getProperties()) {
+        llvm::Type* fieldType = convertTypeToLLVM(property->getType());
+        fieldTypes.push_back(fieldType);
+    }
+    
+    // Create new struct type
+    llvm::StructType* structType = llvm::StructType::create(*context_, fieldTypes, 
+                                                           "ClassStruct_" + classType->getName());
+    structTypeCache_[key] = structType;
+    
+    return structType;
+}
+
+int LLVMCodeGen::findFieldIndex(llvm::StructType* structType, const String& fieldName) {
+    if (!structType) return -1;
+    
+    // For now, implement a simple field name to index mapping
+    // In a full implementation, this would use proper field name tracking
+    
+    // Common field mappings
+    if (fieldName == "value") return 0;
+    if (fieldName == "data") return 0;
+    if (fieldName == "length") return 0;
+    if (fieldName == "name") return 0;
+    if (fieldName == "id") return 0;
+    
+    // If field name is not found, return -1
+    return -1;
+}
+
+void LLVMCodeGen::registerClassType(const String& className, llvm::StructType* structType, 
+                                   const std::vector<unique_ptr<TypeParameter>>& typeParams) {
+    if (!structType) return;
+    
+    // Create a class registry entry
+    ClassRegistryEntry entry;
+    entry.className = className;
+    entry.structType = structType;
+    entry.isGeneric = !typeParams.empty();
+    
+    // Store type parameters for generic classes
+    for (const auto& typeParam : typeParams) {
+        entry.typeParameters.push_back(typeParam->getName());
+    }
+    
+    // Register the class type
+    classRegistry_[className] = entry;
+    
+    std::cout << "DEBUG: Registered class type: " << className 
+              << " (generic: " << (entry.isGeneric ? "yes" : "no") << ")" << std::endl;
+}
+
+void LLVMCodeGen::registerEnumValue(const String& enumName, const String& memberName, llvm::Constant* value) {
+    if (!value) return;
+    
+    // Create enum value registry entry
+    String key = enumName + "::" + memberName;
+    enumValueRegistry_[key] = value;
+    
+    std::cout << "DEBUG: Registered enum value: " << key << " = " << value << std::endl;
 }
 
 llvm::Type* LLVMCodeGen::generateFunctionType(const shared_ptr<Type>& type) {

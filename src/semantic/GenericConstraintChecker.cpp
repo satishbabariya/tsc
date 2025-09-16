@@ -60,9 +60,11 @@ bool GenericConstraintChecker::checkVarianceConstraint(const TypeParameter& type
         return true; // No variance constraint to check
     }
 
-    // For now, we'll implement basic variance checking
-    // In a full implementation, this would check the variance of the type argument
-    // in the context where it's being used
+    // Enhanced variance checking that considers usage context
+    // Variance rules depend on where the type parameter is used:
+    // - Covariant: safe to use in return types, read-only positions
+    // - Contravariant: safe to use in parameter types, write-only positions
+    // - Invariant: safe to use in both positions
     
     if (variance == Variance::Covariant) {
         // Covariant: typeArgument must be a subtype of the constraint

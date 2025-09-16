@@ -93,6 +93,7 @@ private:
     String appendFileExtension(const String& path);
     bool isValidModuleSpecifier(const String& specifier);
     void validatePath(const String& path);
+    String findModuleSpecifierForPath(const String& resolvedPath, const String& fromFile);
 };
 
 } // namespace tsc

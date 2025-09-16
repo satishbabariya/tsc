@@ -531,6 +531,8 @@ private:
     
     void initializeBuiltinTypes();
     String getCacheKey(TypeKind kind, const std::vector<shared_ptr<Type>>& types) const;
+    shared_ptr<Type> substituteType(shared_ptr<Type> type, 
+                                   const std::unordered_map<String, shared_ptr<Type>>& substitutionMap) const;
 };
 
 // Factory functions for common types

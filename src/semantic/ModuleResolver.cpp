@@ -1,4 +1,5 @@
 #include "tsc/semantic/ModuleResolver.h"
+#include "tsc/semantic/DependencyScanner.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -74,36 +75,17 @@ std::vector<ModuleDependency> ModuleResolver::scanDependencies(const String& fil
         return dependencies;
     }
     
-    // For now, we'll implement a simple text-based scanner
-    // In a full implementation, this would use the parser to build an AST
-    String line;
-    unsigned lineNumber = 1;
+    // Use proper AST-based dependency scanning
+    DependencyScanner scanner(*this, diagnostics_);
+    ModuleDependencyInfo info = scanner.scanFile(filePath);
     
-    while (std::getline(file, line)) {
-        // Look for import statements
-        size_t importPos = line.find("import");
-        if (importPos != String::npos) {
-            // Find the 'from' keyword
-            size_t fromPos = line.find("from", importPos);
-            if (fromPos != String::npos) {
-                // Extract module specifier
-                size_t quoteStart = line.find("\"", fromPos);
-                if (quoteStart != String::npos) {
-                    size_t quoteEnd = line.find("\"", quoteStart + 1);
-                    if (quoteEnd != String::npos) {
-                        String moduleSpecifier = line.substr(quoteStart + 1, quoteEnd - quoteStart - 1);
-                        
-                        // Resolve the module
-                        ModuleResolutionResult result = resolveModule(moduleSpecifier, filePath);
-                        if (result.isSuccess) {
-                            SourceLocation location(filePath, lineNumber, importPos + 1);
-                            dependencies.emplace_back(moduleSpecifier, result.resolvedPath, location);
-                        }
-                    }
-                }
-            }
-        }
-        lineNumber++;
+    // Convert ModuleDependencyInfo to ModuleDependency vector
+    for (const auto& depPath : info.directDependencies) {
+        // Find the original module specifier by looking up in resolution cache
+        String moduleSpecifier = findModuleSpecifierForPath(depPath, filePath);
+        SourceLocation location(filePath, 0, 0); // Location will be set by DependencyScanner
+        
+        dependencies.emplace_back(moduleSpecifier, depPath, location);
     }
     
     return dependencies;
@@ -291,6 +273,31 @@ void ModuleResolver::validatePath(const String& path) {
     if (path.substr(0, 1) == "/" && path.substr(0, baseDirectory_.length()) != baseDirectory_) {
         diagnostics_.error("Invalid path: outside base directory: " + path, SourceLocation(path, 0, 0));
     }
+}
+
+String ModuleResolver::findModuleSpecifierForPath(const String& resolvedPath, const String& fromFile) {
+    // Search through the resolution cache to find the original module specifier
+    for (const auto& [cacheKey, result] : resolutionCache_) {
+        if (result.isSuccess && result.resolvedPath == resolvedPath) {
+            // Extract the module specifier from the cache key
+            size_t pipePos = cacheKey.find('|');
+            if (pipePos != String::npos) {
+                String cachedFromFile = cacheKey.substr(pipePos + 1);
+                if (cachedFromFile == fromFile) {
+                    return cacheKey.substr(0, pipePos);
+                }
+            }
+        }
+    }
+    
+    // If not found in cache, try to derive from the path
+    String fromDir = getDirectoryFromFile(fromFile);
+    String relativePath = std::filesystem::relative(resolvedPath, fromDir).string();
+    
+    // Convert backslashes to forward slashes for consistency
+    std::replace(relativePath.begin(), relativePath.end(), '\\', '/');
+    
+    return relativePath;
 }
 
 } // namespace tsc
