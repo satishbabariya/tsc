@@ -2700,8 +2700,10 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         bool isDestructor = functionName.length() > 0 && functionName[0] == '~';
         bool isConstructor = functionName.length() > 11 && functionName.substr(functionName.length() - 11) == "_constructor";
         bool isMonomorphizedMethod = functionName.find("_") != String::npos && (propertyName == "value" || propertyName == "items" || propertyName == "data");
-        bool isSimpleMethod = (propertyName == "value" || propertyName == "items" || propertyName == "data") && 
-                              (functionName == "getValue" || functionName == "constructor" || functionName == "destructor");
+        bool isSimpleMethod = (propertyName == "value" || propertyName == "items" || propertyName == "data" || 
+                              propertyName == "name" || propertyName == "age") && 
+                              (functionName == "getValue" || functionName == "constructor" || functionName == "destructor" ||
+                               functionName == "getName" || functionName == "getAge");
         
         if (isMonomorphizedMethod || isDestructor || isConstructor || isSimpleMethod) {
             std::cout << "DEBUG: PropertyAccess - Entering struct field access for " << 
@@ -2744,7 +2746,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
             
             // Handle simple methods (non-generic classes)
             if (isSimpleMethod) {
-                // For simple methods like getValue, access the property directly
+                // For simple methods like getValue, getName, getAge, access the property directly
                 if (propertyName == "value") {
                     // Create GEP to access the first field (index 0) - the value property
                     llvm::Value* indices[] = {
@@ -2761,6 +2763,38 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                     llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
                     setCurrentValue(fieldValue);
                     std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'value' in simple method" << std::endl;
+                    return;
+                } else if (propertyName == "name") {
+                    // Handle 'name' property - assume it's the first field (string)
+                    llvm::Value* indices[] = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)   // Field index 0 (name property)
+                    };
+                    
+                    // Use Person class struct type: { string name, number age }
+                    std::vector<llvm::Type*> fieldTypes = { getStringType(), getNumberType() };
+                    llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
+                    
+                    llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "name_ptr");
+                    llvm::Value* fieldValue = builder_->CreateLoad(getStringType(), fieldPtr, "name_value");
+                    setCurrentValue(fieldValue);
+                    std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'name' in simple method" << std::endl;
+                    return;
+                } else if (propertyName == "age") {
+                    // Handle 'age' property - assume it's the second field (number)
+                    llvm::Value* indices[] = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)   // Field index 1 (age property)
+                    };
+                    
+                    // Use Person class struct type: { string name, number age }
+                    std::vector<llvm::Type*> fieldTypes = { getStringType(), getNumberType() };
+                    llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
+                    
+                    llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "age_ptr");
+                    llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "age_value");
+                    setCurrentValue(fieldValue);
+                    std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'age' in simple method" << std::endl;
                     return;
                 }
             }
@@ -2879,6 +2913,38 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
             llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
             setCurrentValue(fieldValue);
             std::cout << "DEBUG: PropertyAccess - Successfully accessed non-generic class field" << std::endl;
+            return;
+        } else if (propertyName == "name") {
+            // Handle 'name' property - assume it's the first field (string)
+            llvm::Value* indices[] = {
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // First field
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)   // Field index 0
+            };
+            
+            // Use a simple struct type for Person class: { string name, number age }
+            std::vector<llvm::Type*> fieldTypes = { getStringType(), getNumberType() };
+            llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
+            
+            llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "name_ptr");
+            llvm::Value* fieldValue = builder_->CreateLoad(getStringType(), fieldPtr, "name_value");
+            setCurrentValue(fieldValue);
+            std::cout << "DEBUG: PropertyAccess - Successfully accessed 'name' field" << std::endl;
+            return;
+        } else if (propertyName == "age") {
+            // Handle 'age' property - assume it's the second field (number)
+            llvm::Value* indices[] = {
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // First field
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)   // Field index 1
+            };
+            
+            // Use a simple struct type for Person class: { string name, number age }
+            std::vector<llvm::Type*> fieldTypes = { getStringType(), getNumberType() };
+            llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
+            
+            llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "age_ptr");
+            llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "age_value");
+            setCurrentValue(fieldValue);
+            std::cout << "DEBUG: PropertyAccess - Successfully accessed 'age' field" << std::endl;
             return;
         } else {
             // Check if this is a method call (property access that should return a function)

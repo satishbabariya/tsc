@@ -1813,6 +1813,26 @@ void SemanticAnalyzer::checkFunctionCall(const CallExpression& call) {
         }
     }
     
+    // Handle property access method calls (e.g., obj.method())
+    if (auto propertyAccess = dynamic_cast<const PropertyAccess*>(call.getCallee())) {
+        // Get the property access type (should be a function type for method calls)
+        if (auto functionType = dynamic_cast<const FunctionType*>(calleeType.get())) {
+            // Validate argument types against parameter types
+            if (!validateFunctionArguments(call, *functionType)) {
+                // Argument validation failed - mark expression as error type
+                setExpressionType(call, typeSystem_->getErrorType());
+                return;
+            }
+            
+            // Extract return type from function type
+            auto returnType = functionType->getReturnType();
+            
+            // Use the method's declared return type
+            setExpressionType(call, returnType ? returnType : typeSystem_->getAnyType());
+            return;
+        }
+    }
+    
     // For other function calls, assume they return 'any'
     setExpressionType(call, typeSystem_->getAnyType());
 }
@@ -2079,7 +2099,7 @@ void SemanticAnalyzer::visit(MethodDeclaration& node) {
     }
     
     // Create method type
-    auto returnType = node.getReturnType() ? node.getReturnType() : typeSystem_->getVoidType();
+    auto returnType = node.getReturnType() ? resolveType(node.getReturnType()) : typeSystem_->getVoidType();
     auto methodType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
     setDeclarationType(node, methodType);
     
