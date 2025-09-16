@@ -1,19 +1,94 @@
+/**
+ * @file AST.h
+ * @brief Abstract Syntax Tree definitions for the TSC compiler
+ * @author TSC Compiler Team
+ * @version 1.0
+ * 
+ * This file defines the complete AST structure for TypeScript syntax,
+ * following the visitor pattern for tree traversal and maintaining
+ * source location information for error reporting.
+ */
+
 #pragma once
 
 #include "tsc/Common.h"
 #include "tsc/Token.h"
+
 #include <vector>
+#include <memory>
+#include <string>
 #include <stdexcept>
 #include <algorithm>
+#include <unordered_map>
+#include <optional>
 
 namespace tsc {
 
-// Forward declarations
+// ============================================================================
+// ENUMS AND TYPES
+// ============================================================================
+
+/**
+ * @brief Variance for type parameters
+ */
+enum class Variance {
+    Invariant,
+    Covariant,
+    Contravariant
+};
+
+/**
+ * @brief Binary operator types
+ */
+enum class BinaryOperator {
+    Add, Sub, Mul, Div, Mod,
+    Equal, NotEqual, Less, LessEqual, Greater, GreaterEqual,
+    LogicalAnd, LogicalOr,
+    BitwiseAnd, BitwiseOr, BitwiseXor,
+    LeftShift, RightShift, UnsignedRightShift
+};
+
+/**
+ * @brief Unary operator types
+ */
+enum class UnaryOperator {
+    Plus, Minus, LogicalNot, BitwiseNot,
+    PreIncrement, PreDecrement, PostIncrement, PostDecrement
+};
+
+/**
+ * @brief Assignment operator types
+ */
+enum class AssignmentOperator {
+    Assign, AddAssign, SubAssign, MulAssign, DivAssign, ModAssign,
+    LeftShiftAssign, RightShiftAssign, UnsignedRightShiftAssign,
+    BitwiseAndAssign, BitwiseOrAssign, BitwiseXorAssign
+};
+
+// ============================================================================
+// FORWARD DECLARATIONS
+// ============================================================================
+
 class ASTVisitor;
 class Type;
 class Symbol;
 
-// Base class for all AST nodes
+// Standalone classes (formerly nested structs)
+class CaseClause;
+class CatchClause;
+class MethodDeclaration;
+class EnumMember;
+
+// ============================================================================
+// BASE AST NODE CLASS
+// ============================================================================
+
+/**
+ * @brief Base class for all AST nodes
+ * 
+ * Provides common functionality for all AST nodes including visitor pattern
+ * support, source location tracking, and type information storage.
+ */
 class ASTNode {
 public:
     virtual ~ASTNode() = default;
@@ -30,30 +105,55 @@ public:
     
     // Utility methods
     virtual String toString() const = 0;
+    
+    // Node properties
+    virtual bool isConstant() const { return false; }
+    virtual bool hasSideEffects() const { return true; }
 
 protected:
     shared_ptr<Type> type_;
 };
 
-// Expression base class
+// ============================================================================
+// EXPRESSION BASE CLASS
+// ============================================================================
+
+/**
+ * @brief Base class for all expressions
+ * 
+ * Expressions represent values that can be evaluated and have a type.
+ * They are categorized by their value category (LValue, RValue, XValue).
+ */
 class Expression : public ASTNode {
 public:
-    // Expression categories
-    enum class Category {
-        LValue,     // Can be assigned to
-        RValue,     // Temporary value
-        XValue      // Expiring value (for move semantics)
+    /// @brief Expression value categories
+    enum class Category : std::uint8_t {
+        LValue,     ///< Can be assigned to (variables, properties)
+        RValue,     ///< Temporary value (literals, function calls)
+        XValue      ///< Expiring value (for move semantics)
     };
     
     virtual Category getCategory() const = 0;
-    virtual bool isConstant() const { return false; }
+    virtual bool isConstant() const override { return false; }
+    
+    /// @brief Check if expression can be used as statement
+    virtual bool canBeStatement() const { return true; }
 };
 
-// Statement base class  
+// ============================================================================
+// STATEMENT BASE CLASS
+// ============================================================================
+
+/**
+ * @brief Base class for all statements
+ * 
+ * Statements represent actions that can be executed and don't produce
+ * values (except for expression statements).
+ */
 class Statement : public ASTNode {
 public:
-    // Statement types for control flow analysis
-    enum class Kind {
+    /// @brief Statement kinds for control flow analysis
+    enum class Kind : std::uint8_t {
         Expression,
         Block,
         If,
@@ -67,59 +167,32 @@ public:
         Switch,
         Try,
         Throw,
-        Declaration
+        Declaration,
+        Labeled,
+        Let
     };
     
     virtual Kind getKind() const = 0;
+    virtual bool hasSideEffects() const override { return true; }
 };
 
-// Expression statement for standalone expressions
-class ExpressionStatement : public Statement {
-public:
-    ExpressionStatement(unique_ptr<Expression> expression, const SourceLocation& loc)
-        : expression_(std::move(expression)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Kind getKind() const override { return Kind::Expression; }
-    String toString() const override;
-    
-    Expression* getExpression() const { return expression_.get(); }
+// ============================================================================
+// LITERAL EXPRESSIONS
+// ============================================================================
 
-private:
-    unique_ptr<Expression> expression_;
-    SourceLocation location_;
-};
-
-// Declaration base class
-class Declaration : public Statement {
-public:
-    Kind getKind() const override { return Kind::Declaration; }
-    
-    virtual String getName() const = 0;
-    virtual bool isExported() const { return exported_; }
-    virtual void setExported(bool exported) { exported_ = exported; }
-
-protected:
-    bool exported_ = false;
-};
-
-// Type system is defined in semantic/TypeSystem.h
-// Only forward declaration needed here
-
-// Specific AST node types
-
-// Literals
+/**
+ * @brief Numeric literal expression
+ */
 class NumericLiteral : public Expression {
 public:
-    NumericLiteral(double value, const SourceLocation& loc)
+    explicit NumericLiteral(double value, const SourceLocation& loc)
         : value_(value), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::RValue; }
-    bool isConstant() const override { return true; }
     String toString() const override;
+    bool isConstant() const override { return true; }
     
     double getValue() const { return value_; }
 
@@ -128,16 +201,19 @@ private:
     SourceLocation location_;
 };
 
+/**
+ * @brief String literal expression
+ */
 class StringLiteral : public Expression {
 public:
-    StringLiteral(const String& value, const SourceLocation& loc)
+    explicit StringLiteral(const String& value, const SourceLocation& loc)
         : value_(value), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::RValue; }
-    bool isConstant() const override { return true; }
     String toString() const override;
+    bool isConstant() const override { return true; }
     
     const String& getValue() const { return value_; }
 
@@ -146,74 +222,53 @@ private:
     SourceLocation location_;
 };
 
-// TODO: Template literals support
-// Template literal element (text or expression)
-class TemplateElement {
-public:
-    TemplateElement(const String& text, bool isExpression = false)
-        : text_(text), isExpression_(isExpression) {}
-    
-    TemplateElement(unique_ptr<Expression> expression)
-        : expression_(std::move(expression)), isExpression_(true) {}
-    
-    // Delete copy constructor - TemplateElement is move-only
-    TemplateElement(const TemplateElement&) = delete;
-    TemplateElement& operator=(const TemplateElement&) = delete;
-    
-    // Move constructor
-    TemplateElement(TemplateElement&& other) noexcept
-        : text_(std::move(other.text_)), 
-          expression_(std::move(other.expression_)),
-          isExpression_(other.isExpression_) {}
-    
-    // Move assignment
-    TemplateElement& operator=(TemplateElement&& other) noexcept {
-        if (this != &other) {
-            text_ = std::move(other.text_);
-            expression_ = std::move(other.expression_);
-            isExpression_ = other.isExpression_;
-        }
-        return *this;
-    }
-    
-    bool isExpression() const { return isExpression_; }
-    const String& getText() const { return text_; }
-    Expression* getExpression() const { return expression_.get(); }
-
-private:
-    String text_;
-    unique_ptr<Expression> expression_;
-    bool isExpression_ = false;
-};
-
-// Template literals: `Hello ${name}!`
+/**
+ * @brief Template literal expression
+ */
 class TemplateLiteral : public Expression {
 public:
-    TemplateLiteral(std::vector<TemplateElement>&& elements, const SourceLocation& loc)
+    struct Element {
+        bool isExpression;
+        String text;
+        unique_ptr<Expression> expression;
+        
+        Element(const String& text) : isExpression(false), text(text) {}
+        Element(unique_ptr<Expression> expr) : isExpression(true), expression(std::move(expr)) {}
+        
+        bool isExpressionElement() const { return isExpression; }
+        const String& getText() const { return text; }
+        Expression* getExpression() const { return expression.get(); }
+    };
+    
+    explicit TemplateLiteral(std::vector<Element> elements, const SourceLocation& loc)
         : elements_(std::move(elements)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::RValue; }
     String toString() const override;
+    bool isConstant() const override;
     
-    const std::vector<TemplateElement>& getElements() const { return elements_; }
+    const std::vector<Element>& getElements() const { return elements_; }
 
 private:
-    std::vector<TemplateElement> elements_;
+    std::vector<Element> elements_;
     SourceLocation location_;
 };
 
+/**
+ * @brief Boolean literal expression
+ */
 class BooleanLiteral : public Expression {
 public:
-    BooleanLiteral(bool value, const SourceLocation& loc)
+    explicit BooleanLiteral(bool value, const SourceLocation& loc)
         : value_(value), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::RValue; }
-    bool isConstant() const override { return true; }
     String toString() const override;
+    bool isConstant() const override { return true; }
     
     bool getValue() const { return value_; }
 
@@ -222,30 +277,39 @@ private:
     SourceLocation location_;
 };
 
+/**
+ * @brief Null literal expression
+ */
 class NullLiteral : public Expression {
 public:
-    NullLiteral(const SourceLocation& loc) : location_(loc) {}
+    explicit NullLiteral(const SourceLocation& loc) : location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
     bool isConstant() const override { return true; }
-    String toString() const override { return "null"; }
 
 private:
     SourceLocation location_;
 };
 
-// Identifiers
+// ============================================================================
+// IDENTIFIER AND PROPERTY ACCESS
+// ============================================================================
+
+/**
+ * @brief Identifier expression
+ */
 class Identifier : public Expression {
 public:
-    Identifier(const String& name, const SourceLocation& loc)
+    explicit Identifier(const String& name, const SourceLocation& loc)
         : name_(name), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::LValue; }
-    String toString() const override { return name_; }
+    String toString() const override;
     
     const String& getName() const { return name_; }
 
@@ -254,46 +318,259 @@ private:
     SourceLocation location_;
 };
 
-// This expression
+/**
+ * @brief This expression
+ */
 class ThisExpression : public Expression {
 public:
-    ThisExpression(const SourceLocation& loc) : location_(loc) {}
+    explicit ThisExpression(const SourceLocation& loc) : location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }
-    String toString() const override { return "this"; }
+    Category getCategory() const override { return Category::LValue; }
+    String toString() const override;
 
 private:
     SourceLocation location_;
 };
 
-// Super expression for parent class access
+/**
+ * @brief Super expression
+ */
 class SuperExpression : public Expression {
 public:
-    SuperExpression(const SourceLocation& loc) : location_(loc) {}
+    explicit SuperExpression(const SourceLocation& loc) : location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }
-    String toString() const override { return "super"; }
+    Category getCategory() const override { return Category::LValue; }
+    String toString() const override;
 
 private:
     SourceLocation location_;
 };
 
-// New expression for object instantiation
+/**
+ * @brief Property access expression
+ */
+class PropertyAccess : public Expression {
+public:
+    PropertyAccess(unique_ptr<Expression> object, const String& property, 
+                   const SourceLocation& loc)
+        : object_(std::move(object)), property_(property), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::LValue; }
+    String toString() const override;
+    
+    Expression* getObject() const { return object_.get(); }
+    const String& getProperty() const { return property_; }
+
+private:
+    unique_ptr<Expression> object_;
+    String property_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Index expression (array/object access)
+ */
+class IndexExpression : public Expression {
+public:
+    IndexExpression(unique_ptr<Expression> object, unique_ptr<Expression> index,
+                    const SourceLocation& loc)
+        : object_(std::move(object)), index_(std::move(index)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::LValue; }
+    String toString() const override;
+    
+    Expression* getObject() const { return object_.get(); }
+    Expression* getIndex() const { return index_.get(); }
+
+private:
+    unique_ptr<Expression> object_;
+    unique_ptr<Expression> index_;
+    SourceLocation location_;
+};
+
+// ============================================================================
+// OBJECT AND ARRAY LITERALS
+// ============================================================================
+
+/**
+ * @brief Object literal expression
+ */
+class ObjectLiteral : public Expression {
+public:
+    struct Property {
+        String name;
+        unique_ptr<Expression> value;
+        bool isComputed;
+        bool isShorthand;
+        
+        Property(const String& name, unique_ptr<Expression> value, bool computed = false)
+            : name(name), value(std::move(value)), isComputed(computed), isShorthand(false) {}
+        
+        Property(unique_ptr<Expression> value, bool shorthand = false)
+            : value(std::move(value)), isComputed(false), isShorthand(shorthand) {}
+    };
+    
+    explicit ObjectLiteral(std::vector<Property> properties, const SourceLocation& loc)
+        : properties_(std::move(properties)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    const std::vector<Property>& getProperties() const { return properties_; }
+
+private:
+    std::vector<Property> properties_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Array literal expression
+ */
+class ArrayLiteral : public Expression {
+public:
+    explicit ArrayLiteral(std::vector<unique_ptr<Expression>> elements, 
+                         const SourceLocation& loc)
+        : elements_(std::move(elements)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    const std::vector<unique_ptr<Expression>>& getElements() const { return elements_; }
+
+private:
+    std::vector<unique_ptr<Expression>> elements_;
+    SourceLocation location_;
+};
+
+// ============================================================================
+// BINARY AND UNARY EXPRESSIONS
+// ============================================================================
+
+/**
+ * @brief Binary expression
+ */
+class BinaryExpression : public Expression {
+public:
+    using Operator = BinaryOperator;
+    
+    BinaryExpression(unique_ptr<Expression> left, BinaryOperator operator_, 
+                     unique_ptr<Expression> right, const SourceLocation& loc)
+        : left_(std::move(left)), operator_(operator_), right_(std::move(right)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    Expression* getLeft() const { return left_.get(); }
+    BinaryOperator getOperator() const { return operator_; }
+    Expression* getRight() const { return right_.get(); }
+
+private:
+    unique_ptr<Expression> left_;
+    BinaryOperator operator_;
+    unique_ptr<Expression> right_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Unary expression
+ */
+class UnaryExpression : public Expression {
+public:
+    using Operator = UnaryOperator;
+    
+    UnaryExpression(UnaryOperator operator_, unique_ptr<Expression> operand, 
+                    const SourceLocation& loc)
+        : operator_(operator_), operand_(std::move(operand)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    UnaryOperator getOperator() const { return operator_; }
+    Expression* getOperand() const { return operand_.get(); }
+
+private:
+    UnaryOperator operator_;
+    unique_ptr<Expression> operand_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Assignment expression
+ */
+class AssignmentExpression : public Expression {
+public:
+    using Operator = AssignmentOperator;
+    
+    AssignmentExpression(unique_ptr<Expression> left, AssignmentOperator operator_,
+                         unique_ptr<Expression> right, const SourceLocation& loc)
+        : left_(std::move(left)), operator_(operator_), right_(std::move(right)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::LValue; }
+    String toString() const override;
+    
+    Expression* getLeft() const { return left_.get(); }
+    AssignmentOperator getOperator() const { return operator_; }
+    Expression* getRight() const { return right_.get(); }
+
+private:
+    unique_ptr<Expression> left_;
+    AssignmentOperator operator_;
+    unique_ptr<Expression> right_;
+    SourceLocation location_;
+};
+
+// ============================================================================
+// FUNCTION CALLS
+// ============================================================================
+
+/**
+ * @brief Function call expression
+ */
+class CallExpression : public Expression {
+public:
+    CallExpression(unique_ptr<Expression> callee, 
+                   std::vector<unique_ptr<Expression>> arguments,
+                   const SourceLocation& loc)
+        : callee_(std::move(callee)), arguments_(std::move(arguments)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::RValue; }
+    String toString() const override;
+    
+    Expression* getCallee() const { return callee_.get(); }
+    const std::vector<unique_ptr<Expression>>& getArguments() const { return arguments_; }
+
+private:
+    unique_ptr<Expression> callee_;
+    std::vector<unique_ptr<Expression>> arguments_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief New expression (constructor call)
+ */
 class NewExpression : public Expression {
 public:
-    NewExpression(unique_ptr<Expression> constructor, 
-                  std::vector<shared_ptr<Type>> typeArguments,
-                  std::vector<unique_ptr<Expression>> arguments,
-                  const SourceLocation& loc)
-        : constructor_(std::move(constructor)), typeArguments_(std::move(typeArguments)), 
-          arguments_(std::move(arguments)), location_(loc) {}
-    
-    // Backward compatibility constructor without type arguments
-    NewExpression(unique_ptr<Expression> constructor, 
+    NewExpression(unique_ptr<Expression> constructor,
                   std::vector<unique_ptr<Expression>> arguments,
                   const SourceLocation& loc)
         : constructor_(std::move(constructor)), arguments_(std::move(arguments)), location_(loc) {}
@@ -304,126 +581,28 @@ public:
     String toString() const override;
     
     Expression* getConstructor() const { return constructor_.get(); }
-    const std::vector<shared_ptr<Type>>& getTypeArguments() const { return typeArguments_; }
     const std::vector<unique_ptr<Expression>>& getArguments() const { return arguments_; }
-    bool hasExplicitTypeArguments() const { return !typeArguments_.empty(); }
 
 private:
     unique_ptr<Expression> constructor_;
-    std::vector<shared_ptr<Type>> typeArguments_;
     std::vector<unique_ptr<Expression>> arguments_;
     SourceLocation location_;
 };
 
-// Binary expressions
-class BinaryExpression : public Expression {
-public:
-    enum class Operator {
-        // Arithmetic
-        Add, Subtract, Multiply, Divide, Modulo, Power,
-        // Comparison
-        Equal, NotEqual, StrictEqual, StrictNotEqual,
-        Less, Greater, LessEqual, GreaterEqual,
-        // Logical
-        LogicalAnd, LogicalOr, NullishCoalescing,
-        // Bitwise
-        BitwiseAnd, BitwiseOr, BitwiseXor,
-        LeftShift, RightShift, UnsignedRightShift,
-        // Other
-        In, Instanceof, As, Satisfies
-    };
-    
-    BinaryExpression(unique_ptr<Expression> left, Operator op, 
-                    unique_ptr<Expression> right, const SourceLocation& loc)
-        : left_(std::move(left)), operator_(op), 
-          right_(std::move(right)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }
-    String toString() const override;
-    
-    Expression* getLeft() const { return left_.get(); }
-    Expression* getRight() const { return right_.get(); }
-    Operator getOperator() const { return operator_; }
+// ============================================================================
+// CONDITIONAL EXPRESSIONS
+// ============================================================================
 
-private:
-    unique_ptr<Expression> left_;
-    Operator operator_;
-    unique_ptr<Expression> right_;
-    SourceLocation location_;
-};
-
-// Unary expressions
-class UnaryExpression : public Expression {
-public:
-    enum class Operator {
-        Plus, Minus, BitwiseNot, LogicalNot,
-        PreIncrement, PostIncrement, PreDecrement, PostDecrement,
-        Typeof, Delete, Void, Await
-    };
-    
-    UnaryExpression(Operator op, unique_ptr<Expression> operand, 
-                   const SourceLocation& loc, bool prefix = true)
-        : operator_(op), operand_(std::move(operand)), 
-          location_(loc), prefix_(prefix) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }
-    String toString() const override;
-    
-    Expression* getOperand() const { return operand_.get(); }
-    Operator getOperator() const { return operator_; }
-    bool isPrefix() const { return prefix_; }
-
-private:
-    Operator operator_;
-    unique_ptr<Expression> operand_;
-    SourceLocation location_;
-    bool prefix_;
-};
-
-// Assignment expressions
-class AssignmentExpression : public Expression {
-public:
-    enum class Operator {
-        Assign,
-        AddAssign, SubtractAssign, MultiplyAssign, DivideAssign, ModuloAssign,
-        LeftShiftAssign, RightShiftAssign, UnsignedRightShiftAssign,
-        BitwiseAndAssign, BitwiseOrAssign, BitwiseXorAssign,
-        PowerAssign, NullishCoalescingAssign, LogicalAndAssign, LogicalOrAssign
-    };
-    
-    AssignmentExpression(unique_ptr<Expression> left, Operator op,
-                        unique_ptr<Expression> right, const SourceLocation& loc)
-        : left_(std::move(left)), operator_(op),
-          right_(std::move(right)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }
-    String toString() const override;
-    
-    Expression* getLeft() const { return left_.get(); }
-    Expression* getRight() const { return right_.get(); }
-    Operator getOperator() const { return operator_; }
-
-private:
-    unique_ptr<Expression> left_;
-    Operator operator_;
-    unique_ptr<Expression> right_;
-    SourceLocation location_;
-};
-
-// Conditional (ternary) expression: condition ? trueExpr : falseExpr
+/**
+ * @brief Conditional (ternary) expression
+ */
 class ConditionalExpression : public Expression {
 public:
     ConditionalExpression(unique_ptr<Expression> condition,
-                         unique_ptr<Expression> trueExpr,
-                         unique_ptr<Expression> falseExpr,
-                         const SourceLocation& loc)
-        : condition_(std::move(condition)), trueExpr_(std::move(trueExpr)),
+                          unique_ptr<Expression> trueExpr,
+                          unique_ptr<Expression> falseExpr,
+                          const SourceLocation& loc)
+        : condition_(std::move(condition)), trueExpr_(std::move(trueExpr)), 
           falseExpr_(std::move(falseExpr)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
@@ -442,291 +621,95 @@ private:
     SourceLocation location_;
 };
 
-// Function calls
-class CallExpression : public Expression {
-public:
-    CallExpression(unique_ptr<Expression> callee,
-                  std::vector<unique_ptr<Expression>> arguments,
-                  const SourceLocation& loc)
-        : callee_(std::move(callee)), arguments_(std::move(arguments)), location_(loc) {}
-    
-    CallExpression(unique_ptr<Expression> callee,
-                  std::vector<shared_ptr<Type>> typeArguments,
-                  std::vector<unique_ptr<Expression>> arguments,
-                  const SourceLocation& loc)
-        : callee_(std::move(callee)), typeArguments_(std::move(typeArguments)), arguments_(std::move(arguments)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }
-    String toString() const override;
-    
-    Expression* getCallee() const { return callee_.get(); }
-    const std::vector<shared_ptr<Type>>& getTypeArguments() const { return typeArguments_; }
-    const std::vector<unique_ptr<Expression>>& getArguments() const { return arguments_; }
-    bool hasTypeArguments() const { return !typeArguments_.empty(); }
+// ============================================================================
+// FUNCTION EXPRESSIONS
+// ============================================================================
 
-private:
-    unique_ptr<Expression> callee_;
-    std::vector<shared_ptr<Type>> typeArguments_;
-    std::vector<unique_ptr<Expression>> arguments_;
-    SourceLocation location_;
-};
-
-// Optional call expression (obj?.method())
-class OptionalCallExpr : public Expression {
-public:
-    OptionalCallExpr(unique_ptr<Expression> callee,
-                    std::vector<unique_ptr<Expression>> arguments,
-                    const SourceLocation& loc)
-        : callee_(std::move(callee)), arguments_(std::move(arguments)), location_(loc) {}
-    
-    OptionalCallExpr(unique_ptr<Expression> callee,
-                    std::vector<shared_ptr<Type>> typeArguments,
-                    std::vector<unique_ptr<Expression>> arguments,
-                    const SourceLocation& loc)
-        : callee_(std::move(callee)), typeArguments_(std::move(typeArguments)), arguments_(std::move(arguments)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }
-    String toString() const override;
-    
-    Expression* getCallee() const { return callee_.get(); }
-    const std::vector<shared_ptr<Type>>& getTypeArguments() const { return typeArguments_; }
-    const std::vector<unique_ptr<Expression>>& getArguments() const { return arguments_; }
-    bool hasTypeArguments() const { return !typeArguments_.empty(); }
-
-private:
-    unique_ptr<Expression> callee_;
-    std::vector<shared_ptr<Type>> typeArguments_;
-    std::vector<unique_ptr<Expression>> arguments_;
-    SourceLocation location_;
-};
-
-// Array literal expression
-class ArrayLiteral : public Expression {
-public:
-    ArrayLiteral(std::vector<unique_ptr<Expression>> elements, const SourceLocation& loc)
-        : elements_(std::move(elements)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }
-    String toString() const override;
-    
-    const std::vector<unique_ptr<Expression>>& getElements() const { return elements_; }
-
-private:
-    std::vector<unique_ptr<Expression>> elements_;
-    SourceLocation location_;
-};
-
-// Spread element expression (...expr)
-class SpreadElement : public Expression {
-public:
-    SpreadElement(unique_ptr<Expression> expression, const SourceLocation& loc)
-        : expression_(std::move(expression)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }
-    String toString() const override;
-    
-    Expression* getExpression() const { return expression_.get(); }
-
-private:
-    unique_ptr<Expression> expression_;
-    SourceLocation location_;
-};
-
-// Index expression (array access)
-class IndexExpression : public Expression {
-public:
-    IndexExpression(unique_ptr<Expression> object, unique_ptr<Expression> index,
-                    const SourceLocation& loc)
-        : object_(std::move(object)), index_(std::move(index)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::LValue; }  // Can be assigned to
-    String toString() const override;
-    
-    Expression* getObject() const { return object_.get(); }
-    Expression* getIndex() const { return index_.get(); }
-
-private:
-    unique_ptr<Expression> object_;
-    unique_ptr<Expression> index_;
-    SourceLocation location_;
-};
-
-// Optional index access expression (obj?.[index])
-class OptionalIndexAccess : public Expression {
-public:
-    OptionalIndexAccess(unique_ptr<Expression> object, unique_ptr<Expression> index,
-                        const SourceLocation& loc)
-        : object_(std::move(object)), index_(std::move(index)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }  // Cannot be assigned to
-    String toString() const override;
-    
-    Expression* getObject() const { return object_.get(); }
-    Expression* getIndex() const { return index_.get(); }
-
-private:
-    unique_ptr<Expression> object_;
-    unique_ptr<Expression> index_;
-    SourceLocation location_;
-};
-
-// Object literal expression
-class ObjectLiteral : public Expression {
-public:
-    // Property in an object literal
-    class Property {
-    public:
-        Property(String key, unique_ptr<Expression> value, const SourceLocation& loc)
-            : key_(key), value_(std::move(value)), location_(loc) {}
-        
-        const String& getKey() const { return key_; }
-        Expression* getValue() const { return value_.get(); }
-        SourceLocation getLocation() const { return location_; }
-        
-    private:
-        String key_;
-        unique_ptr<Expression> value_;
-        SourceLocation location_;
-    };
-    
-    ObjectLiteral(std::vector<Property> properties, const SourceLocation& loc)
-        : properties_(std::move(properties)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }
-    String toString() const override;
-    
-    const std::vector<Property>& getProperties() const { return properties_; }
-
-private:
-    std::vector<Property> properties_;
-    SourceLocation location_;
-};
-
-// Property access expression (obj.prop)
-class PropertyAccess : public Expression {
-public:
-    PropertyAccess(unique_ptr<Expression> object, String property, const SourceLocation& loc)
-        : object_(std::move(object)), property_(property), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::LValue; }  // Can be assigned to
-    String toString() const override;
-    
-    Expression* getObject() const { return object_.get(); }
-    const String& getProperty() const { return property_; }
-
-private:
-    unique_ptr<Expression> object_;
-    String property_;
-    SourceLocation location_;
-};
-
-// Optional property access expression (obj?.property)
-class OptionalPropertyAccess : public Expression {
-public:
-    OptionalPropertyAccess(unique_ptr<Expression> object, String property, const SourceLocation& loc)
-        : object_(std::move(object)), property_(property), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }  // Cannot be assigned to
-    String toString() const override;
-    
-    Expression* getObject() const { return object_.get(); }
-    const String& getProperty() const { return property_; }
-
-private:
-    unique_ptr<Expression> object_;
-    String property_;
-    SourceLocation location_;
-};
-
-// Arrow function expression (param => body or (param1, param2) => body)
+/**
+ * @brief Arrow function expression
+ */
 class ArrowFunction : public Expression {
 public:
     struct Parameter {
         String name;
         shared_ptr<Type> type;
-        bool optional = false;
-        bool rest = false;
-        SourceLocation location;
+        unique_ptr<Expression> defaultValue;
+        
+        Parameter(const String& name, shared_ptr<Type> type = nullptr, 
+                  unique_ptr<Expression> defaultValue = nullptr)
+            : name(name), type(std::move(type)), defaultValue(std::move(defaultValue)) {}
     };
-
-    ArrowFunction(std::vector<Parameter> parameters, unique_ptr<Statement> body, 
-                  shared_ptr<Type> returnType, const SourceLocation& loc)
-        : parameters_(std::move(parameters)), body_(std::move(body)), 
-          returnType_(returnType), location_(loc) {}
-
+    
+    ArrowFunction(std::vector<Parameter> parameters,
+                  shared_ptr<Type> returnType,
+                  unique_ptr<Statement> body,
+                  const SourceLocation& loc)
+        : parameters_(std::move(parameters)), returnType_(std::move(returnType)),
+          body_(std::move(body)), location_(loc) {}
+    
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::RValue; }
     String toString() const override;
-
+    
     const std::vector<Parameter>& getParameters() const { return parameters_; }
-    Statement* getBody() const { return body_.get(); }
     shared_ptr<Type> getReturnType() const { return returnType_; }
+    Statement* getBody() const { return body_.get(); }
 
 private:
     std::vector<Parameter> parameters_;
-    unique_ptr<Statement> body_;
     shared_ptr<Type> returnType_;
+    unique_ptr<Statement> body_;
     SourceLocation location_;
 };
 
-// Function expression (function(param) { body } or function name(param) { body })
+/**
+ * @brief Function expression
+ */
 class FunctionExpression : public Expression {
 public:
     struct Parameter {
         String name;
         shared_ptr<Type> type;
-        bool optional = false;
-        bool rest = false;
-        SourceLocation location;
+        unique_ptr<Expression> defaultValue;
+        
+        Parameter(const String& name, shared_ptr<Type> type = nullptr, 
+                  unique_ptr<Expression> defaultValue = nullptr)
+            : name(name), type(std::move(type)), defaultValue(std::move(defaultValue)) {}
     };
-
-    FunctionExpression(const String& name, std::vector<Parameter> parameters, 
-                       unique_ptr<Statement> body, shared_ptr<Type> returnType, 
+    
+    FunctionExpression(const String& name,
+                       std::vector<Parameter> parameters,
+                       shared_ptr<Type> returnType,
+                       unique_ptr<Statement> body,
                        const SourceLocation& loc)
-        : name_(name), parameters_(std::move(parameters)), body_(std::move(body)), 
-          returnType_(returnType), location_(loc) {}
-
+        : name_(name), parameters_(std::move(parameters)), returnType_(std::move(returnType)),
+          body_(std::move(body)), location_(loc) {}
+    
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Category getCategory() const override { return Category::RValue; }
     String toString() const override;
-
+    
     const String& getName() const { return name_; }
     const std::vector<Parameter>& getParameters() const { return parameters_; }
-    Statement* getBody() const { return body_.get(); }
     shared_ptr<Type> getReturnType() const { return returnType_; }
+    Statement* getBody() const { return body_.get(); }
 
 private:
-    String name_; // Optional name (empty for anonymous function expressions)
+    String name_;
     std::vector<Parameter> parameters_;
-    unique_ptr<Statement> body_;
     shared_ptr<Type> returnType_;
+    unique_ptr<Statement> body_;
     SourceLocation location_;
 };
 
-// Move expression for ARC move semantics
+/**
+ * @brief Move expression (for move semantics)
+ */
 class MoveExpression : public Expression {
 public:
-    MoveExpression(unique_ptr<Expression> operand, const SourceLocation& loc)
+    explicit MoveExpression(unique_ptr<Expression> operand, const SourceLocation& loc)
         : operand_(std::move(operand)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
@@ -741,10 +724,37 @@ private:
     SourceLocation location_;
 };
 
-// Block statement
+// ============================================================================
+// STATEMENTS
+// ============================================================================
+
+/**
+ * @brief Expression statement
+ */
+class ExpressionStatement : public Statement {
+public:
+    ExpressionStatement(unique_ptr<Expression> expression, const SourceLocation& loc)
+        : expression_(std::move(expression)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Expression; }
+    String toString() const override;
+    
+    Expression* getExpression() const { return expression_.get(); }
+
+private:
+    unique_ptr<Expression> expression_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Block statement
+ */
 class BlockStatement : public Statement {
 public:
-    BlockStatement(std::vector<unique_ptr<Statement>> statements, const SourceLocation& loc)
+    explicit BlockStatement(std::vector<unique_ptr<Statement>> statements, 
+                           const SourceLocation& loc)
         : statements_(std::move(statements)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
@@ -759,40 +769,21 @@ private:
     SourceLocation location_;
 };
 
-// Return statement
-class ReturnStatement : public Statement {
-public:
-    ReturnStatement(unique_ptr<Expression> value, const SourceLocation& loc)
-        : value_(std::move(value)), location_(loc) {}
-    
-    ReturnStatement(const SourceLocation& loc)  // For return without value
-        : value_(nullptr), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Kind getKind() const override { return Kind::Return; }
-    String toString() const override;
-    
-    Expression* getValue() const { return value_.get(); }
-    bool hasValue() const { return value_ != nullptr; }
+// ============================================================================
+// CONTROL FLOW STATEMENTS
+// ============================================================================
 
-private:
-    unique_ptr<Expression> value_;
-    SourceLocation location_;
-};
-
-// If statement
+/**
+ * @brief If statement
+ */
 class IfStatement : public Statement {
 public:
-    IfStatement(unique_ptr<Expression> condition, unique_ptr<Statement> thenStmt,
-                unique_ptr<Statement> elseStmt, const SourceLocation& loc)
-        : condition_(std::move(condition)), thenStatement_(std::move(thenStmt)),
-          elseStatement_(std::move(elseStmt)), location_(loc) {}
-    
-    IfStatement(unique_ptr<Expression> condition, unique_ptr<Statement> thenStmt,
+    IfStatement(unique_ptr<Expression> condition,
+                unique_ptr<Statement> thenStmt,
+                unique_ptr<Statement> elseStmt,
                 const SourceLocation& loc)
-        : condition_(std::move(condition)), thenStatement_(std::move(thenStmt)),
-          elseStatement_(nullptr), location_(loc) {}
+        : condition_(std::move(condition)), thenStmt_(std::move(thenStmt)), 
+          elseStmt_(std::move(elseStmt)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
@@ -800,22 +791,24 @@ public:
     String toString() const override;
     
     Expression* getCondition() const { return condition_.get(); }
-    Statement* getThenStatement() const { return thenStatement_.get(); }
-    Statement* getElseStatement() const { return elseStatement_.get(); }
-    bool hasElse() const { return elseStatement_ != nullptr; }
+    Statement* getThenStatement() const { return thenStmt_.get(); }
+    Statement* getElseStatement() const { return elseStmt_.get(); }
 
 private:
     unique_ptr<Expression> condition_;
-    unique_ptr<Statement> thenStatement_;
-    unique_ptr<Statement> elseStatement_;
+    unique_ptr<Statement> thenStmt_;
+    unique_ptr<Statement> elseStmt_;
     SourceLocation location_;
 };
 
-// While statement
+/**
+ * @brief While statement
+ */
 class WhileStatement : public Statement {
 public:
-    WhileStatement(unique_ptr<Expression> condition, unique_ptr<Statement> body,
-                   const SourceLocation& loc)
+    WhileStatement(unique_ptr<Expression> condition,
+                  unique_ptr<Statement> body,
+                  const SourceLocation& loc)
         : condition_(std::move(condition)), body_(std::move(body)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
@@ -832,11 +825,14 @@ private:
     SourceLocation location_;
 };
 
-// Do-while statement
+/**
+ * @brief Do-while statement
+ */
 class DoWhileStatement : public Statement {
 public:
-    DoWhileStatement(unique_ptr<Statement> body, unique_ptr<Expression> condition,
-                     const SourceLocation& loc)
+    DoWhileStatement(unique_ptr<Statement> body,
+                    unique_ptr<Expression> condition,
+                    const SourceLocation& loc)
         : body_(std::move(body)), condition_(std::move(condition)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
@@ -853,14 +849,18 @@ private:
     SourceLocation location_;
 };
 
-// For statement
+/**
+ * @brief For statement
+ */
 class ForStatement : public Statement {
 public:
-    ForStatement(unique_ptr<Statement> init, unique_ptr<Expression> condition,
-                 unique_ptr<Expression> increment, unique_ptr<Statement> body,
+    ForStatement(unique_ptr<Statement> init,
+                 unique_ptr<Expression> condition,
+                 unique_ptr<Expression> update,
+                 unique_ptr<Statement> body,
                  const SourceLocation& loc)
-        : init_(std::move(init)), condition_(std::move(condition)),
-          increment_(std::move(increment)), body_(std::move(body)), location_(loc) {}
+        : init_(std::move(init)), condition_(std::move(condition)), 
+          update_(std::move(update)), body_(std::move(body)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
@@ -869,23 +869,27 @@ public:
     
     Statement* getInit() const { return init_.get(); }
     Expression* getCondition() const { return condition_.get(); }
-    Expression* getIncrement() const { return increment_.get(); }
+    Expression* getUpdate() const { return update_.get(); }
     Statement* getBody() const { return body_.get(); }
 
 private:
     unique_ptr<Statement> init_;
     unique_ptr<Expression> condition_;
-    unique_ptr<Expression> increment_;
+    unique_ptr<Expression> update_;
     unique_ptr<Statement> body_;
     SourceLocation location_;
 };
 
-// For-of statement (for (variable of iterable) body)
+/**
+ * @brief For-of statement
+ */
 class ForOfStatement : public Statement {
 public:
-    ForOfStatement(const String& variable, unique_ptr<Expression> iterable,
-                   unique_ptr<Statement> body, const SourceLocation& loc)
-        : variable_(variable), iterable_(std::move(iterable)),
+    ForOfStatement(unique_ptr<Expression> variable,
+                   unique_ptr<Expression> iterable,
+                   unique_ptr<Statement> body,
+                   const SourceLocation& loc)
+        : variable_(std::move(variable)), iterable_(std::move(iterable)), 
           body_(std::move(body)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
@@ -893,69 +897,99 @@ public:
     Kind getKind() const override { return Kind::ForOf; }
     String toString() const override;
     
-    const String& getVariable() const { return variable_; }
+    Expression* getVariable() const { return variable_.get(); }
     Expression* getIterable() const { return iterable_.get(); }
     Statement* getBody() const { return body_.get(); }
 
 private:
-    String variable_;
+    unique_ptr<Expression> variable_;
     unique_ptr<Expression> iterable_;
     unique_ptr<Statement> body_;
     SourceLocation location_;
 };
 
-// Case clause for switch statements
-class CaseClause : public ASTNode {
-public:
-    CaseClause(unique_ptr<Expression> test, std::vector<unique_ptr<Statement>> statements,
-               const SourceLocation& loc)
-        : test_(std::move(test)), statements_(std::move(statements)), location_(loc) {}
-    
-    // Constructor for default case
-    CaseClause(std::vector<unique_ptr<Statement>> statements, const SourceLocation& loc)
-        : test_(nullptr), statements_(std::move(statements)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    String toString() const override;
-    
-    Expression* getTest() const { return test_.get(); }
-    const std::vector<unique_ptr<Statement>>& getStatements() const { return statements_; }
-    bool isDefault() const { return test_ == nullptr; }
-
-private:
-    unique_ptr<Expression> test_;  // null for default case
-    std::vector<unique_ptr<Statement>> statements_;
-    SourceLocation location_;
-};
-
-// Switch statement
+/**
+ * @brief Switch statement
+ */
 class SwitchStatement : public Statement {
 public:
-    SwitchStatement(unique_ptr<Expression> discriminant, 
+    SwitchStatement(unique_ptr<Expression> expression,
                     std::vector<unique_ptr<CaseClause>> cases,
                     const SourceLocation& loc)
-        : discriminant_(std::move(discriminant)), cases_(std::move(cases)), location_(loc) {}
+        : expression_(std::move(expression)), cases_(std::move(cases)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     Kind getKind() const override { return Kind::Switch; }
     String toString() const override;
     
-    Expression* getDiscriminant() const { return discriminant_.get(); }
+    Expression* getExpression() const { return expression_.get(); }
     const std::vector<unique_ptr<CaseClause>>& getCases() const { return cases_; }
 
 private:
-    unique_ptr<Expression> discriminant_;
+    unique_ptr<Expression> expression_;
     std::vector<unique_ptr<CaseClause>> cases_;
     SourceLocation location_;
 };
 
-// Break statement
+/**
+ * @brief Try statement
+ */
+class TryStatement : public Statement {
+public:
+    TryStatement(unique_ptr<Statement> tryBlock,
+                 std::vector<unique_ptr<CatchClause>> catchClauses,
+                 unique_ptr<Statement> finallyBlock,
+                 const SourceLocation& loc)
+        : tryBlock_(std::move(tryBlock)), catchClauses_(std::move(catchClauses)),
+          finallyBlock_(std::move(finallyBlock)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Try; }
+    String toString() const override;
+    
+    Statement* getTryBlock() const { return tryBlock_.get(); }
+    const std::vector<unique_ptr<CatchClause>>& getCatchClauses() const { return catchClauses_; }
+    Statement* getFinallyBlock() const { return finallyBlock_.get(); }
+
+private:
+    unique_ptr<Statement> tryBlock_;
+    std::vector<unique_ptr<CatchClause>> catchClauses_;
+    unique_ptr<Statement> finallyBlock_;
+    SourceLocation location_;
+};
+
+// ============================================================================
+// JUMP STATEMENTS
+// ============================================================================
+
+/**
+ * @brief Return statement
+ */
+class ReturnStatement : public Statement {
+public:
+    ReturnStatement(unique_ptr<Expression> expression, const SourceLocation& loc)
+        : expression_(std::move(expression)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Kind getKind() const override { return Kind::Return; }
+    String toString() const override;
+    
+    Expression* getExpression() const { return expression_.get(); }
+
+private:
+    unique_ptr<Expression> expression_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Break statement
+ */
 class BreakStatement : public Statement {
 public:
-    BreakStatement(const SourceLocation& loc)
-        : location_(loc) {}
+    explicit BreakStatement(const SourceLocation& loc) : location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
@@ -966,11 +1000,12 @@ private:
     SourceLocation location_;
 };
 
-// Continue statement
+/**
+ * @brief Continue statement
+ */
 class ContinueStatement : public Statement {
 public:
-    ContinueStatement(const SourceLocation& loc)
-        : location_(loc) {}
+    explicit ContinueStatement(const SourceLocation& loc) : location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
@@ -981,65 +1016,9 @@ private:
     SourceLocation location_;
 };
 
-// Forward declaration
-class CatchClause;
-
-// Try statement
-class TryStatement : public Statement {
-public:
-    TryStatement(unique_ptr<BlockStatement> tryBlock,
-                 unique_ptr<CatchClause> catchClause,
-                 unique_ptr<BlockStatement> finallyBlock,
-                 const SourceLocation& loc)
-        : tryBlock_(std::move(tryBlock)), catchClause_(std::move(catchClause)),
-          finallyBlock_(std::move(finallyBlock)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    Kind getKind() const override { return Kind::Try; }
-    String toString() const override;
-    
-    BlockStatement* getTryBlock() const { return tryBlock_.get(); }
-    CatchClause* getCatchClause() const { return catchClause_.get(); }
-    BlockStatement* getFinallyBlock() const { return finallyBlock_.get(); }
-    
-    bool hasCatch() const { return catchClause_ != nullptr; }
-    bool hasFinally() const { return finallyBlock_ != nullptr; }
-
-private:
-    unique_ptr<BlockStatement> tryBlock_;
-    unique_ptr<CatchClause> catchClause_;
-    unique_ptr<BlockStatement> finallyBlock_;
-    SourceLocation location_;
-};
-
-// Catch clause
-class CatchClause : public ASTNode {
-public:
-    // Constructor with parameter (catch (e) { ... })
-    CatchClause(String parameter, unique_ptr<BlockStatement> body, const SourceLocation& loc)
-        : parameter_(parameter), hasParameter_(true), body_(std::move(body)), location_(loc) {}
-    
-    // Constructor without parameter (catch { ... })
-    CatchClause(unique_ptr<BlockStatement> body, const SourceLocation& loc)
-        : hasParameter_(false), body_(std::move(body)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    String toString() const override;
-    
-    const String& getParameter() const { return parameter_; }
-    BlockStatement* getBody() const { return body_.get(); }
-    bool hasParameter() const { return hasParameter_; }
-
-private:
-    String parameter_;
-    bool hasParameter_;
-    unique_ptr<BlockStatement> body_;
-    SourceLocation location_;
-};
-
-// Throw statement
+/**
+ * @brief Throw statement
+ */
 class ThrowStatement : public Statement {
 public:
     ThrowStatement(unique_ptr<Expression> expression, const SourceLocation& loc)
@@ -1057,57 +1036,353 @@ private:
     SourceLocation location_;
 };
 
-// Destructuring pattern base class
+// ============================================================================
+// DECLARATIONS
+// ============================================================================
+
+/**
+ * @brief Base class for all declarations
+ */
+class Declaration : public Statement {
+public:
+    Kind getKind() const override { return Kind::Declaration; }
+    
+    virtual String getName() const = 0;
+    virtual bool isExported() const { return exported_; }
+    virtual void setExported(bool exported) { exported_ = exported; }
+
+protected:
+    bool exported_ = false;
+};
+
+/**
+ * @brief Variable declaration
+ */
+class VariableDeclaration : public Declaration {
+public:
+    struct Variable {
+        String name;
+        unique_ptr<Expression> initializer;
+        shared_ptr<Type> type;
+        
+        Variable(const String& name, unique_ptr<Expression> init = nullptr, 
+                 shared_ptr<Type> type = nullptr)
+            : name(name), initializer(std::move(init)), type(std::move(type)) {}
+    };
+    
+    VariableDeclaration(std::vector<Variable> variables, const SourceLocation& loc)
+        : variables_(std::move(variables)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    String getName() const override;
+    
+    const std::vector<Variable>& getVariables() const { return variables_; }
+
+private:
+    std::vector<Variable> variables_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Function declaration
+ */
+class FunctionDeclaration : public Declaration {
+public:
+    struct Parameter {
+        String name;
+        shared_ptr<Type> type;
+        unique_ptr<Expression> defaultValue;
+        bool isRest = false;
+        
+        Parameter(const String& name, shared_ptr<Type> type = nullptr, 
+                  unique_ptr<Expression> defaultValue = nullptr)
+            : name(name), type(std::move(type)), defaultValue(std::move(defaultValue)) {}
+    };
+    
+    FunctionDeclaration(const String& name,
+                        std::vector<Parameter> parameters,
+                        shared_ptr<Type> returnType,
+                        unique_ptr<Statement> body,
+                        const SourceLocation& loc)
+        : name_(name), parameters_(std::move(parameters)), returnType_(std::move(returnType)),
+          body_(std::move(body)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    String getName() const override { return name_; }
+    
+    const std::vector<Parameter>& getParameters() const { return parameters_; }
+    shared_ptr<Type> getReturnType() const { return returnType_; }
+    Statement* getBody() const { return body_.get(); }
+
+private:
+    String name_;
+    std::vector<Parameter> parameters_;
+    shared_ptr<Type> returnType_;
+    unique_ptr<Statement> body_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Property declaration (used in classes and interfaces)
+ */
+class PropertyDeclaration : public Declaration {
+public:
+    PropertyDeclaration(const String& name, shared_ptr<Type> type = nullptr,
+                       unique_ptr<Expression> initializer = nullptr, const SourceLocation& loc = {})
+        : name_(name), type_(std::move(type)), initializer_(std::move(initializer)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    String getName() const override { return name_; }
+    
+    shared_ptr<Type> getType() const override { return type_; }
+    Expression* getInitializer() const { return initializer_.get(); }
+    
+    bool isStatic = false;
+    bool isReadonly = false;
+    bool isPublic = true;
+    bool isPrivate = false;
+    bool isProtected = false;
+
+private:
+    String name_;
+    shared_ptr<Type> type_;
+    unique_ptr<Expression> initializer_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Class declaration
+ */
+class ClassDeclaration : public Declaration {
+public:
+    
+    ClassDeclaration(const String& name,
+                     unique_ptr<Expression> superClass,
+                     std::vector<unique_ptr<PropertyDeclaration>> properties,
+                     std::vector<unique_ptr<FunctionDeclaration>> methods,
+                     const SourceLocation& loc)
+        : name_(name), superClass_(std::move(superClass)), 
+          properties_(std::move(properties)), methods_(std::move(methods)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    String getName() const override { return name_; }
+    
+    Expression* getSuperClass() const { return superClass_.get(); }
+    const std::vector<unique_ptr<PropertyDeclaration>>& getProperties() const { return properties_; }
+    const std::vector<unique_ptr<FunctionDeclaration>>& getMethods() const { return methods_; }
+
+private:
+    String name_;
+    unique_ptr<Expression> superClass_;
+    std::vector<unique_ptr<PropertyDeclaration>> properties_;
+    std::vector<unique_ptr<FunctionDeclaration>> methods_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Type parameter declaration
+ */
+class TypeParameter : public Declaration {
+public:
+    TypeParameter(const String& name, shared_ptr<Type> constraint = nullptr,
+                  shared_ptr<Type> defaultType = nullptr, const SourceLocation& loc = {})
+        : name_(name), constraint_(std::move(constraint)), defaultType_(std::move(defaultType)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    String getName() const override { return name_; }
+    
+    shared_ptr<Type> getConstraint() const { return constraint_; }
+    shared_ptr<Type> getDefaultType() const { return defaultType_; }
+
+private:
+    String name_;
+    shared_ptr<Type> constraint_;
+    shared_ptr<Type> defaultType_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Interface declaration
+ */
+class InterfaceDeclaration : public Declaration {
+public:
+    InterfaceDeclaration(const String& name,
+                         std::vector<unique_ptr<Expression>> extends,
+                         std::vector<unique_ptr<PropertyDeclaration>> properties,
+                         std::vector<unique_ptr<MethodDeclaration>> methods,
+                         const SourceLocation& loc)
+        : name_(name), extends_(std::move(extends)), 
+          properties_(std::move(properties)), methods_(std::move(methods)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    String getName() const override { return name_; }
+    
+    const std::vector<unique_ptr<Expression>>& getExtends() const { return extends_; }
+    const std::vector<unique_ptr<PropertyDeclaration>>& getProperties() const { return properties_; }
+    const std::vector<unique_ptr<MethodDeclaration>>& getMethods() const { return methods_; }
+
+private:
+    String name_;
+    std::vector<unique_ptr<Expression>> extends_;
+    std::vector<unique_ptr<PropertyDeclaration>> properties_;
+    std::vector<unique_ptr<MethodDeclaration>> methods_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Destructor declaration
+ */
+class DestructorDeclaration : public Declaration {
+public:
+    DestructorDeclaration(const String& name, const SourceLocation& loc)
+        : name_(name), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    String getName() const override { return name_; }
+
+private:
+    String name_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Optional property access expression
+ */
+class OptionalPropertyAccess : public Expression {
+public:
+    OptionalPropertyAccess(unique_ptr<Expression> object, const String& property, const SourceLocation& loc)
+        : object_(std::move(object)), property_(property), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    
+    Expression* getObject() const { return object_.get(); }
+    const String& getProperty() const { return property_; }
+
+private:
+    unique_ptr<Expression> object_;
+    String property_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Optional index access expression
+ */
+class OptionalIndexAccess : public Expression {
+public:
+    OptionalIndexAccess(unique_ptr<Expression> object, unique_ptr<Expression> index, const SourceLocation& loc)
+        : object_(std::move(object)), index_(std::move(index)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    
+    Expression* getObject() const { return object_.get(); }
+    Expression* getIndex() const { return index_.get(); }
+
+private:
+    unique_ptr<Expression> object_;
+    unique_ptr<Expression> index_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Optional call expression
+ */
+class OptionalCallExpr : public Expression {
+public:
+    OptionalCallExpr(unique_ptr<Expression> callee, std::vector<unique_ptr<Expression>> args, const SourceLocation& loc)
+        : callee_(std::move(callee)), arguments_(std::move(args)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    
+    Expression* getCallee() const { return callee_.get(); }
+    const std::vector<unique_ptr<Expression>>& getArguments() const { return arguments_; }
+
+private:
+    unique_ptr<Expression> callee_;
+    std::vector<unique_ptr<Expression>> arguments_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Spread element
+ */
+class SpreadElement : public Expression {
+public:
+    SpreadElement(unique_ptr<Expression> expression, const SourceLocation& loc)
+        : expression_(std::move(expression)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    
+    Expression* getExpression() const { return expression_.get(); }
+
+private:
+    unique_ptr<Expression> expression_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Destructuring pattern base class
+ */
 class DestructuringPattern : public Expression {
 public:
     DestructuringPattern(const SourceLocation& loc) : location_(loc) {}
     
-    virtual ~DestructuringPattern() = default;
-    void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::LValue; } // Can be assigned to
 
 protected:
     SourceLocation location_;
 };
 
-// Array destructuring pattern: [a, b, c]
+/**
+ * @brief Array destructuring pattern
+ */
 class ArrayDestructuringPattern : public DestructuringPattern {
 public:
-    ArrayDestructuringPattern(std::vector<unique_ptr<DestructuringPattern>> elements,
-                             const SourceLocation& loc)
+    ArrayDestructuringPattern(std::vector<unique_ptr<Expression>> elements, const SourceLocation& loc)
         : DestructuringPattern(loc), elements_(std::move(elements)) {}
     
     void accept(ASTVisitor& visitor) override;
     String toString() const override;
     
-    const std::vector<unique_ptr<DestructuringPattern>>& getElements() const { return elements_; }
+    const std::vector<unique_ptr<Expression>>& getElements() const { return elements_; }
 
 private:
-    std::vector<unique_ptr<DestructuringPattern>> elements_;
+    std::vector<unique_ptr<Expression>> elements_;
 };
 
-// Object destructuring pattern: { a, b: c, d = default }
+/**
+ * @brief Object destructuring pattern
+ */
 class ObjectDestructuringPattern : public DestructuringPattern {
 public:
-    // Property in object destructuring pattern
-    class Property {
-    public:
-        Property(String key, unique_ptr<DestructuringPattern> pattern, 
-                unique_ptr<Expression> defaultValue, const SourceLocation& loc)
-            : key_(key), pattern_(std::move(pattern)), defaultValue_(std::move(defaultValue)), location_(loc) {}
+    struct Property {
+        String name;
+        unique_ptr<Expression> value;
+        bool isShorthand;
         
-        const String& getKey() const { return key_; }
-        DestructuringPattern* getPattern() const { return pattern_.get(); }
-        Expression* getDefaultValue() const { return defaultValue_.get(); }
-        SourceLocation getLocation() const { return location_; }
-        bool hasDefaultValue() const { return defaultValue_ != nullptr; }
-        
-    private:
-        String key_;
-        unique_ptr<DestructuringPattern> pattern_;
-        unique_ptr<Expression> defaultValue_;
-        SourceLocation location_;
+        Property(const String& n, unique_ptr<Expression> v, bool shorthand = false)
+            : name(n), value(std::move(v)), isShorthand(shorthand) {}
     };
     
     ObjectDestructuringPattern(std::vector<Property> properties, const SourceLocation& loc)
@@ -1122,366 +1397,129 @@ private:
     std::vector<Property> properties_;
 };
 
-// Identifier pattern: variable name
+/**
+ * @brief Identifier pattern
+ */
 class IdentifierPattern : public DestructuringPattern {
 public:
     IdentifierPattern(const String& name, const SourceLocation& loc)
-        : DestructuringPattern(loc), name_(name), defaultValue_(nullptr) {}
-    
-    IdentifierPattern(const String& name, unique_ptr<Expression> defaultValue, const SourceLocation& loc)
-        : DestructuringPattern(loc), name_(name), defaultValue_(std::move(defaultValue)) {}
+        : DestructuringPattern(loc), name_(name) {}
     
     void accept(ASTVisitor& visitor) override;
     String toString() const override;
     
     const String& getName() const { return name_; }
-    Expression* getDefaultValue() const { return defaultValue_.get(); }
-    bool hasDefaultValue() const { return defaultValue_ != nullptr; }
 
 private:
     String name_;
-    unique_ptr<Expression> defaultValue_;
 };
 
-// Destructuring assignment: let [a, b] = array;
-class DestructuringAssignment : public Expression {
+/**
+ * @brief Destructuring assignment
+ */
+class DestructuringAssignment : public Statement {
 public:
-    DestructuringAssignment(unique_ptr<DestructuringPattern> pattern,
-                           unique_ptr<Expression> value,
-                           const SourceLocation& loc)
-        : pattern_(std::move(pattern)), value_(std::move(value)), location_(loc) {}
+    DestructuringAssignment(unique_ptr<DestructuringPattern> left, unique_ptr<Expression> right, const SourceLocation& loc)
+        : left_(std::move(left)), right_(std::move(right)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
-    Category getCategory() const override { return Category::RValue; }
     String toString() const override;
     
-    DestructuringPattern* getPattern() const { return pattern_.get(); }
-    Expression* getValue() const { return value_.get(); }
+    DestructuringPattern* getLeft() const { return left_.get(); }
+    Expression* getRight() const { return right_.get(); }
 
 private:
-    unique_ptr<DestructuringPattern> pattern_;
-    unique_ptr<Expression> value_;
+    unique_ptr<DestructuringPattern> left_;
+    unique_ptr<Expression> right_;
     SourceLocation location_;
 };
 
-// Variable declaration
-class VariableDeclaration : public Declaration {
+/**
+ * @brief Case clause for switch statements
+ */
+class CaseClause : public ASTNode {
 public:
-    enum class Kind {
-        Var, Let, Const
+    CaseClause(unique_ptr<Expression> expression, std::vector<unique_ptr<Statement>> statements, const SourceLocation& loc)
+        : expression_(std::move(expression)), statements_(std::move(statements)), isDefault_(false), location_(loc) {}
+    
+    CaseClause(std::vector<unique_ptr<Statement>> statements, const SourceLocation& loc)
+        : statements_(std::move(statements)), isDefault_(true), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    
+    Expression* getExpression() const { return expression_.get(); }
+    const std::vector<unique_ptr<Statement>>& getStatements() const { return statements_; }
+    bool isDefault() const { return isDefault_; }
+
+private:
+    unique_ptr<Expression> expression_;
+    std::vector<unique_ptr<Statement>> statements_;
+    bool isDefault_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Catch clause for try statements
+ */
+class CatchClause : public ASTNode {
+public:
+    CatchClause(const String& parameter, unique_ptr<Statement> body, const SourceLocation& loc)
+        : parameter_(parameter), body_(std::move(body)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    String toString() const override;
+    
+    const String& getParameter() const { return parameter_; }
+    Statement* getBody() const { return body_.get(); }
+
+private:
+    String parameter_;
+    unique_ptr<Statement> body_;
+    SourceLocation location_;
+};
+
+/**
+ * @brief Method declaration for classes and interfaces
+ */
+class MethodDeclaration : public ASTNode {
+public:
+    struct Parameter {
+        String name;
+        shared_ptr<Type> type;
+        unique_ptr<Expression> defaultValue;
+        
+        Parameter(const String& n, shared_ptr<Type> t = nullptr, unique_ptr<Expression> def = nullptr)
+            : name(n), type(std::move(t)), defaultValue(std::move(def)) {}
     };
     
-    VariableDeclaration(Kind kind, const String& name, 
-                       unique_ptr<Expression> initializer,
-                       shared_ptr<Type> typeAnnotation,
-                       const SourceLocation& loc)
-        : kind_(kind), name_(name), initializer_(std::move(initializer)),
-          typeAnnotation_(typeAnnotation), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    String getName() const override { return name_; }
-    String toString() const override;
-    
-    Kind getDeclarationKind() const { return kind_; }
-    Expression* getInitializer() const { return initializer_.get(); }
-    shared_ptr<Type> getTypeAnnotation() const { return typeAnnotation_; }
-
-private:
-    Kind kind_;
-    String name_;
-    unique_ptr<Expression> initializer_;
-    shared_ptr<Type> typeAnnotation_;
-    SourceLocation location_;
-};
-
-// Type parameter for generic functions/classes
-// Variance annotation for generic type parameters
-enum class Variance {
-    Invariant,  // Default - no variance annotation
-    Covariant,  // 'out' - can be substituted with derived types
-    Contravariant // 'in' - can be substituted with base types
-};
-
-class TypeParameter : public ASTNode {
-public:
-    TypeParameter(const String& name, 
-                  shared_ptr<Type> constraint = nullptr, 
-                  Variance variance = Variance::Invariant,
-                  const SourceLocation& loc = {})
-        : name_(name), constraint_(constraint), variance_(variance), location_(loc) {}
+    MethodDeclaration(const String& name, std::vector<Parameter> parameters, shared_ptr<Type> returnType = nullptr, const SourceLocation& loc = {})
+        : name_(name), parameters_(std::move(parameters)), returnType_(std::move(returnType)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
     String toString() const override;
     
     const String& getName() const { return name_; }
-    shared_ptr<Type> getConstraint() const { return constraint_; }
-    Variance getVariance() const { return variance_; }
-    
-    bool hasConstraint() const { return constraint_ != nullptr; }
-    bool isCovariant() const { return variance_ == Variance::Covariant; }
-    bool isContravariant() const { return variance_ == Variance::Contravariant; }
-    bool isInvariant() const { return variance_ == Variance::Invariant; }
-
-private:
-    String name_;
-    shared_ptr<Type> constraint_;
-    Variance variance_;
-    SourceLocation location_;
-};
-
-// Function declaration
-class FunctionDeclaration : public Declaration {
-public:
-    struct Parameter {
-        String name;
-        shared_ptr<Type> type;
-        unique_ptr<Expression> defaultValue;
-        bool optional = false;
-        bool rest = false;
-    };
-    
-    FunctionDeclaration(const String& name,
-                       std::vector<unique_ptr<TypeParameter>> typeParameters,
-                       std::vector<Parameter> parameters,
-                       shared_ptr<Type> returnType,
-                       unique_ptr<BlockStatement> body,
-                       const SourceLocation& loc,
-                       bool async = false,
-                       bool generator = false)
-        : name_(name), typeParameters_(std::move(typeParameters)), parameters_(std::move(parameters)),
-          returnType_(returnType), body_(std::move(body)),
-          location_(loc), async_(async), generator_(generator), captured_(false) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    String getName() const override { return name_; }
-    String toString() const override;
-    
-    const std::vector<unique_ptr<TypeParameter>>& getTypeParameters() const { return typeParameters_; }
     const std::vector<Parameter>& getParameters() const { return parameters_; }
     shared_ptr<Type> getReturnType() const { return returnType_; }
-    BlockStatement* getBody() const { return body_.get(); }
-    bool isAsync() const { return async_; }
-    bool isGenerator() const { return generator_; }
-    bool isGeneric() const { return !typeParameters_.empty(); }
-    bool isCaptured() const { return captured_; }
-    void setCaptured(bool captured) { captured_ = captured; }
-    
-    // Captured variables management
-    const std::vector<Symbol*>& getCapturedVariables() const { return capturedVariables_; }
-    void addCapturedVariable(Symbol* symbol) { 
-        if (symbol && std::find(capturedVariables_.begin(), capturedVariables_.end(), symbol) == capturedVariables_.end()) {
-            capturedVariables_.push_back(symbol);
-        }
-    }
-    void clearCapturedVariables() { capturedVariables_.clear(); }
-
-private:
-    String name_;
-    std::vector<unique_ptr<TypeParameter>> typeParameters_;
-    std::vector<Parameter> parameters_;
-    shared_ptr<Type> returnType_;
-    unique_ptr<BlockStatement> body_;
-    SourceLocation location_;
-    bool async_;
-    bool generator_;
-    bool captured_;
-    std::vector<Symbol*> capturedVariables_;
-};
-
-// Class-related declarations
-class PropertyDeclaration : public Declaration {
-public:
-    PropertyDeclaration(const String& name,
-                       shared_ptr<Type> type,
-                       unique_ptr<Expression> initializer,
-                       const SourceLocation& loc,
-                       bool isStatic = false,
-                       bool isReadonly = false,
-                       bool isPrivate = false,
-                       bool isProtected = false)
-        : name_(name), type_(type), initializer_(std::move(initializer)),
-          location_(loc), isStatic_(isStatic), isReadonly_(isReadonly),
-          isPrivate_(isPrivate), isProtected_(isProtected) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    String getName() const override { return name_; }
-    String toString() const override;
-    
-    shared_ptr<Type> getType() const override { return type_; }
-    Expression* getInitializer() const { return initializer_.get(); }
-    bool isStatic() const { return isStatic_; }
-    bool isReadonly() const { return isReadonly_; }
-    bool isPrivate() const { return isPrivate_; }
-    bool isProtected() const { return isProtected_; }
-
-private:
-    String name_;
-    shared_ptr<Type> type_;
-    unique_ptr<Expression> initializer_;
-    SourceLocation location_;
-    bool isStatic_;
-    bool isReadonly_;
-    bool isPrivate_;
-    bool isProtected_;
-};
-
-class MethodDeclaration : public Declaration {
-public:
-    struct Parameter {
-        String name;
-        shared_ptr<Type> type;
-        unique_ptr<Expression> defaultValue;
-        bool optional = false;
-        bool rest = false;
-    };
-    
-    MethodDeclaration(const String& name,
-                     std::vector<Parameter> parameters,
-                     shared_ptr<Type> returnType,
-                     unique_ptr<BlockStatement> body,
-                     const SourceLocation& loc,
-                     bool isStatic = false,
-                     bool isPrivate = false,
-                     bool isProtected = false,
-                     bool isAbstract = false,
-                     bool isAsync = false)
-        : name_(name), parameters_(std::move(parameters)),
-          returnType_(returnType), body_(std::move(body)),
-          location_(loc), isStatic_(isStatic), isPrivate_(isPrivate),
-          isProtected_(isProtected), isAbstract_(isAbstract), isAsync_(isAsync) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    String getName() const override { return name_; }
-    String toString() const override;
-    
-    const std::vector<Parameter>& getParameters() const { return parameters_; }
-    shared_ptr<Type> getReturnType() const { return returnType_; }
-    BlockStatement* getBody() const { return body_.get(); }
-    bool isStatic() const { return isStatic_; }
-    bool isPrivate() const { return isPrivate_; }
-    bool isProtected() const { return isProtected_; }
-    bool isAbstract() const { return isAbstract_; }
-    bool isAsync() const { return isAsync_; }
 
 private:
     String name_;
     std::vector<Parameter> parameters_;
     shared_ptr<Type> returnType_;
-    unique_ptr<BlockStatement> body_;
-    SourceLocation location_;
-    bool isStatic_;
-    bool isPrivate_;
-    bool isProtected_;
-    bool isAbstract_;
-    bool isAsync_;
-};
-
-class DestructorDeclaration : public Declaration {
-public:
-    DestructorDeclaration(const String& className,
-                         unique_ptr<BlockStatement> body,
-                         const SourceLocation& loc)
-        : className_(className), body_(std::move(body)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    String getName() const override { return className_; }
-    String toString() const override;
-    
-    const String& getClassName() const { return className_; }
-    BlockStatement* getBody() const { return body_.get(); }
-
-private:
-    String className_;
-    unique_ptr<BlockStatement> body_;
     SourceLocation location_;
 };
 
-class ClassDeclaration : public Declaration {
-public:
-    ClassDeclaration(const String& name,
-                    std::vector<unique_ptr<TypeParameter>> typeParameters,
-                    shared_ptr<Type> baseClass,
-                    std::vector<shared_ptr<Type>> interfaces,
-                    std::vector<unique_ptr<PropertyDeclaration>> properties,
-                    std::vector<unique_ptr<MethodDeclaration>> methods,
-                    unique_ptr<MethodDeclaration> constructor,
-                    unique_ptr<DestructorDeclaration> destructor,
-                    const SourceLocation& loc,
-                    bool isAbstract = false)
-        : name_(name), typeParameters_(std::move(typeParameters)), baseClass_(baseClass), interfaces_(std::move(interfaces)),
-          properties_(std::move(properties)), methods_(std::move(methods)),
-          constructor_(std::move(constructor)), destructor_(std::move(destructor)), location_(loc), isAbstract_(isAbstract) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    String getName() const override { return name_; }
-    String toString() const override;
-    
-    const std::vector<unique_ptr<TypeParameter>>& getTypeParameters() const { return typeParameters_; }
-    shared_ptr<Type> getBaseClass() const { return baseClass_; }
-    const std::vector<shared_ptr<Type>>& getInterfaces() const { return interfaces_; }
-    const std::vector<unique_ptr<PropertyDeclaration>>& getProperties() const { return properties_; }
-    const std::vector<unique_ptr<MethodDeclaration>>& getMethods() const { return methods_; }
-    MethodDeclaration* getConstructor() const { return constructor_.get(); }
-    DestructorDeclaration* getDestructor() const { return destructor_.get(); }
-    bool isAbstract() const { return isAbstract_; }
-
-private:
-    String name_;
-    std::vector<unique_ptr<TypeParameter>> typeParameters_;
-    shared_ptr<Type> baseClass_;
-    std::vector<shared_ptr<Type>> interfaces_;
-    std::vector<unique_ptr<PropertyDeclaration>> properties_;
-    std::vector<unique_ptr<MethodDeclaration>> methods_;
-    unique_ptr<MethodDeclaration> constructor_;
-    unique_ptr<DestructorDeclaration> destructor_;
-    SourceLocation location_;
-    bool isAbstract_;
-};
-
-// Interface declaration
-class InterfaceDeclaration : public Declaration {
-public:
-    InterfaceDeclaration(const String& name,
-                        std::vector<unique_ptr<TypeParameter>> typeParameters,
-                        std::vector<shared_ptr<Type>> extends,
-                        std::vector<unique_ptr<PropertyDeclaration>> properties,
-                        std::vector<unique_ptr<MethodDeclaration>> methods,
-                        const SourceLocation& loc)
-        : name_(name), typeParameters_(std::move(typeParameters)), extends_(std::move(extends)),
-          properties_(std::move(properties)), methods_(std::move(methods)), location_(loc) {}
-    
-    void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { return location_; }
-    String getName() const override { return name_; }
-    String toString() const override;
-    
-    const std::vector<unique_ptr<TypeParameter>>& getTypeParameters() const { return typeParameters_; }
-    const std::vector<shared_ptr<Type>>& getExtends() const { return extends_; }
-    const std::vector<unique_ptr<PropertyDeclaration>>& getProperties() const { return properties_; }
-    const std::vector<unique_ptr<MethodDeclaration>>& getMethods() const { return methods_; }
-    bool isGeneric() const { return !typeParameters_.empty(); }
-
-private:
-    String name_;
-    std::vector<unique_ptr<TypeParameter>> typeParameters_;
-    std::vector<shared_ptr<Type>> extends_;
-    std::vector<unique_ptr<PropertyDeclaration>> properties_;
-    std::vector<unique_ptr<MethodDeclaration>> methods_;
-    SourceLocation location_;
-};
-
-// Enum member
+/**
+ * @brief Enum member for enum declarations
+ */
 class EnumMember : public ASTNode {
 public:
-    EnumMember(const String& name, unique_ptr<Expression> value, const SourceLocation& loc)
+    EnumMember(const String& name, unique_ptr<Expression> value = nullptr, const SourceLocation& loc = {})
         : name_(name), value_(std::move(value)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
@@ -1490,7 +1528,6 @@ public:
     
     const String& getName() const { return name_; }
     Expression* getValue() const { return value_.get(); }
-    bool hasValue() const { return value_ != nullptr; }
 
 private:
     String name_;
@@ -1498,264 +1535,261 @@ private:
     SourceLocation location_;
 };
 
-// Enum declaration
+/**
+ * @brief Import clause for module imports
+ */
+struct ImportClause {
+    String defaultImport;
+    std::vector<String> namedImports;
+    String namespaceImport;
+    
+    ImportClause() = default;
+    ImportClause(const String& defaultImp, const std::vector<String>& named, const String& namespaceImp)
+        : defaultImport(defaultImp), namedImports(named), namespaceImport(namespaceImp) {}
+};
+
+/**
+ * @brief Import specification
+ */
+struct ImportSpec {
+    String name;
+    String alias;
+    
+    ImportSpec(const String& n, const String& a = "") : name(n), alias(a) {}
+};
+
+/**
+ * @brief Export clause for module exports
+ */
+struct ExportClause {
+    String name;
+    unique_ptr<Expression> expression;
+    
+    ExportClause() = default;
+    ExportClause(const String& n) : name(n) {}
+    ExportClause(unique_ptr<Expression> expr) : expression(std::move(expr)) {}
+};
+
+/**
+ * @brief Export specification
+ */
+struct ExportSpec {
+    String name;
+    String alias;
+    
+    ExportSpec(const String& n, const String& a = "") : name(n), alias(a) {}
+};
+
+/**
+ * @brief Enum declaration
+ */
 class EnumDeclaration : public Declaration {
 public:
     EnumDeclaration(const String& name,
-                   std::vector<unique_ptr<EnumMember>> members,
-                   const SourceLocation& loc,
-                   bool isConst = false)
-        : name_(name), members_(std::move(members)), location_(loc), isConst_(isConst) {}
+                    std::vector<unique_ptr<EnumMember>> members,
+                    const SourceLocation& loc)
+        : name_(name), members_(std::move(members)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
-    String getName() const override { return name_; }
     String toString() const override;
+    String getName() const override { return name_; }
     
     const std::vector<unique_ptr<EnumMember>>& getMembers() const { return members_; }
-    bool isConst() const { return isConst_; }
 
 private:
     String name_;
     std::vector<unique_ptr<EnumMember>> members_;
     SourceLocation location_;
-    bool isConst_;
 };
 
-// Type alias declaration
+/**
+ * @brief Type alias declaration
+ */
 class TypeAliasDeclaration : public Declaration {
 public:
     TypeAliasDeclaration(const String& name,
-                        shared_ptr<Type> aliasedType,
-                        const SourceLocation& loc)
-        : name_(name), aliasedType_(aliasedType), location_(loc) {}
+                         std::vector<TypeParameter> typeParameters,
+                         shared_ptr<Type> type,
+                         const SourceLocation& loc)
+        : name_(name), typeParameters_(std::move(typeParameters)), type_(std::move(type)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
-    String getName() const override { return name_; }
     String toString() const override;
+    String getName() const override { return name_; }
     
-    shared_ptr<Type> getAliasedType() const { return aliasedType_; }
+    const std::vector<TypeParameter>& getTypeParameters() const { return typeParameters_; }
+    shared_ptr<Type> getType() const override { return type_; }
 
 private:
     String name_;
-    shared_ptr<Type> aliasedType_;
+    std::vector<TypeParameter> typeParameters_;
+    shared_ptr<Type> type_;
     SourceLocation location_;
 };
 
-// Import/Export Specs
-class ImportSpec {
+/**
+ * @brief Import declaration
+ */
+class ImportDeclaration : public Declaration {
 public:
-    ImportSpec(const String& importedName, const String& localName, bool isTypeOnly = false)
-        : importedName_(importedName), localName_(localName), isTypeOnly_(isTypeOnly) {}
-    
-    const String& getImportedName() const { return importedName_; }
-    const String& getLocalName() const { return localName_; }
-    bool isTypeOnly() const { return isTypeOnly_; }
-
-private:
-    String importedName_;
-    String localName_;
-    bool isTypeOnly_;
-};
-
-class ExportSpec {
-public:
-    ExportSpec(const String& localName, const String& exportedName, bool isTypeOnly = false)
-        : localName_(localName), exportedName_(exportedName), isTypeOnly_(isTypeOnly) {}
-    
-    const String& getLocalName() const { return localName_; }
-    const String& getExportedName() const { return exportedName_; }
-    bool isTypeOnly() const { return isTypeOnly_; }
-
-private:
-    String localName_;
-    String exportedName_;
-    bool isTypeOnly_;
-};
-
-// Import/Export Clauses
-class ImportClause {
-public:
-    enum Type { Default, Named, Namespace, Mixed };
-    
-    ImportClause(Type type, const String& defaultBinding = "",
-                std::vector<ImportSpec> namedImports = {},
-                const String& namespaceBinding = "")
-        : type_(type), defaultBinding_(defaultBinding), 
-          namedImports_(std::move(namedImports)), namespaceBinding_(namespaceBinding) {}
-    
-    Type getType() const { return type_; }
-    const String& getDefaultBinding() const { return defaultBinding_; }
-    const std::vector<ImportSpec>& getNamedImports() const { return namedImports_; }
-    const String& getNamespaceBinding() const { return namespaceBinding_; }
-
-private:
-    Type type_;
-    String defaultBinding_;
-    std::vector<ImportSpec> namedImports_;
-    String namespaceBinding_;
-};
-
-class ExportClause {
-public:
-    enum Type { Named, Default, ReExport, All };
-    
-    ExportClause(Type type, std::vector<ExportSpec> namedExports = {},
-                unique_ptr<ASTNode> defaultExport = nullptr, const String& moduleSpecifier = "")
-        : type_(type), namedExports_(std::move(namedExports)), 
-          defaultExport_(std::move(defaultExport)), moduleSpecifier_(moduleSpecifier) {}
-    
-    Type getType() const { return type_; }
-    const std::vector<ExportSpec>& getNamedExports() const { return namedExports_; }
-    ASTNode* getDefaultExport() const { return defaultExport_.get(); }
-    const String& getModuleSpecifier() const { return moduleSpecifier_; }
-
-private:
-    Type type_;
-    std::vector<ExportSpec> namedExports_;
-    unique_ptr<ASTNode> defaultExport_;
-    String moduleSpecifier_;
-};
-
-// Import Declaration
-class ImportDeclaration : public Statement {
-public:
-    ImportDeclaration(ImportClause clause, const String& moduleSpecifier, 
-                     const SourceLocation& loc)
-        : clause_(std::move(clause)), moduleSpecifier_(moduleSpecifier), location_(loc) {}
+    ImportDeclaration(const String& module,
+                      std::vector<String> namedImports,
+                      const String& defaultImport,
+                      const String& namespaceImport,
+                      const SourceLocation& loc)
+        : module_(module), namedImports_(std::move(namedImports)), 
+          defaultImport_(defaultImport), namespaceImport_(namespaceImport), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
-    Kind getKind() const override { return Kind::Declaration; }
     String toString() const override;
+    String getName() const override { return module_; }
     
-    const ImportClause& getClause() const { return clause_; }
-    const String& getModuleSpecifier() const { return moduleSpecifier_; }
+    const String& getModule() const { return module_; }
+    const std::vector<String>& getNamedImports() const { return namedImports_; }
+    const String& getDefaultImport() const { return defaultImport_; }
+    const String& getNamespaceImport() const { return namespaceImport_; }
 
 private:
-    ImportClause clause_;
-    String moduleSpecifier_;
+    String module_;
+    std::vector<String> namedImports_;
+    String defaultImport_;
+    String namespaceImport_;
     SourceLocation location_;
 };
 
-// Export Declaration
-class ExportDeclaration : public Statement {
+/**
+ * @brief Export declaration
+ */
+class ExportDeclaration : public Declaration {
 public:
-    ExportDeclaration(ExportClause clause, const String& moduleSpecifier, 
-                     const SourceLocation& loc)
-        : clause_(std::move(clause)), moduleSpecifier_(moduleSpecifier), location_(loc) {}
+    ExportDeclaration(const String& name,
+                      unique_ptr<Expression> expression,
+                      const SourceLocation& loc)
+        : name_(name), expression_(std::move(expression)), location_(loc) {}
     
     void accept(ASTVisitor& visitor) override;
     SourceLocation getLocation() const override { return location_; }
-    Kind getKind() const override { return Kind::Declaration; }
     String toString() const override;
+    String getName() const override { return name_; }
     
-    const ExportClause& getClause() const { return clause_; }
-    const String& getModuleSpecifier() const { return moduleSpecifier_; }
+    Expression* getExpression() const { return expression_.get(); }
 
 private:
-    ExportClause clause_;
-    String moduleSpecifier_;
+    String name_;
+    unique_ptr<Expression> expression_;
     SourceLocation location_;
 };
 
-// Module/File AST node
+// ============================================================================
+// MODULE SYSTEM
+// ============================================================================
+
+/**
+ * @brief Module declaration
+ */
 class Module : public ASTNode {
 public:
-    Module(const String& filename, std::vector<unique_ptr<Statement>> statements)
-        : filename_(filename), statements_(std::move(statements)) {}
+    explicit Module(std::vector<unique_ptr<Statement>> statements, const String& filename = "")
+        : statements_(std::move(statements)), filename_(filename) {}
     
     void accept(ASTVisitor& visitor) override;
-    SourceLocation getLocation() const override { 
-        return SourceLocation(filename_, 1, 1); 
-    }
+    SourceLocation getLocation() const override;
     String toString() const override;
     
-    const String& getFilename() const { return filename_; }
     const std::vector<unique_ptr<Statement>>& getStatements() const { return statements_; }
+    const String& getFilename() const { return filename_; }
 
 private:
-    String filename_;
     std::vector<unique_ptr<Statement>> statements_;
+    String filename_;
 };
 
-// Visitor interface for AST traversal
+// ============================================================================
+// VISITOR INTERFACE
+// ============================================================================
+
+/**
+ * @brief Abstract visitor interface for AST traversal
+ * 
+ * Provides methods for visiting all types of AST nodes, following
+ * the visitor pattern for tree traversal and analysis.
+ */
 class ASTVisitor {
 public:
     virtual ~ASTVisitor() = default;
     
+    // Module
+    virtual void visit(Module& node) = 0;
+    
     // Expressions
     virtual void visit(NumericLiteral& node) = 0;
     virtual void visit(StringLiteral& node) = 0;
-    // virtual void visit(TemplateLiteral& node) = 0;  // TODO: Template literals
+    virtual void visit(TemplateLiteral& node) = 0;
     virtual void visit(BooleanLiteral& node) = 0;
     virtual void visit(NullLiteral& node) = 0;
     virtual void visit(Identifier& node) = 0;
     virtual void visit(ThisExpression& node) = 0;
     virtual void visit(SuperExpression& node) = 0;
-    virtual void visit(NewExpression& node) = 0;
+    virtual void visit(PropertyAccess& node) = 0;
+    virtual void visit(IndexExpression& node) = 0;
+    virtual void visit(ObjectLiteral& node) = 0;
+    virtual void visit(ArrayLiteral& node) = 0;
     virtual void visit(BinaryExpression& node) = 0;
     virtual void visit(UnaryExpression& node) = 0;
     virtual void visit(AssignmentExpression& node) = 0;
-    virtual void visit(ConditionalExpression& node) = 0;
     virtual void visit(CallExpression& node) = 0;
-    virtual void visit(ArrayLiteral& node) = 0;
-    virtual void visit(TemplateLiteral& node) = 0;
-    virtual void visit(IndexExpression& node) = 0;
-    virtual void visit(ObjectLiteral& node) = 0;
-    virtual void visit(PropertyAccess& node) = 0;
+    virtual void visit(NewExpression& node) = 0;
+    virtual void visit(ConditionalExpression& node) = 0;
     virtual void visit(ArrowFunction& node) = 0;
     virtual void visit(FunctionExpression& node) = 0;
     virtual void visit(MoveExpression& node) = 0;
-    virtual void visit(OptionalPropertyAccess& node) = 0;
-    virtual void visit(OptionalIndexAccess& node) = 0;
-    virtual void visit(OptionalCallExpr& node) = 0;
-    virtual void visit(SpreadElement& node) = 0;
-    
-    // Destructuring patterns
-    virtual void visit(DestructuringPattern& node) = 0;
-    virtual void visit(ArrayDestructuringPattern& node) = 0;
-    virtual void visit(ObjectDestructuringPattern& node) = 0;
-    virtual void visit(IdentifierPattern& node) = 0;
-    virtual void visit(DestructuringAssignment& node) = 0;
     
     // Statements
     virtual void visit(ExpressionStatement& node) = 0;
     virtual void visit(BlockStatement& node) = 0;
-    virtual void visit(ReturnStatement& node) = 0;
     virtual void visit(IfStatement& node) = 0;
     virtual void visit(WhileStatement& node) = 0;
     virtual void visit(DoWhileStatement& node) = 0;
     virtual void visit(ForStatement& node) = 0;
     virtual void visit(ForOfStatement& node) = 0;
     virtual void visit(SwitchStatement& node) = 0;
-    virtual void visit(CaseClause& node) = 0;
+    virtual void visit(TryStatement& node) = 0;
+    virtual void visit(ReturnStatement& node) = 0;
     virtual void visit(BreakStatement& node) = 0;
     virtual void visit(ContinueStatement& node) = 0;
-    virtual void visit(TryStatement& node) = 0;
-    virtual void visit(CatchClause& node) = 0;
     virtual void visit(ThrowStatement& node) = 0;
+    
+    // Declarations
     virtual void visit(VariableDeclaration& node) = 0;
     virtual void visit(FunctionDeclaration& node) = 0;
-    virtual void visit(TypeParameter& node) = 0;
-    
-    // Class-related declarations
-    virtual void visit(PropertyDeclaration& node) = 0;
-    virtual void visit(MethodDeclaration& node) = 0;
-    virtual void visit(DestructorDeclaration& node) = 0;
     virtual void visit(ClassDeclaration& node) = 0;
+    virtual void visit(TypeParameter& node) = 0;
     virtual void visit(InterfaceDeclaration& node) = 0;
-    virtual void visit(EnumMember& node) = 0;
     virtual void visit(EnumDeclaration& node) = 0;
     virtual void visit(TypeAliasDeclaration& node) = 0;
-    
-    // Module
-    virtual void visit(Module& node) = 0;
-    
-    // Import/Export declarations
     virtual void visit(ImportDeclaration& node) = 0;
     virtual void visit(ExportDeclaration& node) = 0;
+    
+    // Additional AST node types
+    virtual void visit(DestructorDeclaration& node) = 0;
+    virtual void visit(OptionalPropertyAccess& node) = 0;
+    virtual void visit(OptionalIndexAccess& node) = 0;
+    virtual void visit(OptionalCallExpr& node) = 0;
+    virtual void visit(SpreadElement& node) = 0;
+    virtual void visit(DestructuringPattern& node) = 0;
+    virtual void visit(ArrayDestructuringPattern& node) = 0;
+    virtual void visit(ObjectDestructuringPattern& node) = 0;
+    virtual void visit(IdentifierPattern& node) = 0;
+    virtual void visit(DestructuringAssignment& node) = 0;
+    
+    // Standalone classes (formerly nested structs)
+    virtual void visit(CaseClause& node) = 0;
+    virtual void visit(CatchClause& node) = 0;
+    virtual void visit(MethodDeclaration& node) = 0;
+    virtual void visit(EnumMember& node) = 0;
 };
 
 } // namespace tsc

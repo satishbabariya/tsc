@@ -1,11 +1,27 @@
+/**
+ * @file AST.cpp
+ * @brief Implementation of Abstract Syntax Tree nodes
+ * @author TSC Compiler Team
+ * @version 1.0
+ * 
+ * This file provides the implementation for all AST node classes,
+ * including visitor pattern support and utility methods.
+ */
+
 #include "tsc/AST.h"
 #include "tsc/semantic/TypeSystem.h"
 #include "tsc/semantic/SymbolTable.h"
+
 #include <sstream>
+#include <algorithm>
 
 namespace tsc {
 
-// NumericLiteral implementation
+// ============================================================================
+// LITERAL EXPRESSIONS IMPLEMENTATION
+// ============================================================================
+
+// NumericLiteral
 void NumericLiteral::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
@@ -14,7 +30,7 @@ String NumericLiteral::toString() const {
     return std::to_string(value_);
 }
 
-// StringLiteral implementation
+// StringLiteral
 void StringLiteral::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
@@ -23,16 +39,16 @@ String StringLiteral::toString() const {
     return "\"" + value_ + "\"";
 }
 
-// TemplateLiteral implementation
+// TemplateLiteral
 void TemplateLiteral::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String TemplateLiteral::toString() const {
-    std::stringstream ss;
+    std::ostringstream ss;
     ss << "`";
     for (const auto& element : elements_) {
-        if (element.isExpression()) {
+        if (element.isExpressionElement()) {
             ss << "${" << element.getExpression()->toString() << "}";
         } else {
             ss << element.getText();
@@ -42,7 +58,15 @@ String TemplateLiteral::toString() const {
     return ss.str();
 }
 
-// BooleanLiteral implementation
+bool TemplateLiteral::isConstant() const {
+    return std::all_of(elements_.begin(), elements_.end(),
+        [](const Element& element) {
+            return !element.isExpressionElement() || 
+                   element.getExpression()->isConstant();
+        });
+}
+
+// BooleanLiteral
 void BooleanLiteral::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
@@ -51,249 +75,47 @@ String BooleanLiteral::toString() const {
     return value_ ? "true" : "false";
 }
 
-// NullLiteral implementation
+// NullLiteral
 void NullLiteral::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
-// ExpressionStatement implementation
-void ExpressionStatement::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
+String NullLiteral::toString() const {
+    return "null";
 }
 
-String ExpressionStatement::toString() const {
-    return expression_->toString() + ";";
-}
+// ============================================================================
+// IDENTIFIER AND PROPERTY ACCESS IMPLEMENTATION
+// ============================================================================
 
-// Identifier implementation
+// Identifier
 void Identifier::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
-// ThisExpression implementation
+String Identifier::toString() const {
+    return name_;
+}
+
+// ThisExpression
 void ThisExpression::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
-// SuperExpression implementation
+String ThisExpression::toString() const {
+    return "this";
+}
+
+// SuperExpression
 void SuperExpression::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
-// NewExpression implementation
-void NewExpression::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
+String SuperExpression::toString() const {
+    return "super";
 }
 
-String NewExpression::toString() const {
-    String result = "new " + constructor_->toString() + "(";
-    for (size_t i = 0; i < arguments_.size(); ++i) {
-        if (i > 0) result += ", ";
-        result += arguments_[i]->toString();
-    }
-    result += ")";
-    return result;
-}
-
-// BinaryExpression implementation
-void BinaryExpression::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String BinaryExpression::toString() const {
-    std::stringstream ss;
-    ss << "(" << left_->toString();
-    
-    switch (operator_) {
-        case Operator::Add: ss << " + "; break;
-        case Operator::Subtract: ss << " - "; break;
-        case Operator::Multiply: ss << " * "; break;
-        case Operator::Divide: ss << " / "; break;
-        case Operator::Modulo: ss << " % "; break;
-        case Operator::Power: ss << " ** "; break;
-        case Operator::Equal: ss << " == "; break;
-        case Operator::NotEqual: ss << " != "; break;
-        case Operator::StrictEqual: ss << " === "; break;
-        case Operator::StrictNotEqual: ss << " !== "; break;
-        case Operator::Less: ss << " < "; break;
-        case Operator::Greater: ss << " > "; break;
-        case Operator::LessEqual: ss << " <= "; break;
-        case Operator::GreaterEqual: ss << " >= "; break;
-        case Operator::LogicalAnd: ss << " && "; break;
-        case Operator::LogicalOr: ss << " || "; break;
-        case Operator::NullishCoalescing: ss << " ?? "; break;
-        case Operator::BitwiseAnd: ss << " & "; break;
-        case Operator::BitwiseOr: ss << " | "; break;
-        case Operator::BitwiseXor: ss << " ^ "; break;
-        case Operator::LeftShift: ss << " << "; break;
-        case Operator::RightShift: ss << " >> "; break;
-        case Operator::UnsignedRightShift: ss << " >>> "; break;
-        case Operator::In: ss << " in "; break;
-        case Operator::Instanceof: ss << " instanceof "; break;
-        case Operator::As: ss << " as "; break;
-        case Operator::Satisfies: ss << " satisfies "; break;
-    }
-    
-    ss << right_->toString() << ")";
-    return ss.str();
-}
-
-// UnaryExpression implementation
-void UnaryExpression::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String UnaryExpression::toString() const {
-    std::stringstream ss;
-    
-    if (prefix_) {
-        switch (operator_) {
-            case Operator::Plus: ss << "+"; break;
-            case Operator::Minus: ss << "-"; break;
-            case Operator::BitwiseNot: ss << "~"; break;
-            case Operator::LogicalNot: ss << "!"; break;
-            case Operator::PreIncrement: ss << "++"; break;
-            case Operator::PreDecrement: ss << "--"; break;
-            case Operator::Typeof: ss << "typeof "; break;
-            case Operator::Delete: ss << "delete "; break;
-            case Operator::Void: ss << "void "; break;
-            case Operator::Await: ss << "await "; break;
-            default: break;
-        }
-        ss << operand_->toString();
-        
-        if (operator_ == Operator::PostIncrement) ss << "++";
-        if (operator_ == Operator::PostDecrement) ss << "--";
-    } else {
-        ss << operand_->toString();
-        if (operator_ == Operator::PostIncrement) ss << "++";
-        if (operator_ == Operator::PostDecrement) ss << "--";
-    }
-    
-    return ss.str();
-}
-
-// AssignmentExpression implementation
-void AssignmentExpression::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String AssignmentExpression::toString() const {
-    std::stringstream ss;
-    ss << left_->toString();
-    
-    switch (operator_) {
-        case Operator::Assign: ss << " = "; break;
-        case Operator::AddAssign: ss << " += "; break;
-        case Operator::SubtractAssign: ss << " -= "; break;
-        case Operator::MultiplyAssign: ss << " *= "; break;
-        case Operator::DivideAssign: ss << " /= "; break;
-        case Operator::ModuloAssign: ss << " %= "; break;
-        case Operator::LeftShiftAssign: ss << " <<= "; break;
-        case Operator::RightShiftAssign: ss << " >>= "; break;
-        case Operator::UnsignedRightShiftAssign: ss << " >>>= "; break;
-        case Operator::BitwiseAndAssign: ss << " &= "; break;
-        case Operator::BitwiseOrAssign: ss << " |= "; break;
-        case Operator::BitwiseXorAssign: ss << " ^= "; break;
-        case Operator::PowerAssign: ss << " **= "; break;
-        case Operator::NullishCoalescingAssign: ss << " ??= "; break;
-        case Operator::LogicalAndAssign: ss << " &&= "; break;
-        case Operator::LogicalOrAssign: ss << " ||= "; break;
-    }
-    
-    ss << right_->toString();
-    return ss.str();
-}
-
-// ConditionalExpression implementation
-void ConditionalExpression::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String ConditionalExpression::toString() const {
-    std::stringstream ss;
-    ss << condition_->toString() << " ? " 
-       << trueExpr_->toString() << " : " 
-       << falseExpr_->toString();
-    return ss.str();
-}
-
-// CallExpression implementation
-void CallExpression::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String CallExpression::toString() const {
-    std::stringstream ss;
-    ss << callee_->toString();
-    
-    // Add type arguments if present
-    if (!typeArguments_.empty()) {
-        ss << "<";
-        for (size_t i = 0; i < typeArguments_.size(); ++i) {
-            if (i > 0) ss << ", ";
-            ss << typeArguments_[i]->toString();
-        }
-        ss << ">";
-    }
-    
-    ss << "(";
-    
-    for (size_t i = 0; i < arguments_.size(); ++i) {
-        if (i > 0) ss << ", ";
-        ss << arguments_[i]->toString();
-    }
-    
-    ss << ")";
-    return ss.str();
-}
-
-// ArrayLiteral implementation
-void ArrayLiteral::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String ArrayLiteral::toString() const {
-    std::stringstream ss;
-    ss << "[";
-    
-    for (size_t i = 0; i < elements_.size(); ++i) {
-        if (i > 0) ss << ", ";
-        ss << elements_[i]->toString();
-    }
-    
-    ss << "]";
-    return ss.str();
-}
-
-// IndexExpression implementation
-void IndexExpression::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String IndexExpression::toString() const {
-    return object_->toString() + "[" + index_->toString() + "]";
-}
-
-// ObjectLiteral implementation
-void ObjectLiteral::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String ObjectLiteral::toString() const {
-    std::stringstream ss;
-    ss << "{";
-    
-    for (size_t i = 0; i < properties_.size(); ++i) {
-        if (i > 0) ss << ", ";
-        ss << properties_[i].getKey() << ": " << properties_[i].getValue()->toString();
-    }
-    
-    ss << "}";
-    return ss.str();
-}
-
-// PropertyAccess implementation
+// PropertyAccess
 void PropertyAccess::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
@@ -302,230 +124,342 @@ String PropertyAccess::toString() const {
     return object_->toString() + "." + property_;
 }
 
+// IndexExpression
+void IndexExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String IndexExpression::toString() const {
+    return object_->toString() + "[" + index_->toString() + "]";
+}
+
+// ============================================================================
+// OBJECT AND ARRAY LITERALS IMPLEMENTATION
+// ============================================================================
+
+// ObjectLiteral
+void ObjectLiteral::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ObjectLiteral::toString() const {
+    std::ostringstream ss;
+    ss << "{";
+    for (Size i = 0; i < properties_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        const auto& prop = properties_[i];
+        if (prop.isComputed) {
+            ss << "[" << prop.name << "]";
+        } else {
+            ss << prop.name;
+        }
+        ss << ": " << prop.value->toString();
+    }
+    ss << "}";
+    return ss.str();
+}
+
+// ArrayLiteral
+void ArrayLiteral::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ArrayLiteral::toString() const {
+    std::ostringstream ss;
+    ss << "[";
+    for (Size i = 0; i < elements_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << elements_[i]->toString();
+    }
+    ss << "]";
+    return ss.str();
+}
+
+// ============================================================================
+// BINARY AND UNARY EXPRESSIONS IMPLEMENTATION
+// ============================================================================
+
+// BinaryExpression
+void BinaryExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String BinaryExpression::toString() const {
+    return left_->toString() + " " + toString(operator_) + " " + right_->toString();
+}
+
+// UnaryExpression
+void UnaryExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String UnaryExpression::toString() const {
+    return toString(operator_) + operand_->toString();
+}
+
+// AssignmentExpression
+void AssignmentExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String AssignmentExpression::toString() const {
+    return left_->toString() + " " + toString(operator_) + " " + right_->toString();
+}
+
+// ============================================================================
+// FUNCTION CALLS IMPLEMENTATION
+// ============================================================================
+
+// CallExpression
+void CallExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String CallExpression::toString() const {
+    std::ostringstream ss;
+    ss << callee_->toString() << "(";
+    for (Size i = 0; i < arguments_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << arguments_[i]->toString();
+    }
+    ss << ")";
+    return ss.str();
+}
+
+// NewExpression
+void NewExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String NewExpression::toString() const {
+    std::ostringstream ss;
+    ss << "new " << constructor_->toString() << "(";
+    for (Size i = 0; i < arguments_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << arguments_[i]->toString();
+    }
+    ss << ")";
+    return ss.str();
+}
+
+// ============================================================================
+// CONDITIONAL EXPRESSIONS IMPLEMENTATION
+// ============================================================================
+
+// ConditionalExpression
+void ConditionalExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ConditionalExpression::toString() const {
+    return condition_->toString() + " ? " + 
+           trueExpr_->toString() + " : " + 
+           falseExpr_->toString();
+}
+
+// ============================================================================
+// FUNCTION EXPRESSIONS IMPLEMENTATION
+// ============================================================================
+
+// ArrowFunction
 void ArrowFunction::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String ArrowFunction::toString() const {
-    std::ostringstream oss;
-    
-    if (parameters_.size() == 1 && !parameters_[0].type) {
-        // Single parameter without type: param => body
-        oss << parameters_[0].name;
-    } else {
-        // Multiple parameters or typed parameters: (param1, param2) => body
-        oss << "(";
-        for (size_t i = 0; i < parameters_.size(); ++i) {
-            if (i > 0) oss << ", ";
-            oss << parameters_[i].name;
-            if (parameters_[i].type) {
-                oss << ": " << parameters_[i].type->toString();
-            }
+    std::ostringstream ss;
+    ss << "(";
+    for (Size i = 0; i < parameters_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        const auto& param = parameters_[i];
+        ss << param.name;
+        if (param.type) {
+            ss << ": " << param.type->toString();
         }
-        oss << ")";
+        if (param.defaultValue) {
+            ss << " = " << param.defaultValue->toString();
+        }
     }
-    
-    oss << " => ";
-    
-    // For now, simplified body representation
-    if (body_) {
-        oss << "{ /* body */ }";
-    }
-    
-    return oss.str();
+    ss << ") => " << body_->toString();
+    return ss.str();
 }
 
-// BlockStatement implementation
+// FunctionExpression
+void FunctionExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String FunctionExpression::toString() const {
+    std::ostringstream ss;
+    ss << "function " << name_ << "(";
+    for (Size i = 0; i < parameters_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        const auto& param = parameters_[i];
+        ss << param.name;
+        if (param.type) {
+            ss << ": " << param.type->toString();
+        }
+        if (param.defaultValue) {
+            ss << " = " << param.defaultValue->toString();
+        }
+    }
+    ss << ")";
+    if (returnType_) {
+        ss << ": " << returnType_->toString();
+    }
+    ss << " " << body_->toString();
+    return ss.str();
+}
+
+// MoveExpression
+void MoveExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String MoveExpression::toString() const {
+    return "move(" + operand_->toString() + ")";
+}
+
+// ============================================================================
+// STATEMENTS IMPLEMENTATION
+// ============================================================================
+
+// ExpressionStatement
+void ExpressionStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ExpressionStatement::toString() const {
+    return expression_->toString() + ";";
+}
+
+// BlockStatement
 void BlockStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String BlockStatement::toString() const {
-    std::stringstream ss;
+    std::ostringstream ss;
     ss << "{\n";
-    
     for (const auto& stmt : statements_) {
-        ss << " + " << stmt->toString() << "\n";
+        ss << "  " << stmt->toString() << "\n";
     }
-    
     ss << "}";
     return ss.str();
 }
 
-// ReturnStatement implementation
-void ReturnStatement::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
+// ============================================================================
+// CONTROL FLOW STATEMENTS IMPLEMENTATION
+// ============================================================================
 
-String ReturnStatement::toString() const {
-    std::stringstream ss;
-    ss << "return";
-    
-    if (value_) {
-        ss << " + " << value_->toString();
-    }
-    
-    ss << ";";
-    return ss.str();
-}
-
-// IfStatement implementation
+// IfStatement
 void IfStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String IfStatement::toString() const {
-    std::stringstream ss;
-    ss << "if (" << condition_->toString() << ") ";
-    
-    if (auto block = dynamic_cast<BlockStatement*>(thenStatement_.get())) {
-        ss << block->toString();
-    } else {
-        ss << "{\n  " << thenStatement_->toString() << "\n}";
+    std::ostringstream ss;
+    ss << "if (" << condition_->toString() << ") " << thenStmt_->toString();
+    if (elseStmt_) {
+        ss << " else " << elseStmt_->toString();
     }
-    
-    if (elseStatement_) {
-        ss << " else ";
-        if (auto block = dynamic_cast<BlockStatement*>(elseStatement_.get())) {
-            ss << block->toString();
-        } else {
-            ss << "{\n  " << elseStatement_->toString() << "\n}";
-        }
-    }
-    
     return ss.str();
 }
 
-// WhileStatement implementation
+// WhileStatement
 void WhileStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String WhileStatement::toString() const {
-    std::stringstream ss;
-    ss << "while (" << condition_->toString() << ") ";
-    
-    if (auto block = dynamic_cast<BlockStatement*>(body_.get())) {
-        ss << block->toString();
-    } else {
-        ss << "{\n  " << body_->toString() << "\n}";
-    }
-    
-    return ss.str();
+    return "while (" + condition_->toString() + ") " + body_->toString();
 }
 
-// DoWhileStatement implementation
+// DoWhileStatement
 void DoWhileStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String DoWhileStatement::toString() const {
-    std::stringstream ss;
-    ss << "do ";
-    
-    if (auto block = dynamic_cast<BlockStatement*>(body_.get())) {
-        ss << block->toString();
-    } else {
-        ss << "{\n  " << body_->toString() << "\n}";
-    }
-    
-    ss << " while (" << condition_->toString() << ");";
-    
-    return ss.str();
+    return "do " + body_->toString() + " while (" + condition_->toString() + ")";
 }
 
-// ForStatement implementation
+// ForStatement
 void ForStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String ForStatement::toString() const {
-    std::stringstream ss;
+    std::ostringstream ss;
     ss << "for (";
-    
-    if (init_) {
-        ss << init_->toString();
-        // Remove trailing semicolon if present for cleaner output
-        String initStr = init_->toString();
-        if (!initStr.empty() && initStr.back() != ';') {
-            ss << ";";
-        }
-    } else {
-        ss << ";";
-    }
-    
-    ss << " + ";
-    if (condition_) {
-        ss << condition_->toString();
-    }
-    ss << ";";
-    
-    ss << " + ";
-    if (increment_) {
-        ss << increment_->toString();
-    }
-    
-    ss << ") ";
-    
-    if (auto block = dynamic_cast<BlockStatement*>(body_.get())) {
-        ss << block->toString();
-    } else {
-        ss << "{\n  " << body_->toString() << "\n}";
-    }
-    
+    if (init_) ss << init_->toString();
+    ss << "; ";
+    if (condition_) ss << condition_->toString();
+    ss << "; ";
+    if (update_) ss << update_->toString();
+    ss << ") " << body_->toString();
     return ss.str();
 }
 
-// CaseClause implementation
-void CaseClause::accept(ASTVisitor& visitor) {
+// ForOfStatement
+void ForOfStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
-String CaseClause::toString() const {
-    std::stringstream ss;
-    
-    if (isDefault()) {
-        ss << "default:";
-    } else {
-        ss << "case " << test_->toString() << ":";
-    }
-    
-    if (!statements_.empty()) {
-        ss << "\n";
-        for (const auto& stmt : statements_) {
-            ss << " + " << stmt->toString() << "\n";
-        }
-    }
-    
-    return ss.str();
+String ForOfStatement::toString() const {
+    return "for (" + variable_->toString() + " of " + 
+           iterable_->toString() + ") " + body_->toString();
 }
 
-// SwitchStatement implementation
+// SwitchStatement
 void SwitchStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String SwitchStatement::toString() const {
-    std::stringstream ss;
-    ss << "switch (" << discriminant_->toString() << ") {\n";
-    
+    std::ostringstream ss;
+    ss << "switch (" << expression_->toString() << ") {\n";
     for (const auto& caseClause : cases_) {
-        String caseStr = caseClause->toString();
-        // Add indentation to each line
-        std::istringstream iss(caseStr);
-        std::string line;
-        while (std::getline(iss, line)) {
-            if (!line.empty()) {
-                ss << " + " << line << "\n";
-            }
-        }
+        ss << "  " << caseClause->toString() << "\n";
     }
-    
     ss << "}";
     return ss.str();
 }
 
-// BreakStatement implementation
+// TryStatement
+void TryStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String TryStatement::toString() const {
+    std::ostringstream ss;
+    ss << "try " << tryBlock_->toString();
+    for (const auto& catchClause : catchClauses_) {
+        ss << " " << catchClause->toString();
+    }
+    if (finallyBlock_) {
+        ss << " finally " << finallyBlock_->toString();
+    }
+    return ss.str();
+}
+
+// ============================================================================
+// JUMP STATEMENTS IMPLEMENTATION
+// ============================================================================
+
+// ReturnStatement
+void ReturnStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ReturnStatement::toString() const {
+    if (expression_) {
+        return "return " + expression_->toString() + ";";
+    }
+    return "return;";
+}
+
+// BreakStatement
 void BreakStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
@@ -534,7 +468,7 @@ String BreakStatement::toString() const {
     return "break;";
 }
 
-// ContinueStatement implementation
+// ContinueStatement
 void ContinueStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
@@ -543,44 +477,7 @@ String ContinueStatement::toString() const {
     return "continue;";
 }
 
-// TryStatement implementation
-void TryStatement::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String TryStatement::toString() const {
-    std::stringstream ss;
-    ss << "try " << tryBlock_->toString();
-    
-    if (hasCatch()) {
-        ss << " + " << catchClause_->toString();
-    }
-    
-    if (hasFinally()) {
-        ss << " finally " << finallyBlock_->toString();
-    }
-    
-    return ss.str();
-}
-
-// CatchClause implementation
-void CatchClause::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String CatchClause::toString() const {
-    std::stringstream ss;
-    ss << "catch";
-    
-    if (hasParameter()) {
-        ss << " (" << parameter_ << ")";
-    }
-    
-    ss << " + " << body_->toString();
-    return ss.str();
-}
-
-// ThrowStatement implementation
+// ThrowStatement
 void ThrowStatement::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
@@ -589,532 +486,435 @@ String ThrowStatement::toString() const {
     return "throw " + expression_->toString() + ";";
 }
 
-// VariableDeclaration implementation
+// ============================================================================
+// DECLARATIONS IMPLEMENTATION
+// ============================================================================
+
+// VariableDeclaration
 void VariableDeclaration::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String VariableDeclaration::toString() const {
-    std::stringstream ss;
-    
-    switch (kind_) {
-        case Kind::Var: ss << "var "; break;
-        case Kind::Let: ss << "let "; break;
-        case Kind::Const: ss << "const "; break;
+    std::ostringstream ss;
+    ss << "let ";
+    for (Size i = 0; i < variables_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        const auto& var = variables_[i];
+        ss << var.name;
+        if (var.type) {
+            ss << ": " << var.type->toString();
+        }
+        if (var.initializer) {
+            ss << " = " << var.initializer->toString();
+        }
     }
-    
-    ss << name_;
-    
-    if (typeAnnotation_) {
-        ss << ": <type>"; // Type system not yet integrated
-    }
-    
-    if (initializer_) {
-        ss << " = " << initializer_->toString();
-    }
-    
     ss << ";";
     return ss.str();
 }
 
-// TypeParameter implementation
-void TypeParameter::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
+String VariableDeclaration::getName() const {
+    if (variables_.empty()) return "";
+    return variables_[0].name;
 }
 
-String TypeParameter::toString() const {
-    return name_ + (constraint_ ? " extends " + constraint_->toString() : " + ");
-}
-
-// FunctionDeclaration implementation
+// FunctionDeclaration
 void FunctionDeclaration::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String FunctionDeclaration::toString() const {
-    std::stringstream ss;
-    
-    if (async_) ss << "async ";
-    ss << "function";
-    if (generator_) ss << "*";
-    if (captured_) ss << " [captured]";
-    ss << " + " << name_;
-    
-    // Add type parameters
-    if (!typeParameters_.empty()) {
-        ss << "<";
-        for (size_t i = 0; i < typeParameters_.size(); ++i) {
-            if (i > 0) ss << ", ";
-            ss << typeParameters_[i]->toString();
-        }
-        ss << ">";
-    }
-    
-    ss << "(";
-    
-    for (size_t i = 0; i < parameters_.size(); ++i) {
+    std::ostringstream ss;
+    ss << "function " << name_ << "(";
+    for (Size i = 0; i < parameters_.size(); ++i) {
         if (i > 0) ss << ", ";
         const auto& param = parameters_[i];
-        if (param.rest) ss << "...";
         ss << param.name;
-        if (param.optional) ss << "?";
-        if (param.type) ss << ": <type>";
-        if (param.defaultValue) ss << " = " << param.defaultValue->toString();
+        if (param.type) {
+            ss << ": " << param.type->toString();
+        }
+        if (param.defaultValue) {
+            ss << " = " << param.defaultValue->toString();
+        }
     }
-    
     ss << ")";
-    
     if (returnType_) {
-        ss << ": <type>";
+        ss << ": " << returnType_->toString();
     }
-    
-    if (body_) {
-        ss << " + " << body_->toString();
-    } else {
-        ss << ";";
-    }
-    
-    // Add captured variables information
-    if (!capturedVariables_.empty()) {
-        ss << " [captures: ";
-        for (size_t i = 0; i < capturedVariables_.size(); ++i) {
-            if (i > 0) ss << ", ";
-            ss << capturedVariables_[i]->getName();
-        }
-        ss << "]";
-    }
-    
+    ss << " " << body_->toString();
     return ss.str();
 }
 
-// Module implementation
-void Module::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String Module::toString() const {
-    std::stringstream ss;
-    ss << "// Module: " << filename_ << "\n";
-    
-    for (const auto& stmt : statements_) {
-        ss << stmt->toString() << "\n";
-    }
-    
-    return ss.str();
-}
-
-// PropertyDeclaration implementation
-void PropertyDeclaration::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String PropertyDeclaration::toString() const {
-    std::ostringstream oss;
-    if (isPrivate_) oss << "private ";
-    if (isProtected_) oss << "protected ";
-    if (isStatic_) oss << "static ";
-    if (isReadonly_) oss << "readonly ";
-    oss << name_;
-    if (type_) {
-        oss << ": " << type_->toString();
-    }
-    if (initializer_) {
-        oss << " = " << initializer_->toString();
-    }
-    return oss.str();
-}
-
-// MethodDeclaration implementation
-void MethodDeclaration::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String MethodDeclaration::toString() const {
-    std::ostringstream oss;
-    if (isPrivate_) oss << "private ";
-    if (isProtected_) oss << "protected ";
-    if (isStatic_) oss << "static ";
-    if (isAbstract_) oss << "abstract ";
-    if (isAsync_) oss << "async ";
-    
-    oss << name_ << "(";
-    for (size_t i = 0; i < parameters_.size(); ++i) {
-        if (i > 0) oss << ", ";
-        oss << parameters_[i].name;
-        if (parameters_[i].type) {
-            oss << ": " << parameters_[i].type->toString();
-        }
-        if (parameters_[i].optional) oss << "?";
-        if (parameters_[i].rest) oss << "...";
-    }
-    oss << ")";
-    
-    if (returnType_) {
-        oss << ": " << returnType_->toString();
-    }
-    
-    if (body_) {
-        oss << " { /* method body */ }";
-    } else {
-        oss << ";";
-    }
-    
-    return oss.str();
-}
-
-// DestructorDeclaration implementation
-void DestructorDeclaration::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String DestructorDeclaration::toString() const {
-    std::ostringstream oss;
-    oss << "~" << className_ << "()";
-    
-    if (body_) {
-        oss << " { /* destructor body */ }";
-    } else {
-        oss << ";";
-    }
-    
-    return oss.str();
-}
-
-// ClassDeclaration implementation
+// ClassDeclaration
 void ClassDeclaration::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String ClassDeclaration::toString() const {
-    std::ostringstream oss;
-    if (isAbstract_) oss << "abstract ";
-    oss << "class " << name_;
-    
-    if (baseClass_) {
-        oss << " extends " << baseClass_->toString();
+    std::ostringstream ss;
+    ss << "class " << name_;
+    if (superClass_) {
+        ss << " extends " << superClass_->toString();
     }
+    ss << " {\n";
     
-    if (!interfaces_.empty()) {
-        oss << " implements ";
-        for (size_t i = 0; i < interfaces_.size(); ++i) {
-            if (i > 0) oss << ", ";
-            oss << interfaces_[i]->toString();
-        }
-    }
-    
-    oss << " {\n";
-    
-    // Constructor
-    if (constructor_) {
-        oss << "  constructor" << constructor_->toString().substr(constructor_->getName().length()) << "\n";
-    }
-    
-    // Properties
     for (const auto& prop : properties_) {
-        oss << " + " << prop->toString() << ";\n";
+        ss << "  " << prop.name;
+        if (prop.type) {
+            ss << ": " << prop.type->toString();
+        }
+        if (prop.initializer) {
+            ss << " = " << prop.initializer->toString();
+        }
+        ss << ";\n";
     }
     
-    // Methods
     for (const auto& method : methods_) {
-        oss << " + " << method->toString() << "\n";
+        ss << "  " << method->toString() << "\n";
     }
     
-    // Destructor
-    if (destructor_) {
-        oss << " + " << destructor_->toString() << "\n";
-    }
-    
-    oss << "}";
-    return oss.str();
+    ss << "}";
+    return ss.str();
 }
 
-// InterfaceDeclaration implementation
+// ============================================================================
+// ADDITIONAL DECLARATIONS IMPLEMENTATION
+// ============================================================================
+
+// TypeParameter
+void TypeParameter::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String TypeParameter::toString() const {
+    std::ostringstream ss;
+    ss << name_;
+    if (constraint_) {
+        ss << " extends " << constraint_->toString();
+    }
+    if (defaultType_) {
+        ss << " = " << defaultType_->toString();
+    }
+    return ss.str();
+}
+
+// InterfaceDeclaration
 void InterfaceDeclaration::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String InterfaceDeclaration::toString() const {
-    std::ostringstream oss;
-    oss << "interface " << name_;
-    
+    std::ostringstream ss;
+    ss << "interface " << name_;
     if (!extends_.empty()) {
-        oss << " extends ";
-        for (size_t i = 0; i < extends_.size(); ++i) {
-            if (i > 0) oss << ", ";
-            oss << extends_[i]->toString();
+        ss << " extends ";
+        for (Size i = 0; i < extends_.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << extends_[i]->toString();
         }
     }
+    ss << " {\n";
     
-    oss << " {\n";
-    
-    // Properties
     for (const auto& prop : properties_) {
-        oss << " + " << prop->toString() << ";\n";
+        ss << "  " << prop->toString() << ";\n";
     }
     
-    // Methods (interfaces only have method signatures)
     for (const auto& method : methods_) {
-        oss << " + " << method->toString() << ";\n";
+        ss << "  " << method->toString() << ";\n";
     }
     
-    oss << "}";
-    return oss.str();
+    ss << "}";
+    return ss.str();
 }
 
-// EnumMember implementation
+// EnumDeclaration
+void EnumDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String EnumDeclaration::toString() const {
+    std::ostringstream ss;
+    ss << "enum " << name_ << " {\n";
+    for (Size i = 0; i < members_.size(); ++i) {
+        if (i > 0) ss << ",\n";
+        ss << "  " << members_[i]->toString();
+    }
+    ss << "\n}";
+    return ss.str();
+}
+
+// TypeAliasDeclaration
+void TypeAliasDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String TypeAliasDeclaration::toString() const {
+    std::ostringstream ss;
+    ss << "type " << name_;
+    if (!typeParameters_.empty()) {
+        ss << "<";
+        for (Size i = 0; i < typeParameters_.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << typeParameters_[i].toString();
+        }
+        ss << ">";
+    }
+    ss << " = " << type_->toString();
+    return ss.str();
+}
+
+// ImportDeclaration
+void ImportDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ImportDeclaration::toString() const {
+    std::ostringstream ss;
+    ss << "import ";
+    if (!defaultImport_.empty()) {
+        ss << defaultImport_;
+    }
+    if (!namedImports_.empty()) {
+        if (!defaultImport_.empty()) ss << ", ";
+        ss << "{ ";
+        for (Size i = 0; i < namedImports_.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << namedImports_[i];
+        }
+        ss << " }";
+    }
+    if (!namespaceImport_.empty()) {
+        if (!defaultImport_.empty() || !namedImports_.empty()) ss << ", ";
+        ss << "* as " << namespaceImport_;
+    }
+    ss << " from \"" << module_ << "\"";
+    return ss.str();
+}
+
+// ExportDeclaration
+void ExportDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ExportDeclaration::toString() const {
+    std::ostringstream ss;
+    ss << "export ";
+    if (!name_.empty()) {
+        ss << "{ " << name_ << " }";
+    } else if (expression_) {
+        ss << expression_->toString();
+    }
+    return ss.str();
+}
+
+// ============================================================================
+// ADDITIONAL AST NODE IMPLEMENTATIONS
+// ============================================================================
+
+// DestructorDeclaration
+void DestructorDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String DestructorDeclaration::toString() const {
+    return "~" + name_ + "()";
+}
+
+// OptionalPropertyAccess
+void OptionalPropertyAccess::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String OptionalPropertyAccess::toString() const {
+    return object_->toString() + "?." + property_;
+}
+
+// OptionalIndexAccess
+void OptionalIndexAccess::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String OptionalIndexAccess::toString() const {
+    return object_->toString() + "?[" + index_->toString() + "]";
+}
+
+// OptionalCallExpr
+void OptionalCallExpr::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String OptionalCallExpr::toString() const {
+    std::ostringstream ss;
+    ss << callee_->toString() << "?(";
+    for (Size i = 0; i < arguments_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << arguments_[i]->toString();
+    }
+    ss << ")";
+    return ss.str();
+}
+
+// SpreadElement
+void SpreadElement::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String SpreadElement::toString() const {
+    return "..." + expression_->toString();
+}
+
+// DestructuringPattern
+void DestructuringPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// ArrayDestructuringPattern
+void ArrayDestructuringPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ArrayDestructuringPattern::toString() const {
+    std::ostringstream ss;
+    ss << "[";
+    for (Size i = 0; i < elements_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << elements_[i]->toString();
+    }
+    ss << "]";
+    return ss.str();
+}
+
+// ObjectDestructuringPattern
+void ObjectDestructuringPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String ObjectDestructuringPattern::toString() const {
+    std::ostringstream ss;
+    ss << "{";
+    for (Size i = 0; i < properties_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        const auto& prop = properties_[i];
+        if (prop.isShorthand) {
+            ss << prop.name;
+        } else {
+            ss << prop.name << ": " << prop.value->toString();
+        }
+    }
+    ss << "}";
+    return ss.str();
+}
+
+// IdentifierPattern
+void IdentifierPattern::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String IdentifierPattern::toString() const {
+    return name_;
+}
+
+// DestructuringAssignment
+void DestructuringAssignment::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String DestructuringAssignment::toString() const {
+    return left_->toString() + " = " + right_->toString();
+}
+
+// ============================================================================
+// STANDALONE CLASS IMPLEMENTATIONS (formerly nested structs)
+// ============================================================================
+
+// CaseClause
+void CaseClause::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String CaseClause::toString() const {
+    std::ostringstream ss;
+    if (isDefault_) {
+        ss << "default:";
+    } else {
+        ss << "case " << expression_->toString() << ":";
+    }
+    for (const auto& stmt : statements_) {
+        ss << "\n  " << stmt->toString();
+    }
+    return ss.str();
+}
+
+// CatchClause
+void CatchClause::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String CatchClause::toString() const {
+    return "catch (" + parameter_ + ") " + body_->toString();
+}
+
+// MethodDeclaration
+void MethodDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+String MethodDeclaration::toString() const {
+    std::ostringstream ss;
+    ss << name_ << "(";
+    for (Size i = 0; i < parameters_.size(); ++i) {
+        if (i > 0) ss << ", ";
+        const auto& param = parameters_[i];
+        ss << param.name;
+        if (param.type) {
+            ss << ": " << param.type->toString();
+        }
+        if (param.defaultValue) {
+            ss << " = " << param.defaultValue->toString();
+        }
+    }
+    ss << ")";
+    if (returnType_) {
+        ss << ": " << returnType_->toString();
+    }
+    return ss.str();
+}
+
+// EnumMember
 void EnumMember::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
 String EnumMember::toString() const {
-    if (hasValue()) {
+    if (value_) {
         return name_ + " = " + value_->toString();
     } else {
         return name_;
     }
 }
 
-// EnumDeclaration implementation
-void EnumDeclaration::accept(ASTVisitor& visitor) {
+// ============================================================================
+// MODULE IMPLEMENTATION
+// ============================================================================
+
+// Module
+void Module::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
-String EnumDeclaration::toString() const {
-    std::ostringstream oss;
-    if (isConst_) oss << "const ";
-    oss << "enum " << name_ << " {\n";
-    
-    for (size_t i = 0; i < members_.size(); ++i) {
-        oss << " + " << members_[i]->toString();
-        if (i < members_.size() - 1) oss << ",";
-        oss << "\n";
+SourceLocation Module::getLocation() const {
+    if (statements_.empty()) {
+        return SourceLocation(filename_, 1, 1);
     }
-    
-    oss << "}";
-    return oss.str();
+    return statements_[0]->getLocation();
 }
 
-// TypeAliasDeclaration implementation
-void TypeAliasDeclaration::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String TypeAliasDeclaration::toString() const {
-    return "type " + name_ + " = " + aliasedType_->toString();
-}
-
-// FunctionExpression implementation
-void FunctionExpression::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-// ImportDeclaration implementation
-void ImportDeclaration::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String ImportDeclaration::toString() const {
-    std::stringstream ss;
-    ss << "import ";
-    
-    switch (clause_.getType()) {
-        case ImportClause::Default:
-            ss << clause_.getDefaultBinding();
-            break;
-        case ImportClause::Named: {
-            ss << "{ ";
-            const auto& namedImports = clause_.getNamedImports();
-            for (size_t i = 0; i < namedImports.size(); ++i) {
-                if (i > 0) ss << ", ";
-                ss << namedImports[i].getImportedName();
-                if (namedImports[i].getImportedName() != namedImports[i].getLocalName()) {
-                    ss << " as " << namedImports[i].getLocalName();
-                }
-            }
-            ss << " }";
-            break;
-        }
-        case ImportClause::Namespace:
-            ss << "* as " << clause_.getNamespaceBinding();
-            break;
-        case ImportClause::Mixed:
-            ss << clause_.getDefaultBinding() << ", { ";
-            const auto& namedImports = clause_.getNamedImports();
-            for (size_t i = 0; i < namedImports.size(); ++i) {
-                if (i > 0) ss << ", ";
-                ss << namedImports[i].getImportedName();
-                if (namedImports[i].getImportedName() != namedImports[i].getLocalName()) {
-                    ss << " as " << namedImports[i].getLocalName();
-                }
-            }
-            ss << " }";
-            break;
+String Module::toString() const {
+    std::ostringstream ss;
+    for (const auto& stmt : statements_) {
+        ss << stmt->toString() << "\n";
     }
-    
-    ss << " from \" + " << moduleSpecifier_ << "\";";
     return ss.str();
-}
-
-// ExportDeclaration implementation
-void ExportDeclaration::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String ExportDeclaration::toString() const {
-    std::stringstream ss;
-    ss << "export ";
-    
-    switch (clause_.getType()) {
-        case ExportClause::Default:
-            ss << "default " << clause_.getDefaultExport()->toString();
-            break;
-        case ExportClause::Named: {
-            ss << "{ ";
-            const auto& namedExports = clause_.getNamedExports();
-            for (size_t i = 0; i < namedExports.size(); ++i) {
-                if (i > 0) ss << ", ";
-                ss << namedExports[i].getLocalName();
-                if (namedExports[i].getLocalName() != namedExports[i].getExportedName()) {
-                    ss << " as " << namedExports[i].getExportedName();
-                }
-            }
-            ss << " }";
-            break;
-        }
-        case ExportClause::ReExport:
-            ss << "* from \" + " << clause_.getModuleSpecifier() << "\"";
-            break;
-        case ExportClause::All:
-            ss << "* from \" + " << clause_.getModuleSpecifier() << "\"";
-            break;
-    }
-    
-    ss << ";";
-    return ss.str();
-}
-
-String FunctionExpression::toString() const {
-    std::ostringstream oss;
-    
-    oss << "function";
-    
-    // Optional name
-    if (!name_.empty()) {
-        oss << " + " << name_;
-    }
-    
-    // Parameters
-    oss << "(";
-    for (size_t i = 0; i < parameters_.size(); ++i) {
-        if (i > 0) oss << ", ";
-        oss << parameters_[i].name;
-        if (parameters_[i].type) {
-            oss << ": " << parameters_[i].type->toString();
-        }
-    }
-    oss << ")";
-    
-    // Return type
-    if (returnType_) {
-        oss << ": " << returnType_->toString();
-    }
-    
-    oss << " + ";
-    
-    // Body
-    oss << body_->toString();
-    
-    return oss.str();
-}
-
-// ForOfStatement implementation
-void ForOfStatement::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String ForOfStatement::toString() const {
-    std::ostringstream oss;
-    oss << "for (" << variable_ << " of " << iterable_->toString() << ") ";
-    oss << body_->toString();
-    return oss.str();
-}
-
-// MoveExpression implementation
-void MoveExpression::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String MoveExpression::toString() const {
-    return "std::move(" + operand_->toString() + ")";
-}
-
-// Destructuring pattern implementations
-void DestructuringPattern::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-void ArrayDestructuringPattern::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-void ObjectDestructuringPattern::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-void IdentifierPattern::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-void DestructuringAssignment::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String DestructuringAssignment::toString() const {
-    return "DestructuringAssignment";
-}
-
-String ArrayDestructuringPattern::toString() const {
-    return "ArrayDestructuringPattern";
-}
-
-String ObjectDestructuringPattern::toString() const {
-    return "ObjectDestructuringPattern";
-}
-
-String IdentifierPattern::toString() const {
-    return "IdentifierPattern";
-}
-
-String OptionalPropertyAccess::toString() const {
-    return "OptionalPropertyAccess";
-}
-
-void OptionalPropertyAccess::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String SpreadElement::toString() const {
-    return "SpreadElement";
-}
-
-void SpreadElement::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String OptionalCallExpr::toString() const {
-    return "OptionalCallExpr";
-}
-
-void OptionalCallExpr::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-String OptionalIndexAccess::toString() const {
-    return "OptionalIndexAccess";
-}
-
-void OptionalIndexAccess::accept(ASTVisitor& visitor) {
-    visitor.visit(*this);
 }
 
 } // namespace tsc
