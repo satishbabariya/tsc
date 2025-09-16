@@ -197,6 +197,9 @@ LLVMCodeGen::LLVMCodeGen(DiagnosticEngine& diagnostics, const CompilerOptions& o
     // Create code generation context
     codeGenContext_ = std::make_unique<CodeGenContext>(*context_, *module_, *builder_, diagnostics_);
     
+    // Initialize runtime function registry
+    runtimeRegistry_ = std::make_unique<runtime::RuntimeFunctionRegistry>(context_.get(), module_.get());
+    
     // Initialize enhanced IR generation infrastructure
     builtinRegistry_ = std::make_unique<BuiltinFunctionRegistry>(module_.get(), context_.get());
     irAllocator_ = std::make_unique<IRAllocator>();
@@ -250,6 +253,28 @@ String LLVMCodeGen::getLLVMIRString() const {
     llvm::raw_string_ostream stream(result);
     module_->print(stream, nullptr);
     return result;
+}
+
+// Runtime function calling interface
+llvm::Value* LLVMCodeGen::callRuntimeFunction(const std::string& functionName, 
+                                             const std::vector<llvm::Value*>& args,
+                                             const std::string& resultName) {
+    // Get or create the runtime function
+    llvm::Function* func = runtimeRegistry_->getOrCreateFunction(functionName);
+    if (!func) {
+        reportError("Runtime function '" + functionName + "' not found", SourceLocation());
+        return nullptr;
+    }
+    
+    // Create the function call
+    if (func->getReturnType()->isVoidTy()) {
+        // Void function - don't assign a result name
+        return builder_->CreateCall(func, args);
+    } else {
+        // Non-void function - assign result name if provided
+        std::string callName = resultName.empty() ? (functionName + "_result") : resultName;
+        return builder_->CreateCall(func, args, callName);
+    }
 }
 
 // Visitor implementations
@@ -1502,46 +1527,30 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
                     }
                     
-                    // Special handling for console.log calls - call appropriate function based on type
+                    // Special handling for console.log calls - use generic runtime function interface
                     if (function && function->getName().str() == "console_log") {
-                        std::cout << "DEBUG: CallExpression - Converting argument for console.log" << std::endl;
-                        // For console.log, we need to call the appropriate function based on the argument type
+                        std::cout << "DEBUG: CallExpression - Converting argument for console.log using runtime interface" << std::endl;
+                        
+                        // Determine the appropriate runtime function based on argument type
                         if (argValue->getType() == getNumberType()) {
                             // For numbers, call console_log with void* pointer
                             llvm::Value* tempVar = builder_->CreateAlloca(getNumberType(), nullptr, "temp_arg");
                             builder_->CreateStore(argValue, tempVar);
-                            argValue = builder_->CreateBitCast(tempVar, llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0));
+                            llvm::Value* voidPtr = builder_->CreateBitCast(tempVar, llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0));
+                            callRuntimeFunction("console_log", {voidPtr});
+                            consoleLogHandled = true;
+                            continue;
                         } else if (argValue->getType() == getBooleanType()) {
                             // For booleans, call console_log_bool with int value
-                            llvm::Function* boolFunc = module_->getFunction("console_log_bool");
-                            if (!boolFunc) {
-                                // Create console_log_bool function
-                                llvm::Type* voidType = llvm::Type::getVoidTy(*context_);
-                                llvm::Type* intType = llvm::Type::getInt32Ty(*context_);
-                                std::vector<llvm::Type*> paramTypes = {intType};
-                                llvm::FunctionType* funcType = llvm::FunctionType::get(voidType, paramTypes, false);
-                                boolFunc = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, "console_log_bool", module_.get());
-                            }
-                            // Convert boolean to int and call console_log_bool
                             llvm::Value* boolAsInt = builder_->CreateZExt(argValue, llvm::Type::getInt32Ty(*context_));
-                            builder_->CreateCall(boolFunc, {boolAsInt});
+                            callRuntimeFunction("console_log_bool", {boolAsInt});
                             consoleLogHandled = true;
-                            continue; // Skip adding to args since we already called the function
+                            continue;
                         } else if (argValue->getType()->isPointerTy()) {
                             // For strings, call console_log_string with char* value
-                            llvm::Function* strFunc = module_->getFunction("console_log_string");
-                            if (!strFunc) {
-                                // Create console_log_string function
-                                llvm::Type* voidType = llvm::Type::getVoidTy(*context_);
-                                llvm::Type* charPtrType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
-                                std::vector<llvm::Type*> paramTypes = {charPtrType};
-                                llvm::FunctionType* funcType = llvm::FunctionType::get(voidType, paramTypes, false);
-                                strFunc = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, "console_log_string", module_.get());
-                            }
-                            // Call console_log_string with the string value
-                            builder_->CreateCall(strFunc, {argValue});
+                            callRuntimeFunction("console_log_string", {argValue});
                             consoleLogHandled = true;
-                            continue; // Skip adding to args since we already called the function
+                            continue;
                         }
                     }
                     
@@ -4392,6 +4401,8 @@ void LLVMCodeGen::visit(Module& module) {
         llvm::BasicBlock* entry = llvm::BasicBlock::Create(*context_, "entry", mainFunc);
         builder_->SetInsertPoint(entry);
         
+        // Enter the main function context
+        codeGenContext_->enterFunction(mainFunc);
         
         // Generate module-level statements within main function
         std::cout << "DEBUG: Processing " << moduleStatements.size() << " module-level statements in main function" << std::endl;
@@ -4632,6 +4643,9 @@ void LLVMCodeGen::visit(Module& module) {
                 }
             }
         }
+        
+        // Exit the main function context
+        codeGenContext_->exitFunction();
         
         // Also check all other functions in the module for missing terminators
         // Skip the duplicate terminator checking for now to avoid the "Terminator found in the middle of a basic block!" error
@@ -6116,12 +6130,10 @@ llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation&
         std::cout << "DEBUG: Storage value: " << storage << std::endl;
         if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(storage)) {
             std::cout << "DEBUG: Found global variable " << name << " with linkage: " << globalVar->getLinkage() << std::endl;
-            if (globalVar->getLinkage() == llvm::GlobalValue::ExternalLinkage) {
-                // This is an external symbol - load it directly
-                std::cout << "DEBUG: Loading external symbol " << name << " in function context" << std::endl;
-                elementType = globalVar->getValueType();
-                return builder_->CreateLoad(elementType, storage, name + "_val");
-            }
+            // Load from any global variable (external, private, internal, etc.)
+            std::cout << "DEBUG: Loading global variable " << name << " in function context" << std::endl;
+            elementType = globalVar->getValueType();
+            return builder_->CreateLoad(elementType, storage, name + "_val");
         } else {
             std::cout << "DEBUG: Storage is not a GlobalVariable for " << name << std::endl;
             std::cout << "DEBUG: Storage type name: " << storage->getType()->getTypeID() << std::endl;
@@ -7444,8 +7456,8 @@ llvm::Function* LLVMCodeGen::genericMethodLookup(const String& methodName, share
     // Handle console.log specifically
     if (methodName == "log") {
         // Check if this is being called on a console object
-        // For now, we'll create a console_log function that takes any value
-        return createConsoleLogFunction(location);
+        // Use the runtime function registry to get the console_log function
+        return runtimeRegistry_->getOrCreateFunction("console_log");
     }
     
     // Handle array properties (not methods)
@@ -7487,26 +7499,6 @@ llvm::Function* LLVMCodeGen::genericMethodLookup(const String& methodName, share
     return nullptr;
 }
 
-llvm::Function* LLVMCodeGen::createConsoleLogFunction(const SourceLocation& location) {
-    std::cout << "DEBUG: createConsoleLogFunction called" << std::endl;
-    
-    // Check if console_log function already exists
-    llvm::Function* existingFunc = module_->getFunction("console_log");
-    if (existingFunc) {
-        return existingFunc;
-    }
-    
-    // Create console_log function signature: void console_log(void* value)
-    llvm::Type* voidType = llvm::Type::getVoidTy(*context_);
-    llvm::Type* voidPtrType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
-    std::vector<llvm::Type*> paramTypes = {voidPtrType};
-    
-    llvm::FunctionType* funcType = llvm::FunctionType::get(voidType, paramTypes, false);
-    llvm::Function* func = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, "console_log", module_.get());
-    
-    std::cout << "DEBUG: Created console_log function" << std::endl;
-    return func;
-}
 
 llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location) {
     std::cout << "DEBUG: createBuiltinMethodFunction called for: " << methodName << " on type: " << objectType->toString() << std::endl;

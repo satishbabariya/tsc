@@ -6,6 +6,7 @@
 #include "tsc/semantic/TypeSystem.h"
 #include "tsc/utils/DiagnosticEngine.h"
 #include "tsc/utils/EnhancedErrorReporting.h"
+#include "tsc/runtime/RuntimeFunctionRegistry.h"
 
 // LLVM includes
 #include "llvm/IR/LLVMContext.h"
@@ -350,6 +351,11 @@ public:
     bool generateCode(Module& module, SymbolTable& symbolTable, 
                      const TypeSystem& typeSystem);
     
+    // Runtime function calling interface
+    llvm::Value* callRuntimeFunction(const std::string& functionName, 
+                                   const std::vector<llvm::Value*>& args,
+                                   const std::string& resultName = "");
+    
     // Enhanced type generation with caching
     llvm::Type* generateType(const shared_ptr<Type>& type);
     llvm::Type* generatePrimitiveType(const shared_ptr<Type>& type);
@@ -487,6 +493,9 @@ private:
     std::unique_ptr<llvm::Module> module_;
     std::unique_ptr<llvm::IRBuilder<>> builder_;
     std::unique_ptr<CodeGenContext> codeGenContext_;
+    
+    // Runtime function registry for generic runtime function calls
+    std::unique_ptr<runtime::RuntimeFunctionRegistry> runtimeRegistry_;
     
     // Target machine for code generation
     std::unique_ptr<llvm::TargetMachine> targetMachine_;

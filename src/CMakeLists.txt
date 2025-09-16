@@ -27,6 +27,9 @@ add_library(tsc_lib STATIC
     # Code Generation
     codegen/LLVMCodeGen.cpp
     
+    # Runtime
+    runtime/RuntimeFunctionRegistry.cpp
+    
     # AST implementation
     AST.cpp
     Token.cpp
