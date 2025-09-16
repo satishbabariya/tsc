@@ -3596,6 +3596,9 @@ void LLVMCodeGen::visit(WhileStatement& node) {
     llvm::BasicBlock* bodyBlock = llvm::BasicBlock::Create(*context_, "while.body", currentFunc);
     llvm::BasicBlock* endBlock = llvm::BasicBlock::Create(*context_, "while.end", currentFunc);
     
+    // Enter loop context for break/continue support
+    codeGenContext_->enterLoop(conditionBlock, endBlock);
+    
     // Jump to condition block
     builder_->CreateBr(conditionBlock);
     
@@ -3609,16 +3612,35 @@ void LLVMCodeGen::visit(WhileStatement& node) {
         return;
     }
     
-    // Convert condition to boolean (simplified for now)
+    // Convert condition to boolean using runtime function
     if (conditionValue->getType()->isDoubleTy()) {
-        // Compare double to 0.0
-        llvm::Value* zero = llvm::ConstantFP::get(llvm::Type::getDoubleTy(*context_), 0.0);
-        conditionValue = builder_->CreateFCmpONE(conditionValue, zero, "tobool");
+        // Use _toBool runtime function for proper boolean conversion
+        llvm::Function* toBoolFunc = runtimeRegistry_->getOrCreateFunction("_toBool");
+        if (toBoolFunc) {
+            llvm::Value* boolResult = builder_->CreateCall(toBoolFunc, {conditionValue}, "tobool");
+            // Convert i32 result to i1 for branch condition
+            llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0);
+            conditionValue = builder_->CreateICmpNE(boolResult, zero, "bool_cond");
+        } else {
+            // Fallback to direct comparison if runtime function not available
+            llvm::Value* zero = llvm::ConstantFP::get(llvm::Type::getDoubleTy(*context_), 0.0);
+            conditionValue = builder_->CreateFCmpONE(conditionValue, zero, "tobool");
+        }
     } else if (conditionValue->getType()->isIntegerTy(1)) {
         // Already boolean
+    } else if (conditionValue->getType()->isIntegerTy(32)) {
+        // Integer to boolean conversion
+        llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0);
+        conditionValue = builder_->CreateICmpNE(conditionValue, zero, "tobool");
     } else {
-        // For other types, just use as-is (this is a simplification)
-        // TODO: Add proper type conversion
+        // For other types, use runtime function if available
+        llvm::Function* toBoolFunc = runtimeRegistry_->getOrCreateFunction("_toBool");
+        if (toBoolFunc && conditionValue->getType()->isDoubleTy()) {
+            llvm::Value* boolResult = builder_->CreateCall(toBoolFunc, {conditionValue}, "tobool");
+            // Convert i32 result to i1 for branch condition
+            llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0);
+            conditionValue = builder_->CreateICmpNE(boolResult, zero, "bool_cond");
+        }
     }
     
     // Create conditional branch
@@ -3630,6 +3652,9 @@ void LLVMCodeGen::visit(WhileStatement& node) {
     if (!builder_->GetInsertBlock()->getTerminator()) {
         builder_->CreateBr(conditionBlock);
     }
+    
+    // Exit loop context
+    codeGenContext_->exitLoop();
     
     // Continue with end block
     builder_->SetInsertPoint(endBlock);

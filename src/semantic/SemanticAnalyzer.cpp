@@ -1124,14 +1124,16 @@ void SemanticAnalyzer::visit(CaseClause& node) {
 }
 
 void SemanticAnalyzer::visit(BreakStatement& node) {
-    // TODO: Check if break is in valid context (loop or switch)
-    // For now, just set type to void
+    // Check if break is in valid context (loop or switch)
+    // For now, we'll allow break statements and let the code generator handle the context checking
+    // TODO: Implement proper context checking for break statements within loops or switch statements
     node.setType(typeSystem_->getVoidType());
 }
 
 void SemanticAnalyzer::visit(ContinueStatement& node) {
-    // TODO: Check if continue is in valid context (loop)
-    // For now, just set type to void
+    // Check if continue is in valid context (loop)
+    // For now, we'll allow continue statements and let the code generator handle the context checking
+    // TODO: Implement proper context checking for continue statements within loops
     node.setType(typeSystem_->getVoidType());
 }
 
