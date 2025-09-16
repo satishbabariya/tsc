@@ -262,7 +262,6 @@ void LLVMCodeGen::visit(StringLiteral& node) {
 }
 
 void LLVMCodeGen::visit(TemplateLiteral& node) {
-    std::cout << "DEBUG: TemplateLiteral visitor called" << std::endl;
     // Build the template literal by concatenating all parts
     llvm::Value* result = nullptr;
     
@@ -271,34 +270,23 @@ void LLVMCodeGen::visit(TemplateLiteral& node) {
         
         if (element.isExpression()) {
             // Generate code for the expression
-            std::cout << "DEBUG: Processing template expression" << std::endl;
             element.getExpression()->accept(static_cast<ASTVisitor&>(*this));
             elementValue = getCurrentValue();
-            std::cout << "DEBUG: Template expression result type: " << (elementValue ? elementValue->getType()->getTypeID() : -1) << std::endl;
             
             // Convert expression results to string representation
-            // Note: Currently supports simple variable references only
-            // Future enhancement: Support complex expressions (arithmetic, function calls, etc.)
-            std::cout << "DEBUG: Converting template expression to string, type: " << elementValue->getType()->getTypeID() << std::endl;
             if (elementValue->getType()->isDoubleTy()) {
                 // Convert number to string using runtime function
-                std::cout << "DEBUG: Converting double to string" << std::endl;
                 llvm::Function* numberToStringFunc = getOrCreateNumberToStringFunction();
-                std::cout << "DEBUG: numberToStringFunc type: " << numberToStringFunc->getReturnType()->getTypeID() << std::endl;
                 elementValue = builder_->CreateCall(numberToStringFunc, {elementValue}, "number_to_string");
-                std::cout << "DEBUG: After CreateCall, elementValue type: " << elementValue->getType()->getTypeID() << std::endl;
             } else if (elementValue->getType()->isIntegerTy(1)) {
                 // Convert boolean to string using runtime function
-                std::cout << "DEBUG: Converting boolean to string" << std::endl;
                 llvm::Function* booleanToStringFunc = getOrCreateBooleanToStringFunction();
                 elementValue = builder_->CreateCall(booleanToStringFunc, {elementValue}, "boolean_to_string");
             } else if (elementValue->getType() != getStringType()) {
                 // For other types, convert to string representation using runtime function
-                std::cout << "DEBUG: Converting other type to string" << std::endl;
                 llvm::Function* objectToStringFunc = getOrCreateObjectToStringFunction();
                 elementValue = builder_->CreateCall(objectToStringFunc, {elementValue}, "object_to_string");
             }
-            std::cout << "DEBUG: After conversion, type: " << elementValue->getType()->getTypeID() << std::endl;
         } else {
             // Text element
             elementValue = createStringLiteral(element.getText());

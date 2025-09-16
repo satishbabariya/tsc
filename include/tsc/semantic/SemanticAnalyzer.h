@@ -87,7 +87,7 @@ public:
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;
     void visit(StringLiteral& node) override;
-    // void visit(TemplateLiteral& node) override;  // TODO: Template literals
+    void visit(TemplateLiteral& node) override;
     void visit(BooleanLiteral& node) override;
     void visit(NullLiteral& node) override;
     void visit(Identifier& node) override;
@@ -100,7 +100,6 @@ public:
     void visit(ConditionalExpression& node) override;
     void visit(CallExpression& node) override;
     void visit(ArrayLiteral& node) override;
-    void visit(TemplateLiteral& node) override;
     void visit(IndexExpression& node) override;
     void visit(ObjectLiteral& node) override;
     void visit(PropertyAccess& node) override;

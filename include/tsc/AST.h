@@ -1688,7 +1688,7 @@ public:
     // Expressions
     virtual void visit(NumericLiteral& node) = 0;
     virtual void visit(StringLiteral& node) = 0;
-    // virtual void visit(TemplateLiteral& node) = 0;  // TODO: Template literals
+    virtual void visit(TemplateLiteral& node) = 0;
     virtual void visit(BooleanLiteral& node) = 0;
     virtual void visit(NullLiteral& node) = 0;
     virtual void visit(Identifier& node) = 0;
@@ -1701,7 +1701,6 @@ public:
     virtual void visit(ConditionalExpression& node) = 0;
     virtual void visit(CallExpression& node) = 0;
     virtual void visit(ArrayLiteral& node) = 0;
-    virtual void visit(TemplateLiteral& node) = 0;
     virtual void visit(IndexExpression& node) = 0;
     virtual void visit(ObjectLiteral& node) = 0;
     virtual void visit(PropertyAccess& node) = 0;
