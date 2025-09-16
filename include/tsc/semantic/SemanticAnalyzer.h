@@ -150,6 +150,12 @@ public:
     void visit(ObjectDestructuringPattern& node) override;
     void visit(IdentifierPattern& node) override;
     void visit(DestructuringAssignment& node) override;
+    
+    // Destructuring analysis methods
+    void analyzeDestructuringPattern(DestructuringPattern* pattern, shared_ptr<Type> sourceType);
+    void analyzeArrayDestructuringPattern(ArrayDestructuringPattern* pattern, shared_ptr<Type> sourceType);
+    void analyzeObjectDestructuringPattern(ObjectDestructuringPattern* pattern, shared_ptr<Type> sourceType);
+    void analyzeIdentifierPattern(IdentifierPattern* pattern, shared_ptr<Type> sourceType);
 
 private:
     // Helper methods

@@ -3360,9 +3360,101 @@ void SemanticAnalyzer::visit(IdentifierPattern& node) {
 }
 
 void SemanticAnalyzer::visit(DestructuringAssignment& node) {
-    // TODO: Implement destructuring assignment semantic analysis
-    node.getPattern()->accept(*this);
+    // Analyze the right-hand side expression first
     node.getValue()->accept(*this);
+    
+    // Get the type of the right-hand side
+    auto rhsType = getExpressionType(node.getValue());
+    if (!rhsType) {
+        reportError("Could not determine type of destructuring source", node.getLocation());
+        return;
+    }
+    
+    // Analyze the destructuring pattern with the source type
+    analyzeDestructuringPattern(node.getPattern().get(), rhsType);
+    
+    // Set the expression type (destructuring assignments are typically void)
+    setExpressionType(node, typeSystem_->getVoidType());
+}
+
+void SemanticAnalyzer::analyzeDestructuringPattern(DestructuringPattern* pattern, shared_ptr<Type> sourceType) {
+    if (!pattern || !sourceType) {
+        return;
+    }
+    
+    if (auto* arrayPattern = dynamic_cast<ArrayDestructuringPattern*>(pattern)) {
+        analyzeArrayDestructuringPattern(arrayPattern, sourceType);
+    } else if (auto* objectPattern = dynamic_cast<ObjectDestructuringPattern*>(pattern)) {
+        analyzeObjectDestructuringPattern(objectPattern, sourceType);
+    } else if (auto* identifierPattern = dynamic_cast<IdentifierPattern*>(pattern)) {
+        analyzeIdentifierPattern(identifierPattern, sourceType);
+    }
+}
+
+void SemanticAnalyzer::analyzeArrayDestructuringPattern(ArrayDestructuringPattern* pattern, shared_ptr<Type> sourceType) {
+    // Check if source type is an array
+    auto arrayType = std::dynamic_pointer_cast<ArrayType>(sourceType);
+    if (!arrayType) {
+        reportError("Cannot destructure non-array type in array destructuring", pattern->getLocation());
+        return;
+    }
+    
+    auto elementType = arrayType->getElementType();
+    
+    // Analyze each element in the destructuring pattern
+    for (size_t i = 0; i < pattern->getElements().size(); ++i) {
+        auto element = pattern->getElements()[i].get();
+        if (element) {
+            analyzeDestructuringPattern(element, elementType);
+        }
+    }
+}
+
+void SemanticAnalyzer::analyzeObjectDestructuringPattern(ObjectDestructuringPattern* pattern, shared_ptr<Type> sourceType) {
+    // Check if source type is an object
+    auto objectType = std::dynamic_pointer_cast<ObjectType>(sourceType);
+    if (!objectType) {
+        reportError("Cannot destructure non-object type in object destructuring", pattern->getLocation());
+        return;
+    }
+    
+    // Analyze each property in the destructuring pattern
+    for (const auto& property : pattern->getProperties()) {
+        // Get the property type from the object type
+        auto propertyType = objectType->getPropertyType(property.getKey());
+        if (!propertyType) {
+            reportError("Property '" + property.getKey() + "' not found in object type", pattern->getLocation());
+            continue;
+        }
+        
+        // Analyze the destructuring pattern for this property
+        analyzeDestructuringPattern(property.getPattern(), propertyType);
+        
+        // Analyze default value if present
+        if (property.getDefaultValue()) {
+            property.getDefaultValue()->accept(*this);
+        }
+    }
+}
+
+void SemanticAnalyzer::analyzeIdentifierPattern(IdentifierPattern* pattern, shared_ptr<Type> sourceType) {
+    // Create a symbol for the identifier with the source type
+    auto symbol = make_shared<Symbol>(
+        SymbolKind::Variable,
+        pattern->getName(),
+        sourceType,
+        pattern->getLocation()
+    );
+    
+    // Add to symbol table
+    if (!symbolTable_->addSymbol(symbol)) {
+        reportError("Variable '" + pattern->getName() + "' already declared", pattern->getLocation());
+    }
+    
+    // Analyze default value if present
+    if (pattern->getDefaultValue()) {
+        pattern->getDefaultValue()->accept(*this);
+    }
 }
 
 void SemanticAnalyzer::visit(OptionalPropertyAccess& node) {
