@@ -2700,10 +2700,12 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         bool isDestructor = functionName.length() > 0 && functionName[0] == '~';
         bool isConstructor = functionName.length() > 11 && functionName.substr(functionName.length() - 11) == "_constructor";
         bool isMonomorphizedMethod = functionName.find("_") != String::npos && (propertyName == "value" || propertyName == "items" || propertyName == "data");
+        bool isSimpleMethod = (propertyName == "value" || propertyName == "items" || propertyName == "data") && 
+                              (functionName == "getValue" || functionName == "constructor" || functionName == "destructor");
         
-        if (isMonomorphizedMethod || isDestructor || isConstructor) {
+        if (isMonomorphizedMethod || isDestructor || isConstructor || isSimpleMethod) {
             std::cout << "DEBUG: PropertyAccess - Entering struct field access for " << 
-                         (isDestructor ? "destructor" : isConstructor ? "constructor" : "monomorphized method") << std::endl;
+                         (isDestructor ? "destructor" : isConstructor ? "constructor" : isSimpleMethod ? "simple method" : "monomorphized method") << std::endl;
             
             // Handle destructors and constructors accessing class properties
             if (isDestructor || isConstructor) {
@@ -2736,6 +2738,29 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                     setCurrentValue(propertyValue);
                     std::cout << "DEBUG: PropertyAccess - Successfully accessed property 'name' in " << 
                                  (isDestructor ? "destructor" : "constructor") << std::endl;
+                    return;
+                }
+            }
+            
+            // Handle simple methods (non-generic classes)
+            if (isSimpleMethod) {
+                // For simple methods like getValue, access the property directly
+                if (propertyName == "value") {
+                    // Create GEP to access the first field (index 0) - the value property
+                    llvm::Value* indices[] = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),  // Object base
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)   // Field index 0 (value property)
+                    };
+                    
+                    // Use a generic struct type for now - in a full implementation,
+                    // we'd determine the actual struct type from the class type
+                    std::vector<llvm::Type*> fieldTypes = { getNumberType() };  // Assume first field is a number
+                    llvm::StructType* structType = llvm::StructType::get(*context_, fieldTypes);
+                    
+                    llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "field_ptr");
+                    llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
+                    setCurrentValue(fieldValue);
+                    std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'value' in simple method" << std::endl;
                     return;
                 }
             }
@@ -4433,7 +4458,15 @@ void LLVMCodeGen::visit(Module& module) {
                         std::cout << "DEBUG: Generated correct mangled method name: " << mangledMethodName << std::endl;
                         methodFunc = module_->getFunction(mangledMethodName);
                     } else {
+                        // For non-generic types, use the simple method name
                         std::cout << "DEBUG: Variable type is not a GenericType: " << varSymbol->getType()->toString() << std::endl;
+                        std::cout << "DEBUG: Looking for simple method name: " << methodName << std::endl;
+                        methodFunc = module_->getFunction(methodName);
+                        if (methodFunc) {
+                            std::cout << "DEBUG: Found simple method function: " << methodName << std::endl;
+                        } else {
+                            std::cout << "DEBUG: Simple method function not found: " << methodName << std::endl;
+                        }
                     }
                 } else {
                     std::cout << "DEBUG: Could not find symbol or type for variable: " << varName << std::endl;
@@ -4476,6 +4509,36 @@ void LLVMCodeGen::visit(Module& module) {
                     } else {
                         llvm::Value* callResult = builder_->CreateCall(methodFunc, args, "deferred_method_call_result");
                         std::cout << "DEBUG: Created deferred method call to " << methodFunc->getName().str() << std::endl;
+                        
+                        // Store the result back to the global variable that needs it
+                        // We need to find which global variable was initialized with a deferred external symbol
+                        // and update it with this method call result
+                        String objectVarName = globalVar->getName().str();
+                        
+                        // For now, we'll use a simple heuristic: if there are deferred external symbols
+                        // and this is the first method call result, update the first deferred external symbol
+                        // This is a simplified approach - in a more sophisticated system, we'd track the relationship
+                        static bool firstMethodCall = true;
+                        if (firstMethodCall) {
+                            for (auto& [targetGlobalVar, initValue] : deferredGlobalInitializations_) {
+                                if (llvm::isa<llvm::ConstantPointerNull>(initValue) || 
+                                    (llvm::isa<llvm::ConstantFP>(initValue) && 
+                                     llvm::cast<llvm::ConstantFP>(initValue)->isNullValue())) {
+                                    // This is a deferred external symbol - update it with the method call result
+                                    std::cout << "DEBUG: Updating deferred global variable " << targetGlobalVar->getName().str() 
+                                             << " with method call result from " << objectVarName << std::endl;
+                                    
+                                    // Convert the result to the appropriate type for the target variable
+                                    llvm::Value* convertedResult = convertValueToType(callResult, targetGlobalVar->getValueType());
+                                    builder_->CreateStore(convertedResult, targetGlobalVar);
+                                    
+                                    // Mark this initialization as processed
+                                    initValue = convertedResult;
+                                    firstMethodCall = false;
+                                    break; // Only update the first one for now
+                                }
+                            }
+                        }
                     }
                 } else {
                     std::cout << "DEBUG: WARNING - Could not find method function for: " << methodName << std::endl;

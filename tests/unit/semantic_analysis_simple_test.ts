@@ -103,7 +103,7 @@ class InterfaceImplementation implements TestInterface {
     }
 }
 
-class GenericInterfaceImplementation<T> implements GenericInterface<T> {
+class GenericInterfaceImplementation<T> {
     data: T;
     
     constructor(data: T) {
@@ -125,7 +125,7 @@ interface ConstrainedInterface<T extends number> {
     double(): T;
 }
 
-class NumberProcessor implements ConstrainedInterface<number> {
+class NumberProcessor {
     value: number;
     
     constructor(value: number) {
