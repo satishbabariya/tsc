@@ -5595,9 +5595,14 @@ llvm::Function* LLVMCodeGen::generateFunctionDeclaration(const FunctionDeclarati
     
     llvm::FunctionType* functionType = llvm::FunctionType::get(returnType, paramTypes, false);
     
-    // Create function with internal linkage (not external)
+    // Create function with appropriate linkage
+    // Main function needs external linkage so the linker can find it
+    llvm::Function::LinkageTypes linkage = (funcDecl.getName() == "main") 
+        ? llvm::Function::ExternalLinkage 
+        : llvm::Function::InternalLinkage;
+    
     llvm::Function* function = llvm::Function::Create(
-        functionType, llvm::Function::InternalLinkage, funcDecl.getName(), module_.get());
+        functionType, linkage, funcDecl.getName(), module_.get());
     
     // Debug: Check basic blocks immediately after function creation
     std::cout << "DEBUG: Basic blocks after function creation:" << std::endl;

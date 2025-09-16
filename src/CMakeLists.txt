@@ -26,6 +26,8 @@ add_library(tsc_lib STATIC
     
     # Code Generation
     codegen/LLVMCodeGen.cpp
+    codegen/ObjectFileGenerator.cpp
+    codegen/ExecutableLinker.cpp
     
     # AST implementation
     AST.cpp
