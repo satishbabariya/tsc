@@ -1,33 +1,32 @@
-
 // Code generation integration with error handling
 class ErrorHandlingCodeGenerator {
     private output: string[] = [];
     private errorHandler: CodeGenErrorHandler;
-    
+
     constructor(errorHandler: CodeGenErrorHandler) {
         this.errorHandler = errorHandler;
     }
-    
+
     generateTryStatement(node: TryStatement): void {
         try {
             console.log("Generating try statement");
-            
+
             this.output.push("try {");
             this.indent();
-            
+
             // Generate try block
             if (node.getTryBlock()) {
                 this.generateBlock(node.getTryBlock());
             }
-            
+
             this.unindent();
             this.output.push("}");
-            
+
             // Generate catch clauses
             for (const catchClause of node.getCatchClauses()) {
                 this.generateCatchClause(catchClause);
             }
-            
+
             // Generate finally block
             if (node.getFinallyBlock()) {
                 this.output.push("finally {");
@@ -43,11 +42,11 @@ class ErrorHandlingCodeGenerator {
             ));
         }
     }
-    
+
     generateCatchClause(node: CatchClause): void {
         try {
             console.log("Generating catch clause:", node.getParameterName());
-            
+
             this.output.push("catch (");
             if (node.hasParameter()) {
                 this.output.push(node.getParameterName());
@@ -57,12 +56,12 @@ class ErrorHandlingCodeGenerator {
             }
             this.output.push(") {");
             this.indent();
-            
+
             // Generate catch body
             if (node.getBody()) {
                 this.generateBlock(node.getBody());
             }
-            
+
             this.unindent();
             this.output.push("}");
         } catch (error: Error) {
@@ -72,11 +71,11 @@ class ErrorHandlingCodeGenerator {
             ));
         }
     }
-    
+
     generateThrowStatement(node: ThrowStatement): void {
         try {
             console.log("Generating throw statement");
-            
+
             this.output.push("throw");
             if (node.getExpression()) {
                 this.output.push(" ");
@@ -90,11 +89,11 @@ class ErrorHandlingCodeGenerator {
             ));
         }
     }
-    
+
     generatePanicStatement(node: PanicStatement): void {
         try {
             console.log("Generating panic statement");
-            
+
             this.output.push("panic(");
             if (node.getExpression()) {
                 this.generateExpression(node.getExpression());
@@ -109,11 +108,11 @@ class ErrorHandlingCodeGenerator {
             ));
         }
     }
-    
+
     generateAbortStatement(node: AbortStatement): void {
         try {
             console.log("Generating abort statement");
-            
+
             this.output.push("abort(");
             if (node.getExpression()) {
                 this.generateExpression(node.getExpression());
@@ -128,7 +127,11 @@ class ErrorHandlingCodeGenerator {
             ));
         }
     }
-    
+
+    getGeneratedCode(): string {
+        return this.output.join("\n");
+    }
+
     private generateBlock(node: ASTNode): void {
         if (node.getType() === ASTNodeType::BlockStatement) {
             const block = node as BlockStatement;
@@ -137,7 +140,7 @@ class ErrorHandlingCodeGenerator {
             }
         }
     }
-    
+
     private generateExpression(node: ASTNode): void {
         if (node.getType() === ASTNodeType::Expression) {
             const expr = node as Expression;
@@ -145,7 +148,7 @@ class ErrorHandlingCodeGenerator {
             this.output.push(expr.toString());
         }
     }
-    
+
     private generateStatement(node: ASTNode): void {
         switch (node.getType()) {
             case ASTNodeType::TryStatement:
@@ -165,31 +168,27 @@ class ErrorHandlingCodeGenerator {
                 break;
         }
     }
-    
+
     private indent(): void {
         // Indentation logic
     }
-    
+
     private unindent(): void {
         // Unindentation logic
-    }
-    
-    getGeneratedCode(): string {
-        return this.output.join("\n");
     }
 }
 
 class CodeGenErrorHandler {
     private errors: CodeGenError[] = [];
-    
+
     addError(error: CodeGenError): void {
         this.errors.push(error);
     }
-    
+
     getErrors(): CodeGenError[] {
         return this.errors;
     }
-    
+
     hasErrors(): boolean {
         return this.errors.length > 0;
     }
@@ -215,7 +214,7 @@ try {
         [new CatchClause("error", new Type("Error"), new BlockStatement([]))],
         new BlockStatement([])
     );
-    
+
     generator.generateTryStatement(tryStmt);
     const generatedCode = generator.getGeneratedCode();
     console.log("Generated code:", generatedCode);

@@ -2,7 +2,9 @@
 
 ## Overview
 
-This document describes the comprehensive testing suite for generic class functionality in the TypeScript compiler. The testing suite covers unit tests, integration tests, regression tests, and performance tests to ensure the reliability and correctness of generic class compilation to LLVM IR.
+This document describes the comprehensive testing suite for generic class functionality in the TypeScript compiler. The
+testing suite covers unit tests, integration tests, regression tests, and performance tests to ensure the reliability
+and correctness of generic class compilation to LLVM IR.
 
 ## Test Structure
 
@@ -11,6 +13,7 @@ This document describes the comprehensive testing suite for generic class functi
 **Purpose**: Test individual components of the generic LLVM code generation system in isolation.
 
 **Test Cases**:
+
 - `BasicGenericClassDeclaration`: Tests basic generic class declaration and monomorphization
 - `GenericTypeInstantiation`: Tests generic type instantiation with type arguments
 - `MonomorphizedMethodGeneration`: Tests generation of monomorphized methods
@@ -27,6 +30,7 @@ This document describes the comprehensive testing suite for generic class functi
 **Purpose**: Test the complete compilation pipeline from TypeScript source to LLVM IR.
 
 **Test Cases**:
+
 - `SimpleGenericClassWithConstructor`: Tests basic generic class with constructor
 - `GenericClassWithMethods`: Tests generic class with getter/setter methods
 - `MultipleTypeParameters`: Tests generic class with multiple type parameters
@@ -43,6 +47,7 @@ This document describes the comprehensive testing suite for generic class functi
 **Purpose**: Prevent regression of previously fixed LLVM verification errors.
 
 **Test Cases**:
+
 - `TerminatorIssues`: Tests for "Terminator found in the middle of a basic block!" error
 - `CrossFunctionReferences`: Tests for "Referring to an instruction in another function!" error
 - `ReturnTypeMismatches`: Tests for "Found return instr that returns non-void in Function of void return type!" error
@@ -57,6 +62,7 @@ This document describes the comprehensive testing suite for generic class functi
 **Purpose**: Automated execution of all tests with validation and reporting.
 
 **Features**:
+
 - LLVM tools availability checking
 - Test executable building
 - Unit test execution
@@ -94,11 +100,13 @@ This document describes the comprehensive testing suite for generic class functi
 ### Running Tests
 
 #### Option 1: Run All Tests (Recommended)
+
 ```bash
 ./run_generic_tests.sh
 ```
 
 #### Option 2: Run Individual Test Categories
+
 ```bash
 # Build tests
 cd build && make generic_llvm_tests
@@ -112,6 +120,7 @@ cd build && make generic_llvm_tests
 ```
 
 #### Option 3: Manual Testing
+
 ```bash
 # Test basic generic class
 ./build/tsc test_generic_basic.ts --emit-llvm
@@ -127,48 +136,48 @@ cd build && make generic_llvm_tests
 ### Generic Class Features Tested
 
 1. **Basic Generic Classes**
-   - Single type parameter (`Container<T>`)
-   - Multiple type parameters (`Pair<T, U>`)
-   - Nested generic types (`Container<Container<number>>`)
+    - Single type parameter (`Container<T>`)
+    - Multiple type parameters (`Pair<T, U>`)
+    - Nested generic types (`Container<Container<number>>`)
 
 2. **Generic Methods**
-   - Constructor methods with type parameters
-   - Getter/setter methods with type parameters
-   - Methods returning generic types
+    - Constructor methods with type parameters
+    - Getter/setter methods with type parameters
+    - Methods returning generic types
 
 3. **Type Parameter Substitution**
-   - Substitution in method parameters
-   - Substitution in return types
-   - Substitution in property types
+    - Substitution in method parameters
+    - Substitution in return types
+    - Substitution in property types
 
 4. **Monomorphization**
-   - Monomorphized method generation
-   - Monomorphized type creation
-   - Mangled name generation
+    - Monomorphized method generation
+    - Monomorphized type creation
+    - Mangled name generation
 
 5. **LLVM IR Generation**
-   - Valid LLVM IR generation
-   - Proper function signatures
-   - Correct basic block structure
-   - Proper terminator placement
+    - Valid LLVM IR generation
+    - Proper function signatures
+    - Correct basic block structure
+    - Proper terminator placement
 
 ### Error Scenarios Tested
 
 1. **LLVM Verification Errors**
-   - Cross-function references
-   - Terminator issues
-   - Return type mismatches
-   - Basic block structure issues
+    - Cross-function references
+    - Terminator issues
+    - Return type mismatches
+    - Basic block structure issues
 
 2. **Type System Errors**
-   - Incorrect number of type arguments
-   - Invalid type parameter usage
-   - Type mismatch errors
+    - Incorrect number of type arguments
+    - Invalid type parameter usage
+    - Type mismatch errors
 
 3. **Parser Errors**
-   - Malformed generic syntax
-   - Missing type arguments
-   - Invalid type annotations
+    - Malformed generic syntax
+    - Missing type arguments
+    - Invalid type annotations
 
 ## Expected Results
 
@@ -277,9 +286,12 @@ To get more detailed debug information:
 
 ## Conclusion
 
-This comprehensive testing suite ensures the reliability and correctness of generic class functionality in the TypeScript compiler. The tests cover all aspects of generic class compilation, from basic functionality to complex scenarios, and include robust error handling and performance validation.
+This comprehensive testing suite ensures the reliability and correctness of generic class functionality in the
+TypeScript compiler. The tests cover all aspects of generic class compilation, from basic functionality to complex
+scenarios, and include robust error handling and performance validation.
 
 The testing suite is designed to be:
+
 - **Comprehensive**: Covers all major generic class features
 - **Reliable**: Includes regression tests to prevent bugs
 - **Maintainable**: Easy to add new tests and update existing ones

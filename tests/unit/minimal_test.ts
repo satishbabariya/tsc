@@ -1,11 +1,11 @@
 // Minimal test to isolate the crash issue
 class MinimalClass {
     value: number;
-    
+
     constructor() {
         this.value = 42;
     }
-    
+
     getValue(): number {
         return this.value;
     }

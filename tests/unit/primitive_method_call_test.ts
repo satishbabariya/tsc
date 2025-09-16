@@ -1,12 +1,14 @@
 class TestClass {
     id: number;
-    
+
     constructor(id: number) {
         this.id = id;
         _print("TestClass constructor");
     }
-    
-    ~TestClass() {
+
+~
+
+    TestClass() {
         _print("TestClass destructor");
         // This should trigger the primitive method call issue
         let idStr = this.id.toString();

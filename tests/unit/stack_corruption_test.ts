@@ -1,10 +1,14 @@
 class TestClass {
     id: number;
+
     constructor(id: number) {
         this.id = id;
         _print("TestClass constructor - id:", this.id);
     }
-    ~TestClass() {
+
+~
+
+    TestClass() {
         _print("TestClass destructor - id:", this.id);
     }
 }

@@ -39,9 +39,9 @@ let value: number = matrix[1][2];            // 6
 
 // Array of objects
 let people: object[] = [
-    { name: "Alice", age: 30 },
-    { name: "Bob", age: 25 },
-    { name: "Charlie", age: 35 }
+    {name: "Alice", age: 30},
+    {name: "Bob", age: 25},
+    {name: "Charlie", age: 35}
 ];
 
 // Array with spread operator (if supported)
@@ -95,7 +95,7 @@ let newLength2: number = unshift(numbers, 0);
 function slice<T>(arr: T[], start: number, end?: number): T[] {
     let result: T[] = [];
     let actualEnd: number = end !== undefined ? end : arr.length;
-    
+
     for (let i: number = start; i < actualEnd; i++) {
         result.push(arr[i]);
     }
@@ -107,7 +107,7 @@ let sliced: number[] = slice(numbers, 1, 3);
 // Array concatenation
 function concat<T>(arr1: T[], arr2: T[]): T[] {
     let result: T[] = [];
-    
+
     for (let item of arr1) {
         result.push(item);
     }

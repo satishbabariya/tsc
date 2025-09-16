@@ -13,15 +13,15 @@ let booleanArray2: boolean[] = [];
 // Test 3: Generic class with Array<T>
 class GenericArrayContainer<T> {
     items: Array<T>;
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     addItem(item: T): void {
         this.items.push(item);
     }
-    
+
     getLength(): number {
         return this.items.length;
     }
@@ -30,15 +30,15 @@ class GenericArrayContainer<T> {
 // Test 4: Generic class with T[]
 class GenericArrayContainer2<T> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     addItem(item: T): void {
         this.items.push(item);
     }
-    
+
     getLength(): number {
         return this.items.length;
     }
@@ -48,24 +48,24 @@ class GenericArrayContainer2<T> {
 class MixedArrayContainer<T> {
     arrayT: Array<T>;
     arrayBracket: T[];
-    
+
     constructor() {
         this.arrayT = [];
         this.arrayBracket = [];
     }
-    
+
     addToArrayT(item: T): void {
         this.arrayT.push(item);
     }
-    
+
     addToArrayBracket(item: T): void {
         this.arrayBracket.push(item);
     }
-    
+
     getArrayTLength(): number {
         return this.arrayT.length;
     }
-    
+
     getArrayBracketLength(): number {
         return this.arrayBracket.length;
     }
@@ -93,16 +93,16 @@ function createArrayBracket<T>(): T[] {
 class NestedGenericContainer<T, U> {
     arrayT: Array<T>;
     arrayU: Array<U>;
-    
+
     constructor() {
         this.arrayT = [];
         this.arrayU = [];
     }
-    
+
     addT(item: T): void {
         this.arrayT.push(item);
     }
-    
+
     addU(item: U): void {
         this.arrayU.push(item);
     }

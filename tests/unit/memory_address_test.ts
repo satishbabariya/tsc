@@ -1,13 +1,15 @@
 class TestClass {
     id: number;
-    
+
     constructor(id: number) {
         this.id = id;
         _print("Constructor: Stored id =", id);
         _print("Constructor: this pointer =", this);
     }
-    
-    ~TestClass() {
+
+~
+
+    TestClass() {
         _print("Destructor: this pointer =", this);
         _print("Destructor: Reading id =", this.id);
     }

@@ -1,4 +1,3 @@
-
 // Large array allocation
 function largeArray(): void {
     let arr = new Array(1000000)

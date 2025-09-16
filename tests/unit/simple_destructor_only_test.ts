@@ -1,11 +1,13 @@
 class TestClass {
     id: number;
-    
+
     constructor(id: number) {
         this.id = id;
     }
-    
-    ~TestClass() {
+
+~
+
+    TestClass() {
         _print("Destructor called");
     }
 }

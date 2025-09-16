@@ -23,7 +23,7 @@ function logMessage(message: string): void {
 
 // Function with optional parameters
 function createUser(name: string, age?: number): object {
-    let user: object = { name: name };
+    let user: object = {name: name};
     if (age !== undefined) {
         // Add age property if provided
     }
@@ -45,7 +45,7 @@ function sum(...numbers: number[]): number {
 }
 
 // Function expressions
-let square = function(x: number): number {
+let square = function (x: number): number {
     return x * x;
 };
 

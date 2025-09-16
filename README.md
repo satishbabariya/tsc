@@ -4,11 +4,14 @@ A TypeScript-syntax static language compiler that generates native binaries usin
 
 ## Overview
 
-TSC is a performance-oriented compiler that takes TypeScript-like syntax and compiles it directly to optimized native machine code using LLVM. Unlike traditional TypeScript, TSC focuses on static compilation with no JavaScript runtime overhead.
+TSC is a performance-oriented compiler that takes TypeScript-like syntax and compiles it directly to optimized native
+machine code using LLVM. Unlike traditional TypeScript, TSC focuses on static compilation with no JavaScript runtime
+overhead.
 
 ## Features
 
 ### ✅ Implemented
+
 - **Project Structure**: Complete foundational architecture
 - **Build System**: CMake with LLVM integration and parallel compilation (`-j10`)
 - **Lexical Analysis**: Token stream generation from TypeScript source
@@ -18,16 +21,19 @@ TSC is a performance-oriented compiler that takes TypeScript-like syntax and com
 - **Cross-Platform**: LLVM target support for multiple architectures
 
 ### ✅ Recently Completed
+
 - **Parser Implementation**: Recursive descent parser with AST construction (Phase 2)
 - **AST Visualization**: Complete AST printer with `--print-ast` option
 - **Expression Parsing**: Binary/unary expressions with correct precedence
 - **Function Parsing**: Function declarations with parameters and bodies
 
 ### 🚧 In Progress
-- **Semantic Analysis**: Type checking and symbol resolution (Phase 3) 
+
+- **Semantic Analysis**: Type checking and symbol resolution (Phase 3)
 - **LLVM Code Generation**: IR generation and optimization (Phase 4)
 
 ### 🎯 Planned
+
 - **Memory Management**: Smart pointer patterns and manual memory management
 - **Debug Information**: DWARF generation for LLDB debugging
 - **Module System**: Separate compilation and linking
@@ -88,7 +94,8 @@ make -j10
 make test
 ```
 
-**Important**: The `build/` directory contains generated files and should never be committed to git. It's already included in `.gitignore`.
+**Important**: The `build/` directory contains generated files and should never be committed to git. It's already
+included in `.gitignore`.
 
 ### Cross-Compilation
 
@@ -152,7 +159,8 @@ function process(arr: Array<number>): Array<string> {
 // ⚠️ Limitation: < operator in expressions requires workarounds
 function example(arr: Array<number>): number {
     // while (i < 3) { }  // ❌ Fails
-    while (i == 0) { }    // ✅ Works
+    while (i == 0) {
+    }    // ✅ Works
     return 0;
 }
 ```
@@ -210,11 +218,13 @@ lldb ./hello
 ## Performance
 
 ### Compilation Speed
+
 - Parallel compilation with `-j10` flag
 - Incremental compilation (planned)
 - Efficient AST representation
 
 ### Runtime Performance
+
 - LLVM optimization passes (O0/O1/O2/O3/Os/Oz)
 - Link-time optimization (LTO)
 - Zero-cost abstractions
@@ -239,12 +249,14 @@ lldb ./hello
 ## Roadmap
 
 ### Phase 1: Foundation ✅
+
 - [x] Project structure and build system
 - [x] Lexical analysis integration
 - [x] AST node definitions
 - [x] Diagnostic engine
 
 ### Phase 2: Parser ✅
+
 - [x] Recursive descent parser implementation
 - [x] Error recovery mechanisms
 - [x] AST construction from tokens
@@ -253,18 +265,21 @@ lldb ./hello
 - [x] AST visualization tools
 
 ### Phase 3: Semantics 🚧
+
 - [ ] Symbol table construction
 - [ ] Type checking implementation
 - [ ] Module resolution
 - [ ] Scope analysis
 
 ### Phase 4: Code Generation 🚧
+
 - [ ] LLVM IR generation
 - [ ] Memory layout decisions
 - [ ] Function calling conventions
 - [ ] Debug information generation
 
 ### Phase 5: Optimization 🎯
+
 - [ ] LLVM optimization passes
 - [ ] Link-time optimization
 - [ ] Profile-guided optimization

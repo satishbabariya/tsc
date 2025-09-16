@@ -4,9 +4,9 @@ function test_objects() {
         age: 30,
         active: true
     };
-    
+
     let name = person.name;
     let age = person.age;
-    
+
     return name;
 }

@@ -27,6 +27,7 @@ interface Point {
 // Interface with method signatures
 interface Drawable {
     draw(): void;
+
     getArea(): number;
 }
 
@@ -40,6 +41,7 @@ interface Employee extends User {
 // Interface with multiple inheritance
 interface Manager extends Employee {
     teamSize: number;
+
     manageTeam(): void;
 }
 
@@ -55,21 +57,26 @@ interface Dictionary {
 
 // Interface with hybrid types (object and function)
 interface Counter {
-    (): void;
     count: number;
+
+    (): void;
+
     reset(): void;
 }
 
 // Interface with generic types
 interface Repository<T> {
     findById(id: number): T | null;
+
     save(entity: T): void;
+
     delete(id: number): boolean;
 }
 
 // Interface with optional method signatures
 interface Logger {
     log(message: string): void;
+
     error?(message: string): void;  // Optional method
     warn?(message: string): void;   // Optional method
 }
@@ -81,7 +88,7 @@ interface EventHandler {
 
 // Interface with constructor signatures
 interface UserConstructor {
-    new (name: string, email: string): User;
+    new(name: string, email: string): User;
 }
 
 // Class implementing interface
@@ -134,11 +141,11 @@ class ConsoleLogger implements Logger {
 }
 
 // Function implementing interface
-let addOperation: MathOperation = function(a: number, b: number): number {
+let addOperation: MathOperation = function (a: number, b: number): number {
     return a + b;
 };
 
-let multiplyOperation: MathOperation = function(a: number, b: number): number {
+let multiplyOperation: MathOperation = function (a: number, b: number): number {
     return a * b;
 };
 
@@ -172,6 +179,7 @@ function processRepository<T>(repo: Repository<T>, id: number): T | null {
 // Interface with method overloading
 interface StringProcessor {
     process(value: string): string;
+
     process(value: number): string;
 }
 
@@ -235,7 +243,7 @@ let product1: Product = {
     // category is optional, so we can omit it
 };
 
-let point1: Point = { x: 10, y: 20 };
+let point1: Point = {x: 10, y: 20};
 // point1.x = 30; // Error: Cannot assign to readonly property
 
 let employee1: Employee = {
@@ -257,7 +265,7 @@ let manager1: Manager = {
     department: "Engineering",
     salary: 95000,
     teamSize: 5,
-    manageTeam: function(): void {
+    manageTeam: function (): void {
         // Management logic
     }
 };

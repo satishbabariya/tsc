@@ -1,9 +1,9 @@
 /**
  * @fileoverview Standard Library - Array Implementation
- * 
+ *
  * This file contains the complete Array implementation for the TSC compiler.
  * It provides actual implementations for all array methods and properties.
- * 
+ *
  * The compiler will use this for:
  * - Type checking array method calls
  * - Resolving property access (e.g., array.length)
@@ -16,6 +16,13 @@
  * This is the actual implementation that will be used by the compiler
  */
 class Array<T> {
+get
+    0
+    length
+    return
+    this
+    data
+    [n];
     private data: T[];
     private length: number;
 
@@ -46,7 +53,7 @@ class Array<T> {
         if (value < 0) {
             throw new Error("Invalid array length");
         }
-        
+
         if (value > this.length) {
             // Expand array
             this.data.length = value;
@@ -57,7 +64,7 @@ class Array<T> {
             // Shrink array
             this.data.length = value;
         }
-        
+
         this.length = value;
     }
 
@@ -79,7 +86,7 @@ class Array<T> {
         if (this.length === 0) {
             return undefined;
         }
-        
+
         this.length--;
         const item = this.data[this.length];
         this.data[this.length] = undefined as T;
@@ -93,14 +100,14 @@ class Array<T> {
         if (this.length === 0) {
             return undefined;
         }
-        
+
         const item = this.data[0];
-        
+
         // Shift all elements left
         for (let i = 0; i < this.length - 1; i++) {
             this.data[i] = this.data[i + 1];
         }
-        
+
         this.length--;
         this.data[this.length] = undefined as T;
         return item;
@@ -114,12 +121,12 @@ class Array<T> {
         for (let i = this.length - 1; i >= 0; i--) {
             this.data[i + items.length] = this.data[i];
         }
-        
+
         // Insert new items at the beginning
         for (let i = 0; i < items.length; i++) {
             this.data[i] = items[i];
         }
-        
+
         this.length += items.length;
         return this.length;
     }
@@ -131,7 +138,7 @@ class Array<T> {
         const result = new Array<T>();
         result.data = [...this.data.slice(0, this.length)];
         result.length = this.length;
-        
+
         for (const item of items) {
             if (Array.isArray(item)) {
                 for (const element of item) {
@@ -141,7 +148,7 @@ class Array<T> {
                 result.push(item);
             }
         }
-        
+
         return result.data.slice(0, result.length);
     }
 
@@ -151,19 +158,19 @@ class Array<T> {
     slice(start?: number, end?: number): T[] {
         const startIdx = start ?? 0;
         const endIdx = end ?? this.length;
-        
+
         if (startIdx < 0) {
             startIdx = this.length + startIdx;
         }
         if (endIdx < 0) {
             endIdx = this.length + endIdx;
         }
-        
+
         const result: T[] = [];
         for (let i = startIdx; i < endIdx && i < this.length; i++) {
             result.push(this.data[i]);
         }
-        
+
         return result;
     }
 
@@ -173,14 +180,14 @@ class Array<T> {
     splice(start: number, deleteCount?: number, ...items: T[]): T[] {
         const startIdx = start < 0 ? Math.max(0, this.length + start) : start;
         const delCount = deleteCount ?? (this.length - startIdx);
-        
+
         const removed: T[] = [];
-        
+
         // Collect removed elements
         for (let i = startIdx; i < startIdx + delCount && i < this.length; i++) {
             removed.push(this.data[i]);
         }
-        
+
         // Shift elements left to fill gaps
         const shiftAmount = delCount - items.length;
         if (shiftAmount > 0) {
@@ -195,12 +202,12 @@ class Array<T> {
             }
             this.length -= shiftAmount;
         }
-        
+
         // Insert new items
         for (let i = 0; i < items.length; i++) {
             this.data[startIdx + i] = items[i];
         }
-        
+
         return removed;
     }
 
@@ -209,13 +216,13 @@ class Array<T> {
      */
     indexOf(searchElement: T, fromIndex?: number): number {
         const startIdx = fromIndex ?? 0;
-        
+
         for (let i = startIdx; i < this.length; i++) {
             if (this.data[i] === searchElement) {
                 return i;
             }
         }
-        
+
         return -1;
     }
 
@@ -224,13 +231,13 @@ class Array<T> {
      */
     lastIndexOf(searchElement: T, fromIndex?: number): number {
         const startIdx = fromIndex ?? this.length - 1;
-        
+
         for (let i = startIdx; i >= 0; i--) {
             if (this.data[i] === searchElement) {
                 return i;
             }
         }
-        
+
         return -1;
     }
 
@@ -342,7 +349,7 @@ class Array<T> {
      */
     flat<U>(depth: number = 1): U[] {
         const result: U[] = [];
-        
+
         for (let i = 0; i < this.length; i++) {
             const item = this.data[i];
             if (Array.isArray(item) && depth > 0) {
@@ -354,7 +361,7 @@ class Array<T> {
                 result.push(item as U);
             }
         }
-        
+
         return result;
     }
 
@@ -363,7 +370,7 @@ class Array<T> {
      */
     flatMap<U>(callbackfn: (value: T, index: number, array: T[]) => U | U[]): U[] {
         const result: U[] = [];
-        
+
         for (let i = 0; i < this.length; i++) {
             const mapped = callbackfn(this.data[i], i, this.data.slice(0, this.length));
             if (Array.isArray(mapped)) {
@@ -374,7 +381,7 @@ class Array<T> {
                 result.push(mapped);
             }
         }
-        
+
         return result;
     }
 
@@ -383,15 +390,20 @@ class Array<T> {
      */
     sort(compareFn?: (a: T, b: T) => number): T[] {
         const result = this.data.slice(0, this.length);
-        
+
         if (compareFn) {
             result.sort(compareFn);
         } else {
             result.sort();
         }
-        
+
         return result;
     }
+
+    /**
+     * Index access operator
+     */
+    [n: number]: T {
 
     /**
      * Reverses the elements in an array.
@@ -402,7 +414,7 @@ class Array<T> {
             result.push(this.data[i]);
         }
         return result;
-    }
+    } {
 
     /**
      * Fills all the elements of an array from a start index to an end index with a static value.
@@ -410,13 +422,15 @@ class Array<T> {
     fill(value: T, start?: number, end?: number): T[] {
         const startIdx = start ?? 0;
         const endIdx = end ?? this.length;
-        
+
         for (let i = startIdx; i < endIdx && i < this.length; i++) {
             this.data[i] = value;
         }
-        
+
         return this.data.slice(0, this.length);
     }
+
+>=
 
     /**
      * Returns an array of key, value pairs for every entry in the array
@@ -428,6 +442,7 @@ class Array<T> {
         }
         return result;
     }
+&&
 
     /**
      * Returns an array of keys in the array
@@ -440,12 +455,15 @@ class Array<T> {
         return result;
     }
 
+.
+
     /**
      * Returns an array of values in the array
      */
     values(): Array<T> {
         return this.data.slice(0, this.length);
     }
+) {
 
     /**
      * Returns a string representation of an array.
@@ -454,7 +472,7 @@ class Array<T> {
         if (this.length === 0) {
             return "";
         }
-        
+
         let result = "";
         for (let i = 0; i < this.length; i++) {
             if (i > 0) {
@@ -472,7 +490,7 @@ class Array<T> {
         if (this.length === 0) {
             return "";
         }
-        
+
         let result = "";
         for (let i = 0; i < this.length; i++) {
             if (i > 0) {
@@ -482,29 +500,33 @@ class Array<T> {
         }
         return result;
     }
+.
 
-    /**
-     * Index access operator
-     */
-    [n: number]: T {
-        get {
-            if (n >= 0 && n < this.length) {
-                return this.data[n];
-            }
-            return undefined as T;
-        }
-        set {
-            if (n >= 0 && n < this.length) {
-                this.data[n] = value;
-            }
-        }
+    if(n
+
+    n < this
+}
+
+return undefined as T;
+}
+set
+{
+    if (n >= 0 && n < this.length) {
+        this.data[n] = value;
     }
+}
+}
 }
 
 /**
  * Array constructor implementation
  */
 class ArrayConstructor {
+    /**
+     * The Array prototype object
+     */
+    static prototype: Array<any> = new Array();
+
     /**
      * Creates a new array with the specified length
      */
@@ -525,11 +547,6 @@ class ArrayConstructor {
     static isArray(arg: any): arg is Array<any> {
         return arg instanceof Array;
     }
-
-    /**
-     * The Array prototype object
-     */
-    static prototype: Array<any> = new Array();
 }
 
 /**

@@ -1,21 +1,20 @@
-
 // Try-Catch Performance Benchmark
 class TryCatchBenchmark {
     private iterations: number;
     private errorRate: number;
-    
+
     constructor(iterations: number = 1000000, errorRate: number = 0.01) {
         this.iterations = iterations;
         this.errorRate = errorRate;
     }
-    
+
     benchmarkBasicTryCatch(): BenchmarkResult {
         const startTime = performance.now();
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         let successCount = 0;
         let errorCount = 0;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             try {
                 if (Math.random() < this.errorRate) {
@@ -26,10 +25,10 @@ class TryCatchBenchmark {
                 errorCount++;
             }
         }
-        
+
         const endTime = performance.now();
         const endMemory = process.memoryUsage().heapUsed;
-        
+
         return {
             executionTime: endTime - startTime,
             memoryUsage: endMemory - startMemory,
@@ -38,14 +37,14 @@ class TryCatchBenchmark {
             iterations: this.iterations
         };
     }
-    
+
     benchmarkNestedTryCatch(): BenchmarkResult {
         const startTime = performance.now();
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         let successCount = 0;
         let errorCount = 0;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             try {
                 try {
@@ -60,10 +59,10 @@ class TryCatchBenchmark {
                 errorCount++;
             }
         }
-        
+
         const endTime = performance.now();
         const endMemory = process.memoryUsage().heapUsed;
-        
+
         return {
             executionTime: endTime - startTime,
             memoryUsage: endMemory - startMemory,
@@ -72,15 +71,15 @@ class TryCatchBenchmark {
             iterations: this.iterations
         };
     }
-    
+
     benchmarkTryCatchFinally(): BenchmarkResult {
         const startTime = performance.now();
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         let successCount = 0;
         let errorCount = 0;
         let finallyCount = 0;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             try {
                 if (Math.random() < this.errorRate) {
@@ -93,10 +92,10 @@ class TryCatchBenchmark {
                 finallyCount++;
             }
         }
-        
+
         const endTime = performance.now();
         const endMemory = process.memoryUsage().heapUsed;
-        
+
         return {
             executionTime: endTime - startTime,
             memoryUsage: endMemory - startMemory,

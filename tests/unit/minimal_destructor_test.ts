@@ -4,7 +4,9 @@ class TestClass {
         _print("TestClass constructor");
     }
 
-    ~TestClass() {
+~
+
+    TestClass() {
         _print("TestClass destructor");
     }
 }

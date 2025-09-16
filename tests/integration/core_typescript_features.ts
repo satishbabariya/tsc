@@ -1,12 +1,11 @@
-
 // Core TypeScript features regression test
 function testBasicTypes(): void {
     const stringVar: string = "hello";
     const numberVar: number = 42;
     const booleanVar: boolean = true;
     const arrayVar: number[] = [1, 2, 3];
-    const objectVar: { name: string; age: number } = { name: "Alice", age: 30 };
-    
+    const objectVar: { name: string; age: number } = {name: "Alice", age: 30};
+
     console.log("Basic types test passed");
 }
 
@@ -23,13 +22,14 @@ function testInterfaces(): void {
         name: "Alice",
         email: "alice@example.com"
     };
-    
+
     console.log("Interfaces test passed");
 }
 
 class Person {
-    constructor(public name: string, public age: number) {}
-    
+    constructor(public name: string, public age: number) {
+    }
+
     greet(): string {
         return `Hello, I'm ${this.name} and I'm ${this.age} years old`;
     }

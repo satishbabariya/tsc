@@ -1,8 +1,7 @@
-
 // Complex function with nested control statements
 function complexNestedFunction(x: number, y: string, z: boolean): string {
     let result = "";
-    
+
     // Level 1: if-else
     if (x > 0) {
         // Level 2: switch
@@ -120,6 +119,6 @@ function complexNestedFunction(x: number, y: string, z: boolean): string {
                 }
         }
     }
-    
+
     return result;
 }

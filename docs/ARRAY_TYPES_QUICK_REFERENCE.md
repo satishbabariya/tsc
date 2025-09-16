@@ -26,6 +26,7 @@ function bad(arr: Array<number>): number {
 ## 🛠️ Quick Fixes
 
 ### Fix 1: Use `==` instead of `<`
+
 ```typescript
 // ✅ DO: Replace < with ==
 while (i == 0) { }  // Works
@@ -33,6 +34,7 @@ if (x == 5) { }     // Works
 ```
 
 ### Fix 2: Use helper functions
+
 ```typescript
 // ✅ DO: Move comparisons to separate functions
 function isLess(a: number, b: number): boolean {
@@ -46,11 +48,11 @@ function process(arr: Array<number>): number {
 
 ## 🚨 Error Messages
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Expected type name` | `<` interpreted as generic | Use `==` or helper function |
+| Error                               | Cause                       | Fix                         |
+|-------------------------------------|-----------------------------|-----------------------------|
+| `Expected type name`                | `<` interpreted as generic  | Use `==` or helper function |
 | `Expected '>' after type arguments` | Parser expects generic type | Use `==` or helper function |
-| `Unexpected token in expression` | Parser confusion | Simplify expression |
+| `Unexpected token in expression`    | Parser confusion            | Simplify expression         |
 
 ## 📝 Checklist
 

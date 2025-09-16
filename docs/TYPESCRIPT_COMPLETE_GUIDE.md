@@ -1,4 +1,5 @@
 # TypeScript Complete Guide
+
 *From Beginner to Expert - The Ultimate Reference*
 
 ## 📚 Table of Contents
@@ -17,6 +18,7 @@
 ## Quick Start
 
 ### Essential Syntax (5 minutes)
+
 ```typescript
 // Basic types
 let name: string = "Alice";
@@ -55,6 +57,7 @@ function identity<T>(arg: T): T {
 ## Beginner Level
 
 ### 1. Basic Types
+
 ```typescript
 let isDone: boolean = true;
 let age: number = 25;
@@ -64,6 +67,7 @@ let tuple: [string, number] = ["Score", 100];
 ```
 
 ### 2. Enums
+
 ```typescript
 enum Direction {
   Up,
@@ -76,6 +80,7 @@ let move: Direction = Direction.Up;
 ```
 
 ### 3. Any, Unknown, Void, Never
+
 ```typescript
 let data: any = "could be anything";
 let value: unknown = 42;
@@ -90,6 +95,7 @@ function throwError(msg: string): never {
 ```
 
 ### 4. Functions
+
 ```typescript
 function add(x: number, y: number): number {
   return x + y;
@@ -99,6 +105,7 @@ const multiply = (a: number, b: number): number => a * b;
 ```
 
 ### 5. Interfaces & Types
+
 ```typescript
 interface User {
   id: number;
@@ -115,6 +122,7 @@ const user: User = { id: 1, name: "Alice" };
 ```
 
 ### 6. Classes
+
 ```typescript
 class Animal {
   constructor(public name: string) {}
@@ -136,6 +144,7 @@ dog.move(10);
 ```
 
 ### 7. Generics (Basic)
+
 ```typescript
 function identity<T>(arg: T): T {
   return arg;
@@ -146,6 +155,7 @@ let str = identity<string>("Hello");
 ```
 
 ### 8. Union & Intersection Types
+
 ```typescript
 let result: string | number;
 result = "hello";
@@ -159,12 +169,14 @@ const obj: AB = { a: "hi", b: 42 };
 ```
 
 ### 9. Type Assertions
+
 ```typescript
 let someValue: unknown = "TypeScript";
 let strLength: number = (someValue as string).length;
 ```
 
 ### 10. Control Flow
+
 ```typescript
 // If/Else
 if (age >= 18) {
@@ -200,6 +212,7 @@ for (let item of scores) {
 ## Intermediate Level
 
 ### 11. Optional & Default Parameters
+
 ```typescript
 function greet(name: string, age?: number) {
   return age ? `Hello ${name}, age ${age}` : `Hello ${name}`;
@@ -211,6 +224,7 @@ function multiply(a: number, b: number = 2) {
 ```
 
 ### 12. Readonly & Const Assertions
+
 ```typescript
 interface Car {
   readonly brand: string;
@@ -224,6 +238,7 @@ const arr = [10, 20] as const; // tuple & readonly
 ```
 
 ### 13. Type Aliases with Utility Types
+
 ```typescript
 type Person = {
   id: number;
@@ -239,6 +254,7 @@ type OmitPerson = Omit<Person, 'age'>; // omit specific props
 ```
 
 ### 14. Keyof & Index Types
+
 ```typescript
 interface User {
   id: number;
@@ -256,6 +272,7 @@ let nameValue = getProperty(u, "name");
 ```
 
 ### 15. Mapped Types
+
 ```typescript
 type OptionsFlags<T> = {
   [Property in keyof T]: boolean;
@@ -271,6 +288,7 @@ type FeatureOptions = OptionsFlags<Features>;
 ```
 
 ### 16. Template Literal Types
+
 ```typescript
 type EventName<T extends string> = `on${Capitalize<T>}`;
 type CSSProperty = `--${string}`;
@@ -280,6 +298,7 @@ type HoverEvent = EventName<"hover">; // "onHover"
 ```
 
 ### 17. Advanced Generics
+
 ```typescript
 function merge<T extends object, U extends object>(obj1: T, obj2: U): T & U {
   return { ...obj1, ...obj2 };
@@ -289,6 +308,7 @@ const combined = merge({ name: "Alice" }, { age: 25 });
 ```
 
 ### 18. Namespaces
+
 ```typescript
 namespace Utils {
   export function log(msg: string) {
@@ -307,6 +327,7 @@ Utils.Math.add(5, 3);
 ```
 
 ### 19. Modules & Imports
+
 ```typescript
 // math.ts
 export function add(x: number, y: number): number {
@@ -319,6 +340,7 @@ console.log(add(2, 3));
 ```
 
 ### 20. Destructuring & Spread
+
 ```typescript
 // Array destructuring
 let [first, second, ...rest] = [1, 2, 3, 4, 5];
@@ -334,6 +356,7 @@ let combined = [...arr1, ...arr2];
 ```
 
 ### 21. Maps & Sets
+
 ```typescript
 // Maps - Key-Value Collections
 const userRoles = new Map<string, string>();
@@ -363,6 +386,7 @@ for (const num of uniqueNumbers) {
 ```
 
 ### 22. Async/Await
+
 ```typescript
 function delay(ms: number): Promise<string> {
   return new Promise(resolve => {
@@ -408,6 +432,7 @@ async function* asyncGenerator() {
 ## Advanced Level
 
 ### 21. Conditional Types
+
 ```typescript
 type IsString<T> = T extends string ? true : false;
 
@@ -420,6 +445,7 @@ type Flatten<T> = T extends (infer U)[] ? U : T;
 ```
 
 ### 22. Infer Keyword
+
 ```typescript
 type ReturnType<T> = T extends (...args: any[]) => infer R ? R : never;
 
@@ -431,6 +457,7 @@ type Result = ReturnType<typeof add>; // number
 ```
 
 ### 23. Recursive Types
+
 ```typescript
 type JSONValue = 
   | string
@@ -447,6 +474,7 @@ type DeepReadonly<T> = {
 ```
 
 ### 24. Advanced Mapped Types
+
 ```typescript
 // Make all properties optional and nullable
 type PartialNullable<T> = {
@@ -460,6 +488,7 @@ type Stringify<T> = {
 ```
 
 ### 25. Branded Types
+
 ```typescript
 type Brand<T, B> = T & { __brand: B };
 
@@ -477,6 +506,7 @@ let productId: ProductId = createProductId(456);
 ```
 
 ### 26. Abstract Classes
+
 ```typescript
 abstract class Animal {
   abstract makeSound(): void;
@@ -493,6 +523,7 @@ class Dog extends Animal {
 ```
 
 ### 27. Mixins
+
 ```typescript
 type Constructor<T = {}> = new (...args: any[]) => T;
 
@@ -512,6 +543,7 @@ b.fly();
 ```
 
 ### 28. Module Augmentation
+
 ```typescript
 declare module "express" {
   interface Request {
@@ -521,6 +553,7 @@ declare module "express" {
 ```
 
 ### 29. Declaration Merging
+
 ```typescript
 interface User {
   id: number;
@@ -533,6 +566,7 @@ const u: User = { id: 1, name: "Alice" };
 ```
 
 ### 30. Advanced Type Manipulation
+
 ```typescript
 // Get all possible values of a union
 type UnionToIntersection<U> = 
@@ -549,6 +583,7 @@ type UnionToTuple<T> = UnionToIntersection<
 ## Expert Level
 
 ### 31. Discriminated Unions
+
 ```typescript
 type Shape =
   | { kind: "circle"; radius: number }
@@ -563,6 +598,7 @@ function area(shape: Shape) {
 ```
 
 ### 32. Template Literal Types (Advanced)
+
 ```typescript
 type EventType = "click" | "hover";
 type EventName = `${EventType}Event`; // "clickEvent" | "hoverEvent"
@@ -575,6 +611,7 @@ type Paths<T> = T extends object ? {
 ```
 
 ### 33. Satisfies Operator
+
 ```typescript
 type Theme = { primary: string; secondary: string };
 
@@ -586,6 +623,7 @@ const theme = {
 ```
 
 ### 34. Record & Lookup Types
+
 ```typescript
 type Roles = "admin" | "user" | "guest";
 type Permissions = Record<Roles, string[]>;
@@ -598,6 +636,7 @@ const perms: Permissions = {
 ```
 
 ### 35. Indexed Access Types
+
 ```typescript
 interface Person {
   name: string;
@@ -608,6 +647,7 @@ type NameType = Person["name"]; // string
 ```
 
 ### 36. This Parameter Types
+
 ```typescript
 class Counter {
   count = 0;
@@ -623,6 +663,7 @@ fn.call(c); // ✅
 ```
 
 ### 37. Type Guards
+
 ```typescript
 function isString(value: unknown): value is string {
   return typeof value === "string";
@@ -636,6 +677,7 @@ function print(v: unknown) {
 ```
 
 ### 38. Exhaustiveness Checking
+
 ```typescript
 function check(x: "a" | "b"): number {
   switch (x) {
@@ -649,6 +691,7 @@ function check(x: "a" | "b"): number {
 ```
 
 ### 39. Utility Types (Complete)
+
 ```typescript
 // Built-in utility types
 Partial<T>     // makes properties optional
@@ -665,6 +708,7 @@ InstanceType<T> // instance type of a class
 ```
 
 ### 40. Advanced Inference with Generics
+
 ```typescript
 function first<T extends any[]>(arr: T): T[0] {
   return arr[0];
@@ -677,45 +721,46 @@ const result = first([10, "hi", true]); // number
 
 ## TSC Compiler Status
 
-| Level | Feature | Status | Notes |
-|-------|---------|--------|-------|
-| **Beginner** | Basic Types | ✅ | All primitive types supported |
-| | Variables | ✅ | `let`, `const`, `var` with annotations |
-| | Functions | ✅ | Declarations, calls, parameters |
-| | Classes | ⚠️ | Basic structure, method calls have issues |
-| | Interfaces | ✅ | Declarations and implementation |
-| | Enums | ✅ | All enum types and operations |
-| | Generics (Basic) | ✅ | Basic generic functions and classes |
-| | Control Flow | ✅ | If/else, loops, switch |
-| | Arrays/Objects | ✅ | Literals, indexing, operations |
-| **Intermediate** | Optional Parameters | ✅ | Function parameters |
-| | Readonly | ✅ | Interface properties |
-| | Utility Types | ⚠️ | Partial implementation |
-| | Keyof/Index Types | ⚠️ | Basic support |
-| | Mapped Types | ⚠️ | Limited support |
-| | Namespaces | ✅ | Basic namespace support |
-| | Modules | ⚠️ | Import/export structure |
-| **Advanced** | Conditional Types | ❌ | Not implemented |
-| | Infer Keyword | ❌ | Not implemented |
-| | Decorators | ❌ | Not implemented |
-| | Recursive Types | ❌ | Not implemented |
-| | Branded Types | ❌ | Not implemented |
-| **Expert** | Discriminated Unions | ⚠️ | Basic support |
-| | Template Literals | ⚠️ | Basic string interpolation |
-| | Satisfies Operator | ❌ | Not implemented |
-| | Type Guards | ⚠️ | Basic support |
-| | Exhaustiveness Checking | ❌ | Not implemented |
-| **Collections** | Maps & Sets | ✅ | Full support |
-| | WeakMap & WeakSet | ✅ | Full support |
-| **Async** | Async/Await | ✅ | Full support |
-| | Promise Types | ✅ | Full support |
-| | Async Iteration | ✅ | Full support |
+| Level            | Feature                 | Status | Notes                                     |
+|------------------|-------------------------|--------|-------------------------------------------|
+| **Beginner**     | Basic Types             | ✅      | All primitive types supported             |
+|                  | Variables               | ✅      | `let`, `const`, `var` with annotations    |
+|                  | Functions               | ✅      | Declarations, calls, parameters           |
+|                  | Classes                 | ⚠️     | Basic structure, method calls have issues |
+|                  | Interfaces              | ✅      | Declarations and implementation           |
+|                  | Enums                   | ✅      | All enum types and operations             |
+|                  | Generics (Basic)        | ✅      | Basic generic functions and classes       |
+|                  | Control Flow            | ✅      | If/else, loops, switch                    |
+|                  | Arrays/Objects          | ✅      | Literals, indexing, operations            |
+| **Intermediate** | Optional Parameters     | ✅      | Function parameters                       |
+|                  | Readonly                | ✅      | Interface properties                      |
+|                  | Utility Types           | ⚠️     | Partial implementation                    |
+|                  | Keyof/Index Types       | ⚠️     | Basic support                             |
+|                  | Mapped Types            | ⚠️     | Limited support                           |
+|                  | Namespaces              | ✅      | Basic namespace support                   |
+|                  | Modules                 | ⚠️     | Import/export structure                   |
+| **Advanced**     | Conditional Types       | ❌      | Not implemented                           |
+|                  | Infer Keyword           | ❌      | Not implemented                           |
+|                  | Decorators              | ❌      | Not implemented                           |
+|                  | Recursive Types         | ❌      | Not implemented                           |
+|                  | Branded Types           | ❌      | Not implemented                           |
+| **Expert**       | Discriminated Unions    | ⚠️     | Basic support                             |
+|                  | Template Literals       | ⚠️     | Basic string interpolation                |
+|                  | Satisfies Operator      | ❌      | Not implemented                           |
+|                  | Type Guards             | ⚠️     | Basic support                             |
+|                  | Exhaustiveness Checking | ❌      | Not implemented                           |
+| **Collections**  | Maps & Sets             | ✅      | Full support                              |
+|                  | WeakMap & WeakSet       | ✅      | Full support                              |
+| **Async**        | Async/Await             | ✅      | Full support                              |
+|                  | Promise Types           | ✅      | Full support                              |
+|                  | Async Iteration         | ✅      | Full support                              |
 
 ---
 
 ## Real-World Patterns
 
 ### Framework Patterns
+
 ```typescript
 // React Component Props
 interface ButtonProps {
@@ -746,6 +791,7 @@ export class UsersController {
 ```
 
 ### Library Patterns
+
 ```typescript
 // Generic API Client
 class ApiClient<T> {
@@ -779,6 +825,7 @@ class EventEmitter {
 ## Quick Reference
 
 ### Compile & Run
+
 ```bash
 # Compile
 ./tsc examples/00_quick_start.ts
@@ -788,17 +835,20 @@ class EventEmitter {
 ```
 
 ### Learning Path
+
 1. **Beginner** (1-10) - Master fundamentals
 2. **Intermediate** (11-20) - Learn advanced patterns
 3. **Advanced** (21-30) - Understand type system deeply
 4. **Expert** (31-40) - Framework/library level patterns
 
 ### Feature Support Summary
+
 - ✅ **Fully Working**: Basic types, functions, interfaces, enums
 - ⚠️ **Partial**: Classes, utility types, modules, some advanced features
 - ❌ **Not Implemented**: Advanced type manipulation, decorators, conditional types
 
 ### Common Patterns
+
 - **Type Safety**: Use strict types, avoid `any`
 - **Generic Constraints**: Use `extends` for type bounds
 - **Utility Types**: Leverage `Partial`, `Pick`, `Omit` for transformations
@@ -808,4 +858,5 @@ class EventEmitter {
 
 ---
 
-*This TypeScript Complete Guide covers the full spectrum from beginner to expert, with clear status indicators for the TSC compiler and real-world patterns used in modern frameworks and libraries.*
+*This TypeScript Complete Guide covers the full spectrum from beginner to expert, with clear status indicators for the
+TSC compiler and real-world patterns used in modern frameworks and libraries.*

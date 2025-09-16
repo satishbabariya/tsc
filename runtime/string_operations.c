@@ -8,54 +8,54 @@
 // String concatenation function
 // Signature: char* string_concat(char* str1, char* str2)
 // Returns: A newly allocated string containing str1 + str2
-char* string_concat(char* str1, char* str2) {
+char *string_concat(char *str1, char *str2) {
     if (!str1) str1 = "";
     if (!str2) str2 = "";
-    
+
     size_t len1 = strlen(str1);
     size_t len2 = strlen(str2);
     size_t total_len = len1 + len2 + 1; // +1 for null terminator
-    
+
     // Use ARC allocation for string operations
-    char* result = (char*)__tsc_alloc(total_len, NULL, NULL);
+    char *result = (char *) __tsc_alloc(total_len, NULL, NULL);
     if (!result) {
         fprintf(stderr, "Memory allocation failed in string_concat\n");
         exit(1);
     }
-    
+
     strcpy(result, str1);
     strcat(result, str2);
-    
+
     return result;
 }
 
 // Convert number to string
 // Signature: char* number_to_string(double value)
 // Returns: A newly allocated string representation of the number
-char* number_to_string(double value) {
+char *number_to_string(double value) {
     // Allocate buffer for the string representation using ARC
-    char* buffer = (char*)__tsc_alloc(32, NULL, NULL); // 32 chars should be enough for most doubles
+    char *buffer = (char *) __tsc_alloc(32, NULL, NULL); // 32 chars should be enough for most doubles
     if (!buffer) {
         fprintf(stderr, "Memory allocation failed in number_to_string\n");
         exit(1);
     }
-    
+
     // Convert double to string
     snprintf(buffer, 32, "%.6g", value); // Use %g for compact representation
-    
+
     return buffer;
 }
 
 // Convert boolean to string
 // Signature: char* boolean_to_string(bool value)
 // Returns: A newly allocated string representation of the boolean
-char* boolean_to_string(bool value) {
-    char* result = (char*)__tsc_alloc(value ? 5 : 6, NULL, NULL); // "true" or "false"
+char *boolean_to_string(bool value) {
+    char *result = (char *) __tsc_alloc(value ? 5 : 6, NULL, NULL); // "true" or "false"
     if (!result) {
         fprintf(stderr, "Memory allocation failed in boolean_to_string\n");
         exit(1);
     }
-    
+
     strcpy(result, value ? "true" : "false");
     return result;
 }
@@ -63,9 +63,9 @@ char* boolean_to_string(bool value) {
 // Convert object to string (placeholder implementation)
 // Signature: char* object_to_string(void* obj)
 // Returns: A newly allocated string representation of the object
-char* object_to_string(void* obj) {
+char *object_to_string(void *obj) {
     if (!obj) {
-        char* result = (char*)__tsc_alloc(5, NULL, NULL); // "null"
+        char *result = (char *) __tsc_alloc(5, NULL, NULL); // "null"
         if (!result) {
             fprintf(stderr, "Memory allocation failed in object_to_string\n");
             exit(1);
@@ -73,60 +73,60 @@ char* object_to_string(void* obj) {
         strcpy(result, "null");
         return result;
     }
-    
+
     // For now, return a placeholder string with the object address
-    char* result = (char*)__tsc_alloc(32, NULL, NULL);
+    char *result = (char *) __tsc_alloc(32, NULL, NULL);
     if (!result) {
         fprintf(stderr, "Memory allocation failed in object_to_string\n");
         exit(1);
     }
-    
+
     snprintf(result, 32, "[object %p]", obj);
     return result;
 }
 
 // Mangled versions of number_to_string for different type contexts
 // These functions provide the same functionality as number_to_string but with different mangled names
-char* number_to_string_1(double value) {
+char *number_to_string_1(double value) {
     return number_to_string(value);
 }
 
-char* number_to_string_2(double value) {
+char *number_to_string_2(double value) {
     return number_to_string(value);
 }
 
-char* number_to_string_3(double value) {
+char *number_to_string_3(double value) {
     return number_to_string(value);
 }
 
-char* number_to_string_4(double value) {
+char *number_to_string_4(double value) {
     return number_to_string(value);
 }
 
-char* number_to_string_5(double value) {
+char *number_to_string_5(double value) {
     return number_to_string(value);
 }
 
 // Convert pointer to string representation
-char* pointer_to_string(void* ptr) {
+char *pointer_to_string(void *ptr) {
     static char buffer[32]; // Buffer for pointer string representation
     snprintf(buffer, sizeof(buffer), "%p", ptr);
     return buffer;
 }
 
-char* number_to_string_6(double value) {
+char *number_to_string_6(double value) {
     return number_to_string(value);
 }
 
-char* number_to_string_7(double value) {
+char *number_to_string_7(double value) {
     return number_to_string(value);
 }
 
-char* number_to_string_8(double value) {
+char *number_to_string_8(double value) {
     return number_to_string(value);
 }
 
-char* number_to_string_9(double value) {
+char *number_to_string_9(double value) {
     return number_to_string(value);
 }
 
@@ -135,18 +135,18 @@ char* number_to_string_9(double value) {
 #ifdef __APPLE__
 // On macOS, create wrapper functions with the expected names
 // Note: We can't use dots in function names, so these are alternative implementations
-char* number_to_string_1_dot(double value) { return number_to_string_1(value); }
-char* number_to_string_2_dot(double value) { return number_to_string_2(value); }
-char* number_to_string_3_dot(double value) { return number_to_string_3(value); }
-char* number_to_string_4_dot(double value) { return number_to_string_4(value); }
-char* number_to_string_5_dot(double value) { return number_to_string_5(value); }
-char* number_to_string_6_dot(double value) { return number_to_string_6(value); }
-char* number_to_string_7_dot(double value) { return number_to_string_7(value); }
-char* number_to_string_8_dot(double value) { return number_to_string_8(value); }
-char* number_to_string_9_dot(double value) { return number_to_string_9(value); }
-char* number_to_string_11_dot(double value) { return number_to_string_7(value); }
-char* number_to_string_12_dot(double value) { return number_to_string_8(value); }
-char* number_to_string_13_dot(double value) { return number_to_string_7(value); }
+char *number_to_string_1_dot(double value) { return number_to_string_1(value); }
+char *number_to_string_2_dot(double value) { return number_to_string_2(value); }
+char *number_to_string_3_dot(double value) { return number_to_string_3(value); }
+char *number_to_string_4_dot(double value) { return number_to_string_4(value); }
+char *number_to_string_5_dot(double value) { return number_to_string_5(value); }
+char *number_to_string_6_dot(double value) { return number_to_string_6(value); }
+char *number_to_string_7_dot(double value) { return number_to_string_7(value); }
+char *number_to_string_8_dot(double value) { return number_to_string_8(value); }
+char *number_to_string_9_dot(double value) { return number_to_string_9(value); }
+char *number_to_string_11_dot(double value) { return number_to_string_7(value); }
+char *number_to_string_12_dot(double value) { return number_to_string_8(value); }
+char *number_to_string_13_dot(double value) { return number_to_string_7(value); }
 #else
 // On Linux, use assembly directives
 __asm__(".weak number_to_string.1");

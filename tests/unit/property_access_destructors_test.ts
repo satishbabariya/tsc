@@ -3,22 +3,30 @@
 
 class PropertyDestructorClass1 {
     id: number;
+
     constructor(id: number) {
         this.id = id;
         _print("PropertyDestructorClass1 constructor - id:", this.id);
     }
-    ~PropertyDestructorClass1() {
+
+~
+
+    PropertyDestructorClass1() {
         _print("PropertyDestructorClass1 destructor - id:", this.id);
     }
 }
 
 class PropertyDestructorClass2 {
     name: string;
+
     constructor(name: string) {
         this.name = name;
         _print("PropertyDestructorClass2 constructor - name:", this.name);
     }
-    ~PropertyDestructorClass2() {
+
+~
+
+    PropertyDestructorClass2() {
         _print("PropertyDestructorClass2 destructor - name:", this.name);
     }
 }

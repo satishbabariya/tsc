@@ -1,4 +1,3 @@
-
 // Complex edge cases and boundary conditions
 function advancedEdgeCases(): void {
     // Numeric edge cases
@@ -19,7 +18,7 @@ function advancedEdgeCases(): void {
         overflow: Number.MAX_VALUE * 2,
         underflow: Number.MIN_VALUE / 2
     };
-    
+
     // String edge cases
     let stringEdgeCases = {
         empty: "",
@@ -33,7 +32,7 @@ function advancedEdgeCases(): void {
         veryLong: "a".repeat(1000000),
         nullChars: "hello\0world\0test"
     };
-    
+
     // Array edge cases
     let arrayEdgeCases = {
         empty: [],
@@ -46,10 +45,10 @@ function advancedEdgeCases(): void {
         deepNested: [[[[[[[[[[42]]]]]]]]]],
         circular: [] as any[]
     };
-    
+
     // Create circular reference
     arrayEdgeCases.circular.push(arrayEdgeCases.circular);
-    
+
     // Test edge cases
     console.log("Numeric edge cases:", numericEdgeCases);
     console.log("String edge cases:", stringEdgeCases);

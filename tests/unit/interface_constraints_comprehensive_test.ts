@@ -4,11 +4,13 @@
 // Test 1: Basic type constraints
 interface NumberContainer<T extends number> {
     value: T;
+
     double(): T;
 }
 
 interface StringContainer<T extends string> {
     text: T;
+
     length(): number;
 }
 
@@ -30,6 +32,7 @@ interface MultiTypeContainer<T extends string, U extends number, V extends boole
     text: T;
     count: U;
     flag: V;
+
     combine(): string;
 }
 
@@ -45,6 +48,7 @@ interface ConstrainedWrapper<T extends number> extends GenericWrapper<T> {
 // Test 5: Interface with method constraints
 interface MethodConstraintInterface<T extends string> {
     value: T;
+
     process<U extends number>(input: U): string;
 }
 
@@ -64,12 +68,15 @@ interface TopInterface<T extends number> extends MiddleInterface<T> {
 // Test 7: Interface with array constraints
 interface ArrayProcessor<T extends number> {
     numbers: T[];
+
     sum(): T;
+
     average(): number;
 }
 
 // Test 8: Interface with function constraints
 interface FunctionContainer<T extends string> {
     text: T;
+
     transform<U extends number>(fn: (input: T) => U): U;
 }

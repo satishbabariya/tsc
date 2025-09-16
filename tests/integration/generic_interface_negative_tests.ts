@@ -21,6 +21,6 @@ interface MissingClosing<T {
 }
 
 // Test 5: Extra comma
-interface ExtraComma<T,> {
+interface ExtraComma<T, > {
     value: T;
 }

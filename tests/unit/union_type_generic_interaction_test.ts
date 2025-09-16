@@ -2,33 +2,33 @@
 
 class UnionTypeContainer<T extends string | number> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     // Test array operations with union type constraints
     addItem(item: T): void {
         this.items.push(item);
     }
-    
+
     getLength(): number {
         return this.items.length;
     }
-    
+
     getLengthAsString(): string {
         return this.items.length.toString();
     }
-    
+
     // Test nested property access with union types
     getFirstItem(): T {
         return this.items[0];
     }
-    
+
     getLastItem(): T {
         return this.items[this.items.length - 1];
     }
-    
+
     // Test array indexing with union types
     getItemAt(index: number): T {
         if (index >= 0 && index < this.items.length) {
@@ -36,32 +36,32 @@ class UnionTypeContainer<T extends string | number> {
         }
         return this.items[this.items.length - 1];
     }
-    
+
     // Test complex nested operations with union types
     getLengthOperations(): string {
         let len = this.items.length;
         let lenStr = len.toString();
         let lenPlusOne = len + 1;
         let lenMinusOne = len - 1;
-        
+
         return "Length: " + lenStr + ", +1: " + lenPlusOne.toString() + ", -1: " + lenMinusOne.toString();
     }
-    
+
     // Test conditional operations based on array length
     hasItems(): boolean {
         return this.items.length > 0;
     }
-    
+
     isEmpty(): boolean {
         return this.items.length === 0;
     }
-    
+
     // Test nested operations with length calculations
     getMiddleIndex(): number {
         if (this.items.length === 0) return 0;
         return Math.floor(this.items.length / 2);
     }
-    
+
     getMiddleItem(): T {
         if (this.items.length === 0) return this.items[0];
         let middleIndex = this.getMiddleIndex();
@@ -71,33 +71,33 @@ class UnionTypeContainer<T extends string | number> {
 
 class UnionTypeArrayOperations<T extends string | number> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     // Test various array operations with union type constraints
     pushItem(item: T): number {
         this.items.push(item);
         return this.items.length;
     }
-    
+
     popItem(): T {
         if (this.items.length > 0) {
             return this.items.pop();
         }
         return this.items[0];
     }
-    
+
     // Test nested property access with union types
     getLengthInfo(): string {
         let len = this.items.length;
         let isEmpty = len === 0;
         let hasItems = len > 0;
-        
+
         return "Length: " + len.toString() + ", Empty: " + isEmpty.toString() + ", Has items: " + hasItems.toString();
     }
-    
+
     // Test array manipulation with nested operations
     removeFirst(): T {
         if (this.items.length > 0) {
@@ -111,7 +111,7 @@ class UnionTypeArrayOperations<T extends string | number> {
         }
         return this.items[0];
     }
-    
+
     // Test conditional operations with union types
     getItemSafely(index: number): T {
         if (index >= 0 && index < this.items.length) {
@@ -119,23 +119,23 @@ class UnionTypeArrayOperations<T extends string | number> {
         }
         return this.items[this.items.length - 1];
     }
-    
+
     // Test nested operations with array length
     getLastIndex(): number {
         return this.items.length - 1;
     }
-    
+
     getSecondLastIndex(): number {
         return this.items.length - 2;
     }
-    
+
     // Test array length in various contexts with union types
     getLengthOperations(): string {
         let len = this.items.length;
         let lenStr = len.toString();
         let lenPlusOne = len + 1;
         let lenMinusOne = len - 1;
-        
+
         return "Length: " + lenStr + ", +1: " + lenPlusOne.toString() + ", -1: " + lenMinusOne.toString();
     }
 }
@@ -157,7 +157,7 @@ function processUnionTypeArrayOperations<T extends string | number>(arr: T[]): s
     let lenStr = len.toString();
     let lastIndex = len - 1;
     let middleIndex = Math.floor(len / 2);
-    
+
     return "Length: " + lenStr + ", Last index: " + lastIndex.toString() + ", Middle index: " + middleIndex.toString();
 }
 
@@ -167,11 +167,11 @@ class StringNumberContainer extends UnionTypeContainer<string | number> {
     getFirstItemAsString(): string {
         return this.items[0].toString();
     }
-    
+
     getLastItemAsString(): string {
         return this.items[this.items.length - 1].toString();
     }
-    
+
     // Test nested property access with toString
     getAllItemsAsString(): string {
         let result = "";
@@ -180,7 +180,7 @@ class StringNumberContainer extends UnionTypeContainer<string | number> {
         }
         return result;
     }
-    
+
     // Test array operations with union types
     getLengthAndFirstItem(): string {
         let len = this.items.length;

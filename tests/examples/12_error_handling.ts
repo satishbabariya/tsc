@@ -34,20 +34,20 @@ function processString(input: string): string {
 function readFile(filename: string): string {
     let content: string = "";
     let fileHandle: any = null;
-    
+
     try {
         // Simulate file opening
-        fileHandle = { name: filename, isOpen: true };
+        fileHandle = {name: filename, isOpen: true};
         _print("Opening file:", filename);
-        
+
         // Simulate file reading
         if (filename === "nonexistent.txt") {
             throw new Error("File not found: " + filename);
         }
-        
+
         content = "File content here";
         _print("File read successfully");
-        
+
     } catch (error) {
         _print("Error reading file:", error.message);
         content = "";
@@ -58,7 +58,7 @@ function readFile(filename: string): string {
             _print("File handle closed");
         }
     }
-    
+
     return content;
 }
 
@@ -68,17 +68,17 @@ function processData(data: any): any {
         if (data === null || data === undefined) {
             throw new Error("Data is null or undefined");
         }
-        
+
         if (typeof data === "string") {
             return JSON.parse(data);
         }
-        
+
         if (typeof data === "object") {
             return JSON.stringify(data);
         }
-        
+
         throw new Error("Unsupported data type");
-        
+
     } catch (error) {
         if (error instanceof SyntaxError) {
             _print("JSON parsing error:", error.message);
@@ -96,7 +96,7 @@ function processData(data: any): any {
 // Custom error classes
 class ValidationError extends Error {
     field: string;
-    
+
     constructor(field: string, message: string) {
         super(message);
         this.name = "ValidationError";
@@ -106,7 +106,7 @@ class ValidationError extends Error {
 
 class NetworkError extends Error {
     statusCode: number;
-    
+
     constructor(message: string, statusCode: number) {
         super(message);
         this.name = "NetworkError";
@@ -116,7 +116,7 @@ class NetworkError extends Error {
 
 class BusinessLogicError extends Error {
     code: string;
-    
+
     constructor(message: string, code: string) {
         super(message);
         this.name = "BusinessLogicError";
@@ -129,15 +129,15 @@ function validateUser(user: any): void {
     if (!user) {
         throw new ValidationError("user", "User object is required");
     }
-    
+
     if (!user.name || typeof user.name !== "string") {
         throw new ValidationError("name", "User name is required and must be a string");
     }
-    
+
     if (!user.email || typeof user.email !== "string") {
         throw new ValidationError("email", "User email is required and must be a string");
     }
-    
+
     if (user.age && (typeof user.age !== "number" || user.age < 0)) {
         throw new ValidationError("age", "User age must be a positive number");
     }
@@ -147,7 +147,7 @@ function validateUser(user: any): void {
 function createUser(userData: any): object {
     try {
         validateUser(userData);
-        
+
         return {
             id: Math.floor(Math.random() * 1000),
             name: userData.name,
@@ -155,7 +155,7 @@ function createUser(userData: any): object {
             age: userData.age || 0,
             createdAt: new Date()
         };
-        
+
     } catch (error) {
         if (error instanceof ValidationError) {
             _print("Validation failed for field '" + error.field + "': " + error.message);
@@ -172,21 +172,21 @@ async function fetchUserData(userId: number): Promise<object | null> {
     try {
         // Simulate async operation
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         if (userId <= 0) {
             throw new ValidationError("userId", "User ID must be positive");
         }
-        
+
         if (userId > 1000) {
             throw new NetworkError("User not found", 404);
         }
-        
+
         return {
             id: userId,
             name: "User " + userId,
             email: "user" + userId + "@example.com"
         };
-        
+
     } catch (error) {
         if (error instanceof ValidationError) {
             _print("Validation error:", error.message);
@@ -202,29 +202,29 @@ async function fetchUserData(userId: number): Promise<object | null> {
 // Error handling with retries
 async function fetchDataWithRetry(url: string, maxRetries: number = 3): Promise<string | null> {
     let lastError: Error | null = null;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
             // Simulate network request
             await new Promise(resolve => setTimeout(resolve, 100));
-            
+
             if (url === "error") {
                 throw new NetworkError("Network request failed", 500);
             }
-            
+
             return "Data from " + url;
-            
+
         } catch (error) {
             lastError = error;
             _print("Attempt " + attempt + " failed:", error.message);
-            
+
             if (attempt < maxRetries) {
                 // Wait before retry
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
     }
-    
+
     _print("All retry attempts failed. Last error:", lastError.message);
     return null;
 }
@@ -232,24 +232,24 @@ async function fetchDataWithRetry(url: string, maxRetries: number = 3): Promise<
 // Error handling with cleanup
 function processResource(resourceName: string): boolean {
     let resource: any = null;
-    
+
     try {
         // Acquire resource
-        resource = { name: resourceName, isAcquired: true };
+        resource = {name: resourceName, isAcquired: true};
         _print("Resource acquired:", resourceName);
-        
+
         // Process resource
         if (resourceName === "invalid") {
             throw new Error("Invalid resource");
         }
-        
+
         _print("Resource processed successfully");
         return true;
-        
+
     } catch (error) {
         _print("Error processing resource:", error.message);
         return false;
-        
+
     } finally {
         // Always cleanup
         if (resource) {
@@ -276,7 +276,7 @@ function riskyOperation(): number {
             throw new Error("Random failure occurred");
         }
         return Math.floor(random * 100);
-        
+
     } catch (error) {
         logError(error, "riskyOperation");
         return -1;
@@ -292,13 +292,13 @@ function getConfigValue(key: string, defaultValue: any): any {
             "timeout": 5000,
             "retries": 3
         };
-        
+
         if (!(key in config)) {
             throw new Error("Configuration key not found: " + key);
         }
-        
+
         return config[key];
-        
+
     } catch (error) {
         _print("Config error:", error.message);
         _print("Using default value:", defaultValue);
@@ -322,8 +322,8 @@ let data2: any = processData("invalid json");       // null (error caught)
 let data3: any = processData(42);                   // "42"
 
 // Custom error usage
-let user1: object | null = createUser({ name: "Alice", email: "alice@example.com" });
-let user2: object | null = createUser({ name: "Bob" }); // null (validation error)
+let user1: object | null = createUser({name: "Alice", email: "alice@example.com"});
+let user2: object | null = createUser({name: "Bob"}); // null (validation error)
 let user3: object | null = createUser(null); // null (validation error)
 
 // Async error handling usage
@@ -331,7 +331,7 @@ async function example() {
     let userData1: object | null = await fetchUserData(123);
     let userData2: object | null = await fetchUserData(-1); // null (validation error)
     let userData3: object | null = await fetchUserData(2000); // null (network error)
-    
+
     let data1: string | null = await fetchDataWithRetry("https://api.example.com");
     let data2: string | null = await fetchDataWithRetry("error"); // null (all retries failed)
 }

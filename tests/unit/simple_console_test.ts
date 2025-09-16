@@ -2,13 +2,15 @@ _print("Simple test");
 
 class SimpleClass {
     id: number;
-    
+
     constructor(id: number) {
         this.id = id;
         _print("Constructor called");
     }
-    
-    ~SimpleClass() {
+
+~
+
+    SimpleClass() {
         _print("Destructor called");
     }
 }

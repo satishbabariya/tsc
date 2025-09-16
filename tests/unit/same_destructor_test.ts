@@ -1,25 +1,29 @@
 class TestClass1 {
     id: number;
-    
+
     constructor(id: number) {
         this.id = id;
         _print("TestClass1 constructor");
     }
-    
-    ~TestClass1() {
+
+~
+
+    TestClass1() {
         _print("TestClass1 destructor");
     }
 }
 
 class TestClass2 {
     name: string;
-    
+
     constructor(name: string) {
         this.name = name;
         _print("TestClass2 constructor");
     }
-    
-    ~TestClass2() {
+
+~
+
+    TestClass2() {
         _print("TestClass2 destructor");
     }
 }

@@ -1,4 +1,3 @@
-
 // System tests for end-to-end generics functionality
 interface ApiResponse<T> {
     data: T;
@@ -27,7 +26,7 @@ class ApiClient {
             }, 100);
         });
     }
-    
+
     async post<T, R>(url: string, data: T): Promise<ApiResponse<R>> {
         // Simulate API call
         return new Promise(resolve => {
@@ -40,7 +39,7 @@ class ApiClient {
             }, 100);
         });
     }
-    
+
     async getPaginated<T>(url: string, page: number = 1, limit: number = 10): Promise<PaginatedResponse<T>> {
         // Simulate API call
         return new Promise(resolve => {
@@ -58,16 +57,17 @@ class ApiClient {
 
 // Generic data processor
 class DataProcessor<T> {
-    constructor(private transformer: (item: T) => T) {}
-    
+    constructor(private transformer: (item: T) => T) {
+    }
+
     process(items: T[]): T[] {
         return items.map(this.transformer);
     }
-    
+
     filter(items: T[], predicate: (item: T) => boolean): T[] {
         return items.filter(predicate);
     }
-    
+
     reduce<R>(items: T[], reducer: (acc: R, item: T) => R, initial: R): R {
         return items.reduce(reducer, initial);
     }
@@ -78,12 +78,12 @@ class Cache<K, V> {
     private cache = new Map<K, V>();
     private ttl = new Map<K, number>();
     private defaultTtl = 60000; // 1 minute
-    
+
     set(key: K, value: V, ttl?: number): void {
         this.cache.set(key, value);
         this.ttl.set(key, Date.now() + (ttl || this.defaultTtl));
     }
-    
+
     get(key: K): V | undefined {
         const expiry = this.ttl.get(key);
         if (expiry && Date.now() > expiry) {
@@ -93,16 +93,16 @@ class Cache<K, V> {
         }
         return this.cache.get(key);
     }
-    
+
     has(key: K): boolean {
         return this.get(key) !== undefined;
     }
-    
+
     delete(key: K): boolean {
         this.ttl.delete(key);
         return this.cache.delete(key);
     }
-    
+
     clear(): void {
         this.cache.clear();
         this.ttl.clear();
@@ -112,21 +112,21 @@ class Cache<K, V> {
 // Generic event system
 class EventEmitter<T extends Record<string, any[]>> {
     private listeners = new Map<keyof T, Array<(...args: any[]) => void>>();
-    
+
     on<K extends keyof T>(event: K, listener: (...args: T[K]) => void): void {
         if (!this.listeners.has(event)) {
             this.listeners.set(event, []);
         }
         this.listeners.get(event)!.push(listener);
     }
-    
+
     emit<K extends keyof T>(event: K, ...args: T[K]): void {
         const eventListeners = this.listeners.get(event);
         if (eventListeners) {
             eventListeners.forEach(listener => listener(...args));
         }
     }
-    
+
     off<K extends keyof T>(event: K, listener: (...args: T[K]) => void): void {
         const eventListeners = this.listeners.get(event);
         if (eventListeners) {
@@ -178,5 +178,5 @@ eventEmitter.on('user:updated', (user) => {
     console.log('User updated:', user);
 });
 
-eventEmitter.emit('user:created', { id: 1, name: 'Alice', email: 'alice@example.com' });
-eventEmitter.emit('user:updated', { id: 1, name: 'Alice Updated', email: 'alice@example.com' });
+eventEmitter.emit('user:created', {id: 1, name: 'Alice', email: 'alice@example.com'});
+eventEmitter.emit('user:updated', {id: 1, name: 'Alice Updated', email: 'alice@example.com'});

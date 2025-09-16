@@ -7,7 +7,7 @@ numbers.push(4);
 // Generic array test
 class Container<T> {
     items: T[];
-    
+
     add(item: T): void {
         this.items.push(item);
     }

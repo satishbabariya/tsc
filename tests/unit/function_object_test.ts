@@ -5,7 +5,7 @@ function testObjects() {
         age: 30,
         isActive: true
     };
-    
+
     _print("Function object test completed");
 }
 

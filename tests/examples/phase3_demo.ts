@@ -34,7 +34,7 @@ function greetUser(userName) {
 {
     let localVar = age * 2;      // Access outer scope variable
     let innerCalc = localVar + 10; // Local scope calculation
-    
+
     {
         let deepNested = innerCalc - 5; // Access parent scope
     }

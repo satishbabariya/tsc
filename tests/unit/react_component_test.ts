@@ -1,6 +1,5 @@
-
 // React-like Component System Test
-import React, { useState, useEffect, useCallback } from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 
 // Generic component props
 interface ComponentProps<T = any> {
@@ -29,33 +28,53 @@ function GenericComponent<T>(props: ComponentProps<T>): JSX.Element {
         loading: false,
         error: null
     });
-    
+
     const handleUpdate = useCallback((newData: T) => {
-        setState(prev => ({ ...prev, data: newData }));
+        setState(prev => ({...prev, data: newData}));
         props.onUpdate?.(newData);
     }, [props, setState]);
-    
+
     useEffect(() => {
-        setState(prev => ({ ...prev, loading: true }));
+        setState(prev => ({...prev, loading: true}));
         // Simulate async operation
         setTimeout(() => {
-            setState(prev => ({ ...prev, loading: false }));
+            setState(prev => ({...prev, loading: false}));
         }, 1000);
     }, [setState]);
-    
+
     return (
         <div>
-            <h1>Generic Component</h1>
-            <p>Data: {JSON.stringify(state.data)}</p>
-            <p>Loading: {state.loading ? 'Yes' : 'No'}</p>
-            {state.error && <p>Error: {state.error}</p>}
-            {props.children}
+            <h1>Generic
+    Component < /h1>
+    < p > Data
+:
+    {
+        JSON.stringify(state.data)
+    }
+    </p>
+    < p > Loading
+:
+    {
+        state.loading ? 'Yes' : 'No'
+    }
+    </p>
+    {
+        state.error && <p>Error
+    :
+        {
+            state.error
+        }
+        </p>}
+        {
+            props.children
+        }
         </div>
-    );
-}
+    )
+        ;
+    }
 
 // Usage
-const UserComponent = GenericComponent<{ id: number; name: string }>;
-const ProductComponent = GenericComponent<{ id: number; title: string; price: number }>;
+    const UserComponent = GenericComponent<{ id: number; name: string }>;
+    const ProductComponent = GenericComponent<{ id: number; title: string; price: number }>;
 
-console.log("React-like component test completed");
+    console.log("React-like component test completed");

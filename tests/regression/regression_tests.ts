@@ -1,4 +1,3 @@
-
 // Regression tests for error handling
 // These tests ensure existing functionality remains intact
 
@@ -9,27 +8,27 @@ function basicTypeScriptTest(): void {
         name: string;
         email: string;
     }
-    
+
     class UserService {
         private users: User[] = [];
-        
+
         addUser(user: User): void {
             this.users.push(user);
         }
-        
+
         getUser(id: string): User | undefined {
             return this.users.find(user => user.id === id);
         }
-        
+
         getAllUsers(): User[] {
             return [...this.users];
         }
     }
-    
+
     const userService = new UserService();
-    userService.addUser({ id: "1", name: "Alice", email: "alice@example.com" });
-    userService.addUser({ id: "2", name: "Bob", email: "bob@example.com" });
-    
+    userService.addUser({id: "1", name: "Alice", email: "alice@example.com"});
+    userService.addUser({id: "2", name: "Bob", email: "bob@example.com"});
+
     const user = userService.getUser("1");
     console.log("User found:", user);
 }
@@ -38,29 +37,31 @@ function basicTypeScriptTest(): void {
 function genericTypesTest(): void {
     interface Repository<T> {
         findById(id: string): T | null;
+
         save(entity: T): void;
+
         findAll(): T[];
     }
-    
+
     class InMemoryRepository<T> implements Repository<T> {
         private entities: T[] = [];
-        
+
         findById(id: string): T | null {
             return this.entities.find((entity: any) => entity.id === id) || null;
         }
-        
+
         save(entity: T): void {
             this.entities.push(entity);
         }
-        
+
         findAll(): T[] {
             return [...this.entities];
         }
     }
-    
+
     const userRepo = new InMemoryRepository<User>();
-    userRepo.save({ id: "1", name: "Alice", email: "alice@example.com" });
-    
+    userRepo.save({id: "1", name: "Alice", email: "alice@example.com"});
+
     const foundUser = userRepo.findById("1");
     console.log("Found user:", foundUser);
 }
@@ -70,17 +71,18 @@ async function asyncAwaitTest(): Promise<void> {
     async function fetchData(url: string): Promise<any> {
         // Simulate async operation
         await new Promise(resolve => setTimeout(resolve, 100));
-        return { data: "success", url };
+        return {data: "success", url};
     }
-    
+
     const result = await fetchData("https://api.example.com/data");
     console.log("Async result:", result);
 }
 
 // Test 4: Class inheritance (without error handling)
 abstract class BaseEntity {
-    constructor(public id: string) {}
-    
+    constructor(public id: string) {
+    }
+
     abstract validate(): boolean;
 }
 
@@ -88,7 +90,7 @@ class UserEntity extends BaseEntity {
     constructor(id: string, public name: string, public email: string) {
         super(id);
     }
-    
+
     validate(): boolean {
         return !!(this.name && this.email);
     }

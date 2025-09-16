@@ -1,12 +1,14 @@
 class DebugResource {
     id: number;
-    
+
     constructor(id: number) {
         this.id = id;
         _print("DebugResource constructor - id:", this.id);
     }
-    
-    ~DebugResource() {
+
+~
+
+    DebugResource() {
         _print("DebugResource destructor - id:", this.id);
     }
 }

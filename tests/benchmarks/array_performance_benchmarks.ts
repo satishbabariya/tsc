@@ -117,10 +117,10 @@ class ComplexObjectBenchmark {
         this.items.push(1);
         this.items.push(2);
         this.items.push(3);
-        
+
         let length = this.items.length;
         this.items.push(length);
-        
+
         let sum = 0;
         for (let i = 0; i < this.items.length; i++) {
             sum += this.items[i];
@@ -220,18 +220,18 @@ class MixedOperationsBenchmark {
         // Mix of different array operations
         this.items.push(1);
         this.items.push(2);
-        
+
         let length1 = this.items.length;
         this.items.push(3);
-        
+
         let length2 = this.items.length;
         this.items.push(length1 + length2);
-        
+
         // Simulate some conditional operations
         if (this.items.length > 2) {
             this.items.push(99);
         }
-        
+
         // Final length check
         let finalLength = this.items.length;
         this.items.push(finalLength * 2);

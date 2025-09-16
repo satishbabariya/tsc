@@ -1,4 +1,3 @@
-
 // Syntax error that affects semantic analysis
 let x: number = 42
 let y: string = "hello"

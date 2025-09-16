@@ -2,8 +2,10 @@ class TestClass {
     constructor() {
         _print("Constructor called");
     }
-    
-    ~TestClass() {
+
+~
+
+    TestClass() {
         _print("Destructor called");
     }
 }

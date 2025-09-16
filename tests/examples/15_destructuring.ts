@@ -37,21 +37,21 @@ let person: object = {
 };
 
 // Basic object destructuring
-let { name, age, city } = person;
-let { email, country } = person;
+let {name, age, city} = person;
+let {email, country} = person;
 
 // Object destructuring with different variable names
-let { name: personName, age: personAge } = person;
-let { city: location, country: nation } = person;
+let {name: personName, age: personAge} = person;
+let {city: location, country: nation} = person;
 
 // Object destructuring with default values
-let { name: userName = "Unknown", age: userAge = 0, phone = "N/A" } = person;
+let {name: userName = "Unknown", age: userAge = 0, phone = "N/A"} = person;
 
 // Object destructuring with rest operator
-let { name: fullName, ...otherInfo } = person;
+let {name: fullName, ...otherInfo} = person;
 
 // Object destructuring in function parameters
-function processPerson({ name, age, city }: { name: string; age: number; city: string }): string {
+function processPerson({name, age, city}: { name: string; age: number; city: string }): string {
     return `${name} (${age}) from ${city}`;
 }
 
@@ -75,12 +75,12 @@ let complexObject: object = {
     }
 };
 
-let { 
-    user: { 
-        personal: { firstName, lastName },
-        contact: { email: userEmail }
+let {
+    user: {
+        personal: {firstName, lastName},
+        contact: {email: userEmail}
     },
-    settings: { theme, notifications }
+    settings: {theme, notifications}
 } = complexObject;
 
 // Nested array destructuring
@@ -95,7 +95,7 @@ let [[a1, a2, a3], [b1, b2, b3], [c1, c2, c3]] = matrix;
 
 // Destructuring with computed property names
 let propertyName: string = "name";
-let { [propertyName]: computedName } = person;
+let {[propertyName]: computedName} = person;
 
 // Destructuring with function return values
 function getCoordinates(): [number, number] {
@@ -112,22 +112,22 @@ function getUserInfo(): { id: number; name: string; email: string } {
     };
 }
 
-let { id, name: userName2, email: userEmail2 } = getUserInfo();
+let {id, name: userName2, email: userEmail2} = getUserInfo();
 
 // Destructuring in loops
 let users: object[] = [
-    { name: "Alice", age: 25 },
-    { name: "Bob", age: 30 },
-    { name: "Charlie", age: 35 }
+    {name: "Alice", age: 25},
+    {name: "Bob", age: 30},
+    {name: "Charlie", age: 35}
 ];
 
-for (let { name, age } of users) {
+for (let {name, age} of users) {
     _print(`${name} is ${age} years old`);
 }
 
 // Destructuring with type annotations
 let [num1, num2]: [number, number] = [10, 20];
-let { title, author }: { title: string; author: string } = { title: "Book", author: "Author" };
+let {title, author}: { title: string; author: string } = {title: "Book", author: "Author"};
 
 // Destructuring with optional chaining (concept)
 let optionalObject: object | null = {
@@ -142,8 +142,8 @@ let dataValue: number | undefined = optionalObject ? optionalObject.data ? optio
 // Destructuring with validation
 function validateAndDestructure(data: any): { name: string; age: number } | null {
     if (data && typeof data.name === "string" && typeof data.age === "number") {
-        let { name, age } = data;
-        return { name, age };
+        let {name, age} = data;
+        return {name, age};
     }
     return null;
 }
@@ -153,10 +153,10 @@ let validData: { name: string; age: number } | null = validateAndDestructure(per
 // Destructuring with error handling
 function safeDestructure(data: any): { success: boolean; result?: any; error?: string } {
     try {
-        let { name, age, city } = data;
-        return { success: true, result: { name, age, city } };
+        let {name, age, city} = data;
+        return {success: true, result: {name, age, city}};
     } catch (error) {
-        return { success: false, error: "Destructuring failed" };
+        return {success: false, error: "Destructuring failed"};
     }
 }
 
@@ -164,26 +164,26 @@ let destructureResult: { success: boolean; result?: any; error?: string } = safe
 
 // Destructuring with mapping
 let items: object[] = [
-    { id: 1, name: "Item 1", price: 10.99 },
-    { id: 2, name: "Item 2", price: 20.99 },
-    { id: 3, name: "Item 3", price: 30.99 }
+    {id: 1, name: "Item 1", price: 10.99},
+    {id: 2, name: "Item 2", price: 20.99},
+    {id: 3, name: "Item 3", price: 30.99}
 ];
 
-let itemNames: string[] = items.map(({ name }) => name);
-let itemPrices: number[] = items.map(({ price }) => price);
+let itemNames: string[] = items.map(({name}) => name);
+let itemPrices: number[] = items.map(({price}) => price);
 
 // Destructuring with filtering
-let expensiveItems: object[] = items.filter(({ price }) => price > 20);
+let expensiveItems: object[] = items.filter(({price}) => price > 20);
 
 // Destructuring with sorting
-let sortedItems: object[] = items.sort(({ price: a }, { price: b }) => a - b);
+let sortedItems: object[] = items.sort(({price: a}, {price: b}) => a - b);
 
 // Destructuring with reduce
-let totalPrice: number = items.reduce((sum, { price }) => sum + price, 0);
+let totalPrice: number = items.reduce((sum, {price}) => sum + price, 0);
 
 // Destructuring with spread operator
 let [firstItem, ...otherItems] = items;
-let { name: firstName, ...otherProperties } = person;
+let {name: firstName, ...otherProperties} = person;
 
 // Destructuring with nested arrays
 let nestedArray: number[][][] = [
@@ -205,18 +205,19 @@ function processData(data: [string, number] | { name: string; age: number }): st
         let [name, age] = data;
         return `${name} is ${age} years old`;
     } else {
-        let { name, age } = data;
+        let {name, age} = data;
         return `${name} is ${age} years old`;
     }
 }
 
 let result1: string = processData(["Alice", 25]);
-let result2: string = processData({ name: "Bob", age: 30 });
+let result2: string = processData({name: "Bob", age: 30});
 
 // Destructuring with class properties
 class Point {
-    constructor(public x: number, public y: number) {}
-    
+    constructor(public x: number, public y: number) {
+    }
+
     destructure(): [number, number] {
         return [this.x, this.y];
     }

@@ -2,17 +2,20 @@
 
 ## Overview
 
-This document outlines the current state of builtin functions in the TSC compiler and provides a migration plan to move appropriate functionality to a proper stdlib (standard library) while keeping the compiler focused on language features.
+This document outlines the current state of builtin functions in the TSC compiler and provides a migration plan to move
+appropriate functionality to a proper stdlib (standard library) while keeping the compiler focused on language features.
 
 ## Current Architecture Issues
 
 ### Problems with Current Approach
+
 - **Compiler knows too much**: Builtin functions are hardcoded in the compiler
 - **Naming conflicts**: `console.log`, `Math.abs` suggest JavaScript runtime APIs
 - **Inflexibility**: Adding new functions requires compiler changes
 - **Mixed concerns**: Language features mixed with library functions
 
 ### Benefits of Stdlib Approach
+
 - **Separation of concerns**: Compiler focuses on language, stdlib provides utilities
 - **Modularity**: Stdlib can be versioned and updated independently
 - **Extensibility**: Users can create their own libraries
@@ -27,6 +30,7 @@ This document outlines the current state of builtin functions in the TSC compile
 These are **essential runtime functions** that the compiler needs for basic language operations:
 
 #### **Type Conversion Functions** (Core Language)
+
 - ✅ `string_concat(char* str1, char* str2)` - Essential for string concatenation
 - ✅ `number_to_string(double value)` - Essential for number-to-string conversion
 - ✅ `boolean_to_string(bool value)` - Essential for boolean-to-string conversion
@@ -34,9 +38,11 @@ These are **essential runtime functions** that the compiler needs for basic lang
 - ✅ `pointer_to_string(void* ptr)` - Essential for pointer-to-string conversion
 - ✅ Multiple mangled versions (`number_to_string_1` through `number_to_string_9`)
 
-**Reason**: These are **core language features** that the compiler generates calls to. They're not user-facing library functions.
+**Reason**: These are **core language features** that the compiler generates calls to. They're not user-facing library
+functions.
 
 #### **Exception Handling** (Core Language)
+
 - ✅ `__throw_exception(int64_t exception_value)` - Essential for `throw` statements
 - ✅ `__rethrow_exception()` - Essential for `catch` blocks
 - ✅ `__has_exception()` - Essential for exception checking
@@ -46,6 +52,7 @@ These are **essential runtime functions** that the compiler needs for basic lang
 **Reason**: These are **core language control flow** features that the compiler generates calls to.
 
 #### **Global Constants** (Core Language)
+
 - ✅ `Infinity` - Essential JavaScript constant
 - ✅ `NaN` - Essential JavaScript constant
 
@@ -56,11 +63,13 @@ These are **essential runtime functions** that the compiler needs for basic lang
 These are **user-facing library functions** that should be in stdlib:
 
 #### **Console/IO Functions** (Library Function)
+
 - ⚠️ `_print(void* first_arg, ...)` - Should become `stdlib/io.print()`
 
 **Reason**: This is a **user-facing library function**, not a core language feature.
 
 #### **Array Operations** (Library Functions)
+
 - ⚠️ `array_length(void* array_ptr)` - Should become `stdlib/array.length()`
 - ⚠️ `arrayPush(void* array_ptr, void* item)` - Should become `stdlib/array.push()`
 - ⚠️ `arrayPop(void* array_ptr)` - Should become `stdlib/array.pop()`
@@ -75,6 +84,7 @@ The distinction between runtime and stdlib functions is:
 - **Stdlib functions** = User-facing library functions users import and call
 
 **Runtime Layer** (Compiler Internal):
+
 ```
 runtime/
 ├── type_conversions.c    // Core type conversion functions
@@ -84,6 +94,7 @@ runtime/
 ```
 
 **Stdlib Layer** (User-Facing):
+
 ```
 stdlib/
 ├── io.ts                 // _print() → stdlib/io.print()
@@ -92,6 +103,7 @@ stdlib/
 ```
 
 This makes the architecture much cleaner:
+
 - **Compiler** → Generates calls to runtime functions for core language features
 - **Users** → Import and call stdlib functions for library features
 - **Runtime** → Provides essential language support functions
@@ -106,33 +118,39 @@ This makes the architecture much cleaner:
 These are fundamental language features that the compiler must understand:
 
 #### **Type Conversions** (Compiler Core)
+
 - `toString()` method on primitive types
 - `valueOf()` method on objects
 - Type coercion rules
 - **Reason**: Essential for type system and code generation
 
 #### **Exception Handling** (Compiler Core)
+
 - `throw` statement handling
 - `try/catch/finally` block generation
 - Exception propagation
 - **Reason**: Core language control flow feature
 
 #### **Array Literals** (Compiler Core)
+
 - Array initialization syntax `[1, 2, 3]`
 - Array type inference
 - **Reason**: Core language syntax and type system
 
 #### **Template Literals** (Compiler Core)
+
 - String interpolation `${variable}`
 - Template string parsing
 - **Reason**: Core language syntax feature
 
 #### **Object Literals** (Compiler Core)
+
 - Object initialization syntax `{a: 1, b: 2}`
 - Property access `.` and `[]`
 - **Reason**: Core language syntax and type system
 
 #### **Function Calls** (Compiler Core)
+
 - Function invocation syntax
 - Parameter passing
 - Return value handling
@@ -145,7 +163,9 @@ These are fundamental language features that the compiler must understand:
 These are utility functions that should be in a separate stdlib:
 
 #### **Math Functions** (Move to `stdlib/math.ts`)
+
 **Current Status**: Referenced but not implemented
+
 - ❌ `Math.abs()` → `stdlib/math.abs()`
 - ❌ `Math.sqrt()` → `stdlib/math.sqrt()`
 - ❌ `Math.min()` → `stdlib/math.min()`
@@ -157,7 +177,9 @@ These are utility functions that should be in a separate stdlib:
 - ❌ `Math.cos()` → `stdlib/math.cos()`
 
 #### **String Methods** (Move to `stdlib/string.ts`)
+
 **Current Status**: Referenced but not implemented
+
 - ❌ `String.length` → `stdlib/string.length()`
 - ❌ `String.charAt()` → `stdlib/string.charAt()`
 - ❌ `String.substring()` → `stdlib/string.substring()`
@@ -167,7 +189,9 @@ These are utility functions that should be in a separate stdlib:
 - ❌ `String.trim()` → `stdlib/string.trim()`
 
 #### **Array Methods** (Move to `stdlib/array.ts`)
+
 **Current Status**: Partially implemented in compiler
+
 - ⚠️ `Array.length` → `stdlib/array.length()` (currently in compiler)
 - ⚠️ `Array.push()` → `stdlib/array.push()` (currently in compiler)
 - ⚠️ `Array.pop()` → `stdlib/array.pop()` (currently in compiler)
@@ -179,14 +203,18 @@ These are utility functions that should be in a separate stdlib:
 - ❌ `Array.map()` → `stdlib/array.map()`
 
 #### **Console/IO Functions** (Move to `stdlib/io.ts`)
+
 **Current Status**: Recently renamed to `_print`
+
 - ⚠️ `_print()` → `stdlib/io.print()` (currently in compiler)
 - ❌ `stdio.read()` → `stdlib/io.read()`
 - ❌ `stdio.write()` → `stdlib/io.write()`
 - ❌ `stdio.readline()` → `stdlib/io.readline()`
 
 #### **Type Utilities** (Move to `stdlib/types.ts`)
+
 **Current Status**: Some implemented in compiler
+
 - ⚠️ `string_concat()` → `stdlib/types.concat()` (currently in compiler)
 - ⚠️ `number_to_string()` → `stdlib/types.toString()` (currently in compiler)
 - ⚠️ `boolean_to_string()` → `stdlib/types.toString()` (currently in compiler)
@@ -198,53 +226,57 @@ These are utility functions that should be in a separate stdlib:
 ### 🔄 **MIGRATION PRIORITY**
 
 #### **Phase 1: High Priority** (Immediate)
+
 1. **Create basic stdlib structure**
-   - `stdlib/math.ts` with basic functions
-   - `stdlib/io.ts` with `print()` function
-   - `stdlib/types.ts` with type conversion utilities
+    - `stdlib/math.ts` with basic functions
+    - `stdlib/io.ts` with `print()` function
+    - `stdlib/types.ts` with type conversion utilities
 
 2. **Remove misleading references**
-   - Remove `Math.*` references from compiler
-   - Remove `String.*` references from compiler
-   - Update examples to use stdlib imports
+    - Remove `Math.*` references from compiler
+    - Remove `String.*` references from compiler
+    - Update examples to use stdlib imports
 
 3. **Implement core stdlib functions**
-   - `stdlib/math.abs()`, `stdlib/math.sqrt()`
-   - `stdlib/io.print()` (move from `_print()`)
-   - `stdlib/types.toString()` (move from runtime functions)
+    - `stdlib/math.abs()`, `stdlib/math.sqrt()`
+    - `stdlib/io.print()` (move from `_print()`)
+    - `stdlib/types.toString()` (move from runtime functions)
 
 #### **Phase 2: Medium Priority** (Next)
+
 1. **Move array functions to stdlib**
-   - Move `array_length()`, `arrayPush()`, `arrayPop()` to stdlib
-   - Implement proper array operations
-   - Remove array method recognition from compiler
+    - Move `array_length()`, `arrayPush()`, `arrayPop()` to stdlib
+    - Implement proper array operations
+    - Remove array method recognition from compiler
 
 2. **Expand math stdlib**
-   - Add `Math.min`, `Math.max`, `Math.floor`, `Math.ceil`
-   - Implement runtime math operations
-   - Add trigonometric functions
+    - Add `Math.min`, `Math.max`, `Math.floor`, `Math.ceil`
+    - Implement runtime math operations
+    - Add trigonometric functions
 
 3. **Add string stdlib**
-   - Implement `String.length`, `String.charAt`, `String.substring`
-   - Move string utilities to stdlib
+    - Implement `String.length`, `String.charAt`, `String.substring`
+    - Move string utilities to stdlib
 
 #### **Phase 3: Low Priority** (Future)
+
 1. **Advanced stdlib features**
-   - Functional array methods (`map`, `filter`, `reduce`)
-   - Advanced string operations
-   - Date/time utilities
-   - File I/O operations
+    - Functional array methods (`map`, `filter`, `reduce`)
+    - Advanced string operations
+    - Date/time utilities
+    - File I/O operations
 
 2. **Package system**
-   - Module import/export system
-   - Package manager
-   - Version management
+    - Module import/export system
+    - Package manager
+    - Version management
 
 ---
 
 ## Implementation Plan
 
 ### **Step 1: Create Stdlib Structure**
+
 ```
 stdlib/
 ├── math.ts          // Math functions
@@ -256,17 +288,20 @@ stdlib/
 ```
 
 ### **Step 2: Update Compiler**
+
 - Remove builtin function recognition for library functions
 - Keep only core language features in compiler
 - Add import/export support for modules
 - Generate function calls to imported stdlib functions
 
 ### **Step 3: Update Runtime**
+
 - Move utility functions from compiler-specific runtime to stdlib runtime
 - Create stdlib-specific runtime functions
 - Link stdlib as separate library
 
 ### **Step 4: Update Examples and Tests**
+
 - Replace direct function calls with stdlib imports
 - Update all examples to use new stdlib API
 - Ensure backward compatibility during transition
@@ -276,6 +311,7 @@ stdlib/
 ## Example Migration
 
 ### **Before (Current)**
+
 ```typescript
 // Compiler knows about these
 _print("Hello");
@@ -285,6 +321,7 @@ let len = arr.length;  // Compiler knows about this
 ```
 
 ### **After (Stdlib)**
+
 ```typescript
 // Import stdlib functions
 import { print } from "stdlib/io";
@@ -302,18 +339,21 @@ let len = length(arr);  // Works via stdlib
 ## Benefits After Migration
 
 ### **For Compiler**
+
 - ✅ Cleaner, more focused code
 - ✅ Easier to maintain and extend
 - ✅ Better separation of concerns
 - ✅ No hardcoded library functions
 
 ### **For Users**
+
 - ✅ Can create their own libraries
 - ✅ Can choose which stdlib version to use
 - ✅ More familiar API (similar to other languages)
 - ✅ Better modularity and reusability
 
 ### **For Project**
+
 - ✅ More professional architecture
 - ✅ Easier to add new features
 - ✅ Better testability
@@ -323,6 +363,9 @@ let len = length(arr);  // Works via stdlib
 
 ## Conclusion
 
-Moving from compiler-integrated builtin functions to a proper stdlib will significantly improve the TSC project's architecture, maintainability, and user experience. The migration should be done incrementally, starting with the most problematic areas (Math, String methods) and gradually moving toward a full stdlib implementation.
+Moving from compiler-integrated builtin functions to a proper stdlib will significantly improve the TSC project's
+architecture, maintainability, and user experience. The migration should be done incrementally, starting with the most
+problematic areas (Math, String methods) and gradually moving toward a full stdlib implementation.
 
-This approach aligns with the project's goals of being a static compiler that generates native binaries while providing a clean, modular standard library for common operations.
+This approach aligns with the project's goals of being a static compiler that generates native binaries while providing
+a clean, modular standard library for common operations.

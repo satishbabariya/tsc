@@ -5,14 +5,16 @@
 class ExceptionDestructor {
     private name: string;
     private shouldThrow: boolean;
-    
+
     constructor(name: string, shouldThrow: boolean = false) {
         this.name = name;
         this.shouldThrow = shouldThrow;
         _print(`ExceptionDestructor '${name}' created`);
     }
-    
-    ~ExceptionDestructor() {
+
+~
+
+    ExceptionDestructor() {
         _print(`ExceptionDestructor '${this.name}' being destroyed`);
         if (this.shouldThrow) {
             _print("ERROR: Destructor throwing exception!");
@@ -20,7 +22,7 @@ class ExceptionDestructor {
         }
         _print(`ExceptionDestructor '${this.name}' destroyed successfully`);
     }
-    
+
     getName(): string {
         return this.name;
     }
@@ -30,23 +32,25 @@ class ExceptionDestructor {
 class CircularRAIIA {
     private name: string;
     private b: CircularRAIIB | null;
-    
+
     constructor(name: string) {
         this.name = name;
         this.b = null;
         _print(`CircularRAIIA '${name}' created`);
     }
-    
-    ~CircularRAIIA() {
+
+~
+
+    CircularRAIIA() {
         _print(`CircularRAIIA '${this.name}' being destroyed`);
         this.b = null;
         _print(`CircularRAIIA '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     setB(b: CircularRAIIB): void {
         this.b = b;
     }
@@ -55,23 +59,25 @@ class CircularRAIIA {
 class CircularRAIIB {
     private name: string;
     private a: CircularRAIIA | null;
-    
+
     constructor(name: string) {
         this.name = name;
         this.a = null;
         _print(`CircularRAIIB '${name}' created`);
     }
-    
-    ~CircularRAIIB() {
+
+~
+
+    CircularRAIIB() {
         _print(`CircularRAIIB '${this.name}' being destroyed`);
         this.a = null;
         _print(`CircularRAIIB '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     setA(a: CircularRAIIA): void {
         this.a = a;
     }
@@ -81,14 +87,16 @@ class CircularRAIIB {
 class DoubleDestruction {
     private name: string;
     private destroyed: boolean;
-    
+
     constructor(name: string) {
         this.name = name;
         this.destroyed = false;
         _print(`DoubleDestruction '${name}' created`);
     }
-    
-    ~DoubleDestruction() {
+
+~
+
+    DoubleDestruction() {
         if (this.destroyed) {
             _print("ERROR: Attempting to destroy already destroyed object!");
             throw new Error("Double destruction attempt");
@@ -96,11 +104,11 @@ class DoubleDestruction {
         this.destroyed = true;
         _print(`DoubleDestruction '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     isDestroyed(): boolean {
         return this.destroyed;
     }
@@ -111,15 +119,17 @@ class ResourceLeak {
     private name: string;
     private resources: string[];
     private cleaned: boolean;
-    
+
     constructor(name: string) {
         this.name = name;
         this.resources = ["resource1", "resource2", "resource3"];
         this.cleaned = false;
         _print(`ResourceLeak '${name}' created with ${this.resources.length} resources`);
     }
-    
-    ~ResourceLeak() {
+
+~
+
+    ResourceLeak() {
         _print(`ResourceLeak '${this.name}' being destroyed`);
         if (!this.cleaned) {
             _print("WARNING: Resources not properly cleaned up!");
@@ -128,15 +138,15 @@ class ResourceLeak {
         this.cleaned = true;
         _print(`ResourceLeak '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getResources(): string[] {
         return this.resources;
     }
-    
+
     cleanup(): void {
         if (!this.cleaned) {
             _print(`Cleaning up resources for '${this.name}'`);
@@ -151,20 +161,22 @@ class InvalidAccess {
     private name: string;
     private data: string;
     private destroyed: boolean;
-    
+
     constructor(name: string, data: string) {
         this.name = name;
         this.data = data;
         this.destroyed = false;
         _print(`InvalidAccess '${name}' created`);
     }
-    
-    ~InvalidAccess() {
+
+~
+
+    InvalidAccess() {
         _print(`InvalidAccess '${this.name}' being destroyed`);
         this.destroyed = true;
         _print(`InvalidAccess '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         if (this.destroyed) {
             _print("ERROR: Accessing destroyed object!");
@@ -172,7 +184,7 @@ class InvalidAccess {
         }
         return this.name;
     }
-    
+
     getData(): string {
         if (this.destroyed) {
             _print("ERROR: Accessing destroyed object!");
@@ -180,7 +192,7 @@ class InvalidAccess {
         }
         return this.data;
     }
-    
+
     isDestroyed(): boolean {
         return this.destroyed;
     }
@@ -191,15 +203,17 @@ class MemoryCorruption {
     private name: string;
     private buffer: number[];
     private corrupted: boolean;
-    
+
     constructor(name: string, size: number) {
         this.name = name;
         this.buffer = new Array(size);
         this.corrupted = false;
         _print(`MemoryCorruption '${name}' created with buffer size ${size}`);
     }
-    
-    ~MemoryCorruption() {
+
+~
+
+    MemoryCorruption() {
         _print(`MemoryCorruption '${this.name}' being destroyed`);
         if (this.corrupted) {
             _print("ERROR: Memory corruption detected!");
@@ -207,20 +221,20 @@ class MemoryCorruption {
         }
         _print(`MemoryCorruption '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getBuffer(): number[] {
         return this.buffer;
     }
-    
+
     corruptMemory(): void {
         this.corrupted = true;
         _print("WARNING: Memory corruption simulated!");
     }
-    
+
     isCorrupted(): boolean {
         return this.corrupted;
     }
@@ -231,15 +245,17 @@ class ResourceExhaustion {
     private name: string;
     private resources: string[];
     private maxResources: number;
-    
+
     constructor(name: string, maxResources: number) {
         this.name = name;
         this.maxResources = maxResources;
         this.resources = [];
         _print(`ResourceExhaustion '${name}' created with max ${maxResources} resources`);
     }
-    
-    ~ResourceExhaustion() {
+
+~
+
+    ResourceExhaustion() {
         _print(`ResourceExhaustion '${this.name}' being destroyed`);
         _print(`Final resource count: ${this.resources.length}/${this.maxResources}`);
         if (this.resources.length > this.maxResources) {
@@ -248,19 +264,19 @@ class ResourceExhaustion {
         }
         _print(`ResourceExhaustion '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getResourceCount(): number {
         return this.resources.length;
     }
-    
+
     getMaxResources(): number {
         return this.maxResources;
     }
-    
+
     addResource(resource: string): boolean {
         if (this.resources.length >= this.maxResources) {
             _print("ERROR: Cannot add resource, limit exceeded!");
@@ -270,7 +286,7 @@ class ResourceExhaustion {
         _print(`Resource '${resource}' added (${this.resources.length}/${this.maxResources})`);
         return true;
     }
-    
+
     removeResource(resource: string): boolean {
         let index = this.resources.indexOf(resource);
         if (index > -1) {
@@ -287,24 +303,26 @@ class ThreadSafety {
     private name: string;
     private counter: number;
     private destroyed: boolean;
-    
+
     constructor(name: string) {
         this.name = name;
         this.counter = 0;
         this.destroyed = false;
         _print(`ThreadSafety '${name}' created`);
     }
-    
-    ~ThreadSafety() {
+
+~
+
+    ThreadSafety() {
         _print(`ThreadSafety '${this.name}' being destroyed`);
         this.destroyed = true;
         _print(`ThreadSafety '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getCounter(): number {
         if (this.destroyed) {
             _print("ERROR: Accessing destroyed object from thread!");
@@ -312,7 +330,7 @@ class ThreadSafety {
         }
         return this.counter;
     }
-    
+
     incrementCounter(): void {
         if (this.destroyed) {
             _print("ERROR: Modifying destroyed object from thread!");
@@ -321,7 +339,7 @@ class ThreadSafety {
         this.counter++;
         _print(`Counter incremented to ${this.counter}`);
     }
-    
+
     isDestroyed(): boolean {
         return this.destroyed;
     }
@@ -332,15 +350,17 @@ class InvalidState {
     private name: string;
     private state: string;
     private validStates: string[];
-    
+
     constructor(name: string) {
         this.name = name;
         this.state = "initialized";
         this.validStates = ["initialized", "active", "inactive", "destroyed"];
         _print(`InvalidState '${name}' created in state '${this.state}'`);
     }
-    
-    ~InvalidState() {
+
+~
+
+    InvalidState() {
         _print(`InvalidState '${this.name}' being destroyed`);
         if (this.state === "destroyed") {
             _print("ERROR: Invalid state transition to destroyed!");
@@ -349,15 +369,15 @@ class InvalidState {
         this.state = "destroyed";
         _print(`InvalidState '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getState(): string {
         return this.state;
     }
-    
+
     setState(newState: string): boolean {
         if (this.state === "destroyed") {
             _print("ERROR: Cannot change state of destroyed object!");
@@ -378,15 +398,17 @@ class ResourceDependency {
     private name: string;
     private dependencies: string[];
     private satisfied: boolean;
-    
+
     constructor(name: string, dependencies: string[]) {
         this.name = name;
         this.dependencies = dependencies;
         this.satisfied = false;
         _print(`ResourceDependency '${name}' created with dependencies: ${dependencies.join(", ")}`);
     }
-    
-    ~ResourceDependency() {
+
+~
+
+    ResourceDependency() {
         _print(`ResourceDependency '${this.name}' being destroyed`);
         if (!this.satisfied) {
             _print("ERROR: Resource dependencies not satisfied!");
@@ -395,19 +417,19 @@ class ResourceDependency {
         }
         _print(`ResourceDependency '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getDependencies(): string[] {
         return this.dependencies;
     }
-    
+
     isSatisfied(): boolean {
         return this.satisfied;
     }
-    
+
     satisfyDependency(dependency: string): boolean {
         let index = this.dependencies.indexOf(dependency);
         if (index > -1) {
@@ -541,7 +563,7 @@ function testResourceDependency(): void {
 function runAllErrorHandlingTests(): void {
     _print("🚀 Starting RAII Error Handling Tests");
     _print("=======================================");
-    
+
     testExceptionDestructor();
     testCircularDependencies();
     testDoubleDestruction();
@@ -552,10 +574,10 @@ function runAllErrorHandlingTests(): void {
     testThreadSafety();
     testInvalidState();
     testResourceDependency();
-    
+
     _print("=======================================");
     _print("✅ All RAII Error Handling Tests Completed");
 }
 
 // Export for testing
-export { runAllErrorHandlingTests };
+export {runAllErrorHandlingTests};

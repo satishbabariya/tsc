@@ -1,7 +1,9 @@
 // Minimal generic interfaces
 interface Container<T> {
     value: T;
+
     getValue(): T;
+
     setValue(value: T): void;
 }
 

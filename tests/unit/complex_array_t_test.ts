@@ -1,15 +1,15 @@
 // Complex test for Array<T> functionality
 class GenericArrayContainer<T> {
     items: Array<T>;
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     addItem(item: T): void {
         this.items.push(item);
     }
-    
+
     getLength(): number {
         return this.items.length;
     }

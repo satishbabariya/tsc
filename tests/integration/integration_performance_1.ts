@@ -1,4 +1,3 @@
-
 // Performance stress test with many errors
 function performanceStress(): void {
     for (let i = 0; i < 1000; i++) {

@@ -1,21 +1,20 @@
-
 // Custom Exception Performance Benchmark
 class CustomExceptionBenchmark {
     private iterations: number;
     private errorRate: number;
-    
+
     constructor(iterations: number = 1000000, errorRate: number = 0.01) {
         this.iterations = iterations;
         this.errorRate = errorRate;
     }
-    
+
     benchmarkCustomExceptionCreation(): BenchmarkResult {
         const startTime = performance.now();
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         let successCount = 0;
         let errorCount = 0;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             try {
                 if (Math.random() < this.errorRate) {
@@ -26,10 +25,10 @@ class CustomExceptionBenchmark {
                 errorCount++;
             }
         }
-        
+
         const endTime = performance.now();
         const endMemory = process.memoryUsage().heapUsed;
-        
+
         return {
             executionTime: endTime - startTime,
             memoryUsage: endMemory - startMemory,
@@ -38,14 +37,14 @@ class CustomExceptionBenchmark {
             iterations: this.iterations
         };
     }
-    
+
     benchmarkExceptionInheritance(): BenchmarkResult {
         const startTime = performance.now();
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         let successCount = 0;
         let errorCount = 0;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             try {
                 if (Math.random() < this.errorRate) {
@@ -56,10 +55,10 @@ class CustomExceptionBenchmark {
                 errorCount++;
             }
         }
-        
+
         const endTime = performance.now();
         const endMemory = process.memoryUsage().heapUsed;
-        
+
         return {
             executionTime: endTime - startTime,
             memoryUsage: endMemory - startMemory,
@@ -68,14 +67,14 @@ class CustomExceptionBenchmark {
             iterations: this.iterations
         };
     }
-    
+
     benchmarkExceptionFactory(): BenchmarkResult {
         const startTime = performance.now();
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         let successCount = 0;
         let errorCount = 0;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             try {
                 if (Math.random() < this.errorRate) {
@@ -87,10 +86,10 @@ class CustomExceptionBenchmark {
                 errorCount++;
             }
         }
-        
+
         const endTime = performance.now();
         const endMemory = process.memoryUsage().heapUsed;
-        
+
         return {
             executionTime: endTime - startTime,
             memoryUsage: endMemory - startMemory,

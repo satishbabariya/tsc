@@ -118,7 +118,7 @@ type NonNullable<T> = T extends null | undefined ? never : T;
 type Flatten<T> = T extends (infer U)[] ? U : T;
 
 // Type alias for recursive types
-type JSONValue = 
+type JSONValue =
     | string
     | number
     | boolean
@@ -135,7 +135,7 @@ let userId: UserId = 123;
 let userName: UserName = "Alice";
 let isUserActive: IsActive = true;
 
-let point: Point = { x: 10, y: 20 };
+let point: Point = {x: 10, y: 20};
 let person: Person = {
     id: userId,
     name: userName,
@@ -147,7 +147,8 @@ let person: Person = {
 let add: MathOperation = (a: number, b: number): number => a + b;
 let multiply: MathOperation = (a: number, b: number): number => a * b;
 let toUpperCase: StringProcessor = (input: string): string => input.toUpperCase();
-let logMessage: VoidFunction = (): void => { /* logging logic */ };
+let logMessage: VoidFunction = (): void => { /* logging logic */
+};
 
 let result1: number = add(5, 3);
 let result2: number = multiply(4, 7);

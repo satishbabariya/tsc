@@ -10,6 +10,7 @@ interface Container<T> {
 // Interface with generic type arguments in methods
 interface Processor<T, U> {
     process(value: T): U;
+
     transform(input: T[], config: Container<U>): U[];
 }
 
@@ -17,27 +18,27 @@ interface Processor<T, U> {
 class DataStore<T> {
     private storage: T[] = [];
     private config: Container<T>;
-    
+
     constructor(initialData: T[], settings: Container<T>) {
         this.storage = initialData;
         this.config = settings;
     }
-    
+
     add(item: T): void {
         this.storage.push(item);
     }
-    
+
     get(index: number): T | null {
         if (index >= 0 && index < this.storage.length) {
             return this.storage[index];
         }
         return null;
     }
-    
+
     getAll(): T[] {
         return this.storage;
     }
-    
+
     processWith(processor: Processor<T, string>): string[] {
         let results: string[] = [];
         for (let item of this.storage) {
@@ -52,7 +53,7 @@ function createContainer<T>(data: T): Container<T> {
     return {
         data: data,
         items: [data],
-        metadata: { data: "test", items: ["test"], metadata: null as any }
+        metadata: {data: "test", items: ["test"], metadata: null as any}
     };
 }
 

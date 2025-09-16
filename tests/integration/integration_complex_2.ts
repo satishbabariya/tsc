@@ -1,4 +1,3 @@
-
 // Error in class context
 class TestClass {
     private member: number = "hello" // Type error

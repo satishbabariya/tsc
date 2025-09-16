@@ -2,13 +2,15 @@
 
 class SimpleStringResource {
     name: string;
-    
+
     constructor(name: string) {
         _print("SimpleStringResource constructor");
         this.name = name;
     }
-    
-    ~SimpleStringResource() {
+
+~
+
+    SimpleStringResource() {
         _print("SimpleStringResource destructor");
     }
 }

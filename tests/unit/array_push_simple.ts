@@ -2,11 +2,11 @@
 
 class Container<T> {
     items: T[];
-    
+
     add(item: T): void {
         this.items.push(item);
     }
-    
+
     getLength(): number {
         return this.items.length;
     }

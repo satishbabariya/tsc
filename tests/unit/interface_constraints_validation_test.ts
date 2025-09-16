@@ -4,12 +4,14 @@
 // Test 1: Interface with type parameter constraints
 interface NumberProcessor<T extends number> {
     value: T;
+
     process(): T;
 }
 
 // Test 2: Interface with string constraints
 interface StringHandler<T extends string> {
     text: T;
+
     length(): number;
 }
 
@@ -26,5 +28,6 @@ interface ExtendedInterface<T extends number> extends BaseInterface<T> {
 interface MultiConstrainedInterface<T extends string, U extends number> {
     text: T;
     count: U;
+
     combine(): string;
 }

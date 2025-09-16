@@ -1,29 +1,29 @@
 // Test the complex methods that might be causing the crash
 class BasicArrayOperations<T> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     addItem(item: T): void {
         // Simple implementation
     }
-    
+
     getLength(): number {
         return this.items.length;
     }
-    
+
     getFirstItem(): T {
         // This might be causing issues
         return this.items[0];
     }
-    
+
     getLastItem(): T {
         // This might be causing issues
         return this.items[this.items.length - 1];
     }
-    
+
     getSecondToLast(): T {
         // This might be causing issues
         return this.items[this.items.length - 2];

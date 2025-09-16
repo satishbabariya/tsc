@@ -7,12 +7,15 @@ interface DataContainer<T> {
 
 interface Processor<T> {
     process(item: T): void;
+
     validate(item: T): boolean;
 }
 
 interface Cache<T> {
     get(key: string): void;
+
     set(key: string, value: T): void;
+
     clear(): void;
 }
 
@@ -20,6 +23,7 @@ interface Cache<T> {
 interface ArrayContainer<T> {
     items: T[];
     length: number;
+
     add(item: T): void;
 }
 

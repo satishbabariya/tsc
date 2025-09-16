@@ -203,7 +203,9 @@ class ConstrainedArrayTest<T extends number> {
 // Test 10: Array with Interface Implementation
 interface ArrayOperations {
     getLength(): number;
+
     addItem(item: any): void;
+
     isEmpty(): boolean;
 }
 

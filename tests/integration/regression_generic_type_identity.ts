@@ -6,12 +6,15 @@
 // Test Case 1: Simple Generic Type Assignment
 class SimpleContainer<T> {
     value: T;
-    constructor(value: T) { this.value = value; }
+
+    constructor(value: T) {
+        this.value = value;
+    }
 }
 
 class SimpleWrapper<T> {
     container: SimpleContainer<T>;
-    
+
     constructor(value: T) {
         // This was failing with: "Type mismatch: expected SimpleContainer<T>, got SimpleContainer<T>"
         this.container = new SimpleContainer<T>(value);
@@ -22,15 +25,16 @@ class SimpleWrapper<T> {
 class Dictionary<K, V> {
     key: K;
     value: V;
-    constructor(key: K, value: V) { 
-        this.key = key; 
-        this.value = value; 
+
+    constructor(key: K, value: V) {
+        this.key = key;
+        this.value = value;
     }
 }
 
 class DictionaryHolder<K, V> {
     dict: Dictionary<K, V>;
-    
+
     constructor(key: K, value: V) {
         // This was failing with multiple type parameter mismatches
         this.dict = new Dictionary<K, V>(key, value);
@@ -42,7 +46,7 @@ class ComplexContainer<T, U, V> {
     first: T;
     second: U;
     third: V;
-    
+
     constructor(first: T, second: U, third: V) {
         this.first = first;
         this.second = second;
@@ -52,7 +56,7 @@ class ComplexContainer<T, U, V> {
 
 class NestedWrapper<T> {
     container: ComplexContainer<T, string, number>;
-    
+
     constructor(value: T) {
         // This was the exact failing case from Generic Edge Cases
         this.container = new ComplexContainer<T, string, number>(value, "nested", 42);
@@ -62,13 +66,16 @@ class NestedWrapper<T> {
 // Test Case 4: Generic Assignment Chain
 class ChainedContainer<T> {
     data: T;
-    constructor(data: T) { this.data = data; }
+
+    constructor(data: T) {
+        this.data = data;
+    }
 }
 
 class ChainedWrapper<T> {
     primary: ChainedContainer<T>;
     secondary: ChainedContainer<T>;
-    
+
     constructor(value: T) {
         this.primary = new ChainedContainer<T>(value);
         // This assignment should work (same types)
@@ -82,6 +89,6 @@ function main(): number {
     let dictHolder = new DictionaryHolder<string, boolean>("key", true);
     let nestedWrapper = new NestedWrapper<string>("test");
     let chainedWrapper = new ChainedWrapper<number>(123);
-    
+
     return 0;
 }

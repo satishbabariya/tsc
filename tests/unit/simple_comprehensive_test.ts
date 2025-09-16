@@ -4,14 +4,16 @@
 class MemoryResource {
     id: number;
     name: string;
-    
+
     constructor(id: number, name: string) {
         this.id = id;
         this.name = name;
         _print(`MemoryResource ${this.id} (${this.name}) constructed.`);
     }
-    
-    ~MemoryResource() {
+
+~
+
+    MemoryResource() {
         _print(`MemoryResource ${this.id} (${this.name}) destructed.`);
     }
 }

@@ -22,7 +22,7 @@ function testFor() {
 
 function testForEmpty() {
     let count = 0;
-    for (;;) {
+    for (; ;) {
         count = count + 1;
         if (count > 100) {
             return;

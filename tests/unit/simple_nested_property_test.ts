@@ -3,39 +3,39 @@
 
 class SimpleArrayOperations<T> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     addItem(item: T): void {
         this.items.push(item);
     }
-    
+
     getLength(): number {
         return this.items.length;
     }
-    
+
     getLengthAsString(): string {
         return this.items.length.toString();
     }
-    
+
     getFirstItem(): T {
         return this.items[0];
     }
-    
+
     getLastItem(): T {
         return this.items[this.items.length - 1];
     }
-    
+
     getSecondToLast(): T {
         return this.items[this.items.length - 2];
     }
-    
+
     getLengthPlusOne(): number {
         return this.items.length + 1;
     }
-    
+
     getLengthMinusOne(): number {
         return this.items.length - 1;
     }
@@ -51,17 +51,17 @@ class SimpleNumberOperations extends SimpleArrayOperations<number> {
         }
         return sum;
     }
-    
+
     getSumAsString(): string {
         let sum = this.getSum();
         return "Sum: " + sum.toString() + ", Length: " + this.items.length.toString();
     }
-    
+
     getAverage(): number {
         let sum = this.getSum();
         return sum / this.items.length;
     }
-    
+
     getAverageAsString(): string {
         let avg = this.getAverage();
         return "Average: " + avg.toString() + ", Length: " + this.items.length.toString();
@@ -78,7 +78,7 @@ class SimpleStringOperations extends SimpleArrayOperations<string> {
         }
         return result;
     }
-    
+
     getConcatenationInfo(): string {
         let concat = this.concatenateAll();
         return "Concatenated: " + concat + ", Length: " + this.items.length.toString();

@@ -2,7 +2,9 @@
 
 ## Overview
 
-TSC implements Automatic Reference Counting (ARC) as its primary memory management strategy. ARC provides automatic memory management without the overhead of garbage collection, making it ideal for performance-oriented native code generation.
+TSC implements Automatic Reference Counting (ARC) as its primary memory management strategy. ARC provides automatic
+memory management without the overhead of garbage collection, making it ideal for performance-oriented native code
+generation.
 
 ## Key Features
 
@@ -184,6 +186,7 @@ ARC adds minimal overhead to your programs:
 ### Common Errors
 
 1. **Use After Move**: Accessing a moved object
+
 ```typescript
 let ptr1: unique_ptr<number> = new unique_ptr<number>(42);
 let ptr2: unique_ptr<number> = std::move(ptr1);
@@ -191,6 +194,7 @@ let value = ptr1.get(); // Error: ptr1 has been moved
 ```
 
 2. **Dangling Weak References**: Accessing weak references after object deallocation
+
 ```typescript
 let strong: shared_ptr<number> = new shared_ptr<number>(42);
 let weak: weak_ptr<number> = new weak_ptr<number>(strong);
@@ -199,6 +203,7 @@ let value = weak.get(); // Returns null, not an error
 ```
 
 3. **Reference Cycles**: Creating circular references without weak pointers
+
 ```typescript
 class A {
     private b: shared_ptr<B>;
@@ -286,4 +291,6 @@ class Database {
 
 ## Conclusion
 
-ARC memory management in TSC provides a powerful, efficient, and safe way to manage memory in native applications. By following best practices and using the appropriate smart pointer types, you can write high-performance code without the complexity of manual memory management or the overhead of garbage collection.
+ARC memory management in TSC provides a powerful, efficient, and safe way to manage memory in native applications. By
+following best practices and using the appropriate smart pointer types, you can write high-performance code without the
+complexity of manual memory management or the overhead of garbage collection.

@@ -5,7 +5,7 @@
 class BasicRAIIPerf {
     private name: string;
     private data: number[];
-    
+
     constructor(name: string, size: number) {
         this.name = name;
         this.data = new Array(size);
@@ -13,15 +13,17 @@ class BasicRAIIPerf {
             this.data[i] = i;
         }
     }
-    
-    ~BasicRAIIPerf() {
+
+~
+
+    BasicRAIIPerf() {
         // Basic cleanup
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getData(): number[] {
         return this.data;
     }
@@ -32,38 +34,40 @@ class ComplexRAIIPerf {
     private name: string;
     private data: number[][];
     private metadata: Map<string, any>;
-    
+
     constructor(name: string, rows: number, cols: number) {
         this.name = name;
         this.data = new Array(rows);
         this.metadata = new Map();
-        
+
         for (let i = 0; i < rows; i++) {
             this.data[i] = new Array(cols);
             for (let j = 0; j < cols; j++) {
                 this.data[i][j] = i * j;
             }
         }
-        
+
         this.metadata.set("rows", rows);
         this.metadata.set("cols", cols);
         this.metadata.set("total", rows * cols);
     }
-    
-    ~ComplexRAIIPerf() {
+
+~
+
+    ComplexRAIIPerf() {
         // Complex cleanup
         this.data = [];
         this.metadata.clear();
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getData(): number[][] {
         return this.data;
     }
-    
+
     getMetadata(): Map<string, any> {
         return this.metadata;
     }
@@ -74,32 +78,34 @@ class SmartPointerRAIIPerf {
     private name: string;
     private ptr: shared_ptr<number[]>;
     private refCount: number;
-    
+
     constructor(name: string, size: number) {
         this.name = name;
         this.ptr = new shared_ptr<number[]>(new Array(size));
         this.refCount = 1;
-        
+
         for (let i = 0; i < size; i++) {
             this.ptr.get()[i] = i;
         }
     }
-    
-    ~SmartPointerRAIIPerf() {
+
+~
+
+    SmartPointerRAIIPerf() {
         this.refCount--;
         if (this.refCount === 0) {
             this.ptr = null;
         }
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getPtr(): shared_ptr<number[]> {
         return this.ptr;
     }
-    
+
     getRefCount(): number {
         return this.refCount;
     }
@@ -109,7 +115,7 @@ class SmartPointerRAIIPerf {
 class BaseRAIIPerf {
     protected name: string;
     protected data: number[];
-    
+
     constructor(name: string, size: number) {
         this.name = name;
         this.data = new Array(size);
@@ -117,15 +123,17 @@ class BaseRAIIPerf {
             this.data[i] = i;
         }
     }
-    
-    ~BaseRAIIPerf() {
+
+~
+
+    BaseRAIIPerf() {
         // Base cleanup
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getData(): number[] {
         return this.data;
     }
@@ -133,7 +141,7 @@ class BaseRAIIPerf {
 
 class DerivedRAIIPerf extends BaseRAIIPerf {
     private extra: number[];
-    
+
     constructor(name: string, size: number) {
         super(name, size);
         this.extra = new Array(size);
@@ -141,12 +149,14 @@ class DerivedRAIIPerf extends BaseRAIIPerf {
             this.extra[i] = i * 2;
         }
     }
-    
-    ~DerivedRAIIPerf() {
+
+~
+
+    DerivedRAIIPerf() {
         // Derived cleanup
         this.extra = [];
     }
-    
+
     getExtra(): number[] {
         return this.extra;
     }
@@ -156,7 +166,7 @@ class DerivedRAIIPerf extends BaseRAIIPerf {
 class GenericRAIIPerf<T> {
     private name: string;
     private data: T[];
-    
+
     constructor(name: string, size: number, defaultValue: T) {
         this.name = name;
         this.data = new Array(size);
@@ -164,15 +174,17 @@ class GenericRAIIPerf<T> {
             this.data[i] = defaultValue;
         }
     }
-    
-    ~GenericRAIIPerf() {
+
+~
+
+    GenericRAIIPerf() {
         // Generic cleanup
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getData(): T[] {
         return this.data;
     }
@@ -183,26 +195,28 @@ class NestedRAIIPerf {
     private name: string;
     private inner: BasicRAIIPerf;
     private counter: number;
-    
+
     constructor(name: string, size: number) {
         this.name = name;
         this.inner = new BasicRAIIPerf("inner-" + name, size);
         this.counter = 0;
     }
-    
-    ~NestedRAIIPerf() {
+
+~
+
+    NestedRAIIPerf() {
         // Nested cleanup
         this.counter = -1;
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getCounter(): number {
         return this.counter;
     }
-    
+
     getInner(): BasicRAIIPerf {
         return this.inner;
     }
@@ -213,30 +227,32 @@ class ResourcePoolRAIIPerf {
     private name: string;
     private pool: BasicRAIIPerf[];
     private maxSize: number;
-    
+
     constructor(name: string, maxSize: number) {
         this.name = name;
         this.maxSize = maxSize;
         this.pool = [];
     }
-    
-    ~ResourcePoolRAIIPerf() {
+
+~
+
+    ResourcePoolRAIIPerf() {
         // Pool cleanup
         this.pool = [];
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getMaxSize(): number {
         return this.maxSize;
     }
-    
+
     getPoolSize(): number {
         return this.pool.length;
     }
-    
+
     addResource(resource: BasicRAIIPerf): boolean {
         if (this.pool.length < this.maxSize) {
             this.pool.push(resource);
@@ -244,7 +260,7 @@ class ResourcePoolRAIIPerf {
         }
         return false;
     }
-    
+
     removeResource(): BasicRAIIPerf | null {
         if (this.pool.length > 0) {
             return this.pool.pop() || null;
@@ -258,7 +274,7 @@ class MoveableRAIIPerf {
     private name: string;
     private data: number[];
     private moved: boolean;
-    
+
     constructor(name: string, size: number) {
         this.name = name;
         this.data = new Array(size);
@@ -267,26 +283,28 @@ class MoveableRAIIPerf {
             this.data[i] = i;
         }
     }
-    
-    ~MoveableRAIIPerf() {
+
+~
+
+    MoveableRAIIPerf() {
         if (!this.moved) {
             // Only cleanup if not moved
         }
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getData(): number[] {
         return this.data;
     }
-    
+
     move(): MoveableRAIIPerf {
         this.moved = true;
         return this;
     }
-    
+
     isMoved(): boolean {
         return this.moved;
     }
@@ -297,7 +315,7 @@ class ExceptionRAIIPerf {
     private name: string;
     private data: number[];
     private shouldThrow: boolean;
-    
+
     constructor(name: string, size: number, shouldThrow: boolean = false) {
         this.name = name;
         this.data = new Array(size);
@@ -306,17 +324,19 @@ class ExceptionRAIIPerf {
             this.data[i] = i;
         }
     }
-    
-    ~ExceptionRAIIPerf() {
+
+~
+
+    ExceptionRAIIPerf() {
         if (this.shouldThrow) {
             throw new Error("Destructor exception");
         }
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getData(): number[] {
         return this.data;
     }
@@ -327,7 +347,7 @@ class ThreadSafeRAIIPerf {
     private name: string;
     private data: number[];
     private counter: number;
-    
+
     constructor(name: string, size: number) {
         this.name = name;
         this.data = new Array(size);
@@ -336,24 +356,26 @@ class ThreadSafeRAIIPerf {
             this.data[i] = i;
         }
     }
-    
-    ~ThreadSafeRAIIPerf() {
+
+~
+
+    ThreadSafeRAIIPerf() {
         // Thread-safe cleanup
         this.counter = -1;
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getData(): number[] {
         return this.data;
     }
-    
+
     getCounter(): number {
         return this.counter;
     }
-    
+
     incrementCounter(): void {
         this.counter++;
     }
@@ -363,13 +385,13 @@ class ThreadSafeRAIIPerf {
 function benchmarkBasicRAII(iterations: number): void {
     _print(`=== Benchmarking Basic RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
-    
+
     for (let i = 0; i < iterations; i++) {
         let resource = new BasicRAIIPerf(`test-${i}`, 1000);
         let name = resource.getName();
         let data = resource.getData();
     }
-    
+
     let endTime = Date.now();
     let duration = endTime - startTime;
     _print(`Basic RAII: ${duration}ms for ${iterations} iterations`);
@@ -379,14 +401,14 @@ function benchmarkBasicRAII(iterations: number): void {
 function benchmarkComplexRAII(iterations: number): void {
     _print(`=== Benchmarking Complex RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
-    
+
     for (let i = 0; i < iterations; i++) {
         let resource = new ComplexRAIIPerf(`test-${i}`, 100, 100);
         let name = resource.getName();
         let data = resource.getData();
         let metadata = resource.getMetadata();
     }
-    
+
     let endTime = Date.now();
     let duration = endTime - startTime;
     _print(`Complex RAII: ${duration}ms for ${iterations} iterations`);
@@ -396,14 +418,14 @@ function benchmarkComplexRAII(iterations: number): void {
 function benchmarkSmartPointerRAII(iterations: number): void {
     _print(`=== Benchmarking Smart Pointer RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
-    
+
     for (let i = 0; i < iterations; i++) {
         let resource = new SmartPointerRAIIPerf(`test-${i}`, 1000);
         let name = resource.getName();
         let ptr = resource.getPtr();
         let refCount = resource.getRefCount();
     }
-    
+
     let endTime = Date.now();
     let duration = endTime - startTime;
     _print(`Smart Pointer RAII: ${duration}ms for ${iterations} iterations`);
@@ -413,14 +435,14 @@ function benchmarkSmartPointerRAII(iterations: number): void {
 function benchmarkInheritanceRAII(iterations: number): void {
     _print(`=== Benchmarking Inheritance RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
-    
+
     for (let i = 0; i < iterations; i++) {
         let resource = new DerivedRAIIPerf(`test-${i}`, 1000);
         let name = resource.getName();
         let data = resource.getData();
         let extra = resource.getExtra();
     }
-    
+
     let endTime = Date.now();
     let duration = endTime - startTime;
     _print(`Inheritance RAII: ${duration}ms for ${iterations} iterations`);
@@ -430,13 +452,13 @@ function benchmarkInheritanceRAII(iterations: number): void {
 function benchmarkGenericRAII(iterations: number): void {
     _print(`=== Benchmarking Generic RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
-    
+
     for (let i = 0; i < iterations; i++) {
         let resource = new GenericRAIIPerf<number>(`test-${i}`, 1000, 42);
         let name = resource.getName();
         let data = resource.getData();
     }
-    
+
     let endTime = Date.now();
     let duration = endTime - startTime;
     _print(`Generic RAII: ${duration}ms for ${iterations} iterations`);
@@ -446,14 +468,14 @@ function benchmarkGenericRAII(iterations: number): void {
 function benchmarkNestedRAII(iterations: number): void {
     _print(`=== Benchmarking Nested RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
-    
+
     for (let i = 0; i < iterations; i++) {
         let resource = new NestedRAIIPerf(`test-${i}`, 1000);
         let name = resource.getName();
         let counter = resource.getCounter();
         let inner = resource.getInner();
     }
-    
+
     let endTime = Date.now();
     let duration = endTime - startTime;
     _print(`Nested RAII: ${duration}ms for ${iterations} iterations`);
@@ -463,20 +485,20 @@ function benchmarkNestedRAII(iterations: number): void {
 function benchmarkResourcePoolRAII(iterations: number): void {
     _print(`=== Benchmarking Resource Pool RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
-    
+
     for (let i = 0; i < iterations; i++) {
         let pool = new ResourcePoolRAIIPerf(`test-${i}`, 10);
         let name = pool.getName();
         let maxSize = pool.getMaxSize();
         let poolSize = pool.getPoolSize();
-        
+
         // Add some resources
         for (let j = 0; j < 5; j++) {
             let resource = new BasicRAIIPerf(`resource-${j}`, 100);
             pool.addResource(resource);
         }
     }
-    
+
     let endTime = Date.now();
     let duration = endTime - startTime;
     _print(`Resource Pool RAII: ${duration}ms for ${iterations} iterations`);
@@ -486,7 +508,7 @@ function benchmarkResourcePoolRAII(iterations: number): void {
 function benchmarkMoveableRAII(iterations: number): void {
     _print(`=== Benchmarking Moveable RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
-    
+
     for (let i = 0; i < iterations; i++) {
         let resource = new MoveableRAIIPerf(`test-${i}`, 1000);
         let name = resource.getName();
@@ -494,7 +516,7 @@ function benchmarkMoveableRAII(iterations: number): void {
         let moved = resource.move();
         let isMoved = moved.isMoved();
     }
-    
+
     let endTime = Date.now();
     let duration = endTime - startTime;
     _print(`Moveable RAII: ${duration}ms for ${iterations} iterations`);
@@ -504,7 +526,7 @@ function benchmarkMoveableRAII(iterations: number): void {
 function benchmarkExceptionRAII(iterations: number): void {
     _print(`=== Benchmarking Exception RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
-    
+
     for (let i = 0; i < iterations; i++) {
         try {
             let resource = new ExceptionRAIIPerf(`test-${i}`, 1000, false);
@@ -514,7 +536,7 @@ function benchmarkExceptionRAII(iterations: number): void {
             // Handle exception
         }
     }
-    
+
     let endTime = Date.now();
     let duration = endTime - startTime;
     _print(`Exception RAII: ${duration}ms for ${iterations} iterations`);
@@ -524,7 +546,7 @@ function benchmarkExceptionRAII(iterations: number): void {
 function benchmarkThreadSafeRAII(iterations: number): void {
     _print(`=== Benchmarking Thread Safe RAII (${iterations} iterations) ===`);
     let startTime = Date.now();
-    
+
     for (let i = 0; i < iterations; i++) {
         let resource = new ThreadSafeRAIIPerf(`test-${i}`, 1000);
         let name = resource.getName();
@@ -532,7 +554,7 @@ function benchmarkThreadSafeRAII(iterations: number): void {
         let counter = resource.getCounter();
         resource.incrementCounter();
     }
-    
+
     let endTime = Date.now();
     let duration = endTime - startTime;
     _print(`Thread Safe RAII: ${duration}ms for ${iterations} iterations`);
@@ -543,9 +565,9 @@ function benchmarkThreadSafeRAII(iterations: number): void {
 function runAllPerformanceTests(): void {
     _print("🚀 Starting RAII Performance Tests");
     _print("====================================");
-    
+
     let iterations = 1000;
-    
+
     benchmarkBasicRAII(iterations);
     benchmarkComplexRAII(iterations);
     benchmarkSmartPointerRAII(iterations);
@@ -556,10 +578,10 @@ function runAllPerformanceTests(): void {
     benchmarkMoveableRAII(iterations);
     benchmarkExceptionRAII(iterations);
     benchmarkThreadSafeRAII(iterations);
-    
+
     _print("====================================");
     _print("✅ All RAII Performance Tests Completed");
 }
 
 // Export for testing
-export { runAllPerformanceTests };
+export {runAllPerformanceTests};

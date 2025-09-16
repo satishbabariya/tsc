@@ -1,12 +1,14 @@
 class TestClass {
     id: number;
-    
+
     constructor(id: number) {
         this.id = id;
         _print("TestClass constructor - id:", id);
     }
-    
-    ~TestClass() {
+
+~
+
+    TestClass() {
         _print("TestClass destructor");
         _print("ID value:", this.id);
         let idStr = this.id.toString();

@@ -2,13 +2,15 @@
 
 class ResourceWithStringField {
     name: string;
-    
+
     constructor(name: string) {
         this.name = name;
         _print("ResourceWithStringField constructor");
     }
-    
-    ~ResourceWithStringField() {
+
+~
+
+    ResourceWithStringField() {
         _print("ResourceWithStringField destructor");
         // Note: Not accessing this.name to avoid property access issues for now
     }
@@ -16,13 +18,15 @@ class ResourceWithStringField {
 
 class ResourceWithNumberField {
     id: number;
-    
+
     constructor(id: number) {
         this.id = id;
         _print("ResourceWithNumberField constructor");
     }
-    
-    ~ResourceWithNumberField() {
+
+~
+
+    ResourceWithNumberField() {
         _print("ResourceWithNumberField destructor");
         // Note: Not accessing this.id to avoid property access issues for now
     }
@@ -50,16 +54,16 @@ function testMultipleResources() {
 
 function runGradualTests() {
     _print("Starting gradual complexity tests...");
-    
+
     testStringFieldResource();
     _print("");
-    
+
     testNumberFieldResource();
     _print("");
-    
+
     testMultipleResources();
     _print("");
-    
+
     _print("Gradual complexity tests completed");
 }
 

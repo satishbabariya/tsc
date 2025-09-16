@@ -3,30 +3,30 @@
 
 // 36. Recursive Types
 type JSONValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JSONValue[]
-  | { [key: string]: JSONValue };
+    | string
+    | number
+    | boolean
+    | null
+    | JSONValue[]
+    | { [key: string]: JSONValue };
 
 const obj: JSONValue = {
-  name: "Alice",
-  scores: [10, 20],
-  nested: { valid: true }
+    name: "Alice",
+    scores: [10, 20],
+    nested: {valid: true}
 };
 
 // Recursive utility types
 type DeepReadonly<T> = {
-  readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
+    readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
 };
 
 type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+    [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
 type DeepRequired<T> = {
-  [P in keyof T]-?: T[P] extends object ? DeepRequired<T[P]> : T[P];
+    [P in keyof T]-?: T[P] extends object ? DeepRequired<T[P]> : T[P];
 };
 
 // 37. Variadic Tuple Types
@@ -37,7 +37,7 @@ type Result1 = Prepend<number, [string, boolean]>; // [number, string, boolean]
 type Result2 = Append<boolean, [number, string]>; // [number, string, boolean]
 
 function concat<T extends unknown[], U extends unknown[]>(a: [...T], b: [...U]): [...T, ...U] {
-  return [...a, ...b];
+    return [...a, ...b];
 }
 
 const x = concat([1, 2], ["a", "b"]); // [number, number, string, string]
@@ -55,12 +55,12 @@ type L = Last<[1, 2, 3]>; // 3
 // Not natively supported, but can be simulated with type parameters
 
 type Functor<T> = {
-  map<U>(fn: (x: T) => U): Functor<U>;
+    map<U>(fn: (x: T) => U): Functor<U>;
 };
 
 type Monad<T> = {
-  flatMap<U>(fn: (x: T) => Monad<U>): Monad<U>;
-  pure<U>(value: U): Monad<U>;
+    flatMap<U>(fn: (x: T) => Monad<U>): Monad<U>;
+    pure<U>(value: U): Monad<U>;
 };
 
 // Simulated higher-kinded type
@@ -72,23 +72,23 @@ type OrderId = string & { __brand: "OrderId" };
 type ProductId = string & { __brand: "ProductId" };
 
 function createUserId(id: string): UserId {
-  return id as UserId;
+    return id as UserId;
 }
 
 function createOrderId(id: string): OrderId {
-  return id as OrderId;
+    return id as OrderId;
 }
 
 function createProductId(id: string): ProductId {
-  return id as ProductId;
+    return id as ProductId;
 }
 
 function getUser(id: UserId): { id: UserId; name: string } {
-  return { id, name: "User" };
+    return {id, name: "User"};
 }
 
 function getOrder(id: OrderId): { id: OrderId; total: number } {
-  return { id, total: 100 };
+    return {id, total: 100};
 }
 
 // Type-safe ID usage
@@ -134,11 +134,11 @@ type C = ExtractPrefix<"user:123">; // "user"
 
 // More complex template inference
 type ParseRoute<T> = T extends `/${infer Path}` ? Path : never;
-type RouteParams<T> = T extends `${infer Start}:${infer Param}/${infer Rest}` 
-  ? Param | RouteParams<`/${Rest}`>
-  : T extends `${infer Start}:${infer Param}`
-  ? Param
-  : never;
+type RouteParams<T> = T extends `${infer Start}:${infer Param}/${infer Rest}`
+    ? Param | RouteParams<`/${Rest}`>
+    : T extends `${infer Start}:${infer Param}`
+        ? Param
+        : never;
 
 type UserRoute = ParseRoute<"/users/:id">; // "users/:id"
 type UserParams = RouteParams<"/users/:id">; // "id"
@@ -148,14 +148,14 @@ const roles = ["admin", "user", "guest"] as const;
 type Role = typeof roles[number]; // "admin" | "user" | "guest"
 
 const config = {
-  api: {
-    baseUrl: "https://api.example.com",
-    timeout: 5000
-  },
-  features: {
-    enableLogging: true,
-    enableCaching: false
-  }
+    api: {
+        baseUrl: "https://api.example.com",
+        timeout: 5000
+    },
+    features: {
+        enableLogging: true,
+        enableCaching: false
+    }
 } as const;
 
 type Config = typeof config;
@@ -164,26 +164,28 @@ type FeaturesConfig = Config["features"];
 
 // Narrowing with const assertions
 function processRole(role: Role): string {
-  switch (role) {
-    case "admin":
-      return "Administrator";
-    case "user":
-      return "Regular User";
-    case "guest":
-      return "Guest User";
-  }
+    switch (role) {
+        case "admin":
+            return "Administrator";
+        case "user":
+            return "Regular User";
+        case "guest":
+            return "Guest User";
+    }
 }
 
 // 44. Index Signatures with Modifiers
 interface Config {
-  [key: string]: string | number;
-  readonly [key: number]: string; // numeric keys readonly
+    [key: string]: string | number;
+
+    readonly [key: number]: string; // numeric keys readonly
 }
 
 interface FlexibleObject {
-  [key: string]: any;
-  readonly id: number; // specific key readonly
-  name: string;
+    readonly id: number; // specific key readonly
+    name: string;
+
+    [key: string]: any;
 }
 
 // 45. Conditional Inference with infer Chains
@@ -208,39 +210,39 @@ type C = Awaited<string>; // string
 
 // 47. Self-Referential Types
 type Tree<T> = {
-  value: T;
-  children?: Tree<T>[];
+    value: T;
+    children?: Tree<T>[];
 };
 
 const root: Tree<number> = {
-  value: 1,
-  children: [
-    { value: 2 },
-    { value: 3, children: [{ value: 4 }] }
-  ]
+    value: 1,
+    children: [
+        {value: 2},
+        {value: 3, children: [{value: 4}]}
+    ]
 };
 
 // More complex self-referential types
 type LinkedList<T> = {
-  value: T;
-  next?: LinkedList<T>;
+    value: T;
+    next?: LinkedList<T>;
 };
 
 type BinaryTree<T> = {
-  value: T;
-  left?: BinaryTree<T>;
-  right?: BinaryTree<T>;
+    value: T;
+    left?: BinaryTree<T>;
+    right?: BinaryTree<T>;
 };
 
 // 48. Function Overloads
 function reverse(str: string): string;
 function reverse(arr: number[]): number[];
 function reverse(val: string | number[]): string | number[] {
-  if (typeof val === "string") {
-    return val.split("").reverse().join("");
-  } else {
-    return val.slice().reverse();
-  }
+    if (typeof val === "string") {
+        return val.split("").reverse().join("");
+    } else {
+        return val.slice().reverse();
+    }
 }
 
 let strResult = reverse("hello"); // "olleh"
@@ -251,23 +253,23 @@ function createElement(tag: "div"): HTMLDivElement;
 function createElement(tag: "span"): HTMLSpanElement;
 function createElement(tag: "button"): HTMLButtonElement;
 function createElement(tag: string): HTMLElement {
-  return document.createElement(tag) as HTMLElement;
+    return document.createElement(tag) as HTMLElement;
 }
 
 // 49. Const Enum (Performance Optimization)
 const enum Colors {
-  Red,
-  Green,
-  Blue
+    Red,
+    Green,
+    Blue
 }
 
 let c: Colors = Colors.Green;
 
 // Const enum with string values
 const enum Status {
-  Pending = "pending",
-  Approved = "approved",
-  Rejected = "rejected"
+    Pending = "pending",
+    Approved = "approved",
+    Rejected = "rejected"
 }
 
 let status: Status = Status.Pending;
@@ -281,7 +283,7 @@ let status: Status = Status.Pending;
  * @returns {number}
  */
 function add(a, b) {
-  return a + b;
+    return a + b;
 }
 
 /**
@@ -290,7 +292,7 @@ function add(a, b) {
  * @returns {Object}
  */
 function createPerson(name, age) {
-  return { name, age };
+    return {name, age};
 }
 
 // Advanced Meta-Programming Patterns
@@ -310,22 +312,22 @@ type FilterStrings<T> = T extends string ? T : never;
 type OnlyStrings = FilterStrings<string | number | boolean>; // string
 
 // Type-level transformation
-type CapitalizeWords<T extends string> = T extends `${infer First} ${infer Rest}` 
-  ? `${Capitalize<First>} ${CapitalizeWords<Rest>}`
-  : Capitalize<T>;
+type CapitalizeWords<T extends string> = T extends `${infer First} ${infer Rest}`
+    ? `${Capitalize<First>} ${CapitalizeWords<Rest>}`
+    : Capitalize<T>;
 
 type TitleCase = CapitalizeWords<"hello world">; // "Hello World"
 
 // Usage examples
 let jsonData: JSONValue = {
-  name: "Alice",
-  age: 30,
-  hobbies: ["reading", "coding"],
-  address: {
-    street: "123 Main St",
-    city: "New York",
-    coordinates: [40.7128, -74.0060]
-  }
+    name: "Alice",
+    age: 30,
+    hobbies: ["reading", "coding"],
+    address: {
+        street: "123 Main St",
+        city: "New York",
+        coordinates: [40.7128, -74.0060]
+    }
 };
 
 // Variadic tuple usage
@@ -349,11 +351,11 @@ let reversedArray = reverse([1, 2, 3, 4, 5]);
 
 // Tree structure usage
 let tree: Tree<string> = {
-  value: "root",
-  children: [
-    { value: "child1" },
-    { value: "child2", children: [{ value: "grandchild" }] }
-  ]
+    value: "root",
+    children: [
+        {value: "child1"},
+        {value: "child2", children: [{value: "grandchild"}]}
+    ]
 };
 
 // This example demonstrates meta-programming and cutting-edge TypeScript features

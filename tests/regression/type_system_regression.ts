@@ -1,14 +1,13 @@
-
 // Type system regression test
 function testTypeInference(): void {
     const inferredString = "hello";
     const inferredNumber = 42;
     const inferredArray = [1, 2, 3];
-    
+
     const explicitString: string = inferredString;
     const explicitNumber: number = inferredNumber;
     const explicitArray: number[] = inferredArray;
-    
+
     console.log("Type inference test passed");
 }
 
@@ -46,9 +45,9 @@ function testMappedTypes(): void {
         email: string;
         age?: number;
     }
-    
+
     type PartialUser = Partial<User>;
-    const partialUser: PartialUser = { name: "Alice" };
+    const partialUser: PartialUser = {name: "Alice"};
     console.log("Mapped types test passed");
 }
 
@@ -68,15 +67,15 @@ function testUtilityTypes(): void {
         age: number;
         permissions: string[];
     }
-    
+
     type UserKeys = keyof User;
     type UserValues = User[keyof User];
     type PickUser = Pick<User, "id" | "name">;
     type OmitUser = Omit<User, "age" | "permissions">;
-    
-    const pickUser: PickUser = { id: "1", name: "Alice" };
-    const omitUser: OmitUser = { id: "1", name: "Alice", email: "alice@example.com" };
-    
+
+    const pickUser: PickUser = {id: "1", name: "Alice"};
+    const omitUser: OmitUser = {id: "1", name: "Alice", email: "alice@example.com"};
+
     console.log("Utility types test passed");
 }
 
@@ -86,11 +85,11 @@ function isString(value: unknown): value is string {
 
 function testTypeGuards(): void {
     const unknownValue: unknown = "hello";
-    
+
     if (isString(unknownValue)) {
         console.log(unknownValue.toUpperCase());
     }
-    
+
     console.log("Type guards test passed");
 }
 

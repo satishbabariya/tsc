@@ -17,21 +17,27 @@ interface Product extends BaseEntity {
 // Test class inheritance constraints
 interface EntityContainer<T extends BaseEntity> {
     entity: T;
+
     getId(): string;
+
     getName(): string;
 }
 
 // Test interface inheritance constraints
 interface UserContainer<T extends User> {
     user: T;
+
     getEmail(): string;
+
     getAge(): number;
 }
 
 // Test product constraints
 interface ProductContainer<T extends Product> {
     product: T;
+
     getPrice(): number;
+
     getCategory(): string;
 }
 
@@ -39,5 +45,6 @@ interface ProductContainer<T extends Product> {
 interface MultiEntityContainer<T extends BaseEntity, U extends User> {
     entity: T;
     user: U;
+
     process(): T;
 }

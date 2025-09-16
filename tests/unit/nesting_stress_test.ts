@@ -1,4 +1,3 @@
-
 // Deep Nesting Stress Test
 function nestingStressTest(): void {
     let level1 = 1;
@@ -30,7 +29,7 @@ function nestingStressTest(): void {
             }
         }
     }
-    
+
     // Nested loops
     for (let i = 0; i < 10; i++) {
         for (let j = 0; j < 10; j++) {

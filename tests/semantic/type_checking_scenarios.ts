@@ -1,4 +1,3 @@
-
 // Type checking scenarios for for...of loops
 interface Product {
     id: number;
@@ -16,19 +15,19 @@ interface Order {
 
 function testTypeChecking() {
     const products: Product[] = [
-        { id: 1, name: "Laptop", price: 999.99, category: "Electronics" },
-        { id: 2, name: "Mouse", price: 29.99, category: "Electronics" },
-        { id: 3, name: "Book", price: 19.99, category: "Books" }
+        {id: 1, name: "Laptop", price: 999.99, category: "Electronics"},
+        {id: 2, name: "Mouse", price: 29.99, category: "Electronics"},
+        {id: 3, name: "Book", price: 19.99, category: "Books"}
     ];
-    
+
     // Type-safe iteration
     const productNames: string[] = [];
     for (const product of products) {
         productNames.push(product.name);
     }
-    
+
     console.log("Product names:", productNames);
-    
+
     // Type-safe filtering
     const expensiveProducts: Product[] = [];
     for (const product of products) {
@@ -36,26 +35,26 @@ function testTypeChecking() {
             expensiveProducts.push(product);
         }
     }
-    
+
     console.log("Expensive products:", expensiveProducts);
-    
+
     // Type-safe transformation
     const productPrices: number[] = [];
     for (const product of products) {
         productPrices.push(product.price);
     }
-    
+
     console.log("Product prices:", productPrices);
 }
 
 // Test with generic types
 function testGenericTypes<T>(items: T[]): T[] {
     const results: T[] = [];
-    
+
     for (const item of items) {
         results.push(item);
     }
-    
+
     return results;
 }
 
@@ -64,11 +63,11 @@ function testUnionTypes() {
     const mixedArray: (string | number | boolean)[] = [
         "hello", 42, true, "world", 100, false
     ];
-    
+
     const strings: string[] = [];
     const numbers: number[] = [];
     const booleans: boolean[] = [];
-    
+
     for (const item of mixedArray) {
         if (typeof item === "string") {
             strings.push(item);
@@ -78,7 +77,7 @@ function testUnionTypes() {
             booleans.push(item);
         }
     }
-    
+
     console.log("Strings:", strings);
     console.log("Numbers:", numbers);
     console.log("Booleans:", booleans);
@@ -94,14 +93,14 @@ interface User {
 
 function testOptionalProperties() {
     const users: User[] = [
-        { id: 1, name: "Alice", email: "alice@example.com", age: 30 },
-        { id: 2, name: "Bob", age: 25 },
-        { id: 3, name: "Charlie", email: "charlie@example.com" }
+        {id: 1, name: "Alice", email: "alice@example.com", age: 30},
+        {id: 2, name: "Bob", age: 25},
+        {id: 3, name: "Charlie", email: "charlie@example.com"}
     ];
-    
+
     const emails: string[] = [];
     const ages: number[] = [];
-    
+
     for (const user of users) {
         if (user.email) {
             emails.push(user.email);
@@ -110,7 +109,7 @@ function testOptionalProperties() {
             ages.push(user.age);
         }
     }
-    
+
     console.log("Emails:", emails);
     console.log("Ages:", ages);
 }
@@ -127,23 +126,23 @@ function testNestedObjects() {
         {
             name: "Tech Corp",
             employees: [
-                { id: 1, name: "Alice", email: "alice@techcorp.com", age: 30 },
-                { id: 2, name: "Bob", email: "bob@techcorp.com", age: 25 }
+                {id: 1, name: "Alice", email: "alice@techcorp.com", age: 30},
+                {id: 2, name: "Bob", email: "bob@techcorp.com", age: 25}
             ],
             departments: ["Engineering", "Marketing", "Sales"]
         },
         {
             name: "Startup Inc",
             employees: [
-                { id: 3, name: "Charlie", email: "charlie@startup.com", age: 28 }
+                {id: 3, name: "Charlie", email: "charlie@startup.com", age: 28}
             ],
             departments: ["Engineering", "Design"]
         }
     ];
-    
+
     const allEmployees: User[] = [];
     const allDepartments: string[] = [];
-    
+
     for (const company of companies) {
         for (const employee of company.employees) {
             allEmployees.push(employee);
@@ -152,7 +151,7 @@ function testNestedObjects() {
             allDepartments.push(department);
         }
     }
-    
+
     console.log("All employees:", allEmployees);
     console.log("All departments:", allDepartments);
 }

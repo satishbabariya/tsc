@@ -1,4 +1,3 @@
-
 // Memory stress test
 function memoryStress(): void {
     let arrays = []

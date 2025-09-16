@@ -1,4 +1,3 @@
-
 // Constant propagation test
 function constantPropagation(): number {
     const a = 42

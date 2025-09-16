@@ -1,15 +1,15 @@
 // Test string methods specifically
 class BasicArrayOperations<T> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     addItem(item: T): void {
         // Simple implementation
     }
-    
+
     getLengthAsString(): string {
         // This method involves string operations
         let length = this.items.length;

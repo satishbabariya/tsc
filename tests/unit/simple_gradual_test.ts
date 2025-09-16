@@ -4,8 +4,10 @@ class SimpleResource {
     constructor() {
         _print("SimpleResource constructor");
     }
-    
-    ~SimpleResource() {
+
+~
+
+    SimpleResource() {
         _print("SimpleResource destructor");
     }
 }

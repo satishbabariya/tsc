@@ -3,39 +3,39 @@
 
 class BasicArrayOperations<T> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     addItem(item: T): void {
         this.items.push(item);
     }
-    
+
     getLength(): number {
         return this.items.length;
     }
-    
+
     getLengthAsString(): string {
         return this.items.length.toString();
     }
-    
+
     getFirstItem(): T {
         return this.items[0];
     }
-    
+
     getLastItem(): T {
         return this.items[this.items.length - 1];
     }
-    
+
     getSecondToLast(): T {
         return this.items[this.items.length - 2];
     }
-    
+
     getLengthPlusOne(): number {
         return this.items.length + 1;
     }
-    
+
     getLengthMinusOne(): number {
         return this.items.length - 1;
     }

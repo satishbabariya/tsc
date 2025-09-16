@@ -1,4 +1,3 @@
-
 // Complex function scenarios testing
 interface ApiResponse<T> {
     data: T;
@@ -45,11 +44,11 @@ interface User {
     email: string;
 }
 
-const userData: User = { id: 1, name: "Alice", email: "alice@example.com" };
+const userData: User = {id: 1, name: "Alice", email: "alice@example.com"};
 
 const processedUser = processData(
     userData,
-    (user) => ({ ...user, name: user.name.toUpperCase() }),
+    (user) => ({...user, name: user.name.toUpperCase()}),
     (user) => user.email.includes("@")
 );
 
@@ -97,23 +96,23 @@ console.log("Boolean value:", booleanValue);
 // Function with method chaining
 class QueryBuilder<T> {
     private conditions: Array<(item: T) => boolean> = [];
-    
+
     where = (condition: (item: T) => boolean): QueryBuilder<T> => {
         this.conditions.push(condition);
         return this;
     };
-    
+
     execute = (data: T[]): T[] => {
-        return data.filter(item => 
+        return data.filter(item =>
             this.conditions.every(condition => condition(item))
         );
     };
 }
 
 const users: User[] = [
-    { id: 1, name: "Alice", email: "alice@example.com" },
-    { id: 2, name: "Bob", email: "bob@example.com" },
-    { id: 3, name: "Charlie", email: "charlie@example.com" }
+    {id: 1, name: "Alice", email: "alice@example.com"},
+    {id: 2, name: "Bob", email: "bob@example.com"},
+    {id: 3, name: "Charlie", email: "charlie@example.com"}
 ];
 
 const query = new QueryBuilder<User>();

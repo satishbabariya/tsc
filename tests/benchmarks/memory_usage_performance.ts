@@ -1,26 +1,25 @@
-
 // Memory Usage Benchmark
 class MemoryUsageBenchmark {
     private iterations: number;
-    
+
     constructor(iterations: number = 100000) {
         this.iterations = iterations;
     }
-    
+
     benchmarkMemoryUsage(): MemoryBenchmarkResult {
         const startMemory = process.memoryUsage();
-        
+
         // Test try-catch memory usage
         const tryCatchMemory = this.testTryCatchMemory();
-        
+
         // Test error propagation memory usage
         const errorPropagationMemory = this.testErrorPropagationMemory();
-        
+
         // Test custom exception memory usage
         const customExceptionMemory = this.testCustomExceptionMemory();
-        
+
         const endMemory = process.memoryUsage();
-        
+
         return {
             startMemory: startMemory.heapUsed,
             endMemory: endMemory.heapUsed,
@@ -30,10 +29,10 @@ class MemoryUsageBenchmark {
             customExceptionMemory
         };
     }
-    
+
     private testTryCatchMemory(): number {
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             try {
                 if (i % 100 === 0) {
@@ -43,28 +42,28 @@ class MemoryUsageBenchmark {
                 // Handle error
             }
         }
-        
+
         const endMemory = process.memoryUsage().heapUsed;
         return endMemory - startMemory;
     }
-    
+
     private testErrorPropagationMemory(): number {
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             const result = this.simulateOperation(i);
             if (result.isErr()) {
                 // Handle error
             }
         }
-        
+
         const endMemory = process.memoryUsage().heapUsed;
         return endMemory - startMemory;
     }
-    
+
     private testCustomExceptionMemory(): number {
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             try {
                 if (i % 100 === 0) {
@@ -74,11 +73,11 @@ class MemoryUsageBenchmark {
                 // Handle error
             }
         }
-        
+
         const endMemory = process.memoryUsage().heapUsed;
         return endMemory - startMemory;
     }
-    
+
     private simulateOperation(value: number): Result<number, string> {
         if (value % 100 === 0) {
             return Result.err(`Error at value ${value}`);

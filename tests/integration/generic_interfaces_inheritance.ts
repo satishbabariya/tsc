@@ -1,6 +1,7 @@
 // Generic interfaces with inheritance
 interface BaseContainer<T> {
     value: T;
+
     getValue(): T;
 }
 

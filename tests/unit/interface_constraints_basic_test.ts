@@ -13,6 +13,7 @@ interface ExtendedInterface extends BaseInterface {
 // Test 2: Generic interface with type constraints
 interface ConstrainedInterface<T extends number> {
     value: T;
+
     process(): T;
 }
 
@@ -20,6 +21,7 @@ interface ConstrainedInterface<T extends number> {
 interface MultiConstrainedInterface<T extends string, U extends number> {
     text: T;
     count: U;
+
     combine(): string;
 }
 
@@ -35,5 +37,6 @@ interface ExtendedGenericInterface<T extends string> extends BaseGenericInterfac
 // Test 5: Interface with union type constraints
 interface UnionConstrainedInterface<T extends string | number> {
     value: T;
+
     display(): string;
 }

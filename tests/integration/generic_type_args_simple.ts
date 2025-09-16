@@ -9,6 +9,7 @@ interface Container<T> {
 // Interface with generic type arguments in methods
 interface Processor<T> {
     process(value: T): T;
+
     transform(input: T[]): T[];
 }
 
@@ -16,16 +17,16 @@ interface Processor<T> {
 class DataStore<T> {
     private storage: T[];
     private config: Container<T>;
-    
+
     constructor(initialData: T[], settings: Container<T>) {
         this.storage = initialData;
         this.config = settings;
     }
-    
+
     add(item: T): void {
         this.storage.push(item);
     }
-    
+
     getAll(): T[] {
         return this.storage;
     }

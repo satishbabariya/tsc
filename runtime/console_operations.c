@@ -5,16 +5,16 @@
 #include "arc/arc_runtime.h"
 
 // Helper function to safely handle string arguments with ARC
-static void safe_print_string(char* str) {
+static void safe_print_string(char *str) {
     if (!str) {
         printf("(null)");
         return;
     }
-    
+
     // Check if this is an ARC-managed string
     if (__tsc_is_arc_object(str)) {
         // Retain the string to ensure it's not deallocated during printing
-        char* retained_str = (char*)__tsc_retain(str);
+        char *retained_str = (char *) __tsc_retain(str);
         printf("%s", retained_str);
         // Release the temporary retain
         __tsc_release(retained_str);
@@ -25,9 +25,9 @@ static void safe_print_string(char* str) {
 }
 
 // Helper function to validate format string safety
-static bool validate_format_string(char* format, int arg_count) {
+static bool validate_format_string(char *format, int arg_count) {
     if (!format) return false;
-    
+
     int format_count = 0;
     for (int i = 0; format[i] != '\0'; i++) {
         if (format[i] == '%') {
@@ -42,28 +42,28 @@ static bool validate_format_string(char* format, int arg_count) {
             }
         }
     }
-    
+
     // Check if we have enough arguments for the format specifiers
     return format_count <= arg_count;
 }
 
 // Internal print function for static compiler
 // This is a variadic function that can accept multiple arguments
-void _print(void* first_arg, ...) {
+void _print(void *first_arg, ...) {
     // Handle null format string gracefully
     if (!first_arg) {
         putchar('\n');
         return;
     }
-    
-    char* format = (char*)first_arg; // Treat the first argument as the format string
-    
+
+    char *format = (char *) first_arg; // Treat the first argument as the format string
+
     // Validate format string is not empty
     if (strlen(format) == 0) {
         putchar('\n');
         return;
     }
-    
+
     va_list args;
     va_start(args, first_arg); // Initialize the variable argument list
 
@@ -77,7 +77,7 @@ void _print(void* first_arg, ...) {
             }
         }
     }
-    
+
     // Validate format string safety
     if (!validate_format_string(format, arg_count)) {
         // If format string is invalid, print it as literal text
@@ -101,27 +101,32 @@ void _print(void* first_arg, ...) {
                 break;
             }
             switch (format[i]) {
-                case 's': { // String
-                    char* str = va_arg(args, char*);
+                case 's': {
+                    // String
+                    char *str = va_arg(args, char*);
                     safe_print_string(str);
                     break;
                 }
-                case 'd': { // Integer
+                case 'd': {
+                    // Integer
                     int num = va_arg(args, int);
                     printf("%d", num);
                     break;
                 }
-                case 'f': { // Float (double for va_arg)
+                case 'f': {
+                    // Float (double for va_arg)
                     double num = va_arg(args, double);
                     printf("%f", num);
                     break;
                 }
-                case 'c': { // Character
+                case 'c': {
+                    // Character
                     int ch = va_arg(args, int); // char is promoted to int in va_arg
                     putchar(ch);
                     break;
                 }
-                case '%': { // Literal '%'
+                case '%': {
+                    // Literal '%'
                     putchar('%');
                     break;
                 }

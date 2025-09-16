@@ -1,16 +1,45 @@
 // Performance benchmark tests for complex type interactions
 
 // Test 1: Large number of simple constraints
-interface Constraint1<T extends string> { value: T; }
-interface Constraint2<T extends number> { value: T; }
-interface Constraint3<T extends boolean> { value: T; }
-interface Constraint4<T extends string | number> { value: T; }
-interface Constraint5<T extends string[]> { value: T; }
-interface Constraint6<T extends number[]> { value: T; }
-interface Constraint7<T extends boolean[]> { value: T; }
-interface Constraint8<T extends "success" | "error"> { value: T; }
-interface Constraint9<T extends true | false> { value: T; }
-interface Constraint10<T extends string | number | boolean> { value: T; }
+interface Constraint1<T extends string> {
+    value: T;
+}
+
+interface Constraint2<T extends number> {
+    value: T;
+}
+
+interface Constraint3<T extends boolean> {
+    value: T;
+}
+
+interface Constraint4<T extends string | number> {
+    value: T;
+}
+
+interface Constraint5<T extends string[]> {
+    value: T;
+}
+
+interface Constraint6<T extends number[]> {
+    value: T;
+}
+
+interface Constraint7<T extends boolean[]> {
+    value: T;
+}
+
+interface Constraint8<T extends "success" | "error"> {
+    value: T;
+}
+
+interface Constraint9<T extends true | false> {
+    value: T;
+}
+
+interface Constraint10<T extends string | number | boolean> {
+    value: T;
+}
 
 // Test 2: Complex nested constraints
 interface Nested1<T extends string, U extends T[]> {
@@ -46,16 +75,45 @@ interface Derived2<T extends number> extends Base2<T> {
 }
 
 // Test 4: Complex function constraints
-function process1<T extends string>(value: T): T { return value; }
-function process2<T extends number>(value: T): T { return value; }
-function process3<T extends boolean>(value: T): T { return value; }
-function process4<T extends string | number>(value: T): T { return value; }
-function process5<T extends string[]>(value: T): T { return value; }
-function process6<T extends number[]>(value: T): T { return value; }
-function process7<T extends boolean[]>(value: T): T { return value; }
-function process8<T extends "success" | "error">(value: T): T { return value; }
-function process9<T extends true | false>(value: T): T { return value; }
-function process10<T extends string | number | boolean>(value: T): T { return value; }
+function process1<T extends string>(value: T): T {
+    return value;
+}
+
+function process2<T extends number>(value: T): T {
+    return value;
+}
+
+function process3<T extends boolean>(value: T): T {
+    return value;
+}
+
+function process4<T extends string | number>(value: T): T {
+    return value;
+}
+
+function process5<T extends string[]>(value: T): T {
+    return value;
+}
+
+function process6<T extends number[]>(value: T): T {
+    return value;
+}
+
+function process7<T extends boolean[]>(value: T): T {
+    return value;
+}
+
+function process8<T extends "success" | "error">(value: T): T {
+    return value;
+}
+
+function process9<T extends true | false>(value: T): T {
+    return value;
+}
+
+function process10<T extends string | number | boolean>(value: T): T {
+    return value;
+}
 
 // Test 5: Complex multi-parameter constraints
 interface Multi1<T extends string, U extends number, V extends boolean> {
@@ -116,23 +174,82 @@ interface Literal3<T extends "low" | "medium" | "high"> {
 }
 
 // Test 9: Performance stress test - many similar interfaces
-interface Stress1<T extends string> { value: T; }
-interface Stress2<T extends string> { value: T; }
-interface Stress3<T extends string> { value: T; }
-interface Stress4<T extends string> { value: T; }
-interface Stress5<T extends string> { value: T; }
-interface Stress6<T extends string> { value: T; }
-interface Stress7<T extends string> { value: T; }
-interface Stress8<T extends string> { value: T; }
-interface Stress9<T extends string> { value: T; }
-interface Stress10<T extends string> { value: T; }
-interface Stress11<T extends string> { value: T; }
-interface Stress12<T extends string> { value: T; }
-interface Stress13<T extends string> { value: T; }
-interface Stress14<T extends string> { value: T; }
-interface Stress15<T extends string> { value: T; }
-interface Stress16<T extends string> { value: T; }
-interface Stress17<T extends string> { value: T; }
-interface Stress18<T extends string> { value: T; }
-interface Stress19<T extends string> { value: T; }
-interface Stress20<T extends string> { value: T; }
+interface Stress1<T extends string> {
+    value: T;
+}
+
+interface Stress2<T extends string> {
+    value: T;
+}
+
+interface Stress3<T extends string> {
+    value: T;
+}
+
+interface Stress4<T extends string> {
+    value: T;
+}
+
+interface Stress5<T extends string> {
+    value: T;
+}
+
+interface Stress6<T extends string> {
+    value: T;
+}
+
+interface Stress7<T extends string> {
+    value: T;
+}
+
+interface Stress8<T extends string> {
+    value: T;
+}
+
+interface Stress9<T extends string> {
+    value: T;
+}
+
+interface Stress10<T extends string> {
+    value: T;
+}
+
+interface Stress11<T extends string> {
+    value: T;
+}
+
+interface Stress12<T extends string> {
+    value: T;
+}
+
+interface Stress13<T extends string> {
+    value: T;
+}
+
+interface Stress14<T extends string> {
+    value: T;
+}
+
+interface Stress15<T extends string> {
+    value: T;
+}
+
+interface Stress16<T extends string> {
+    value: T;
+}
+
+interface Stress17<T extends string> {
+    value: T;
+}
+
+interface Stress18<T extends string> {
+    value: T;
+}
+
+interface Stress19<T extends string> {
+    value: T;
+}
+
+interface Stress20<T extends string> {
+    value: T;
+}

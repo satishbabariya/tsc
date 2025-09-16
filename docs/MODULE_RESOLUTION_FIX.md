@@ -2,7 +2,8 @@
 
 ## Problem Identified
 
-The import/export system has a bug in the `collectFunctionDeclarations` method in `src/semantic/SemanticAnalyzer.cpp`. The issue is:
+The import/export system has a bug in the `collectFunctionDeclarations` method in `src/semantic/SemanticAnalyzer.cpp`.
+The issue is:
 
 1. **Export declarations are parsed correctly** as `ExportDeclaration` with `Default` export clause
 2. **Symbols are not being added to the symbol table** during the first pass (`collectFunctionDeclarations`)
@@ -10,9 +11,11 @@ The import/export system has a bug in the `collectFunctionDeclarations` method i
 
 ## Root Cause
 
-In `src/semantic/SemanticAnalyzer.cpp`, lines 1353-1375, the `collectFunctionDeclarations` method handles export declarations with default exports, but there's a logic issue.
+In `src/semantic/SemanticAnalyzer.cpp`, lines 1353-1375, the `collectFunctionDeclarations` method handles export
+declarations with default exports, but there's a logic issue.
 
 The method checks:
+
 ```cpp
 if (clause.getType() == ExportClause::Default && clause.getDefaultExport()) {
     if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(clause.getDefaultExport())) {
@@ -21,11 +24,13 @@ if (clause.getType() == ExportClause::Default && clause.getDefaultExport()) {
 }
 ```
 
-However, the issue is that `export function add() { }` is parsed as an `ExportDeclaration` with a `Default` export clause, but the `getDefaultExport()` method might not be returning the function declaration correctly.
+However, the issue is that `export function add() { }` is parsed as an `ExportDeclaration` with a `Default` export
+clause, but the `getDefaultExport()` method might not be returning the function declaration correctly.
 
 ## Proposed Fix
 
-The fix involves ensuring that exported function declarations are properly added to the symbol table during the first pass. Here are the changes needed:
+The fix involves ensuring that exported function declarations are properly added to the symbol table during the first
+pass. Here are the changes needed:
 
 ### 1. Fix in `collectFunctionDeclarations` method
 
@@ -56,9 +61,11 @@ The method should handle export declarations more robustly:
 
 ### 2. Alternative Fix: Handle in `visit(ExportDeclaration& node)`
 
-The issue might be that the symbols are being added during the second pass (`visit(ExportDeclaration& node)`) but the `ModuleSymbolTable` is trying to look them up before they're added.
+The issue might be that the symbols are being added during the second pass (`visit(ExportDeclaration& node)`) but the
+`ModuleSymbolTable` is trying to look them up before they're added.
 
-The fix would be to ensure that symbols are added to the symbol table during the first pass, not just during the second pass.
+The fix would be to ensure that symbols are added to the symbol table during the first pass, not just during the second
+pass.
 
 ### 3. Debug the Issue
 
@@ -77,6 +84,7 @@ Once the fix is implemented, test with:
 ```
 
 The expected behavior should be:
+
 1. `moduleA.ts` exports `add` and `subtract` functions
 2. `test_usage.ts` imports `add` and `subtract` from `moduleA.ts`
 3. The symbols should be resolved correctly
@@ -84,6 +92,8 @@ The expected behavior should be:
 
 ## Current Status
 
-The import/export parsing and grammar are working correctly. The issue is in the semantic analysis phase where symbols are not being properly registered in the symbol table during the first pass, preventing them from being found during the export-to-import binding phase.
+The import/export parsing and grammar are working correctly. The issue is in the semantic analysis phase where symbols
+are not being properly registered in the symbol table during the first pass, preventing them from being found during the
+export-to-import binding phase.
 
 The infrastructure is in place and working - it just needs this bug fix to complete the module resolution system.

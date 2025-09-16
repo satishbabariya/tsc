@@ -1,16 +1,15 @@
-
 // AST system integration with error handling
 class ASTErrorHandler {
     private errors: ASTError[] = [];
-    
+
     addError(error: ASTError): void {
         this.errors.push(error);
     }
-    
+
     getErrors(): ASTError[] {
         return this.errors;
     }
-    
+
     hasErrors(): boolean {
         return this.errors.length > 0;
     }
@@ -26,11 +25,11 @@ class ASTError extends Error {
 // AST visitor with error handling
 class ErrorHandlingASTVisitor implements ASTVisitor {
     private errorHandler: ASTErrorHandler;
-    
+
     constructor(errorHandler: ASTErrorHandler) {
         this.errorHandler = errorHandler;
     }
-    
+
     visitTryStatement(node: TryStatement): void {
         try {
             console.log("Visiting try statement");
@@ -38,12 +37,12 @@ class ErrorHandlingASTVisitor implements ASTVisitor {
             if (node.getTryBlock()) {
                 this.visitNode(node.getTryBlock());
             }
-            
+
             // Visit catch clauses
             for (const catchClause of node.getCatchClauses()) {
                 this.visitCatchClause(catchClause);
             }
-            
+
             // Visit finally block
             if (node.getFinallyBlock()) {
                 this.visitNode(node.getFinallyBlock());
@@ -52,7 +51,7 @@ class ErrorHandlingASTVisitor implements ASTVisitor {
             this.errorHandler.addError(new ASTError(`Error visiting try statement: ${error.message}`, node));
         }
     }
-    
+
     visitCatchClause(node: CatchClause): void {
         try {
             console.log("Visiting catch clause:", node.getParameterName());
@@ -63,7 +62,7 @@ class ErrorHandlingASTVisitor implements ASTVisitor {
             this.errorHandler.addError(new ASTError(`Error visiting catch clause: ${error.message}`, node));
         }
     }
-    
+
     visitThrowStatement(node: ThrowStatement): void {
         try {
             console.log("Visiting throw statement");
@@ -74,7 +73,7 @@ class ErrorHandlingASTVisitor implements ASTVisitor {
             this.errorHandler.addError(new ASTError(`Error visiting throw statement: ${error.message}`, node));
         }
     }
-    
+
     visitPanicStatement(node: PanicStatement): void {
         try {
             console.log("Visiting panic statement");
@@ -85,7 +84,7 @@ class ErrorHandlingASTVisitor implements ASTVisitor {
             this.errorHandler.addError(new ASTError(`Error visiting panic statement: ${error.message}`, node));
         }
     }
-    
+
     visitAbortStatement(node: AbortStatement): void {
         try {
             console.log("Visiting abort statement");
@@ -96,7 +95,7 @@ class ErrorHandlingASTVisitor implements ASTVisitor {
             this.errorHandler.addError(new ASTError(`Error visiting abort statement: ${error.message}`, node));
         }
     }
-    
+
     private visitNode(node: ASTNode): void {
         // Generic node visiting with error handling
         try {
@@ -110,11 +109,11 @@ class ErrorHandlingASTVisitor implements ASTVisitor {
 // AST manipulation with error handling
 class ASTManipulator {
     private errorHandler: ASTErrorHandler;
-    
+
     constructor(errorHandler: ASTErrorHandler) {
         this.errorHandler = errorHandler;
     }
-    
+
     addTryCatchBlock(block: BlockStatement, errorType?: string): TryStatement {
         try {
             const catchClause = new CatchClause("error", errorType ? new Type(errorType) : undefined, block);
@@ -124,7 +123,7 @@ class ASTManipulator {
             throw error;
         }
     }
-    
+
     addFinallyBlock(tryStmt: TryStatement, finallyBlock: BlockStatement): TryStatement {
         try {
             tryStmt.setFinallyBlock(finallyBlock);
@@ -134,7 +133,7 @@ class ASTManipulator {
             throw error;
         }
     }
-    
+
     createThrowStatement(expression: Expression): ThrowStatement {
         try {
             return new ThrowStatement(expression);
@@ -158,7 +157,7 @@ try {
     const tryStmt = manipulator.addTryCatchBlock(block, "Error");
     const finallyBlock = new BlockStatement([]);
     const finalTryStmt = manipulator.addFinallyBlock(tryStmt, finallyBlock);
-    
+
     console.log("AST manipulation successful");
 } catch (error: Error) {
     console.log("AST manipulation failed:", error.message);
@@ -168,7 +167,7 @@ try {
 try {
     const throwStmt = new ThrowStatement(new Identifier("error"));
     visitor.visitThrowStatement(throwStmt);
-    
+
     console.log("AST visiting successful");
 } catch (error: Error) {
     console.log("AST visiting failed:", error.message);

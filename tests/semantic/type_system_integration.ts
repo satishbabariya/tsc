@@ -1,4 +1,3 @@
-
 // Type system integration with error handling
 interface ApiResponse<T> {
     data: T;
@@ -15,15 +14,15 @@ interface User {
 // Generic error handling with type constraints
 class TypedErrorHandler<T extends Error> {
     private errors: T[] = [];
-    
+
     addError(error: T): void {
         this.errors.push(error);
     }
-    
+
     getErrors(): T[] {
         return this.errors;
     }
-    
+
     hasErrors(): boolean {
         return this.errors.length > 0;
     }
@@ -35,11 +34,11 @@ function processUserData<T extends User>(user: T): Result<T, string> {
         if (!user.email) {
             throw new ValidationError("Email is required", "email");
         }
-        
+
         if (!user.name) {
             throw new ValidationError("Name is required", "name");
         }
-        
+
         return Result.ok(user);
     } catch (error: ValidationError) {
         return Result.err(`Validation failed: ${error.message}`);
@@ -64,21 +63,21 @@ function inferUserType(data: unknown): Result<User, string> {
         if (typeof data !== "object" || data === null) {
             throw new TypeError("Data must be an object");
         }
-        
+
         const userData = data as Record<string, unknown>;
-        
+
         if (typeof userData.id !== "string") {
             throw new TypeError("User ID must be a string");
         }
-        
+
         if (typeof userData.name !== "string") {
             throw new TypeError("User name must be a string");
         }
-        
+
         if (typeof userData.email !== "string") {
             throw new TypeError("User email must be a string");
         }
-        
+
         return Result.ok({
             id: userData.id,
             name: userData.name,
@@ -94,7 +93,7 @@ function inferUserType(data: unknown): Result<User, string> {
 // Test type system integration
 console.log("=== Testing Type System Integration ===");
 
-const user: User = { id: "1", name: "Alice", email: "alice@example.com" };
+const user: User = {id: "1", name: "Alice", email: "alice@example.com"};
 const userResult = processUserData(user);
 if (userResult.isOk()) {
     console.log("User processed:", userResult.unwrap());
@@ -107,7 +106,7 @@ const genericResult = handleGenericError(() => {
 });
 console.log("Generic result:", genericResult.unwrapOr("Default"));
 
-const inferredResult = inferUserType({ id: "2", name: "Bob", email: "bob@example.com" });
+const inferredResult = inferUserType({id: "2", name: "Bob", email: "bob@example.com"});
 if (inferredResult.isOk()) {
     console.log("Inferred user:", inferredResult.unwrap());
 } else {

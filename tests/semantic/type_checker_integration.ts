@@ -1,4 +1,3 @@
-
 // Type checker integration with generic constraints
 interface Comparable<T> {
     compareTo(other: T): number;
@@ -10,15 +9,15 @@ interface Serializable {
 
 class NumberWrapper implements Comparable<NumberWrapper>, Serializable {
     value: number;
-    
+
     constructor(value: number) {
         this.value = value;
     }
-    
+
     compareTo(other: NumberWrapper): number {
         return this.value - other.value;
     }
-    
+
     serialize(): string {
         return this.value.toString();
     }
@@ -54,7 +53,7 @@ console.log("Processed both:", processed3);
 // Test type checking with invalid types
 class InvalidType {
     value: string;
-    
+
     constructor(value: string) {
         this.value = value;
     }

@@ -1,6 +1,6 @@
 /**
  * @fileoverview Standard Library - Main Index
- * 
+ *
  * This file serves as the main entry point for the TSC compiler's standard library.
  * It re-exports all the standard library modules.
  */

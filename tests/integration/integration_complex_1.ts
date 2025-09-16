@@ -1,4 +1,3 @@
-
 // Complex nested errors
 function complexErrors(): void {
     if (true) {

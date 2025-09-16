@@ -1,4 +1,5 @@
 # TypeScript Syntax Bible
+
 *Complete reference from Beginner to Pro*
 
 ## 📚 Table of Contents
@@ -538,35 +539,36 @@ type Values<T> = T[keyof T];
 
 ## TSC Compiler Status
 
-| Level | Feature | Status | Notes |
-|-------|---------|--------|-------|
-| **Basic** | Basic Types | ✅ | All primitive types supported |
-| | Variables | ✅ | `let`, `const`, `var` with annotations |
-| | Functions | ✅ | Declarations, calls, parameters |
-| | Classes | ⚠️ | Basic structure, method calls have issues |
-| | Interfaces | ✅ | Declarations and implementation |
-| | Enums | ✅ | All enum types and operations |
-| | Generics (Basic) | ✅ | Basic generic functions and classes |
-| | Control Flow | ✅ | If/else, loops, switch |
-| | Arrays/Objects | ✅ | Literals, indexing, operations |
-| **Intermediate** | Optional Parameters | ✅ | Function parameters |
-| | Readonly | ✅ | Interface properties |
-| | Utility Types | ⚠️ | Partial implementation |
-| | Keyof/Index Types | ⚠️ | Basic support |
-| | Mapped Types | ⚠️ | Limited support |
-| | Namespaces | ✅ | Basic namespace support |
-| | Modules | ⚠️ | Import/export structure |
-| **Advanced** | Conditional Types | ❌ | Not implemented |
-| | Infer Keyword | ❌ | Not implemented |
-| | Decorators | ❌ | Not implemented |
-| | Template Literals | ⚠️ | Basic string interpolation |
-| | Recursive Types | ❌ | Not implemented |
+| Level            | Feature             | Status | Notes                                     |
+|------------------|---------------------|--------|-------------------------------------------|
+| **Basic**        | Basic Types         | ✅      | All primitive types supported             |
+|                  | Variables           | ✅      | `let`, `const`, `var` with annotations    |
+|                  | Functions           | ✅      | Declarations, calls, parameters           |
+|                  | Classes             | ⚠️     | Basic structure, method calls have issues |
+|                  | Interfaces          | ✅      | Declarations and implementation           |
+|                  | Enums               | ✅      | All enum types and operations             |
+|                  | Generics (Basic)    | ✅      | Basic generic functions and classes       |
+|                  | Control Flow        | ✅      | If/else, loops, switch                    |
+|                  | Arrays/Objects      | ✅      | Literals, indexing, operations            |
+| **Intermediate** | Optional Parameters | ✅      | Function parameters                       |
+|                  | Readonly            | ✅      | Interface properties                      |
+|                  | Utility Types       | ⚠️     | Partial implementation                    |
+|                  | Keyof/Index Types   | ⚠️     | Basic support                             |
+|                  | Mapped Types        | ⚠️     | Limited support                           |
+|                  | Namespaces          | ✅      | Basic namespace support                   |
+|                  | Modules             | ⚠️     | Import/export structure                   |
+| **Advanced**     | Conditional Types   | ❌      | Not implemented                           |
+|                  | Infer Keyword       | ❌      | Not implemented                           |
+|                  | Decorators          | ❌      | Not implemented                           |
+|                  | Template Literals   | ⚠️     | Basic string interpolation                |
+|                  | Recursive Types     | ❌      | Not implemented                           |
 
 ---
 
 ## Quick Reference
 
 ### Compile & Run
+
 ```bash
 # Compile
 ./tsc examples/00_quick_start.ts
@@ -576,15 +578,18 @@ type Values<T> = T[keyof T];
 ```
 
 ### Feature Support Summary
+
 - ✅ **Fully Working**: Basic types, functions, classes (structure), interfaces, enums
 - ⚠️ **Partial**: Classes (method calls), utility types, modules
 - ❌ **Not Implemented**: Advanced type manipulation, decorators, conditional types
 
 ### Learning Path
+
 1. **Start with Basic Level** (1-10) - Master fundamentals
 2. **Progress to Intermediate** (11-20) - Learn advanced patterns
 3. **Explore Advanced** (21-30) - Understand type system deeply
 
 ---
 
-*This TypeScript Syntax Bible covers the complete spectrum from beginner to pro, with clear status indicators for the TSC compiler.*
+*This TypeScript Syntax Bible covers the complete spectrum from beginner to pro, with clear status indicators for the
+TSC compiler.*

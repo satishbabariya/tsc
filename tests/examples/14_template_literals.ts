@@ -83,11 +83,13 @@ function buildQuery(table: string, conditions: object): string {
         }
         whereClause += `${key} = '${conditions[key]}'`;
     }
-    
-    return `SELECT * FROM ${table} WHERE ${whereClause}`;
+
+    return `SELECT *
+            FROM ${table}
+            WHERE ${whereClause}`;
 }
 
-let query: string = buildQuery("users", { status: "active", age: 25 });
+let query: string = buildQuery("users", {status: "active", age: 25});
 
 // Template literals for configuration
 let config: object = {
@@ -114,7 +116,7 @@ function logInfo(level: string, message: string, data: any): string {
     return `[${level.toUpperCase()}] ${new Date().toISOString()}: ${message} - ${JSON.stringify(data)}`;
 }
 
-let logEntry: string = logInfo("info", "User action", { userId: 123, action: "login" });
+let logEntry: string = logInfo("info", "User action", {userId: 123, action: "login"});
 
 // Template literals with internationalization (concept)
 let language: string = "en";
@@ -139,9 +141,9 @@ let measurements: object = {
 };
 
 let volume: number = measurements.length * measurements.width * measurements.height;
-let surfaceArea: number = 2 * (measurements.length * measurements.width + 
-                              measurements.length * measurements.height + 
-                              measurements.width * measurements.height);
+let surfaceArea: number = 2 * (measurements.length * measurements.width +
+    measurements.length * measurements.height +
+    measurements.width * measurements.height);
 
 let geometryInfo: string = `
     Box Dimensions:
@@ -158,7 +160,7 @@ let outerTemplate: string = `Outer: ${`Inner: ${name} is ${age}`} years old`;
 // Template literals with function parameters
 function createReport(title: string, data: any[], summary: string): string {
     let dataRows: string = data.map(item => `  - ${item}`).join("\n");
-    
+
     return `
         Report: ${title}
         =================

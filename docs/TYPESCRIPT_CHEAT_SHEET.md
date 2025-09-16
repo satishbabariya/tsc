@@ -1,4 +1,5 @@
 # TypeScript Syntax Cheat Sheet
+
 *Quick reference for TSC Compiler*
 
 ## 1. Basic Types
@@ -340,20 +341,20 @@ async function* asyncGenerator() {
 
 ## 🎯 TSC Compiler Status
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Basic Types | ✅ | All primitive types supported |
-| Variables | ✅ | `let`, `const`, `var` with annotations |
-| Functions | ✅ | Declarations, calls, parameters |
-| Classes | ⚠️ | Basic structure, method calls have issues |
-| Interfaces | ✅ | Declarations and implementation |
-| Enums | ✅ | All enum types and operations |
-| Generics | ✅ | Functions, classes, constraints |
-| Control Flow | ✅ | If/else, loops, switch |
-| Arrays/Objects | ✅ | Literals, indexing, operations |
-| Error Handling | ⚠️ | Basic structure, full implementation pending |
-| Maps & Sets | ✅ | Full support for Map, Set, WeakMap, WeakSet |
-| Async/Await | ✅ | Full support for async functions and Promises |
+| Feature        | Status | Notes                                         |
+|----------------|--------|-----------------------------------------------|
+| Basic Types    | ✅      | All primitive types supported                 |
+| Variables      | ✅      | `let`, `const`, `var` with annotations        |
+| Functions      | ✅      | Declarations, calls, parameters               |
+| Classes        | ⚠️     | Basic structure, method calls have issues     |
+| Interfaces     | ✅      | Declarations and implementation               |
+| Enums          | ✅      | All enum types and operations                 |
+| Generics       | ✅      | Functions, classes, constraints               |
+| Control Flow   | ✅      | If/else, loops, switch                        |
+| Arrays/Objects | ✅      | Literals, indexing, operations                |
+| Error Handling | ⚠️     | Basic structure, full implementation pending  |
+| Maps & Sets    | ✅      | Full support for Map, Set, WeakMap, WeakSet   |
+| Async/Await    | ✅      | Full support for async functions and Promises |
 
 ## 🚀 Quick Compile & Run
 

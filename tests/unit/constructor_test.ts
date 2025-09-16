@@ -1,11 +1,11 @@
 // Simple test to verify constructor initialization
 class BasicArrayOperations<T> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     getLength(): number {
         return this.items.length;
     }

@@ -2,11 +2,13 @@
 
 ## Overview
 
-TSC now supports `Array<T>` type annotations for function parameters and return types. This guide explains how to use this feature effectively and work around current limitations.
+TSC now supports `Array<T>` type annotations for function parameters and return types. This guide explains how to use
+this feature effectively and work around current limitations.
 
 ## ✅ What Works
 
 ### Function Parameters
+
 ```typescript
 function processNumbers(arr: Array<number>): number {
     return 42;
@@ -22,6 +24,7 @@ function processBooleans(arr: Array<boolean>): boolean {
 ```
 
 ### Return Types
+
 ```typescript
 function getNumbers(): Array<number> {
     return [];
@@ -33,6 +36,7 @@ function getStrings(): Array<string> {
 ```
 
 ### Multiple Array Types
+
 ```typescript
 function transformArray(input: Array<number>): Array<string> {
     return [];
@@ -47,9 +51,11 @@ function processMixed(flags: Array<boolean>): Array<number> {
 
 ### The `<` Operator Issue
 
-**Problem**: When using `Array<T>` in function signatures, the `<` operator in expressions is misinterpreted as the start of a generic type argument.
+**Problem**: When using `Array<T>` in function signatures, the `<` operator in expressions is misinterpreted as the
+start of a generic type argument.
 
 **Affected Code Patterns**:
+
 ```typescript
 // ❌ This will FAIL with parsing errors
 function processArray(arr: Array<number>): number {
@@ -71,6 +77,7 @@ function checkArray(arr: Array<string>): boolean {
 ```
 
 **Error Messages**:
+
 ```
 error: Expected type name
 error: Expected '>' after type arguments
@@ -144,6 +151,7 @@ function checkCondition(arr: Array<boolean>): string {
 ## 📋 Best Practices
 
 ### 1. Design Functions Carefully
+
 When using `Array<T>`, design your functions to avoid complex expressions with `<` operators:
 
 ```typescript
@@ -166,6 +174,7 @@ function complexArray(arr: Array<number>): number {
 ```
 
 ### 2. Use Helper Functions
+
 Extract complex logic into separate functions:
 
 ```typescript
@@ -192,6 +201,7 @@ function processArray(arr: Array<number>): number {
 ```
 
 ### 3. Test Your Code
+
 Always test functions with `Array<T>` parameters to ensure they compile correctly:
 
 ```typescript
@@ -221,16 +231,18 @@ function testArrayFunction(): void {
 ### Getting Help
 
 If you encounter issues:
+
 1. Check this guide for workarounds
 2. Look at the test files for examples:
-   - `test_array_simple_parsing.ts` - Basic usage
-   - `test_array_comprehensive.ts` - Multiple scenarios
-   - `test_workaround_validation.ts` - Workaround examples
+    - `test_array_simple_parsing.ts` - Basic usage
+    - `test_array_comprehensive.ts` - Multiple scenarios
+    - `test_workaround_validation.ts` - Workaround examples
 3. Refer to `ARRAY_TYPE_SUPPORT_STATUS.md` for technical details
 
 ## 🚀 Future Improvements
 
-The parsing ambiguity with the `<` operator is a known limitation that will be addressed in future versions. The current workarounds allow you to use `Array<T>` functionality effectively while we work on a more comprehensive solution.
+The parsing ambiguity with the `<` operator is a known limitation that will be addressed in future versions. The current
+workarounds allow you to use `Array<T>` functionality effectively while we work on a more comprehensive solution.
 
 ## 📚 Related Documentation
 

@@ -17,5 +17,6 @@ interface InvalidMethod {
 
 interface InvalidInheritance {
     // Invalid extends - should error
-    extends NonExistentInterface
+    extends
+    NonExistentInterface
 }

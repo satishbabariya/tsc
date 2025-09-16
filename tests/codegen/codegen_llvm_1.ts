@@ -1,4 +1,3 @@
-
 // Complex expression that might cause LLVM generation issues
 function complexExpression(): number {
     let result = 0

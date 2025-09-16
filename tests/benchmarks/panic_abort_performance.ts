@@ -1,21 +1,20 @@
-
 // Panic/Abort Performance Benchmark
 class PanicAbortBenchmark {
     private iterations: number;
     private panicRate: number;
-    
+
     constructor(iterations: number = 1000000, panicRate: number = 0.001) {
         this.iterations = iterations;
         this.panicRate = panicRate;
     }
-    
+
     benchmarkPanicPerformance(): BenchmarkResult {
         const startTime = performance.now();
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         let successCount = 0;
         let panicCount = 0;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             try {
                 if (Math.random() < this.panicRate) {
@@ -26,10 +25,10 @@ class PanicAbortBenchmark {
                 panicCount++;
             }
         }
-        
+
         const endTime = performance.now();
         const endMemory = process.memoryUsage().heapUsed;
-        
+
         return {
             executionTime: endTime - startTime,
             memoryUsage: endMemory - startMemory,
@@ -38,14 +37,14 @@ class PanicAbortBenchmark {
             iterations: this.iterations
         };
     }
-    
+
     benchmarkAbortPerformance(): BenchmarkResult {
         const startTime = performance.now();
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         let successCount = 0;
         let abortCount = 0;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             try {
                 if (Math.random() < this.panicRate) {
@@ -56,10 +55,10 @@ class PanicAbortBenchmark {
                 abortCount++;
             }
         }
-        
+
         const endTime = performance.now();
         const endMemory = process.memoryUsage().heapUsed;
-        
+
         return {
             executionTime: endTime - startTime,
             memoryUsage: endMemory - startMemory,
@@ -68,14 +67,14 @@ class PanicAbortBenchmark {
             iterations: this.iterations
         };
     }
-    
+
     benchmarkAssertionPerformance(): BenchmarkResult {
         const startTime = performance.now();
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         let successCount = 0;
         let assertionCount = 0;
-        
+
         for (let i = 0; i < this.iterations; i++) {
             try {
                 assert(i >= 0, `Assertion failed at iteration ${i}`);
@@ -84,10 +83,10 @@ class PanicAbortBenchmark {
                 assertionCount++;
             }
         }
-        
+
         const endTime = performance.now();
         const endMemory = process.memoryUsage().heapUsed;
-        
+
         return {
             executionTime: endTime - startTime,
             memoryUsage: endMemory - startMemory,

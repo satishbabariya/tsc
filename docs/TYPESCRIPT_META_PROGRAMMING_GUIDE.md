@@ -1,4 +1,5 @@
 # TypeScript Meta-Programming Guide
+
 *Beyond Expert: Type-Level Programming & Cutting-Edge Features*
 
 ## 🧠 Table of Contents
@@ -27,6 +28,7 @@
 ## Meta-Programming Overview
 
 At this level, TypeScript becomes a **compile-time programming language**. You can:
+
 - Model complex data structures at the type level
 - Validate data shapes and enforce contracts
 - Perform computations during compilation
@@ -37,6 +39,7 @@ At this level, TypeScript becomes a **compile-time programming language**. You c
 ## Recursive Types
 
 ### Basic Recursive Types
+
 ```typescript
 type JSONValue =
   | string
@@ -54,6 +57,7 @@ const obj: JSONValue = {
 ```
 
 ### Recursive Utility Types
+
 ```typescript
 type DeepReadonly<T> = {
   readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
@@ -69,6 +73,7 @@ type DeepRequired<T> = {
 ```
 
 ### Self-Referential Data Structures
+
 ```typescript
 type Tree<T> = {
   value: T;
@@ -92,6 +97,7 @@ type BinaryTree<T> = {
 ## Variadic Tuple Types
 
 ### Basic Variadic Tuples
+
 ```typescript
 type Prepend<T, U extends any[]> = [T, ...U];
 type Append<T, U extends any[]> = [...U, T];
@@ -101,6 +107,7 @@ type Result2 = Append<boolean, [number, string]>; // [number, string, boolean]
 ```
 
 ### Variadic Functions
+
 ```typescript
 function concat<T extends unknown[], U extends unknown[]>(
   a: [...T], 
@@ -113,6 +120,7 @@ const x = concat([1, 2], ["a", "b"]); // [number, number, string, string]
 ```
 
 ### Tuple Utilities
+
 ```typescript
 type Head<T extends any[]> = T extends [infer H, ...any[]] ? H : never;
 type Tail<T extends any[]> = T extends [any, ...infer T] ? T : [];
@@ -128,6 +136,7 @@ type L = Last<[1, 2, 3]>; // 3
 ## Higher-Kinded Types
 
 ### Simulated Higher-Kinded Types
+
 ```typescript
 type Functor<T> = {
   map<U>(fn: (x: T) => U): Functor<U>;
@@ -143,6 +152,7 @@ type HKT<F, T> = F extends { map: any } ? F : never;
 ```
 
 ### Generic Type Constructors
+
 ```typescript
 type ArrayConstructor = <T>(value: T) => T[];
 type PromiseConstructor = <T>(value: T) => Promise<T>;
@@ -154,6 +164,7 @@ type OptionConstructor = <T>(value: T) => T | null;
 ## Branded Types
 
 ### Basic Branded Types
+
 ```typescript
 type UserId = string & { __brand: "UserId" };
 type OrderId = string & { __brand: "OrderId" };
@@ -174,6 +185,7 @@ let user = getUser(userId);   // ✅
 ```
 
 ### Branded Type Utilities
+
 ```typescript
 type Brand<T, B> = T & { __brand: B };
 
@@ -189,6 +201,7 @@ type OrderId = BrandedString<"OrderId">;
 ## Type-Level Computation
 
 ### Basic Type-Level Operations
+
 ```typescript
 type Length<T extends any[]> = T["length"];
 type A = Length<[1, 2, 3]>; // 3
@@ -200,6 +213,7 @@ type IsGreater<A extends number, B extends number> = A extends B ? false : true;
 ```
 
 ### Type-Level Arithmetic
+
 ```typescript
 type Add<A extends number, B extends number> = A extends number ? B extends number ? number : never : never;
 type Subtract<A extends number, B extends number> = A extends number ? B extends number ? number : never : never;
@@ -207,6 +221,7 @@ type Multiply<A extends number, B extends number> = A extends number ? B extends
 ```
 
 ### Type-Level Validation
+
 ```typescript
 type IsValidEmail<T extends string> = T extends `${string}@${string}.${string}` ? true : false;
 type ValidEmail = IsValidEmail<"user@example.com">; // true
@@ -218,6 +233,7 @@ type InvalidEmail = IsValidEmail<"not-an-email">; // false
 ## Distributive Conditional Types
 
 ### Basic Distributive Types
+
 ```typescript
 type ExcludeNull<T> = T extends null | undefined ? never : T;
 type Clean = ExcludeNull<string | null | number>; // string | number
@@ -227,6 +243,7 @@ type ExtractString<T> = T extends string ? T : never;
 ```
 
 ### Distributive Mapping
+
 ```typescript
 type ToArray<T> = T extends any ? T[] : never;
 type StringArray = ToArray<string | number>; // string[] | number[]
@@ -240,6 +257,7 @@ type Promises = ToPromise<string | number>; // Promise<string> | Promise<number>
 ## Template Type Inference
 
 ### Basic Template Inference
+
 ```typescript
 type ExtractId<T> = T extends `${infer Prefix}:${infer Id}` ? Id : never;
 type ExtractPrefix<T> = T extends `${infer Prefix}:${infer Id}` ? Prefix : never;
@@ -250,6 +268,7 @@ type C = ExtractPrefix<"user:123">; // "user"
 ```
 
 ### Complex Template Patterns
+
 ```typescript
 type ParseRoute<T> = T extends `/${infer Path}` ? Path : never;
 type RouteParams<T> = T extends `${infer Start}:${infer Param}/${infer Rest}` 
@@ -263,6 +282,7 @@ type UserParams = RouteParams<"/users/:id">; // "id"
 ```
 
 ### String Manipulation
+
 ```typescript
 type CapitalizeWords<T extends string> = T extends `${infer First} ${infer Rest}` 
   ? `${Capitalize<First>} ${CapitalizeWords<Rest>}`
@@ -276,6 +296,7 @@ type TitleCase = CapitalizeWords<"hello world">; // "Hello World"
 ## Const Assertions & Narrowing
 
 ### Basic Const Assertions
+
 ```typescript
 const roles = ["admin", "user", "guest"] as const;
 type Role = typeof roles[number]; // "admin" | "user" | "guest"
@@ -297,6 +318,7 @@ type FeaturesConfig = Config["features"];
 ```
 
 ### Narrowing with Const Assertions
+
 ```typescript
 function processRole(role: Role): string {
   switch (role) {
@@ -315,6 +337,7 @@ function processRole(role: Role): string {
 ## Index Signatures with Modifiers
 
 ### Modifier Index Signatures
+
 ```typescript
 interface Config {
   [key: string]: string | number;
@@ -329,6 +352,7 @@ interface FlexibleObject {
 ```
 
 ### Conditional Index Signatures
+
 ```typescript
 interface ConditionalObject<T> {
   [K in keyof T]: T[K];
@@ -341,6 +365,7 @@ interface ConditionalObject<T> {
 ## Conditional Inference Chains
 
 ### Basic Inference Chains
+
 ```typescript
 type Flatten<T> = T extends (infer U)[] ? U : T;
 type A = Flatten<string[]>; // string
@@ -348,6 +373,7 @@ type B = Flatten<number>;   // number
 ```
 
 ### Complex Inference Chains
+
 ```typescript
 type UnwrapPromise<T> = T extends Promise<infer U> ? U : T;
 type UnwrapArray<T> = T extends (infer U)[] ? U : T;
@@ -362,6 +388,7 @@ type Unwrapped = UnwrapAll<PromiseArray>; // string
 ## Awaited Type
 
 ### Promise Unwrapping
+
 ```typescript
 type Awaited<T> = T extends Promise<infer U> ? Awaited<U> : T;
 
@@ -371,6 +398,7 @@ type C = Awaited<string>; // string
 ```
 
 ### Recursive Promise Unwrapping
+
 ```typescript
 type DeepAwaited<T> = T extends Promise<infer U> ? DeepAwaited<U> : T;
 type DeepAwaitedResult = DeepAwaited<Promise<Promise<Promise<string>>>>; // string
@@ -381,6 +409,7 @@ type DeepAwaitedResult = DeepAwaited<Promise<Promise<Promise<string>>>>; // stri
 ## Self-Referential Types
 
 ### Tree Structures
+
 ```typescript
 type Tree<T> = {
   value: T;
@@ -397,6 +426,7 @@ const root: Tree<number> = {
 ```
 
 ### Linked Lists
+
 ```typescript
 type LinkedList<T> = {
   value: T;
@@ -415,6 +445,7 @@ type BinaryTree<T> = {
 ## Function Overloads
 
 ### Basic Overloads
+
 ```typescript
 function reverse(str: string): string;
 function reverse(arr: number[]): number[];
@@ -431,6 +462,7 @@ let arrResult = reverse([1, 2, 3]); // [3, 2, 1]
 ```
 
 ### Complex Overloads
+
 ```typescript
 function createElement(tag: "div"): HTMLDivElement;
 function createElement(tag: "span"): HTMLSpanElement;
@@ -445,6 +477,7 @@ function createElement(tag: string): HTMLElement {
 ## Const Enums
 
 ### Basic Const Enums
+
 ```typescript
 const enum Colors {
   Red,
@@ -456,6 +489,7 @@ let c: Colors = Colors.Green;
 ```
 
 ### String Const Enums
+
 ```typescript
 const enum Status {
   Pending = "pending",
@@ -471,6 +505,7 @@ let status: Status = Status.Pending;
 ## JSDoc Integration
 
 ### Type Annotations in JS
+
 ```typescript
 /**
  * @param {number} a
@@ -496,6 +531,7 @@ function createPerson(name, age) {
 ## Real-World Meta-Patterns
 
 ### API Route Types
+
 ```typescript
 type ApiRoute<T extends string> = T extends `/${infer Path}` ? Path : never;
 type ApiParams<T extends string> = T extends `${infer Start}:${infer Param}/${infer Rest}` 
@@ -509,6 +545,7 @@ type UserParams = ApiParams<"/users/:id">; // "id"
 ```
 
 ### Form Validation Types
+
 ```typescript
 type FormField<T> = {
   value: T;
@@ -528,6 +565,7 @@ type UserForm = FormData<{
 ```
 
 ### State Management Types
+
 ```typescript
 type State<T> = {
   data: T | null;
@@ -547,29 +585,30 @@ type Reducer<T> = (state: State<T>, action: Action<T>) => State<T>;
 
 ## TSC Compiler Status
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| **Recursive Types** | ⚠️ | Basic support, complex patterns may not work |
-| **Variadic Tuples** | ❌ | Not implemented |
-| **Higher-Kinded Types** | ❌ | Not implemented |
-| **Branded Types** | ⚠️ | Basic support with type assertions |
-| **Type-Level Computation** | ❌ | Not implemented |
-| **Distributive Types** | ❌ | Not implemented |
-| **Template Inference** | ❌ | Not implemented |
-| **Const Assertions** | ⚠️ | Basic support |
-| **Index Signatures** | ✅ | Basic support |
-| **Inference Chains** | ❌ | Not implemented |
-| **Awaited Type** | ❌ | Not implemented |
-| **Self-Referential** | ⚠️ | Basic support |
-| **Function Overloads** | ✅ | Basic support |
-| **Const Enums** | ✅ | Basic support |
-| **JSDoc Integration** | ❌ | Not implemented |
+| Feature                    | Status | Notes                                        |
+|----------------------------|--------|----------------------------------------------|
+| **Recursive Types**        | ⚠️     | Basic support, complex patterns may not work |
+| **Variadic Tuples**        | ❌      | Not implemented                              |
+| **Higher-Kinded Types**    | ❌      | Not implemented                              |
+| **Branded Types**          | ⚠️     | Basic support with type assertions           |
+| **Type-Level Computation** | ❌      | Not implemented                              |
+| **Distributive Types**     | ❌      | Not implemented                              |
+| **Template Inference**     | ❌      | Not implemented                              |
+| **Const Assertions**       | ⚠️     | Basic support                                |
+| **Index Signatures**       | ✅      | Basic support                                |
+| **Inference Chains**       | ❌      | Not implemented                              |
+| **Awaited Type**           | ❌      | Not implemented                              |
+| **Self-Referential**       | ⚠️     | Basic support                                |
+| **Function Overloads**     | ✅      | Basic support                                |
+| **Const Enums**            | ✅      | Basic support                                |
+| **JSDoc Integration**      | ❌      | Not implemented                              |
 
 ---
 
 ## Quick Reference
 
 ### Meta-Programming Patterns
+
 - **Recursive Types**: For complex data structures
 - **Variadic Tuples**: For flexible function signatures
 - **Branded Types**: For type safety and preventing mixing
@@ -578,6 +617,7 @@ type Reducer<T> = (state: State<T>, action: Action<T>) => State<T>;
 - **Function Overloads**: For type-safe APIs
 
 ### When to Use Meta-Programming
+
 - **Library Development**: Creating type-safe APIs
 - **Framework Internals**: Complex type transformations
 - **Data Validation**: Type-level validation
@@ -586,4 +626,6 @@ type Reducer<T> = (state: State<T>, action: Action<T>) => State<T>;
 
 ---
 
-*This guide covers the cutting-edge of TypeScript meta-programming, where the type system becomes a compile-time programming language. These patterns are used in production libraries and frameworks to create incredibly type-safe and powerful APIs.*
+*This guide covers the cutting-edge of TypeScript meta-programming, where the type system becomes a compile-time
+programming language. These patterns are used in production libraries and frameworks to create incredibly type-safe and
+powerful APIs.*

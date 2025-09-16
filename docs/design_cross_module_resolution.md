@@ -3,7 +3,8 @@
 ## Current Architecture Issues
 
 The current `Compiler::compileModule` method has a fundamental architectural flaw:
-- It compiles files individually using `compile(sourceFile)` 
+
+- It compiles files individually using `compile(sourceFile)`
 - No cross-module symbol resolution occurs
 - Imported symbols remain unresolved
 - Export-to-import binding never happens
@@ -13,23 +14,25 @@ The current `Compiler::compileModule` method has a fundamental architectural fla
 ### Two-Phase Compilation Process
 
 #### Phase 1: Cross-Module Analysis
-1. **Dependency Scanning**: Use `SemanticAnalyzer::analyzeProject` to:
-   - Scan all modules for import/export dependencies
-   - Build dependency graph
-   - Detect circular dependencies
-   - Determine compilation order (topological sort)
 
-2. **Symbol Resolution**: 
-   - Create `ModuleSymbolTable` for each module
-   - Parse and analyze each module in dependency order
-   - Perform export-to-import binding
-   - Build unified symbol table for the entire project
+1. **Dependency Scanning**: Use `SemanticAnalyzer::analyzeProject` to:
+    - Scan all modules for import/export dependencies
+    - Build dependency graph
+    - Detect circular dependencies
+    - Determine compilation order (topological sort)
+
+2. **Symbol Resolution**:
+    - Create `ModuleSymbolTable` for each module
+    - Parse and analyze each module in dependency order
+    - Perform export-to-import binding
+    - Build unified symbol table for the entire project
 
 #### Phase 2: Code Generation
+
 1. **LLVM IR Generation**: For each module:
-   - Use resolved symbols from Phase 1
-   - Generate LLVM IR with proper external linkage
-   - Create object files (.o) or bitcode files (.bc)
+    - Use resolved symbols from Phase 1
+    - Generate LLVM IR with proper external linkage
+    - Create object files (.o) or bitcode files (.bc)
 
 2. **Linking**: Link all generated object files into final executable
 
@@ -77,6 +80,7 @@ CompilationResult Compiler::compileModule(const std::vector<String>& sourceFiles
 ### Step 2: Create `compileWithResolvedSymbols` Method
 
 This method will:
+
 - Parse the source file
 - Use the resolved symbols from `SemanticAnalyzer`
 - Generate LLVM IR with proper external linkage for imported/exported symbols
@@ -85,6 +89,7 @@ This method will:
 ### Step 3: Update LLVM Code Generation
 
 Modify `LLVMCodeGen` to:
+
 - Use resolved symbols from `ModuleSymbolManager`
 - Generate `ExternalLinkage` for exported symbols
 - Generate `ExternalLinkage` declarations for imported symbols
@@ -107,12 +112,15 @@ Source Files → SemanticAnalyzer::analyzeProject → ModuleSymbolManager → LL
 ## Risks and Mitigation
 
 ### Risk: Performance Impact
+
 - **Mitigation**: `analyzeProject` only runs once per compilation, and dependency scanning is efficient
 
 ### Risk: Complexity Increase
+
 - **Mitigation**: Clear separation between analysis and code generation phases
 
 ### Risk: Potential Regressions
+
 - **Mitigation**: Comprehensive testing of both individual and multi-module compilation
 
 ## Testing Strategy

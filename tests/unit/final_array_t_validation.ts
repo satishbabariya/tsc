@@ -13,15 +13,15 @@ let booleanArray2: boolean[] = [];
 // Test 3: Generic class with Array<T>
 class GenericArrayContainer<T> {
     items: Array<T>;
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     addItem(item: T): void {
         this.items.push(item);
     }
-    
+
     getLength(): number {
         return this.items.length;
     }
@@ -30,15 +30,15 @@ class GenericArrayContainer<T> {
 // Test 4: Generic class with T[]
 class GenericArrayContainer2<T> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     addItem(item: T): void {
         this.items.push(item);
     }
-    
+
     getLength(): number {
         return this.items.length;
     }

@@ -1,4 +1,3 @@
-
 // Complex nested objects with spread operations
 interface BaseObject {
     id: number;
@@ -38,7 +37,7 @@ function createComplexNestedObject(): BaseObject {
             tags: ["important", "urgent", "critical"]
         }
     };
-    
+
     // Complex spread operations with conflicts
     let extendedObject = {
         ...baseObject,
@@ -62,7 +61,7 @@ function createComplexNestedObject(): BaseObject {
             width: 999        // This should conflict with baseObject.properties.dimensions.width
         }
     };
-    
+
     return extendedObject as BaseObject;
 }
 
@@ -70,10 +69,10 @@ function createComplexNestedObject(): BaseObject {
 function createDeepNestedObject(): any {
     let level1 = {
         a: 1,
-        b: { c: 2, d: 3 },
-        e: { f: { g: 4, h: 5 }, i: 6 }
+        b: {c: 2, d: 3},
+        e: {f: {g: 4, h: 5}, i: 6}
     };
-    
+
     let level2 = {
         ...level1,
         ...level1.b,
@@ -98,6 +97,6 @@ function createDeepNestedObject(): any {
             }
         }
     };
-    
+
     return level2;
 }

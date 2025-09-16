@@ -43,8 +43,8 @@ let company: object = {
         zipCode: "10001"
     },
     employees: [
-        { name: "Alice", role: "Developer" },
-        { name: "Bob", role: "Designer" }
+        {name: "Alice", role: "Developer"},
+        {name: "Bob", role: "Designer"}
     ]
 };
 
@@ -56,13 +56,13 @@ let city: string = company.address.city;
 // Object with methods
 let calculator: object = {
     value: 0,
-    add: function(n: number): void {
+    add: function (n: number): void {
         this.value += n;
     },
-    multiply: function(n: number): void {
+    multiply: function (n: number): void {
         this.value *= n;
     },
-    getValue: function(): number {
+    getValue: function (): number {
         return this.value;
     }
 };
@@ -78,7 +78,7 @@ let mixedObject: object = {
     numberProp: 42,
     booleanProp: true,
     arrayProp: [1, 2, 3],
-    objectProp: { nested: "value" },
+    objectProp: {nested: "value"},
     nullProp: null,
     undefinedProp: undefined
 };
@@ -135,8 +135,8 @@ let person2: object = {
 };
 
 // Object with spread operator (if supported)
-let baseConfig: object = { host: "localhost", port: 3000 };
-let extendedConfig: object = { ...baseConfig, timeout: 5000, debug: true };
+let baseConfig: object = {host: "localhost", port: 3000};
+let extendedConfig: object = {...baseConfig, timeout: 5000, debug: true};
 
 // Object comparison
 function areEqual(obj1: object, obj2: object): boolean {
@@ -154,9 +154,9 @@ function areEqual(obj1: object, obj2: object): boolean {
     return true;
 }
 
-let obj1: object = { a: 1, b: 2 };
-let obj2: object = { a: 1, b: 2 };
-let obj3: object = { a: 1, b: 3 };
+let obj1: object = {a: 1, b: 2};
+let obj2: object = {a: 1, b: 2};
+let obj3: object = {a: 1, b: 3};
 
 let equal1: boolean = areEqual(obj1, obj2);  // true
 let equal2: boolean = areEqual(obj1, obj3);  // false
@@ -170,19 +170,19 @@ function clone(obj: object): object {
     return copy;
 }
 
-let original: object = { x: 1, y: 2 };
+let original: object = {x: 1, y: 2};
 let copy: object = clone(original);
 
 // Object with function properties
 let mathUtils: object = {
     PI: 3.14159,
-    add: function(a: number, b: number): number {
+    add: function (a: number, b: number): number {
         return a + b;
     },
-    multiply: function(a: number, b: number): number {
+    multiply: function (a: number, b: number): number {
         return a * b;
     },
-    circleArea: function(radius: number): number {
+    circleArea: function (radius: number): number {
         return this.PI * radius * radius;
     }
 };

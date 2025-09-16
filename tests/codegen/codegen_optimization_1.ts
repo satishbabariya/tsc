@@ -1,4 +1,3 @@
-
 // Dead code elimination test
 function deadCode(): number {
     let x = 42

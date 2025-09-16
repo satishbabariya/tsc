@@ -18,20 +18,20 @@ interface Processor<T> {
 // Basic generic class with array methods
 class DataStore<T> {
     private storage: T[];
-    
+
     add(item: T): void {
         this.storage.push(item);
     }
-    
+
     getLength(): number {
         return this.storage.length;
     }
-    
+
     // Test array methods
     testPush(item: T): number {
         return this.storage.push(item);
     }
-    
+
     testLength(): number {
         return this.storage.length;
     }

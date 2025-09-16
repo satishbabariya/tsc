@@ -1,29 +1,28 @@
-
 // Semantic analysis integration with error handling
 class SemanticErrorHandler {
     private errors: SemanticError[] = [];
     private warnings: SemanticWarning[] = [];
-    
+
     addError(error: SemanticError): void {
         this.errors.push(error);
     }
-    
+
     addWarning(warning: SemanticWarning): void {
         this.warnings.push(warning);
     }
-    
+
     getErrors(): SemanticError[] {
         return this.errors;
     }
-    
+
     getWarnings(): SemanticWarning[] {
         return this.warnings;
     }
-    
+
     hasErrors(): boolean {
         return this.errors.length > 0;
     }
-    
+
     hasWarnings(): boolean {
         return this.warnings.length > 0;
     }
@@ -47,26 +46,26 @@ class SemanticWarning extends Error {
 class ErrorHandlingSemanticAnalyzer {
     private errorHandler: SemanticErrorHandler;
     private symbolTable: SymbolTable;
-    
+
     constructor(errorHandler: SemanticErrorHandler, symbolTable: SymbolTable) {
         this.errorHandler = errorHandler;
         this.symbolTable = symbolTable;
     }
-    
+
     analyzeTryStatement(node: TryStatement): void {
         try {
             console.log("Analyzing try statement");
-            
+
             // Analyze try block
             if (node.getTryBlock()) {
                 this.analyzeBlock(node.getTryBlock());
             }
-            
+
             // Analyze catch clauses
             for (const catchClause of node.getCatchClauses()) {
                 this.analyzeCatchClause(catchClause);
             }
-            
+
             // Analyze finally block
             if (node.getFinallyBlock()) {
                 this.analyzeBlock(node.getFinallyBlock());
@@ -79,16 +78,16 @@ class ErrorHandlingSemanticAnalyzer {
             ));
         }
     }
-    
+
     analyzeCatchClause(node: CatchClause): void {
         try {
             console.log("Analyzing catch clause:", node.getParameterName());
-            
+
             // Check catch parameter
             if (node.hasParameter()) {
                 this.checkCatchParameter(node);
             }
-            
+
             // Analyze catch body
             if (node.getBody()) {
                 this.analyzeBlock(node.getBody());
@@ -101,11 +100,11 @@ class ErrorHandlingSemanticAnalyzer {
             ));
         }
     }
-    
+
     analyzeThrowStatement(node: ThrowStatement): void {
         try {
             console.log("Analyzing throw statement");
-            
+
             if (node.getExpression()) {
                 this.analyzeExpression(node.getExpression());
             }
@@ -117,11 +116,11 @@ class ErrorHandlingSemanticAnalyzer {
             ));
         }
     }
-    
+
     analyzePanicStatement(node: PanicStatement): void {
         try {
             console.log("Analyzing panic statement");
-            
+
             if (node.getExpression()) {
                 this.analyzeExpression(node.getExpression());
             }
@@ -133,11 +132,11 @@ class ErrorHandlingSemanticAnalyzer {
             ));
         }
     }
-    
+
     analyzeAbortStatement(node: AbortStatement): void {
         try {
             console.log("Analyzing abort statement");
-            
+
             if (node.getExpression()) {
                 this.analyzeExpression(node.getExpression());
             }
@@ -149,10 +148,10 @@ class ErrorHandlingSemanticAnalyzer {
             ));
         }
     }
-    
+
     private checkCatchParameter(node: CatchClause): void {
         const paramName = node.getParameterName();
-        
+
         // Check if parameter name is valid
         if (!this.isValidIdentifier(paramName)) {
             this.errorHandler.addError(new SemanticError(
@@ -161,7 +160,7 @@ class ErrorHandlingSemanticAnalyzer {
                 "INVALID_PARAMETER_NAME"
             ));
         }
-        
+
         // Check if parameter type is valid
         if (node.hasParameterType()) {
             const paramType = node.getParameterType();
@@ -174,7 +173,7 @@ class ErrorHandlingSemanticAnalyzer {
             }
         }
     }
-    
+
     private analyzeBlock(node: ASTNode): void {
         // Analyze block statement
         if (node.getType() === ASTNodeType::BlockStatement) {
@@ -184,7 +183,7 @@ class ErrorHandlingSemanticAnalyzer {
             }
         }
     }
-    
+
     private analyzeExpression(node: ASTNode): void {
         // Analyze expression
         if (node.getType() === ASTNodeType::Expression) {
@@ -192,7 +191,7 @@ class ErrorHandlingSemanticAnalyzer {
             // Expression analysis logic
         }
     }
-    
+
     private analyzeStatement(node: ASTNode): void {
         // Analyze statement based on type
         switch (node.getType()) {
@@ -213,15 +212,15 @@ class ErrorHandlingSemanticAnalyzer {
                 break;
         }
     }
-    
+
     private isValidIdentifier(name: string): boolean {
         return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name);
     }
-    
+
     private isValidExceptionType(type: Type): boolean {
         const typeName = type.getName();
-        return typeName === "Error" || typeName === "Exception" || 
-               typeName.includes("Error") || typeName.includes("Exception");
+        return typeName === "Error" || typeName === "Exception" ||
+            typeName.includes("Error") || typeName.includes("Exception");
     }
 }
 
@@ -239,7 +238,7 @@ try {
         [new CatchClause("error", new Type("Error"), new BlockStatement([]))],
         new BlockStatement([])
     );
-    
+
     analyzer.analyzeTryStatement(tryStmt);
     console.log("Semantic analysis successful");
 } catch (error: Error) {

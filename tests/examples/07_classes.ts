@@ -92,8 +92,8 @@ class MathUtils {
 
 // Class with private and public members
 class BankAccount {
-    private balance: number;
     public accountNumber: string;
+    private balance: number;
 
     constructor(accountNumber: string, initialBalance: number = 0) {
         this.accountNumber = accountNumber;
@@ -188,11 +188,11 @@ class Circle extends Shape {
 
 // Class with getter and setter
 class Temperature {
-    private _celsius: number;
-
     constructor(celsius: number) {
         this._celsius = celsius;
     }
+
+    private _celsius: number;
 
     get celsius(): number {
         return this._celsius;

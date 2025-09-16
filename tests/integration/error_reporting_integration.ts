@@ -1,4 +1,3 @@
-
 // Error reporting integration with generic constraints
 interface Comparable<T> {
     compareTo(other: T): number;
@@ -10,15 +9,15 @@ interface Serializable {
 
 class ValidType implements Comparable<ValidType>, Serializable {
     value: number;
-    
+
     constructor(value: number) {
         this.value = value;
     }
-    
+
     compareTo(other: ValidType): number {
         return this.value - other.value;
     }
-    
+
     serialize(): string {
         return this.value.toString();
     }
@@ -26,7 +25,7 @@ class ValidType implements Comparable<ValidType>, Serializable {
 
 class InvalidType {
     value: string;
-    
+
     constructor(value: string) {
         this.value = value;
     }

@@ -11,6 +11,7 @@ interface BasicContainer<T> {
 // Generic interface with type arguments in methods
 interface Processor<T> {
     process(input: T): T;
+
     transform(items: T[]): T[];
 }
 
@@ -19,32 +20,32 @@ interface Processor<T> {
 // Basic generic class with array methods
 class DataStore<T> {
     private storage: T[];
-    
+
     add(item: T): void {
         this.storage.push(item);
     }
-    
+
     get(index: number): T {
         return this.storage[index];
     }
-    
+
     getAll(): T[] {
         return this.storage;
     }
-    
+
     getLength(): number {
         return this.storage.length;
     }
-    
+
     // Test array methods
     testPush(item: T): number {
         return this.storage.push(item);
     }
-    
+
     testPop(): T {
         return this.storage.pop();
     }
-    
+
     testLength(): number {
         return this.storage.length;
     }
@@ -54,16 +55,16 @@ class DataStore<T> {
 class KeyValueStore<K, V> {
     private data: V[];
     private keys: K[];
-    
+
     set(key: K, value: V): void {
         this.keys.push(key);
         this.data.push(value);
     }
-    
+
     get(key: K): V {
         return this.data[0];
     }
-    
+
     getKeys(): K[] {
         return this.keys;
     }

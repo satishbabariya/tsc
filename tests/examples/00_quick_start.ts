@@ -10,10 +10,10 @@ let tuple: [string, number] = ["Score", 100];
 
 // 2. Enums
 enum Direction {
-  Up,
-  Down,
-  Left,
-  Right
+    Up,
+    Down,
+    Left,
+    Right
 }
 
 let move: Direction = Direction.Up;
@@ -23,47 +23,48 @@ let data: any = "could be anything";
 let value: unknown = 42;
 
 function logMessage(msg: string): void {
-  _print(msg);
+    _print(msg);
 }
 
 function throwError(msg: string): never {
-  throw new Error(msg);
+    throw new Error(msg);
 }
 
 // 4. Functions
 function add(x: number, y: number): number {
-  return x + y;
+    return x + y;
 }
 
 const multiply = (a: number, b: number): number => a * b;
 
 // 5. Interfaces & Types
 interface User {
-  id: number;
-  name: string;
-  isAdmin?: boolean; // optional
+    id: number;
+    name: string;
+    isAdmin?: boolean; // optional
 }
 
 type Point = {
-  x: number;
-  y: number;
+    x: number;
+    y: number;
 };
 
-const user: User = { id: 1, name: "Alice" };
+const user: User = {id: 1, name: "Alice"};
 
 // 6. Classes
 class Animal {
-  constructor(public name: string) {}
+    constructor(public name: string) {
+    }
 
-  move(distance: number = 0): void {
-    _print(`${this.name} moved ${distance}m`);
-  }
+    move(distance: number = 0): void {
+        _print(`${this.name} moved ${distance}m`);
+    }
 }
 
 class Dog extends Animal {
-  bark(): void {
-    _print("Woof!");
-  }
+    bark(): void {
+        _print("Woof!");
+    }
 }
 
 const dog = new Dog("Buddy");
@@ -72,7 +73,7 @@ dog.move(10);
 
 // 7. Generics
 function identity<T>(arg: T): T {
-  return arg;
+    return arg;
 }
 
 let num = identity<number>(42);
@@ -87,7 +88,7 @@ type A = { a: string };
 type B = { b: number };
 type AB = A & B;
 
-const obj: AB = { a: "hi", b: 42 };
+const obj: AB = {a: "hi", b: 42};
 
 // 9. Type Assertions
 let someValue: unknown = "TypeScript";
@@ -95,28 +96,28 @@ let strLength: number = (someValue as string).length;
 
 // 10. Control Flow
 if (age >= 18) {
-  _print("Adult");
+    _print("Adult");
 } else {
-  _print("Minor");
+    _print("Minor");
 }
 
 switch (move) {
-  case Direction.Up:
-    _print("Going up");
-    break;
-  case Direction.Down:
-    _print("Going down");
-    break;
-  default:
-    _print("Unknown direction");
+    case Direction.Up:
+        _print("Going up");
+        break;
+    case Direction.Down:
+        _print("Going down");
+        break;
+    default:
+        _print("Unknown direction");
 }
 
 for (let i = 0; i < 10; i++) {
-  _print(i);
+    _print(i);
 }
 
 for (let score of scores) {
-  _print(score);
+    _print(score);
 }
 
 // 11. Arrays & Objects
@@ -124,11 +125,11 @@ let numbers: number[] = [1, 2, 3, 4, 5];
 let matrix: number[][] = [[1, 2], [3, 4]];
 
 let person = {
-  name: "Alice",
-  age: 30,
-  greet() {
-    return `Hello, I'm ${this.name}`;
-  }
+    name: "Alice",
+    age: 30,
+    greet() {
+        return `Hello, I'm ${this.name}`;
+    }
 };
 
 // 12. Template Literals
@@ -138,16 +139,16 @@ let message = `Hello, ${name}! You are ${userAge} years old.`;
 
 // 13. Destructuring
 let [first, second, ...rest] = [1, 2, 3, 4, 5];
-let { name: fullName, age: userAge2 } = person;
+let {name: fullName, age: userAge2} = person;
 
 // 14. Error Handling
 try {
-  let result = add(5, 3);
-  _print("Result:", result);
+    let result = add(5, 3);
+    _print("Result:", result);
 } catch (error) {
-  _print("Error:", error.message);
+    _print("Error:", error.message);
 } finally {
-  _print("Cleanup completed");
+    _print("Cleanup completed");
 }
 
 // Usage examples

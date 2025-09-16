@@ -11,7 +11,7 @@ function testDoWhile() {
 }
 
 function testFor() {
-    for (let k = 0; false; ) {
+    for (let k = 0; false;) {
         let z = 5;
     }
 }

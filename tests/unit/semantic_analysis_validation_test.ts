@@ -6,30 +6,30 @@ class ArraySemanticTest<T> {
     items: T[];
     numbers: number[];
     strings: string[];
-    
+
     constructor() {
         this.items = [];
         this.numbers = [];
         this.strings = [];
     }
-    
+
     // Test array method calls
     testArrayMethods(): void {
         // Test push method
         this.items.push(this.items[0]);
         this.numbers.push(42);
         this.strings.push("hello");
-        
+
         // Test length property
         let count = this.items.length;
         let numCount = this.numbers.length;
         let strCount = this.strings.length;
-        
+
         // Test pop method
         let item = this.items.pop();
         let num = this.numbers.pop();
         let str = this.strings.pop();
-        
+
         // Prevent unused variable warnings
         count = count;
         numCount = numCount;
@@ -38,14 +38,14 @@ class ArraySemanticTest<T> {
         num = num;
         str = str;
     }
-    
+
     // Test array assignments
     testArrayAssignments(): void {
         // Test array literal assignments
         this.items = [];
         this.numbers = [1, 2, 3];
         this.strings = ["a", "b", "c"];
-        
+
         // Test array element assignments
         if (this.items.length > 0) {
             this.items[0] = this.items[0];
@@ -57,7 +57,7 @@ class ArraySemanticTest<T> {
             this.strings[0] = "updated";
         }
     }
-    
+
     // Test generic array operations
     processGenericArray(arr: T[]): T[] {
         let result: T[] = [];
@@ -72,29 +72,32 @@ class ArraySemanticTest<T> {
 interface TestInterface {
     id: number;
     name: string;
+
     process(): void;
 }
 
 interface GenericInterface<T> {
     data: T;
+
     getData(): T;
+
     setData(value: T): void;
 }
 
 class InterfaceImplementation implements TestInterface {
     id: number;
     name: string;
-    
+
     constructor(id: number, name: string) {
         this.id = id;
         this.name = name;
     }
-    
+
     process(): void {
         // Test interface member access
         let currentId = this.id;
         let currentName = this.name;
-        
+
         // Prevent unused variable warnings
         currentId = currentId;
         currentName = currentName;
@@ -103,15 +106,15 @@ class InterfaceImplementation implements TestInterface {
 
 class GenericInterfaceImplementation<T> implements GenericInterface<T> {
     data: T;
-    
+
     constructor(data: T) {
         this.data = data;
     }
-    
+
     getData(): T {
         return this.data;
     }
-    
+
     setData(value: T): void {
         this.data = value;
     }
@@ -120,16 +123,17 @@ class GenericInterfaceImplementation<T> implements GenericInterface<T> {
 // Test 3: Constrained interface usage
 interface ConstrainedInterface<T extends number> {
     value: T;
+
     double(): T;
 }
 
 class NumberProcessor implements ConstrainedInterface<number> {
     value: number;
-    
+
     constructor(value: number) {
         this.value = value;
     }
-    
+
     double(): number {
         return this.value * 2;
     }
@@ -139,19 +143,19 @@ class NumberProcessor implements ConstrainedInterface<number> {
 class ComplexSemanticTest<T extends string> {
     data: T[];
     processor: GenericInterface<T>;
-    
+
     constructor(data: T[], processor: GenericInterface<T>) {
         this.data = data;
         this.processor = processor;
     }
-    
+
     processAll(): void {
         // Test complex array operations
         for (let i = 0; i < this.data.length; i++) {
             let item = this.data[i];
             this.processor.setData(item);
             let processed = this.processor.getData();
-            
+
             // Test array method calls on processed data
             if (processed.length > 0) {
                 let firstChar = processed[0];
@@ -159,7 +163,7 @@ class ComplexSemanticTest<T extends string> {
             }
         }
     }
-    
+
     // Test method chaining
     chainOperations(): T[] {
         let result: T[] = [];
@@ -173,7 +177,7 @@ class ComplexSemanticTest<T extends string> {
 class ErrorTest {
     // This should cause a type error - assigning number to string array
     // strings: string[] = [1, 2, 3];  // Commented out to avoid compilation errors
-    
+
     // This should cause a type error - calling non-existent method
     testInvalidMethod(): void {
         let arr: number[] = [1, 2, 3];

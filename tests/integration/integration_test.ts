@@ -1,4 +1,3 @@
-
 // Integration Regression Test
 // Test integration between different features
 
@@ -10,12 +9,13 @@ export interface GenericModule<T> {
 }
 
 export class GenericModuleImpl<T> implements GenericModule<T> {
-    constructor(public data: T) {}
-    
+    constructor(public data: T) {
+    }
+
     process(value: T): T {
         return value;
     }
-    
+
     export(): T {
         return this.data;
     }
@@ -27,15 +27,16 @@ namespace GenericNamespace {
         value: T;
         method: () => T;
     }
-    
+
     export class GenericClass<T> implements GenericInterface<T> {
-        constructor(public value: T) {}
-        
+        constructor(public value: T) {
+        }
+
         method(): T {
             return this.value;
         }
     }
-    
+
     export function genericFunction<T>(value: T): T {
         return value;
     }
@@ -66,31 +67,31 @@ function testIntegration() {
     // Test module with generics
     const stringModule = new GenericModuleImpl<string>('hello');
     const numberModule = new GenericModuleImpl<number>(42);
-    
+
     console.log('String module:', stringModule.export());
     console.log('Number module:', numberModule.export());
-    
+
     // Test namespace with generics
     const stringClass = new GenericNamespace.GenericClass<string>('world');
     const numberClass = new GenericNamespace.GenericClass<number>(84);
-    
+
     console.log('String class:', stringClass.method());
     console.log('Number class:', numberClass.method());
-    
+
     // Test generic function
     const stringResult = GenericNamespace.genericFunction<string>('test');
     const numberResult = GenericNamespace.genericFunction<number>(123);
-    
+
     console.log('String function result:', stringResult);
     console.log('Number function result:', numberResult);
-    
+
     // Test unions
     const moduleUnion: ModuleUnion = stringModule;
     const namespaceUnion: NamespaceUnion = stringClass;
-    
+
     console.log('Module union:', moduleUnion);
     console.log('Namespace union:', namespaceUnion);
-    
+
     // Test intersections
     const moduleIntersection: ModuleIntersection = {
         ...stringModule,
@@ -100,17 +101,17 @@ function testIntegration() {
         ...stringClass,
         extra: 'extra data'
     };
-    
+
     console.log('Module intersection:', moduleIntersection);
     console.log('Namespace intersection:', namespaceIntersection);
-    
+
     // Test conditionals
     const moduleConditional: ModuleConditional<string> = stringModule;
     const namespaceConditional: NamespaceConditional<number> = numberClass;
-    
+
     console.log('Module conditional:', moduleConditional);
     console.log('Namespace conditional:', namespaceConditional);
-    
+
     // Test mapped types
     const moduleMapped: ModuleMapped<{ name: string; age: number }> = {
         name: stringModule,
@@ -120,7 +121,7 @@ function testIntegration() {
         title: stringClass,
         count: numberClass
     };
-    
+
     console.log('Module mapped:', moduleMapped);
     console.log('Namespace mapped:', namespaceMapped);
 }

@@ -4,16 +4,18 @@
 // Test 1: RAII with inheritance and virtual destructors
 class BaseRAII {
     protected name: string;
-    
+
     constructor(name: string) {
         this.name = name;
         _print(`BaseRAII '${name}' created`);
     }
-    
-    ~BaseRAII() {
+
+~
+
+    BaseRAII() {
         _print(`BaseRAII '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
@@ -21,17 +23,19 @@ class BaseRAII {
 
 class DerivedRAII extends BaseRAII {
     private extra: string;
-    
+
     constructor(name: string, extra: string) {
         super(name);
         this.extra = extra;
         _print(`DerivedRAII '${name}' with extra '${extra}' created`);
     }
-    
-    ~DerivedRAII() {
+
+~
+
+    DerivedRAII() {
         _print(`DerivedRAII '${this.name}' with extra '${this.extra}' destroyed`);
     }
-    
+
     getExtra(): string {
         return this.extra;
     }
@@ -40,17 +44,19 @@ class DerivedRAII extends BaseRAII {
 // Test 2: RAII with polymorphism
 class PolymorphicRAII extends BaseRAII {
     private type: string;
-    
+
     constructor(name: string, type: string) {
         super(name);
         this.type = type;
         _print(`PolymorphicRAII '${name}' of type '${type}' created`);
     }
-    
-    ~PolymorphicRAII() {
+
+~
+
+    PolymorphicRAII() {
         _print(`PolymorphicRAII '${this.name}' of type '${this.type}' destroyed`);
     }
-    
+
     getType(): string {
         return this.type;
     }
@@ -60,21 +66,23 @@ class PolymorphicRAII extends BaseRAII {
 class GenericRAII<T extends string | number> {
     private data: T;
     private name: string;
-    
+
     constructor(name: string, data: T) {
         this.name = name;
         this.data = data;
         _print(`GenericRAII '${name}' created with data: ${data}`);
     }
-    
-    ~GenericRAII() {
+
+~
+
+    GenericRAII() {
         _print(`GenericRAII '${this.name}' destroyed`);
     }
-    
+
     getData(): T {
         return this.data;
     }
-    
+
     getName(): string {
         return this.name;
     }
@@ -83,28 +91,31 @@ class GenericRAII<T extends string | number> {
 // Test 4: RAII with interfaces
 interface ResourceInterface {
     getName(): string;
+
     cleanup(): void;
 }
 
 class InterfaceRAII implements ResourceInterface {
     private name: string;
     private cleaned: boolean;
-    
+
     constructor(name: string) {
         this.name = name;
         this.cleaned = false;
         _print(`InterfaceRAII '${name}' created`);
     }
-    
-    ~InterfaceRAII() {
+
+~
+
+    InterfaceRAII() {
         this.cleanup();
         _print(`InterfaceRAII '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     cleanup(): void {
         if (!this.cleaned) {
             _print(`Cleaning up InterfaceRAII '${this.name}'`);
@@ -116,18 +127,20 @@ class InterfaceRAII implements ResourceInterface {
 // Test 5: RAII with abstract classes
 abstract class AbstractRAII {
     protected name: string;
-    
+
     constructor(name: string) {
         this.name = name;
         _print(`AbstractRAII '${name}' created`);
     }
-    
-    ~AbstractRAII() {
+
+~
+
+    AbstractRAII() {
         _print(`AbstractRAII '${this.name}' destroyed`);
     }
-    
+
     abstract getType(): string;
-    
+
     getName(): string {
         return this.name;
     }
@@ -135,17 +148,19 @@ abstract class AbstractRAII {
 
 class ConcreteRAII extends AbstractRAII {
     private type: string;
-    
+
     constructor(name: string, type: string) {
         super(name);
         this.type = type;
         _print(`ConcreteRAII '${name}' of type '${type}' created`);
     }
-    
-    ~ConcreteRAII() {
+
+~
+
+    ConcreteRAII() {
         _print(`ConcreteRAII '${this.name}' of type '${this.type}' destroyed`);
     }
-    
+
     getType(): string {
         return this.type;
     }
@@ -153,92 +168,100 @@ class ConcreteRAII extends AbstractRAII {
 
 // Test 6: RAII with static members
 class StaticRAII {
-    private name: string;
     private static instanceCount: number = 0;
-    
+    private name: string;
+
     constructor(name: string) {
         this.name = name;
         StaticRAII.instanceCount++;
         _print(`StaticRAII '${name}' created (total instances: ${StaticRAII.instanceCount})`);
     }
-    
-    ~StaticRAII() {
+
+~
+
+    static getInstanceCount(): number {
+        return StaticRAII.instanceCount;
+    }
+
+    StaticRAII() {
         StaticRAII.instanceCount--;
         _print(`StaticRAII '${this.name}' destroyed (remaining instances: ${StaticRAII.instanceCount})`);
     }
-    
+
     getName(): string {
         return this.name;
-    }
-    
-    static getInstanceCount(): number {
-        return StaticRAII.instanceCount;
     }
 }
 
 // Test 7: RAII with nested classes
 class OuterRAII {
+    class
+InnerRAII
+
+~
     private name: string;
-    
+    private innerName: string;
+    private outer: OuterRAII;
+
     constructor(name: string) {
         this.name = name;
         _print(`OuterRAII '${name}' created`);
+    } {
+
+    constructor(outer: OuterRAII, innerName: string) {
+        this.outer = outer;
+        this.innerName = innerName;
+        _print(`InnerRAII '${innerName}' created in '${outer.getName()}'`);
     }
-    
-    ~OuterRAII() {
+
+    OuterRAII() {
         _print(`OuterRAII '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
-    class InnerRAII {
-        private innerName: string;
-        private outer: OuterRAII;
-        
-        constructor(outer: OuterRAII, innerName: string) {
-            this.outer = outer;
-            this.innerName = innerName;
-            _print(`InnerRAII '${innerName}' created in '${outer.getName()}'`);
-        }
-        
-        ~InnerRAII() {
-            _print(`InnerRAII '${this.innerName}' destroyed`);
-        }
-        
-        getInnerName(): string {
-            return this.innerName;
-        }
-        
-        getOuterName(): string {
-            return this.outer.getName();
-        }
+
+~
+
+    InnerRAII() {
+        _print(`InnerRAII '${this.innerName}' destroyed`);
     }
+
+    getInnerName(): string {
+        return this.innerName;
+    }
+
+    getOuterName(): string {
+        return this.outer.getName();
+    }
+}
 }
 
 // Test 8: RAII with method chaining
 class ChainedRAII {
     private name: string;
     private chain: string[];
-    
+
     constructor(name: string) {
         this.name = name;
         this.chain = [];
         _print(`ChainedRAII '${name}' created`);
     }
-    
-    ~ChainedRAII() {
+
+~
+
+    ChainedRAII() {
         _print(`ChainedRAII '${this.name}' destroyed`);
         _print(`Chain: ${this.chain.join(" -> ")}`);
     }
-    
+
     addToChain(step: string): ChainedRAII {
         this.chain.push(step);
         _print(`Added '${step}' to chain`);
         return this;
     }
-    
+
     getName(): string {
         return this.name;
     }
@@ -248,25 +271,27 @@ class ChainedRAII {
 class ExceptionRAII {
     private name: string;
     private shouldThrow: boolean;
-    
+
     constructor(name: string, shouldThrow: boolean = false) {
         this.name = name;
         this.shouldThrow = shouldThrow;
         _print(`ExceptionRAII '${name}' created`);
     }
-    
-    ~ExceptionRAII() {
+
+~
+
+    ExceptionRAII() {
         _print(`ExceptionRAII '${this.name}' destroyed`);
         if (this.shouldThrow) {
             _print("ERROR: Destructor throwing exception!");
             throw new Error("Destructor exception");
         }
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     throwInConstructor(): void {
         if (this.shouldThrow) {
             throw new Error("Constructor exception");
@@ -278,24 +303,26 @@ class ExceptionRAII {
 class AsyncRAII {
     private name: string;
     private completed: boolean;
-    
+
     constructor(name: string) {
         this.name = name;
         this.completed = false;
         _print(`AsyncRAII '${name}' created`);
     }
-    
-    ~AsyncRAII() {
+
+~
+
+    AsyncRAII() {
         _print(`AsyncRAII '${this.name}' destroyed`);
         if (!this.completed) {
             _print("WARNING: Async operation not completed");
         }
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     complete(): void {
         this.completed = true;
         _print(`AsyncRAII '${this.name}' completed`);
@@ -308,7 +335,7 @@ function testInheritanceIntegration(): void {
     let base = new BaseRAII("base");
     let derived = new DerivedRAII("derived", "extra");
     let polymorphic = new PolymorphicRAII("poly", "type1");
-    
+
     _print(`Base name: ${base.getName()}`);
     _print(`Derived name: ${derived.getName()}, extra: ${derived.getExtra()}`);
     _print(`Polymorphic name: ${polymorphic.getName()}, type: ${polymorphic.getType()}`);
@@ -318,7 +345,7 @@ function testGenericIntegration(): void {
     _print("=== Testing RAII with Generics ===");
     let stringResource = new GenericRAII<string>("string-resource", "hello");
     let numberResource = new GenericRAII<number>("number-resource", 42);
-    
+
     _print(`String resource: ${stringResource.getName()} = ${stringResource.getData()}`);
     _print(`Number resource: ${numberResource.getName()} = ${numberResource.getData()}`);
 }
@@ -367,7 +394,7 @@ function testExceptionIntegration(): void {
     } catch (e) {
         _print("Caught exception in constructor");
     }
-    
+
     try {
         let resource = new ExceptionRAII("exception-destructor", false);
         // Resource should be destroyed when going out of scope
@@ -387,7 +414,7 @@ function testAsyncIntegration(): void {
 function runAllIntegrationTests(): void {
     _print("🚀 Starting RAII Integration Tests");
     _print("=====================================");
-    
+
     testInheritanceIntegration();
     testGenericIntegration();
     testInterfaceIntegration();
@@ -397,10 +424,10 @@ function runAllIntegrationTests(): void {
     testMethodChainingIntegration();
     testExceptionIntegration();
     testAsyncIntegration();
-    
+
     _print("=====================================");
     _print("✅ All RAII Integration Tests Completed");
 }
 
 // Export for testing
-export { runAllIntegrationTests };
+export {runAllIntegrationTests};

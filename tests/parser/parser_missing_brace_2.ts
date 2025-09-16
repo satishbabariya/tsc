@@ -1,4 +1,3 @@
-
 // Missing closing brace
 function test(): void {
     console.log("test")

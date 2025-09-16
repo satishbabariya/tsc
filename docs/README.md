@@ -1,6 +1,8 @@
 # TSC Compiler Examples
 
-This directory contains comprehensive examples demonstrating all the features supported by the TSC (TypeScript Compiler). The TSC compiler is a static TypeScript compiler that generates native binaries using LLVM, providing TypeScript-like syntax with static typing and zero JavaScript runtime overhead.
+This directory contains comprehensive examples demonstrating all the features supported by the TSC (TypeScript
+Compiler). The TSC compiler is a static TypeScript compiler that generates native binaries using LLVM, providing
+TypeScript-like syntax with static typing and zero JavaScript runtime overhead.
 
 ## 🚀 Quick Start
 
@@ -19,24 +21,28 @@ To compile and run any example:
 ### 0. Quick Reference
 
 #### `00_quick_start.ts` - Quick Start Example
+
 - **Features**: Essential TypeScript syntax patterns
 - **Demonstrates**: All basic features in one comprehensive example
 - **Usage**: Perfect for testing the compiler quickly
 - **Status**: ✅ Fully Working
 
 #### `TYPESCRIPT_CHEAT_SHEET.md` - Single-Page Cheat Sheet
+
 - **Features**: Essential TypeScript syntax reference
 - **Demonstrates**: 20 core syntax patterns with TSC status
 - **Usage**: Quick reference while coding
 - **Status**: ✅ Complete
 
 #### `TYPESCRIPT_SYNTAX_BIBLE.md` - Complete Syntax Reference
+
 - **Features**: Beginner to Pro TypeScript syntax
 - **Demonstrates**: 30+ features across all levels
 - **Usage**: Comprehensive learning and reference guide
 - **Status**: ✅ Complete
 
 #### `TYPESCRIPT_COMPLETE_GUIDE.md` - Ultimate TypeScript Reference
+
 - **Features**: Complete guide from Beginner to Expert
 - **Demonstrates**: 40+ features with real-world patterns
 - **Usage**: The definitive TypeScript reference
@@ -45,18 +51,21 @@ To compile and run any example:
 ### 1. Basic Language Features
 
 #### `01_basic_types.ts` - Basic Types and Variables
+
 - **Features**: Primitive types, variable declarations, type annotations
 - **Demonstrates**: `number`, `string`, `boolean`, `null`, `undefined`, `void`, `any`
 - **Usage**: `let`, `const`, `var` declarations with explicit and inferred types
 - **Status**: ✅ Fully Working
 
 #### `02_arithmetic_operations.ts` - Arithmetic Operations
+
 - **Features**: All arithmetic, logical, and bitwise operators
 - **Demonstrates**: `+`, `-`, `*`, `/`, `%`, `**`, `++`, `--`, `==`, `===`, `&&`, `||`, `!`, `&`, `|`, `^`
 - **Usage**: Assignment operators, comparison operators, ternary operator
 - **Status**: ✅ Fully Working
 
 #### `03_control_flow.ts` - Control Flow Statements
+
 - **Features**: Conditional statements, loops, switch statements
 - **Demonstrates**: `if/else`, `while`, `do-while`, `for`, `for-in`, `for-of`, `switch/case`
 - **Usage**: `break`, `continue`, nested conditions, fall-through cases
@@ -65,18 +74,21 @@ To compile and run any example:
 ### 2. Functions and Data Structures
 
 #### `04_functions.ts` - Functions
+
 - **Features**: Function declarations, parameters, return types, function calls
 - **Demonstrates**: Function expressions, arrow functions, higher-order functions, recursion
 - **Usage**: Optional parameters, default parameters, rest parameters, method overloading
 - **Status**: ✅ Fully Working
 
 #### `05_arrays.ts` - Arrays
+
 - **Features**: Array literals, indexing, operations
 - **Demonstrates**: Array creation, element access, iteration, basic array methods
 - **Usage**: Multi-dimensional arrays, array of objects, array processing
 - **Status**: ✅ Fully Working
 
 #### `06_objects.ts` - Objects
+
 - **Features**: Object literals, property access, nested objects
 - **Demonstrates**: Object creation, property modification, method definitions
 - **Usage**: Computed properties, object iteration, object cloning
@@ -85,6 +97,7 @@ To compile and run any example:
 ### 3. Object-Oriented Programming
 
 #### `07_classes.ts` - Classes
+
 - **Features**: Class declarations, inheritance, methods, properties
 - **Demonstrates**: Constructors, inheritance, method overriding, static members
 - **Usage**: Public/private members, getters/setters, abstract classes, method overloading
@@ -93,24 +106,28 @@ To compile and run any example:
 ### 4. Type System
 
 #### `08_interfaces.ts` - Interfaces
+
 - **Features**: Interface declarations, implementation, usage
 - **Demonstrates**: Basic interfaces, optional properties, readonly properties, method signatures
 - **Usage**: Interface inheritance, multiple inheritance, generic interfaces
 - **Status**: ✅ Fully Working
 
 #### `09_enums.ts` - Enums
+
 - **Features**: Enum declarations, member access, usage
 - **Demonstrates**: Numeric enums, string enums, mixed enums, bit flags
 - **Usage**: Enum iteration, enum utilities, enum in switch statements
 - **Status**: ✅ Fully Working
 
 #### `10_type_aliases.ts` - Type Aliases
+
 - **Features**: Type alias declarations and usage
 - **Demonstrates**: Basic type aliases, union types, intersection types, generic types
 - **Usage**: Complex object types, function types, utility types, mapped types
 - **Status**: ⚠️ Partial (usage in variable declarations has issues)
 
 #### `11_generics.ts` - Generics
+
 - **Features**: Generic functions, classes, and type parameters
 - **Demonstrates**: Generic functions, generic classes, generic interfaces, constraints
 - **Usage**: Generic inheritance, method overloading, async generics
@@ -119,114 +136,133 @@ To compile and run any example:
 ### 5. Advanced Features
 
 #### `12_error_handling.ts` - Error Handling
+
 - **Features**: Try-catch-finally, throw statements, error types
 - **Demonstrates**: Basic error handling, custom error classes, async error handling
 - **Usage**: Error retries, error logging, resource cleanup
 - **Status**: ⚠️ Partial (try-catch-finally not fully implemented)
 
 #### `13_advanced_features.ts` - Advanced Features
+
 - **Features**: Complex combinations of TypeScript features
 - **Demonstrates**: Complex type definitions, generic services, event systems
 - **Usage**: Business logic, data processing, configuration management
 - **Status**: ✅ Fully Working (depends on individual feature status)
 
 #### `14_template_literals.ts` - Template Literals
+
 - **Features**: Template literal strings and interpolation
 - **Demonstrates**: String interpolation, multi-line strings, expressions
 - **Usage**: Dynamic string generation, HTML templates, SQL queries
 - **Status**: ✅ Fully Working
 
 #### `15_destructuring.ts` - Destructuring
+
 - **Features**: Object and array destructuring patterns
 - **Demonstrates**: Array destructuring, object destructuring, rest/spread
 - **Usage**: Function parameters, variable assignment, data extraction
 - **Status**: ✅ Fully Working
 
 #### `16_modules.ts` - Modules
+
 - **Features**: Module patterns and namespace concepts
 - **Demonstrates**: Namespace patterns, module exports, dependency injection
 - **Usage**: Code organization, encapsulation, reusable components
 - **Status**: ⚠️ Partial (basic patterns work, full module system pending)
 
 #### `17_intermediate_features.ts` - Intermediate Features
+
 - **Features**: Optional parameters, readonly, utility types, keyof
 - **Demonstrates**: Advanced parameter patterns, type utilities, mapped types
 - **Usage**: API design, type safety, advanced generic patterns
 - **Status**: ⚠️ Partial (some features may not be fully supported)
 
 #### `18_advanced_features.ts` - Advanced Features
+
 - **Features**: Conditional types, infer, recursive types, branded types
 - **Demonstrates**: Advanced type manipulation, complex generic patterns
 - **Usage**: Type-level programming, advanced type safety
 - **Status**: ❌ Not Implemented (shows patterns for reference)
 
 #### `19_expert_patterns.ts` - Expert Patterns
+
 - **Features**: Discriminated unions, template literals, satisfies operator
 - **Demonstrates**: Framework-level patterns, real-world TypeScript
 - **Usage**: Library development, advanced type safety
 - **Status**: ⚠️ Partial (some features not fully supported)
 
 #### `20_meta_programming.ts` - Meta-Programming
+
 - **Features**: Recursive types, variadic tuples, type-level computation
 - **Demonstrates**: Compile-time programming, cutting-edge TypeScript
 - **Usage**: Library internals, framework development, type-level programming
 - **Status**: ❌ Not Implemented (shows patterns for reference)
 
 #### `21_maps_sets.ts` - Maps & Sets
+
 - **Features**: Map and Set data structures with type safety
 - **Demonstrates**: Key-value collections, unique value collections, iteration
 - **Usage**: Caching, event systems, configuration management
 - **Status**: ✅ Fully Working
 
 #### `22_async_await.ts` - Async/Await
+
 - **Features**: Asynchronous programming with type safety
 - **Demonstrates**: Promises, async functions, error handling, async iteration
 - **Usage**: API calls, concurrent operations, async patterns
 - **Status**: ✅ Fully Working
 
 #### `23_systems_programming.ts` - Systems Programming
+
 - **Features**: CLI apps, HTTP servers, database ORM, logging, file system
 - **Demonstrates**: TypeScript as a systems programming language
 - **Usage**: API servers, CLI tools, system utilities, drivers
 - **Status**: ✅ Fully Working
 
 #### `24_api_server.ts` - API Server
+
 - **Features**: Complete REST API server with CRUD operations
 - **Demonstrates**: HTTP routing, middleware, error handling, JSON responses
 - **Usage**: Web services, microservices, API backends
 - **Status**: ✅ Fully Working
 
 #### `25_cli_tool.ts` - CLI Tool
+
 - **Features**: Command-line interface framework with multiple tools
 - **Demonstrates**: Argument parsing, command routing, help system
 - **Usage**: CLI applications, system utilities, development tools
 - **Status**: ✅ Fully Working
 
 #### `26_database_engine.ts` - Database Engine
+
 - **Features**: Complete database engine with storage, indexing, and query processing
 - **Demonstrates**: B-tree indexes, query parsing, transaction management, storage engine
 - **Usage**: Database systems, data storage, query engines
 - **Status**: ✅ Fully Working
 
 #### `27_compiler_tool.ts` - Compiler Tool
+
 - **Features**: Complete compiler toolchain with lexer, parser, and code generator
 - **Demonstrates**: Tokenization, AST parsing, code generation, language server
 - **Usage**: Compilers, transpilers, language tools, IDEs
 - **Status**: ✅ Fully Working
 
 #### `28_network_protocol.ts` - Network Protocol
+
 - **Features**: Custom network protocol with message serialization and connection management
 - **Demonstrates**: Protocol design, message handling, connection pooling, load balancing
 - **Usage**: Network services, distributed systems, communication protocols
 - **Status**: ✅ Fully Working
 
 #### `29_file_system.ts` - File System
+
 - **Features**: Complete file system implementation with directory and file operations
 - **Demonstrates**: File operations, directory management, permissions, disk usage
 - **Usage**: File systems, storage management, file utilities
 - **Status**: ✅ Fully Working
 
 #### `30_concurrent_system.ts` - Concurrent System
+
 - **Features**: Concurrent programming with thread pools, locks, and parallel processing
 - **Demonstrates**: Thread pools, mutexes, semaphores, barriers, producer-consumer patterns
 - **Usage**: Concurrent applications, parallel processing, multi-threaded systems
@@ -234,40 +270,42 @@ To compile and run any example:
 
 ## 🎯 Feature Status Overview
 
-| Feature Category | Status | Notes |
-|------------------|--------|-------|
-| **Basic Types** | ✅ Working | All primitive types supported |
-| **Variables** | ✅ Working | `let`, `const`, `var` with type annotations |
-| **Operators** | ✅ Working | All arithmetic, logical, and bitwise operators |
-| **Control Flow** | ✅ Working | `if/else`, loops, `switch` statements |
-| **Functions** | ✅ Working | Function declarations, calls, parameters |
-| **Arrays** | ✅ Working | Array literals, indexing, operations |
-| **Objects** | ✅ Working | Object literals, property access |
-| **Classes** | ⚠️ Partial | Basic structure works, method calls have issues |
-| **Interfaces** | ✅ Working | Interface declarations and implementation |
-| **Enums** | ✅ Working | All enum types and operations |
-| **Type Aliases** | ⚠️ Partial | Declaration works, usage in variables has issues |
-| **Generics** | ✅ Working | Generic functions, classes, and constraints |
-| **Error Handling** | ⚠️ Partial | Basic structure, full implementation pending |
-| **Maps & Sets** | ✅ Working | Full support for Map, Set, WeakMap, WeakSet |
-| **Async/Await** | ✅ Working | Full support for async functions and Promises |
-| **Systems Programming** | ✅ Working | CLI apps, HTTP servers, database ORM, logging |
-| **API Servers** | ✅ Working | REST APIs, middleware, routing, error handling |
-| **CLI Tools** | ✅ Working | Argument parsing, command routing, help system |
-| **Database Engines** | ✅ Working | Storage engines, indexing, query processing, transactions |
-| **Compiler Tools** | ✅ Working | Lexers, parsers, code generators, language servers |
-| **Network Protocols** | ✅ Working | Protocol design, message handling, connection management |
-| **File Systems** | ✅ Working | File operations, directory management, permissions |
-| **Concurrent Systems** | ✅ Working | Thread pools, locks, semaphores, parallel processing |
+| Feature Category        | Status     | Notes                                                     |
+|-------------------------|------------|-----------------------------------------------------------|
+| **Basic Types**         | ✅ Working  | All primitive types supported                             |
+| **Variables**           | ✅ Working  | `let`, `const`, `var` with type annotations               |
+| **Operators**           | ✅ Working  | All arithmetic, logical, and bitwise operators            |
+| **Control Flow**        | ✅ Working  | `if/else`, loops, `switch` statements                     |
+| **Functions**           | ✅ Working  | Function declarations, calls, parameters                  |
+| **Arrays**              | ✅ Working  | Array literals, indexing, operations                      |
+| **Objects**             | ✅ Working  | Object literals, property access                          |
+| **Classes**             | ⚠️ Partial | Basic structure works, method calls have issues           |
+| **Interfaces**          | ✅ Working  | Interface declarations and implementation                 |
+| **Enums**               | ✅ Working  | All enum types and operations                             |
+| **Type Aliases**        | ⚠️ Partial | Declaration works, usage in variables has issues          |
+| **Generics**            | ✅ Working  | Generic functions, classes, and constraints               |
+| **Error Handling**      | ⚠️ Partial | Basic structure, full implementation pending              |
+| **Maps & Sets**         | ✅ Working  | Full support for Map, Set, WeakMap, WeakSet               |
+| **Async/Await**         | ✅ Working  | Full support for async functions and Promises             |
+| **Systems Programming** | ✅ Working  | CLI apps, HTTP servers, database ORM, logging             |
+| **API Servers**         | ✅ Working  | REST APIs, middleware, routing, error handling            |
+| **CLI Tools**           | ✅ Working  | Argument parsing, command routing, help system            |
+| **Database Engines**    | ✅ Working  | Storage engines, indexing, query processing, transactions |
+| **Compiler Tools**      | ✅ Working  | Lexers, parsers, code generators, language servers        |
+| **Network Protocols**   | ✅ Working  | Protocol design, message handling, connection management  |
+| **File Systems**        | ✅ Working  | File operations, directory management, permissions        |
+| **Concurrent Systems**  | ✅ Working  | Thread pools, locks, semaphores, parallel processing      |
 
 ## 🔧 Compilation Instructions
 
 ### Prerequisites
+
 - LLVM toolchain installed
 - C++ compiler (GCC or Clang)
 - CMake
 
 ### Building the Compiler
+
 ```bash
 mkdir build
 cd build
@@ -276,6 +314,7 @@ make -j10
 ```
 
 ### Compiling Examples
+
 ```bash
 # Compile a single example
 ./tsc examples/01_basic_types.ts
@@ -288,6 +327,7 @@ make -j10
 ```
 
 ### Running Examples
+
 ```bash
 # Run the generated executable
 ./a.out
@@ -299,19 +339,27 @@ make -j10
 ## 📖 Example Descriptions
 
 ### Basic Examples (01-03)
-These examples cover the fundamental language features that form the foundation of TypeScript programming. They demonstrate variables, types, operators, and control flow statements.
+
+These examples cover the fundamental language features that form the foundation of TypeScript programming. They
+demonstrate variables, types, operators, and control flow statements.
 
 ### Data Structure Examples (04-06)
-These examples show how to work with functions, arrays, and objects - the core data structures and abstractions in TypeScript.
+
+These examples show how to work with functions, arrays, and objects - the core data structures and abstractions in
+TypeScript.
 
 ### Object-Oriented Examples (07)
+
 This example demonstrates class-based programming with inheritance, encapsulation, and polymorphism.
 
 ### Type System Examples (08-11)
+
 These examples showcase TypeScript's powerful type system including interfaces, enums, type aliases, and generics.
 
 ### Advanced Examples (12-13)
-These examples combine multiple features to create complex, real-world-like applications and demonstrate advanced programming patterns.
+
+These examples combine multiple features to create complex, real-world-like applications and demonstrate advanced
+programming patterns.
 
 ## 🐛 Known Issues
 
@@ -332,6 +380,7 @@ These examples combine multiple features to create complex, real-world-like appl
 ## 📝 Contributing
 
 When adding new examples:
+
 1. Follow the existing naming convention (`##_feature_name.ts`)
 2. Include comprehensive comments explaining each feature
 3. Test the example with the compiler before submitting
@@ -346,4 +395,5 @@ When adding new examples:
 
 ---
 
-**Note**: This compiler is in active development. Some features may not be fully implemented or may have known limitations. Check the status indicators above for current feature support.
+**Note**: This compiler is in active development. Some features may not be fully implemented or may have known
+limitations. Check the status indicators above for current feature support.

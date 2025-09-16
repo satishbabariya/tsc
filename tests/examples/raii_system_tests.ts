@@ -6,33 +6,35 @@ class FileHandle {
     private filename: string;
     private isOpen: boolean;
     private fileSize: number;
-    
+
     constructor(filename: string) {
         this.filename = filename;
         this.isOpen = true;
         this.fileSize = 0;
         _print(`File '${filename}' opened`);
     }
-    
-    ~FileHandle() {
+
+~
+
+    FileHandle() {
         if (this.isOpen) {
             _print(`Closing file '${this.filename}' (size: ${this.fileSize} bytes)`);
             this.isOpen = false;
         }
     }
-    
+
     getFilename(): string {
         return this.filename;
     }
-    
+
     getFileSize(): number {
         return this.fileSize;
     }
-    
+
     setFileSize(size: number): void {
         this.fileSize = size;
     }
-    
+
     isFileOpen(): boolean {
         return this.isOpen;
     }
@@ -43,37 +45,39 @@ class DatabaseConnection {
     private connectionString: string;
     private isConnected: boolean;
     private transactionCount: number;
-    
+
     constructor(connectionString: string) {
         this.connectionString = connectionString;
         this.isConnected = true;
         this.transactionCount = 0;
         _print(`Database connection established: ${connectionString}`);
     }
-    
-    ~DatabaseConnection() {
+
+~
+
+    DatabaseConnection() {
         if (this.isConnected) {
             _print(`Closing database connection: ${this.connectionString}`);
             _print(`Final transaction count: ${this.transactionCount}`);
             this.isConnected = false;
         }
     }
-    
+
     getConnectionString(): string {
         return this.connectionString;
     }
-    
+
     isConnectionActive(): boolean {
         return this.isConnected;
     }
-    
+
     beginTransaction(): void {
         if (this.isConnected) {
             this.transactionCount++;
             _print(`Transaction ${this.transactionCount} begun`);
         }
     }
-    
+
     commitTransaction(): void {
         if (this.isConnected && this.transactionCount > 0) {
             _print(`Transaction ${this.transactionCount} committed`);
@@ -88,7 +92,7 @@ class NetworkSocket {
     private port: number;
     private isConnected: boolean;
     private bytesTransferred: number;
-    
+
     constructor(host: string, port: number) {
         this.host = host;
         this.port = port;
@@ -96,27 +100,29 @@ class NetworkSocket {
         this.bytesTransferred = 0;
         _print(`Socket connected to ${host}:${port}`);
     }
-    
-    ~NetworkSocket() {
+
+~
+
+    NetworkSocket() {
         if (this.isConnected) {
             _print(`Closing socket to ${this.host}:${this.port}`);
             _print(`Total bytes transferred: ${this.bytesTransferred}`);
             this.isConnected = false;
         }
     }
-    
+
     getHost(): string {
         return this.host;
     }
-    
+
     getPort(): number {
         return this.port;
     }
-    
+
     isSocketConnected(): boolean {
         return this.isConnected;
     }
-    
+
     transferData(bytes: number): void {
         if (this.isConnected) {
             this.bytesTransferred += bytes;
@@ -131,7 +137,7 @@ class MemoryPool {
     private allocatedBlocks: number;
     private freeBlocks: number;
     private name: string;
-    
+
     constructor(name: string, poolSize: number) {
         this.name = name;
         this.poolSize = poolSize;
@@ -139,31 +145,33 @@ class MemoryPool {
         this.freeBlocks = poolSize;
         _print(`Memory pool '${name}' created with ${poolSize} blocks`);
     }
-    
-    ~MemoryPool() {
+
+~
+
+    MemoryPool() {
         _print(`Destroying memory pool '${this.name}'`);
         _print(`Final state: ${this.allocatedBlocks} allocated, ${this.freeBlocks} free`);
         if (this.allocatedBlocks > 0) {
             _print("WARNING: Memory pool destroyed with allocated blocks!");
         }
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getPoolSize(): number {
         return this.poolSize;
     }
-    
+
     getAllocatedBlocks(): number {
         return this.allocatedBlocks;
     }
-    
+
     getFreeBlocks(): number {
         return this.freeBlocks;
     }
-    
+
     allocateBlock(): boolean {
         if (this.freeBlocks > 0) {
             this.freeBlocks--;
@@ -173,7 +181,7 @@ class MemoryPool {
         }
         return false;
     }
-    
+
     deallocateBlock(): boolean {
         if (this.allocatedBlocks > 0) {
             this.allocatedBlocks--;
@@ -192,7 +200,7 @@ class CacheManager {
     private hitCount: number;
     private missCount: number;
     private name: string;
-    
+
     constructor(name: string, cacheSize: number) {
         this.name = name;
         this.cacheSize = cacheSize;
@@ -201,33 +209,35 @@ class CacheManager {
         this.missCount = 0;
         _print(`Cache '${name}' created with size ${cacheSize}`);
     }
-    
-    ~CacheManager() {
+
+~
+
+    CacheManager() {
         _print(`Destroying cache '${this.name}'`);
         _print(`Final stats: ${this.hitCount} hits, ${this.missCount} misses`);
         _print(`Hit rate: ${this.hitCount / (this.hitCount + this.missCount) * 100}%`);
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getCacheSize(): number {
         return this.cacheSize;
     }
-    
+
     getCurrentSize(): number {
         return this.currentSize;
     }
-    
+
     getHitCount(): number {
         return this.hitCount;
     }
-    
+
     getMissCount(): number {
         return this.missCount;
     }
-    
+
     addItem(key: string, size: number): boolean {
         if (this.currentSize + size <= this.cacheSize) {
             this.currentSize += size;
@@ -236,12 +246,12 @@ class CacheManager {
         }
         return false;
     }
-    
+
     removeItem(key: string, size: number): void {
         this.currentSize -= size;
         _print(`Item '${key}' removed from cache '${this.name}' (size: ${size})`);
     }
-    
+
     getItem(key: string): boolean {
         // Simulate cache hit/miss
         if (Math.random() > 0.5) {
@@ -262,7 +272,7 @@ class ThreadPool {
     private activeThreads: number;
     private completedTasks: number;
     private name: string;
-    
+
     constructor(name: string, poolSize: number) {
         this.name = name;
         this.poolSize = poolSize;
@@ -270,31 +280,33 @@ class ThreadPool {
         this.completedTasks = 0;
         _print(`Thread pool '${name}' created with ${poolSize} threads`);
     }
-    
-    ~ThreadPool() {
+
+~
+
+    ThreadPool() {
         _print(`Destroying thread pool '${this.name}'`);
         _print(`Final stats: ${this.activeThreads} active threads, ${this.completedTasks} completed tasks`);
         if (this.activeThreads > 0) {
             _print("WARNING: Thread pool destroyed with active threads!");
         }
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getPoolSize(): number {
         return this.poolSize;
     }
-    
+
     getActiveThreads(): number {
         return this.activeThreads;
     }
-    
+
     getCompletedTasks(): number {
         return this.completedTasks;
     }
-    
+
     submitTask(taskName: string): boolean {
         if (this.activeThreads < this.poolSize) {
             this.activeThreads++;
@@ -303,7 +315,7 @@ class ThreadPool {
         }
         return false;
     }
-    
+
     completeTask(taskName: string): void {
         if (this.activeThreads > 0) {
             this.activeThreads--;
@@ -319,7 +331,7 @@ class ObjectGraphNode {
     private children: ObjectGraphNode[];
     private parent: ObjectGraphNode | null;
     private data: string;
-    
+
     constructor(id: string, data: string) {
         this.id = id;
         this.data = data;
@@ -327,47 +339,49 @@ class ObjectGraphNode {
         this.parent = null;
         _print(`Object graph node '${id}' created`);
     }
-    
-    ~ObjectGraphNode() {
+
+~
+
+    ObjectGraphNode() {
         _print(`Destroying object graph node '${this.id}'`);
         // Clean up children
         for (let child of this.children) {
             child.setParent(null);
         }
         this.children = [];
-        
+
         // Remove from parent
         if (this.parent) {
             this.parent.removeChild(this);
         }
     }
-    
+
     getId(): string {
         return this.id;
     }
-    
+
     getData(): string {
         return this.data;
     }
-    
+
     getChildren(): ObjectGraphNode[] {
         return this.children;
     }
-    
+
     getParent(): ObjectGraphNode | null {
         return this.parent;
     }
-    
+
     setParent(parent: ObjectGraphNode | null): void {
         this.parent = parent;
     }
-    
+
     addChild(child: ObjectGraphNode): void {
         this.children.push(child);
         child.setParent(this);
         _print(`Added child '${child.getId()}' to '${this.id}'`);
     }
-    
+
     removeChild(child: ObjectGraphNode): void {
         let index = this.children.indexOf(child);
         if (index > -1) {
@@ -382,39 +396,41 @@ class ResourceManager {
     private name: string;
     private resources: Map<string, any>;
     private resourceCount: number;
-    
+
     constructor(name: string) {
         this.name = name;
         this.resources = new Map();
         this.resourceCount = 0;
         _print(`Resource manager '${name}' created`);
     }
-    
-    ~ResourceManager() {
+
+~
+
+    ResourceManager() {
         _print(`Destroying resource manager '${this.name}'`);
         _print(`Final resource count: ${this.resourceCount}`);
-        
+
         // Clean up all resources
         for (let [key, resource] of this.resources) {
             _print(`Cleaning up resource '${key}'`);
         }
         this.resources.clear();
     }
-    
+
     getName(): string {
         return this.name;
     }
-    
+
     getResourceCount(): number {
         return this.resourceCount;
     }
-    
+
     addResource(key: string, resource: any): void {
         this.resources.set(key, resource);
         this.resourceCount++;
         _print(`Resource '${key}' added to manager '${this.name}'`);
     }
-    
+
     removeResource(key: string): void {
         if (this.resources.has(key)) {
             this.resources.delete(key);
@@ -422,7 +438,7 @@ class ResourceManager {
             _print(`Resource '${key}' removed from manager '${this.name}'`);
         }
     }
-    
+
     getResource(key: string): any {
         return this.resources.get(key);
     }
@@ -433,10 +449,10 @@ function testFileSystemManagement(): void {
     _print("=== Testing File System Management ===");
     let file1 = new FileHandle("document.txt");
     let file2 = new FileHandle("image.jpg");
-    
+
     file1.setFileSize(1024);
     file2.setFileSize(2048);
-    
+
     _print(`File1: ${file1.getFilename()}, size: ${file1.getFileSize()}`);
     _print(`File2: ${file2.getFilename()}, size: ${file2.getFileSize()}`);
 }
@@ -444,33 +460,33 @@ function testFileSystemManagement(): void {
 function testDatabaseManagement(): void {
     _print("=== Testing Database Management ===");
     let db = new DatabaseConnection("postgresql://localhost:5432/mydb");
-    
+
     db.beginTransaction();
     db.beginTransaction();
     db.commitTransaction();
     db.commitTransaction();
-    
+
     _print(`Database: ${db.getConnectionString()}`);
 }
 
 function testNetworkManagement(): void {
     _print("=== Testing Network Management ===");
     let socket = new NetworkSocket("localhost", 8080);
-    
+
     socket.transferData(512);
     socket.transferData(1024);
-    
+
     _print(`Socket: ${socket.getHost()}:${socket.getPort()}`);
 }
 
 function testMemoryPoolManagement(): void {
     _print("=== Testing Memory Pool Management ===");
     let pool = new MemoryPool("main-pool", 100);
-    
+
     pool.allocateBlock();
     pool.allocateBlock();
     pool.deallocateBlock();
-    
+
     _print(`Pool: ${pool.getName()}, size: ${pool.getPoolSize()}`);
     _print(`Allocated: ${pool.getAllocatedBlocks()}, Free: ${pool.getFreeBlocks()}`);
 }
@@ -478,13 +494,13 @@ function testMemoryPoolManagement(): void {
 function testCacheManagement(): void {
     _print("=== Testing Cache Management ===");
     let cache = new CacheManager("lru-cache", 1000);
-    
+
     cache.addItem("item1", 100);
     cache.addItem("item2", 200);
     cache.getItem("item1");
     cache.getItem("item2");
     cache.removeItem("item1", 100);
-    
+
     _print(`Cache: ${cache.getName()}, size: ${cache.getCacheSize()}`);
     _print(`Current size: ${cache.getCurrentSize()}`);
 }
@@ -492,12 +508,12 @@ function testCacheManagement(): void {
 function testThreadPoolManagement(): void {
     _print("=== Testing Thread Pool Management ===");
     let pool = new ThreadPool("worker-pool", 4);
-    
+
     pool.submitTask("task1");
     pool.submitTask("task2");
     pool.completeTask("task1");
     pool.completeTask("task2");
-    
+
     _print(`Thread pool: ${pool.getName()}, size: ${pool.getPoolSize()}`);
     _print(`Active threads: ${pool.getActiveThreads()}`);
 }
@@ -508,11 +524,11 @@ function testObjectGraphManagement(): void {
     let child1 = new ObjectGraphNode("child1", "child1-data");
     let child2 = new ObjectGraphNode("child2", "child2-data");
     let grandchild = new ObjectGraphNode("grandchild", "grandchild-data");
-    
+
     root.addChild(child1);
     root.addChild(child2);
     child1.addChild(grandchild);
-    
+
     _print(`Root: ${root.getId()}, children: ${root.getChildren().length}`);
     _print(`Child1: ${child1.getId()}, children: ${child1.getChildren().length}`);
 }
@@ -520,13 +536,13 @@ function testObjectGraphManagement(): void {
 function testResourceManagerManagement(): void {
     _print("=== Testing Resource Manager Management ===");
     let manager = new ResourceManager("main-manager");
-    
+
     let file = new FileHandle("managed-file.txt");
     let socket = new NetworkSocket("localhost", 9090);
-    
+
     manager.addResource("file", file);
     manager.addResource("socket", socket);
-    
+
     _print(`Manager: ${manager.getName()}, resources: ${manager.getResourceCount()}`);
 }
 
@@ -534,7 +550,7 @@ function testResourceManagerManagement(): void {
 function runAllSystemTests(): void {
     _print("🚀 Starting RAII System Tests");
     _print("===============================");
-    
+
     testFileSystemManagement();
     testDatabaseManagement();
     testNetworkManagement();
@@ -543,10 +559,10 @@ function runAllSystemTests(): void {
     testThreadPoolManagement();
     testObjectGraphManagement();
     testResourceManagerManagement();
-    
+
     _print("===============================");
     _print("✅ All RAII System Tests Completed");
 }
 
 // Export for testing
-export { runAllSystemTests };
+export {runAllSystemTests};

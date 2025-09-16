@@ -46,7 +46,7 @@ for (let i: number = 0, j: number = 10; i < j; i++, j--) {
 }
 
 // For-in loops (iterate over object properties)
-let person: object = { name: "John", age: 30, city: "New York" };
+let person: object = {name: "John", age: 30, city: "New York"};
 for (let key in person) {
     // Iterate over property names
 }

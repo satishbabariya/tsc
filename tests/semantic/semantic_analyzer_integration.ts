@@ -1,23 +1,22 @@
-
 // Semantic analyzer integration with generic overloading
 class DataProcessor<T> {
     private data: T;
-    
+
     constructor(data: T) {
         this.data = data;
     }
-    
+
     // Overload 1: Process with single function
     process<U>(processor: (input: T) => U): DataProcessor<U>;
-    
+
     // Overload 2: Process with array of functions
     process<U>(processors: ((input: T) => U)[]): DataProcessor<U[]>;
-    
+
     // Overload 3: Process with conditional function
     process<U>(condition: (input: T) => boolean, processor: (input: T) => U): DataProcessor<U | null>;
-    
+
     // Implementation
-    process<U>(processorOrProcessors: ((input: T) => U) | ((input: T) => U)[] | ((input: T) => boolean), 
+    process<U>(processorOrProcessors: ((input: T) => U) | ((input: T) => U)[] | ((input: T) => boolean),
                processor?: (input: T) => U): DataProcessor<U | U[] | U | null> {
         if (Array.isArray(processorOrProcessors)) {
             const results = processorOrProcessors.map(p => p(this.data));

@@ -2,5 +2,5 @@
 #include <math.h>
 
 // Global constants for JavaScript built-ins
-double Infinity = INFINITY;  // Positive infinity
-double NaN = NAN;           // Not a Number
+double Infinity = INFINITY; // Positive infinity
+double NaN = NAN; // Not a Number

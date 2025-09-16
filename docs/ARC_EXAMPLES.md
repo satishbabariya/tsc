@@ -473,4 +473,5 @@ function testMemoryLeaks(): void {
 
 ## Conclusion
 
-These examples demonstrate the power and flexibility of ARC memory management in TSC. By following these patterns and best practices, you can write efficient, safe, and maintainable code with automatic memory management.
+These examples demonstrate the power and flexibility of ARC memory management in TSC. By following these patterns and
+best practices, you can write efficient, safe, and maintainable code with automatic memory management.

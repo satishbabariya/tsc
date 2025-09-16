@@ -13,6 +13,7 @@ interface ExtendedInterface extends BaseInterface {
 // Test 2: Generic interface with type constraints
 interface ConstrainedInterface<T extends number> {
     value: T;
+
     process(): T;
 }
 

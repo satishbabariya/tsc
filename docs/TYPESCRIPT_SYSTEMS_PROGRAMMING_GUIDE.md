@@ -1,12 +1,14 @@
 # TypeScript Systems Programming Guide
+
 *Building Native Applications, API Servers, CLI Tools, and System Drivers*
 
 ## 🎯 **Vision: TypeScript as a Systems Programming Language**
 
-This guide demonstrates how TypeScript can be used as a **systems programming language** that generates native binaries, competing with Go, Rust, and Swift for:
+This guide demonstrates how TypeScript can be used as a **systems programming language** that generates native binaries,
+competing with Go, Rust, and Swift for:
 
 - **API Servers** - High-performance web services
-- **CLI Applications** - Command-line tools and utilities  
+- **CLI Applications** - Command-line tools and utilities
 - **System Drivers** - Low-level system interfaces
 - **Compilers** - Language tools and build systems
 - **Microservices** - Distributed system components
@@ -15,14 +17,14 @@ This guide demonstrates how TypeScript can be used as a **systems programming la
 
 ### **Advantages over Traditional Systems Languages**
 
-| Feature | TypeScript | Go | Rust | Swift |
-|---------|------------|----|----- |-------|
-| **Type Safety** | ✅ Static + Inference | ✅ Static | ✅ Static | ✅ Static |
-| **Memory Safety** | ✅ Manual + Smart Pointers | ✅ GC | ✅ Ownership | ✅ ARC |
-| **Performance** | ✅ Native Binary | ✅ Native | ✅ Native | ✅ Native |
-| **Developer Experience** | ✅ Excellent | ✅ Good | ⚠️ Complex | ✅ Good |
-| **Ecosystem** | ✅ Huge | ✅ Growing | ✅ Growing | ✅ Apple |
-| **Learning Curve** | ✅ Gentle | ✅ Easy | ❌ Steep | ✅ Moderate |
+| Feature                  | TypeScript                | Go        | Rust        | Swift      |
+|--------------------------|---------------------------|-----------|-------------|------------|
+| **Type Safety**          | ✅ Static + Inference      | ✅ Static  | ✅ Static    | ✅ Static   |
+| **Memory Safety**        | ✅ Manual + Smart Pointers | ✅ GC      | ✅ Ownership | ✅ ARC      |
+| **Performance**          | ✅ Native Binary           | ✅ Native  | ✅ Native    | ✅ Native   |
+| **Developer Experience** | ✅ Excellent               | ✅ Good    | ⚠️ Complex  | ✅ Good     |
+| **Ecosystem**            | ✅ Huge                    | ✅ Growing | ✅ Growing   | ✅ Apple    |
+| **Learning Curve**       | ✅ Gentle                  | ✅ Easy    | ❌ Steep     | ✅ Moderate |
 
 ### **TypeScript Systems Programming Benefits**
 
@@ -354,13 +356,13 @@ tsc --static --output main main.ts
 
 ### **Benchmarks vs Other Languages**
 
-| Operation | TypeScript | Go | Rust | C++ |
-|-----------|------------|----|----- |-----|
-| **HTTP Requests/sec** | 45,000 | 50,000 | 55,000 | 60,000 |
-| **Memory Usage** | 12MB | 8MB | 6MB | 4MB |
-| **Startup Time** | 50ms | 30ms | 20ms | 15ms |
-| **Binary Size** | 2.5MB | 8MB | 1.2MB | 800KB |
-| **Compile Time** | 2s | 1s | 3s | 5s |
+| Operation             | TypeScript | Go     | Rust   | C++    |
+|-----------------------|------------|--------|--------|--------|
+| **HTTP Requests/sec** | 45,000     | 50,000 | 55,000 | 60,000 |
+| **Memory Usage**      | 12MB       | 8MB    | 6MB    | 4MB    |
+| **Startup Time**      | 50ms       | 30ms   | 20ms   | 15ms   |
+| **Binary Size**       | 2.5MB      | 8MB    | 1.2MB  | 800KB  |
+| **Compile Time**      | 2s         | 1s     | 3s     | 5s     |
 
 ### **Memory Management**
 

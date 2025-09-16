@@ -1,4 +1,3 @@
-
 // Memory Usage Performance Test
 // Test memory usage with complex type systems
 
@@ -34,31 +33,31 @@ class LargeGenericType<T> {
     private data: T[] = [];
     private cache = new Map<string, T>();
     private metadata = new Map<string, any>();
-    
+
     add(item: T): void {
         this.data.push(item);
     }
-    
+
     get(index: number): T | undefined {
         return this.data[index];
     }
-    
+
     setCache(key: string, value: T): void {
         this.cache.set(key, value);
     }
-    
+
     getCache(key: string): T | undefined {
         return this.cache.get(key);
     }
-    
+
     setMetadata(key: string, value: any): void {
         this.metadata.set(key, value);
     }
-    
+
     getMetadata(key: string): any {
         return this.metadata.get(key);
     }
-    
+
     clear(): void {
         this.data = [];
         this.cache.clear();
@@ -69,13 +68,13 @@ class LargeGenericType<T> {
 // Memory usage test
 function memoryUsageTest() {
     const startMemory = process.memoryUsage();
-    
+
     const largeTypes: LargeGenericType<LargeType>[] = [];
-    
+
     // Create many large types
     for (let i = 0; i < 1000; i++) {
         const largeType = new LargeGenericType<LargeType>();
-        
+
         // Add large data
         for (let j = 0; j < 100; j++) {
             largeType.add({
@@ -90,13 +89,13 @@ function memoryUsageTest() {
                     properties: {
                         prop1: `value${j}`,
                         prop2: j * 2,
-                        prop3: { nested: { value: j } }
+                        prop3: {nested: {value: j}}
                     }
                 },
                 data: {
-                    values: Array.from({ length: 100 }, (_, k) => k + j),
-                    strings: Array.from({ length: 50 }, (_, k) => `string${k}`),
-                    objects: Array.from({ length: 25 }, (_, k) => ({
+                    values: Array.from({length: 100}, (_, k) => k + j),
+                    strings: Array.from({length: 50}, (_, k) => `string${k}`),
+                    objects: Array.from({length: 25}, (_, k) => ({
                         key: `key${k}`,
                         value: k,
                         nested: {
@@ -108,19 +107,19 @@ function memoryUsageTest() {
                 }
             });
         }
-        
+
         largeTypes.push(largeType);
     }
-    
+
     const endMemory = process.memoryUsage();
     const memoryDelta = endMemory.heapUsed - startMemory.heapUsed;
-    
+
     console.log(`Memory usage test completed`);
     console.log(`Start memory: ${startMemory.heapUsed} bytes`);
     console.log(`End memory: ${endMemory.heapUsed} bytes`);
     console.log(`Memory delta: ${memoryDelta} bytes`);
     console.log(`Memory per item: ${memoryDelta / 1000} bytes`);
-    
+
     // Clear memory
     largeTypes.forEach(type => type.clear());
 }

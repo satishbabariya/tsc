@@ -2,28 +2,28 @@
 
 class GenericArrayMethods<T> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     // Test push method with nested property access
     pushAndGetLength(item: T): number {
         this.items.push(item);
         return this.items.length;
     }
-    
+
     // Test pop method with nested property access
     popAndGetLength(): T {
         let result = this.items.pop();
         return result;
     }
-    
+
     // Test length property in various contexts
     getLengthString(): string {
         return "Current length: " + this.items.length.toString();
     }
-    
+
     // Test array indexing with length calculations
     getItemAt(index: number): T {
         if (index >= 0 && index < this.items.length) {
@@ -31,26 +31,26 @@ class GenericArrayMethods<T> {
         }
         return this.items[this.items.length - 1]; // Return last item if index out of bounds
     }
-    
+
     // Test nested operations with length
     getLastItemIndex(): number {
         return this.items.length - 1;
     }
-    
+
     getSecondLastIndex(): number {
         return this.items.length - 2;
     }
-    
+
     // Test complex nested operations
     getLengthOperations(): string {
         let len = this.items.length;
         let lenStr = len.toString();
         let lenPlusOne = len + 1;
         let lenMinusOne = len - 1;
-        
+
         return "Length: " + lenStr + ", +1: " + lenPlusOne.toString() + ", -1: " + lenMinusOne.toString();
     }
-    
+
     // Test array manipulation with nested property access
     removeFirstAndGetLength(): number {
         if (this.items.length > 0) {
@@ -62,16 +62,16 @@ class GenericArrayMethods<T> {
         }
         return this.items.length;
     }
-    
+
     // Test conditional operations based on length
     isEmpty(): boolean {
         return this.items.length === 0;
     }
-    
+
     hasItems(): boolean {
         return this.items.length > 0;
     }
-    
+
     // Test length-based array operations
     getMiddleItem(): T {
         if (this.items.length === 0) {
@@ -91,20 +91,20 @@ class NumberArrayMethods extends GenericArrayMethods<number> {
         }
         return sum;
     }
-    
+
     // Test nested property access in arithmetic operations
     getSumAsString(): string {
         let sum = this.getSum();
         return "Sum: " + sum.toString() + ", Length: " + this.items.length.toString();
     }
-    
+
     // Test array operations with length calculations
     addToAll(value: number): void {
         for (let i = 0; i < this.items.length; i++) {
             this.items[i] = this.items[i] + value;
         }
     }
-    
+
     // Test nested operations
     getAverageAsString(): string {
         if (this.items.length === 0) return "Empty array";
@@ -122,13 +122,13 @@ class StringArrayMethods extends GenericArrayMethods<string> {
         }
         return result;
     }
-    
+
     // Test nested property access in string operations
     getConcatenationInfo(): string {
         let concat = this.concatenateAll();
         return "Concatenated: " + concat + ", Length: " + this.items.length.toString();
     }
-    
+
     // Test array operations with string length
     getTotalStringLength(): number {
         let total = 0;
@@ -137,7 +137,7 @@ class StringArrayMethods extends GenericArrayMethods<string> {
         }
         return total;
     }
-    
+
     // Test nested operations with string and array lengths
     getStringLengthInfo(): string {
         let totalLength = this.getTotalStringLength();
@@ -163,7 +163,7 @@ function processGenericArrayOperations<T>(arr: T[]): string {
     let lenStr = len.toString();
     let lastIndex = len - 1;
     let lastIndexStr = lastIndex.toString();
-    
+
     return "Length: " + lenStr + ", Last index: " + lastIndexStr;
 }
 

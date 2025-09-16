@@ -2,11 +2,13 @@
 
 ## Mission Overview
 
-**Objective**: Implement RAII (Resource Acquisition Is Initialization) for the TSC compiler to provide automatic resource cleanup that works seamlessly with the existing ARC memory management system.
+**Objective**: Implement RAII (Resource Acquisition Is Initialization) for the TSC compiler to provide automatic
+resource cleanup that works seamlessly with the existing ARC memory management system.
 
 ## Current Status
 
 ### ✅ **Completed (ARC Memory Management)**
+
 - Smart pointer types (`unique_ptr<T>`, `shared_ptr<T>`, `weak_ptr<T>`)
 - Move semantics (`std::move()`)
 - ARC runtime library with atomic reference counting
@@ -17,6 +19,7 @@
 - Runtime refactoring and organization
 
 ### ❌ **Missing (RAII Resource Management)**
+
 - Destructor syntax (`~ClassName()`)
 - Automatic resource cleanup
 - RAII patterns for file handles, locks, etc.
@@ -37,6 +40,7 @@
 ## Phase 1: Destructor Syntax Implementation
 
 ### Task 1.1: Grammar Extensions
+
 **File**: `tsc.tm`
 **Action**: Add destructor syntax to the grammar
 
@@ -55,6 +59,7 @@ DestructorDeclaration:
 **Validation**: Ensure grammar parses `~ClassName() { /* cleanup code */ }` syntax correctly.
 
 ### Task 1.2: AST Extensions
+
 **File**: `include/tsc/AST.h`
 **Action**: Add destructor AST node
 
@@ -87,6 +92,7 @@ void DestructorDeclaration::accept(ASTVisitor& visitor) {
 ```
 
 ### Task 1.3: Parser Integration
+
 **File**: `src/parser/Parser.cpp`
 **Action**: Add destructor parsing to `parseClassMember()` method
 
@@ -108,6 +114,7 @@ std::unique_ptr<DestructorDeclaration> Parser::parseDestructorDeclaration() {
 ## Phase 2: Semantic Analysis Integration
 
 ### Task 2.1: Destructor Validation
+
 **File**: `include/tsc/semantic/SemanticAnalyzer.h`
 **Action**: Add RAII analysis methods
 
@@ -133,6 +140,7 @@ void SemanticAnalyzer::visit(DestructorDeclaration& node) {
 ```
 
 ### Task 2.2: Symbol Table Integration
+
 **File**: `src/semantic/SymbolTable.cpp`
 **Action**: Register destructors in symbol table
 
@@ -146,6 +154,7 @@ void SemanticAnalyzer::visit(DestructorDeclaration& node) {
 ## Phase 3: Code Generation Integration
 
 ### Task 3.1: Destructor Code Generation
+
 **File**: `include/tsc/codegen/LLVMCodeGen.h`
 **Action**: Add destructor generation methods
 
@@ -172,6 +181,7 @@ void LLVMCodeGen::visit(DestructorDeclaration& node) {
 ```
 
 ### Task 3.2: ARC Integration
+
 **File**: `src/codegen/LLVMCodeGen.cpp`
 **Action**: Integrate destructor calls with ARC deallocation
 
@@ -188,6 +198,7 @@ if (hasDestructor(objectType)) {
 ## Phase 4: RAII Runtime Integration
 
 ### Task 4.1: Destructor Registration
+
 **File**: `runtime/arc/arc_runtime.h`
 **Action**: Add destructor registration to ARC runtime
 
@@ -208,6 +219,7 @@ bool __tsc_has_destructor(const char* className);
 ```
 
 ### Task 4.2: RAII Examples
+
 **File**: `examples/raii_examples.ts`
 **Action**: Create RAII pattern examples
 
@@ -266,6 +278,7 @@ class NetworkConnection {
 ## Phase 5: Testing & Validation
 
 ### Task 5.1: RAII Test Suite
+
 **File**: `test/raii_tests.ts`
 **Action**: Create comprehensive RAII tests
 
@@ -315,6 +328,7 @@ class ExceptionSafeResource {
 ```
 
 ### Task 5.2: Integration Tests
+
 **File**: `test/raii_integration_tests.ts`
 **Action**: Test RAII + ARC integration
 
@@ -345,6 +359,7 @@ function testRAIIWithMove(): void {
 ## Success Criteria
 
 ### Functionality
+
 - [ ] Destructor syntax `~ClassName()` parses correctly
 - [ ] Destructors are called automatically when objects are deallocated
 - [ ] RAII patterns work with ARC memory management
@@ -352,12 +367,14 @@ function testRAIIWithMove(): void {
 - [ ] Exception safety during destruction
 
 ### Integration
+
 - [ ] RAII works seamlessly with existing ARC system
 - [ ] Destructors are called before ARC deallocation
 - [ ] No conflicts with existing smart pointer functionality
 - [ ] Performance impact is minimal
 
 ### Testing
+
 - [ ] Comprehensive test suite for RAII functionality
 - [ ] Integration tests with ARC
 - [ ] Edge case testing (exceptions, complex patterns)
@@ -368,18 +385,21 @@ function testRAIIWithMove(): void {
 ## Implementation Guidelines
 
 ### Code Style
+
 - Follow existing TSC code style and patterns
 - Use existing ARC infrastructure where possible
 - Maintain backward compatibility
 - Add comprehensive error handling
 
 ### Testing
+
 - Write tests before implementing features
 - Test both success and failure cases
 - Include performance benchmarks
 - Validate integration with existing features
 
 ### Documentation
+
 - Update existing ARC documentation to include RAII
 - Add RAII examples and best practices
 - Document RAII + ARC integration patterns
@@ -402,6 +422,7 @@ function testRAIIWithMove(): void {
 ---
 
 ## Timeline
+
 - **Week 1**: Grammar, AST, and Parser implementation
 - **Week 2**: Semantic analysis and validation
 - **Week 3**: Code generation and runtime integration
@@ -412,25 +433,30 @@ function testRAIIWithMove(): void {
 ## Key Files to Modify
 
 ### Grammar & Parser
+
 - `tsc.tm` - Add destructor syntax
 - `src/parser/Parser.cpp` - Add destructor parsing
 - `include/tsc/parser/Parser.h` - Add destructor parsing methods
 
 ### AST & Semantic Analysis
+
 - `include/tsc/AST.h` - Add `DestructorDeclaration` class
 - `src/AST.cpp` - Implement `DestructorDeclaration`
 - `include/tsc/semantic/SemanticAnalyzer.h` - Add RAII analysis
 - `src/semantic/SemanticAnalyzer.cpp` - Implement RAII analysis
 
 ### Code Generation
+
 - `include/tsc/codegen/LLVMCodeGen.h` - Add destructor generation
 - `src/codegen/LLVMCodeGen.cpp` - Implement destructor generation
 
 ### Runtime
+
 - `runtime/arc/arc_runtime.h` - Add destructor registration API
 - `runtime/arc/arc_runtime.c` - Implement destructor registration
 
 ### Testing & Examples
+
 - `test/raii_tests.ts` - RAII test suite
 - `test/raii_integration_tests.ts` - Integration tests
 - `examples/raii_examples.ts` - RAII pattern examples
@@ -448,7 +474,8 @@ Upon completion, TSC will have a complete automatic resource management system:
 5. **Deterministic performance** with no garbage collection overhead
 6. **Memory safety** and resource safety
 
-This implementation will complete the TSC memory management system by adding RAII resource management to complement the existing ARC memory management, providing a complete automatic resource management solution.
+This implementation will complete the TSC memory management system by adding RAII resource management to complement the
+existing ARC memory management, providing a complete automatic resource management solution.
 
 ---
 

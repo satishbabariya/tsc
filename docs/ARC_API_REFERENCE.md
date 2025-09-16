@@ -9,6 +9,7 @@
 Allocates memory with ARC header.
 
 **Parameters:**
+
 - `size` (size_t): Size of the object to allocate
 - `destructor` (void*): Destructor function pointer (can be null)
 - `type_info` (void*): Type information pointer (can be null)
@@ -16,6 +17,7 @@ Allocates memory with ARC header.
 **Returns:** `void*` - Pointer to the allocated object
 
 **Example:**
+
 ```c
 void* obj = __tsc_alloc(sizeof(int), NULL, NULL);
 ```
@@ -25,11 +27,13 @@ void* obj = __tsc_alloc(sizeof(int), NULL, NULL);
 Deallocates ARC-managed memory.
 
 **Parameters:**
+
 - `obj` (void*): Pointer to the object to deallocate
 
 **Returns:** `void`
 
 **Example:**
+
 ```c
 __tsc_dealloc(obj);
 ```
@@ -41,11 +45,13 @@ __tsc_dealloc(obj);
 Increments the reference count of an ARC object.
 
 **Parameters:**
+
 - `obj` (void*): Pointer to the ARC object
 
 **Returns:** `void*` - The same pointer (for chaining)
 
 **Example:**
+
 ```c
 void* retained = __tsc_retain(obj);
 ```
@@ -55,11 +61,13 @@ void* retained = __tsc_retain(obj);
 Decrements the reference count of an ARC object.
 
 **Parameters:**
+
 - `obj` (void*): Pointer to the ARC object
 
 **Returns:** `void`
 
 **Example:**
+
 ```c
 __tsc_release(obj);
 ```
@@ -71,11 +79,13 @@ __tsc_release(obj);
 Loads a value from a weak reference if the object is still alive.
 
 **Parameters:**
+
 - `weak_ref` (void*): Weak reference pointer
 
 **Returns:** `void*` - Object pointer if alive, null otherwise
 
 **Example:**
+
 ```c
 void* obj = __tsc_weak_load(weak_ref);
 if (obj) {
@@ -89,12 +99,14 @@ if (obj) {
 Stores a value in a weak reference.
 
 **Parameters:**
+
 - `weak_ref` (void*): Weak reference pointer
 - `obj` (void*): Object pointer to store
 
 **Returns:** `void`
 
 **Example:**
+
 ```c
 __tsc_weak_store(weak_ref, obj);
 ```
@@ -104,11 +116,13 @@ __tsc_weak_store(weak_ref, obj);
 Releases a weak reference.
 
 **Parameters:**
+
 - `weak_ref` (void*): Weak reference pointer
 
 **Returns:** `void`
 
 **Example:**
+
 ```c
 __tsc_weak_release(weak_ref);
 ```
@@ -120,11 +134,13 @@ __tsc_weak_release(weak_ref);
 Checks if an object is part of a reference cycle.
 
 **Parameters:**
+
 - `obj` (void*): Object to check
 
 **Returns:** `bool` - true if cycles detected, false otherwise
 
 **Example:**
+
 ```c
 if (__tsc_has_cycles(obj)) {
     printf("Cycle detected!\n");
@@ -136,11 +152,13 @@ if (__tsc_has_cycles(obj)) {
 Breaks reference cycles by converting strong references to weak references.
 
 **Parameters:**
+
 - `obj` (void*): Object to process
 
 **Returns:** `void`
 
 **Example:**
+
 ```c
 __tsc_break_cycles(obj);
 ```
@@ -152,11 +170,13 @@ __tsc_break_cycles(obj);
 Prints reference count information for an object.
 
 **Parameters:**
+
 - `obj` (void*): Object to inspect
 
 **Returns:** `void`
 
 **Example:**
+
 ```c
 __tsc_print_ref_counts(obj);
 ```
@@ -170,6 +190,7 @@ Prints memory statistics.
 **Returns:** `void`
 
 **Example:**
+
 ```c
 __tsc_memory_stats();
 ```
@@ -179,11 +200,13 @@ __tsc_memory_stats();
 Dumps detailed information about an object.
 
 **Parameters:**
+
 - `obj` (void*): Object to inspect
 
 **Returns:** `void`
 
 **Example:**
+
 ```c
 __tsc_dump_object_info(obj);
 ```
@@ -195,11 +218,13 @@ __tsc_dump_object_info(obj);
 Gets the ARC header for an object.
 
 **Parameters:**
+
 - `obj` (void*): Object pointer
 
 **Returns:** `ARC_ObjectHeader*` - Pointer to the ARC header
 
 **Example:**
+
 ```c
 ARC_ObjectHeader* header = __tsc_get_header(obj);
 ```
@@ -209,11 +234,13 @@ ARC_ObjectHeader* header = __tsc_get_header(obj);
 Checks if a pointer points to an ARC-managed object.
 
 **Parameters:**
+
 - `obj` (void*): Pointer to check
 
 **Returns:** `bool` - true if ARC object, false otherwise
 
 **Example:**
+
 ```c
 if (__tsc_is_arc_object(obj)) {
     printf("This is an ARC object\n");
@@ -225,11 +252,13 @@ if (__tsc_is_arc_object(obj)) {
 Gets the reference count of an object.
 
 **Parameters:**
+
 - `obj` (void*): Object pointer
 
 **Returns:** `size_t` - Reference count
 
 **Example:**
+
 ```c
 size_t count = __tsc_get_ref_count(obj);
 printf("Reference count: %zu\n", count);
@@ -240,11 +269,13 @@ printf("Reference count: %zu\n", count);
 Gets the weak reference count of an object.
 
 **Parameters:**
+
 - `obj` (void*): Object pointer
 
 **Returns:** `size_t` - Weak reference count
 
 **Example:**
+
 ```c
 size_t weak_count = __tsc_get_weak_count(obj);
 printf("Weak reference count: %zu\n", weak_count);
@@ -261,6 +292,7 @@ Gets memory statistics structure.
 **Returns:** `ARC_MemoryStats` - Memory statistics
 
 **Example:**
+
 ```c
 ARC_MemoryStats stats = __tsc_get_memory_stats();
 printf("Total allocations: %zu\n", stats.total_allocations);
@@ -278,6 +310,7 @@ Resets memory statistics.
 **Returns:** `void`
 
 **Example:**
+
 ```c
 __tsc_reset_memory_stats();
 ```

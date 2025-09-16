@@ -1,14 +1,18 @@
 // Unit tests for basic generic interface functionality
 interface SingleParam<T> {
     value: T;
+
     getValue(): T;
+
     setValue(value: T): void;
 }
 
 interface MultiParam<T, U> {
     first: T;
     second: U;
+
     getFirst(): T;
+
     getSecond(): U;
 }
 
@@ -29,7 +33,10 @@ interface PropertyTest<T> {
 // Test type parameter resolution in methods
 interface MethodTest<T> {
     getValue(): T;
+
     setValue(value: T): void;
+
     processValue(value: T): T;
+
     getArray(): T[];
 }

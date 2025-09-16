@@ -2,13 +2,15 @@
 
 class SimpleNumberResource {
     id: number;
-    
+
     constructor(id: number) {
         _print("SimpleNumberResource constructor");
         this.id = id;
     }
-    
-    ~SimpleNumberResource() {
+
+~
+
+    SimpleNumberResource() {
         _print("SimpleNumberResource destructor");
     }
 }

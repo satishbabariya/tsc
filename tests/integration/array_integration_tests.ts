@@ -142,7 +142,9 @@ class NumberDataContainer extends GenericDataContainer<number> {
 // Integration Test 5: Array Operations with Interface Implementation
 interface ArrayManager {
     addItem(item: number): void;
+
     getItemCount(): number;
+
     isEmpty(): boolean;
 }
 
@@ -209,8 +211,8 @@ class WorkflowArrayManager {
     }
 
     isWorkflowComplete(): boolean {
-        return this.inputItems.length === this.processedItems.length && 
-               this.processedItems.length === this.outputItems.length;
+        return this.inputItems.length === this.processedItems.length &&
+            this.processedItems.length === this.outputItems.length;
     }
 }
 

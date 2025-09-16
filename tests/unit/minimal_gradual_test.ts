@@ -1,12 +1,14 @@
 class ResourceWithStringField {
     name: string;
-    
+
     constructor(name: string) {
         this.name = name;
         _print("ResourceWithStringField constructor");
     }
-    
-    ~ResourceWithStringField() {
+
+~
+
+    ResourceWithStringField() {
         _print("ResourceWithStringField destructor");
     }
 }

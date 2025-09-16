@@ -1,25 +1,29 @@
 class TestResource1 {
     id: number;
-    
+
     constructor(id: number) {
         this.id = id;
         _print("TestResource1 constructor");
     }
-    
-    ~TestResource1() {
+
+~
+
+    TestResource1() {
         _print("TestResource1 destructor");
     }
 }
 
 class TestResource2 {
     name: string;
-    
+
     constructor(name: string) {
         this.name = name;
         _print("TestResource2 constructor");
     }
-    
-    ~TestResource2() {
+
+~
+
+    TestResource2() {
         _print("TestResource2 destructor");
     }
 }

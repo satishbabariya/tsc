@@ -5,6 +5,7 @@ interface Comparable {
 
 interface ComparableContainer<T extends Comparable> {
     value: T;
+
     compare(other: ComparableContainer<T>): number;
 }
 
@@ -14,5 +15,6 @@ interface Serializable {
 
 interface SerializableContainer<T extends Serializable> {
     value: T;
+
     serialize(): string;
 }

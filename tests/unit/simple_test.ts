@@ -1,11 +1,11 @@
 // Simple test to isolate the crash issue
 class SimpleClass {
     items: number[];
-    
+
     constructor() {
         this.items = [] as number[];
     }
-    
+
     addItem(item: number): void {
         this.items.push(item);
     }

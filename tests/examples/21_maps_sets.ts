@@ -23,40 +23,40 @@ userAges.set("charlie", 35);
 
 // Map with object keys
 interface User {
-  id: number;
-  name: string;
+    id: number;
+    name: string;
 }
 
 const userSessions = new Map<User, string>();
-const alice: User = { id: 1, name: "Alice" };
-const bob: User = { id: 2, name: "Bob" };
+const alice: User = {id: 1, name: "Alice"};
+const bob: User = {id: 2, name: "Bob"};
 
 userSessions.set(alice, "session_123");
 userSessions.set(bob, "session_456");
 
 // Map with complex value types
 interface UserProfile {
-  name: string;
-  email: string;
-  lastLogin: Date;
+    name: string;
+    email: string;
+    lastLogin: Date;
 }
 
 const userProfiles = new Map<string, UserProfile>();
 userProfiles.set("alice", {
-  name: "Alice Smith",
-  email: "alice@example.com",
-  lastLogin: new Date()
+    name: "Alice Smith",
+    email: "alice@example.com",
+    lastLogin: new Date()
 });
 
 // Map iteration
 _print("User Roles:");
 for (const [user, role] of userRoles) {
-  _print(`${user}: ${role}`);
+    _print(`${user}: ${role}`);
 }
 
 // Map with forEach
 userRoles.forEach((role, user) => {
-  _print(`${user} has role: ${role}`);
+    _print(`${user} has role: ${role}`);
 });
 
 // Map methods
@@ -95,19 +95,19 @@ uniqueNames.add("Alice"); // duplicate ignored
 
 // Set with object values
 const uniqueUsers = new Set<User>();
-uniqueUsers.add({ id: 1, name: "Alice" });
-uniqueUsers.add({ id: 2, name: "Bob" });
-uniqueUsers.add({ id: 1, name: "Alice" }); // different object, so added
+uniqueUsers.add({id: 1, name: "Alice"});
+uniqueUsers.add({id: 2, name: "Bob"});
+uniqueUsers.add({id: 1, name: "Alice"}); // different object, so added
 
 // Set iteration
 _print("Unique numbers:");
 for (const num of uniqueNumbers) {
-  _print(num);
+    _print(num);
 }
 
 // Set with forEach
 uniqueNames.forEach(name => {
-  _print(`Name: ${name}`);
+    _print(`Name: ${name}`);
 });
 
 // Set methods
@@ -143,8 +143,8 @@ _print("After clear:", uniqueNumbers.size); // 0
 // WeakMap<K, V> where K must be object type
 
 const weakUserData = new WeakMap<User, string>();
-const user1: User = { id: 1, name: "Alice" };
-const user2: User = { id: 2, name: "Bob" };
+const user1: User = {id: 1, name: "Alice"};
+const user2: User = {id: 2, name: "Bob"};
 
 weakUserData.set(user1, "private_data_1");
 weakUserData.set(user2, "private_data_2");
@@ -166,36 +166,36 @@ _print(weakUserSet.has(user2)); // true
 
 // 1. Cache implementation
 class Cache<K, V> {
-  private cache = new Map<K, V>();
-  private maxSize: number;
+    private cache = new Map<K, V>();
+    private maxSize: number;
 
-  constructor(maxSize: number = 100) {
-    this.maxSize = maxSize;
-  }
-
-  set(key: K, value: V): void {
-    if (this.cache.size >= this.maxSize) {
-      const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+    constructor(maxSize: number = 100) {
+        this.maxSize = maxSize;
     }
-    this.cache.set(key, value);
-  }
 
-  get(key: K): V | undefined {
-    return this.cache.get(key);
-  }
+    set(key: K, value: V): void {
+        if (this.cache.size >= this.maxSize) {
+            const firstKey = this.cache.keys().next().value;
+            this.cache.delete(firstKey);
+        }
+        this.cache.set(key, value);
+    }
 
-  has(key: K): boolean {
-    return this.cache.has(key);
-  }
+    get(key: K): V | undefined {
+        return this.cache.get(key);
+    }
 
-  clear(): void {
-    this.cache.clear();
-  }
+    has(key: K): boolean {
+        return this.cache.has(key);
+    }
 
-  size(): number {
-    return this.cache.size;
-  }
+    clear(): void {
+        this.cache.clear();
+    }
+
+    size(): number {
+        return this.cache.size;
+    }
 }
 
 const stringCache = new Cache<string, string>(5);
@@ -205,35 +205,35 @@ _print("Cache size:", stringCache.size());
 
 // 2. Unique collection manager
 class UniqueCollection<T> {
-  private items = new Set<T>();
+    private items = new Set<T>();
 
-  add(item: T): boolean {
-    if (this.items.has(item)) {
-      return false; // already exists
+    add(item: T): boolean {
+        if (this.items.has(item)) {
+            return false; // already exists
+        }
+        this.items.add(item);
+        return true; // added successfully
     }
-    this.items.add(item);
-    return true; // added successfully
-  }
 
-  remove(item: T): boolean {
-    return this.items.delete(item);
-  }
+    remove(item: T): boolean {
+        return this.items.delete(item);
+    }
 
-  has(item: T): boolean {
-    return this.items.has(item);
-  }
+    has(item: T): boolean {
+        return this.items.has(item);
+    }
 
-  getAll(): T[] {
-    return Array.from(this.items);
-  }
+    getAll(): T[] {
+        return Array.from(this.items);
+    }
 
-  size(): number {
-    return this.items.size;
-  }
+    size(): number {
+        return this.items.size;
+    }
 
-  clear(): void {
-    this.items.clear();
-  }
+    clear(): void {
+        this.items.clear();
+    }
 }
 
 const uniqueStrings = new UniqueCollection<string>();
@@ -244,87 +244,87 @@ _print("Unique strings:", uniqueStrings.getAll());
 
 // 3. Event system with Map
 class EventEmitter {
-  private listeners = new Map<string, Set<Function>>();
+    private listeners = new Map<string, Set<Function>>();
 
-  on(event: string, listener: Function): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set<Function>());
-    }
-    this.listeners.get(event)!.add(listener);
-  }
-
-  off(event: string, listener: Function): void {
-    const eventListeners = this.listeners.get(event);
-    if (eventListeners) {
-      eventListeners.delete(listener);
-    }
-  }
-
-  emit(event: string, ...args: any[]): void {
-    const eventListeners = this.listeners.get(event);
-    if (eventListeners) {
-      eventListeners.forEach(listener => {
-        try {
-          listener(...args);
-        } catch (error) {
-          _print("Error in event listener:", error);
+    on(event: string, listener: Function): void {
+        if (!this.listeners.has(event)) {
+            this.listeners.set(event, new Set<Function>());
         }
-      });
+        this.listeners.get(event)!.add(listener);
     }
-  }
 
-  removeAllListeners(event?: string): void {
-    if (event) {
-      this.listeners.delete(event);
-    } else {
-      this.listeners.clear();
+    off(event: string, listener: Function): void {
+        const eventListeners = this.listeners.get(event);
+        if (eventListeners) {
+            eventListeners.delete(listener);
+        }
     }
-  }
+
+    emit(event: string, ...args: any[]): void {
+        const eventListeners = this.listeners.get(event);
+        if (eventListeners) {
+            eventListeners.forEach(listener => {
+                try {
+                    listener(...args);
+                } catch (error) {
+                    _print("Error in event listener:", error);
+                }
+            });
+        }
+    }
+
+    removeAllListeners(event?: string): void {
+        if (event) {
+            this.listeners.delete(event);
+        } else {
+            this.listeners.clear();
+        }
+    }
 }
 
 const emitter = new EventEmitter();
 emitter.on("user.created", (user: User) => {
-  _print("User created:", user.name);
+    _print("User created:", user.name);
 });
 
 emitter.on("user.updated", (user: User) => {
-  _print("User updated:", user.name);
+    _print("User updated:", user.name);
 });
 
-emitter.emit("user.created", { id: 1, name: "Alice" });
-emitter.emit("user.updated", { id: 1, name: "Alice Smith" });
+emitter.emit("user.created", {id: 1, name: "Alice"});
+emitter.emit("user.updated", {id: 1, name: "Alice Smith"});
 
 // 4. Configuration manager with Map
 class ConfigManager {
-  private config = new Map<string, any>();
+    private config = new Map<string, any>();
 
-  set(key: string, value: any): void {
-    this.config.set(key, value);
-  }
+    set(key: string, value: any): void {
+        this.config.set(key, value);
+    }
 
-  get<T>(key: string): T | undefined {
-    return this.config.get(key) as T;
-  }
+    get<T>(key: string): T | undefined {
+        return this.config.get(key) as T;
+    }
 
-  has(key: string): boolean {
-    return this.config.has(key);
-  }
+    has(key: string): boolean {
+        return this.config.has(key);
+    }
 
-  delete(key: string): boolean {
-    return this.config.delete(key);
-  }
+    delete(key: string): boolean {
+        return this.config.delete(key);
+    }
 
-  getAll(): Record<string, any> {
-    const result: Record<string, any> = {};
-    this.config.forEach((value, key) => {
-      result[key] = value;
-    });
-    return result;
-  }
+    getAll(): Record<string, any> {
+        const result: Record<string, any> = {};
+        this.config.forEach((value, key) => {
+            result[key] = value;
+        });
+        return result;
+    }
 
-  clear(): void {
-    this.config.clear();
-  }
+    clear(): void {
+        this.config.clear();
+    }
 }
 
 const config = new ConfigManager();

@@ -4,16 +4,18 @@
 // Test 1: Basic RAII with simple resource
 class SimpleResource {
     private name: string;
-    
+
     constructor(name: string) {
         this.name = name;
         _print(`Resource '${name}' acquired`);
     }
-    
-    ~SimpleResource() {
+
+~
+
+    SimpleResource() {
         _print(`Resource '${this.name}' released`);
     }
-    
+
     getName(): string {
         return this.name;
     }
@@ -23,14 +25,16 @@ class SimpleResource {
 class ComplexResource {
     private data: number[];
     private isOpen: boolean;
-    
+
     constructor(size: number) {
         this.data = new Array(size);
         this.isOpen = true;
         _print(`Complex resource opened with ${size} elements`);
     }
-    
-    ~ComplexResource() {
+
+~
+
+    ComplexResource() {
         if (this.isOpen) {
             _print("Closing complex resource...");
             this.data = [];
@@ -38,7 +42,7 @@ class ComplexResource {
             _print("Complex resource closed");
         }
     }
-    
+
     getData(): number[] {
         return this.data;
     }
@@ -48,19 +52,21 @@ class ComplexResource {
 class NestedResource {
     private inner: SimpleResource;
     private counter: number;
-    
+
     constructor(name: string) {
         this.inner = new SimpleResource(name);
         this.counter = 0;
         _print("Nested resource created");
     }
-    
-    ~NestedResource() {
+
+~
+
+    NestedResource() {
         _print("Cleaning up nested resource...");
         this.counter = -1;
         _print("Nested resource cleaned up");
     }
-    
+
     getCounter(): number {
         return this.counter;
     }
@@ -70,14 +76,16 @@ class NestedResource {
 class ErrorProneResource {
     private shouldThrow: boolean;
     private name: string;
-    
+
     constructor(name: string, shouldThrow: boolean = false) {
         this.name = name;
         this.shouldThrow = shouldThrow;
         _print(`Error-prone resource '${name}' created`);
     }
-    
-    ~ErrorProneResource() {
+
+~
+
+    ErrorProneResource() {
         _print(`Cleaning up error-prone resource '${this.name}'`);
         if (this.shouldThrow) {
             _print("ERROR: Destructor throwing exception!");
@@ -91,23 +99,25 @@ class ErrorProneResource {
 class SharedResource {
     private name: string;
     private refCount: number;
-    
+
     constructor(name: string) {
         this.name = name;
         this.refCount = 1;
         _print(`Shared resource '${name}' created (refCount: ${this.refCount})`);
     }
-    
-    ~SharedResource() {
+
+~
+
+    SharedResource() {
         this.refCount--;
         _print(`Shared resource '${this.name}' cleaned up (refCount: ${this.refCount})`);
     }
-    
+
     addRef(): void {
         this.refCount++;
         _print(`Shared resource '${this.name}' refCount increased to ${this.refCount}`);
     }
-    
+
     getRefCount(): number {
         return this.refCount;
     }
@@ -117,22 +127,24 @@ class SharedResource {
 class CircularA {
     private b: CircularB | null;
     private name: string;
-    
+
     constructor(name: string) {
         this.name = name;
         this.b = null;
         _print(`CircularA '${name}' created`);
     }
-    
-    ~CircularA() {
+
+~
+
+    CircularA() {
         _print(`CircularA '${this.name}' destroyed`);
         this.b = null;
     }
-    
+
     setB(b: CircularB): void {
         this.b = b;
     }
-    
+
     getName(): string {
         return this.name;
     }
@@ -141,22 +153,24 @@ class CircularA {
 class CircularB {
     private a: CircularA | null;
     private name: string;
-    
+
     constructor(name: string) {
         this.name = name;
         this.a = null;
         _print(`CircularB '${name}' created`);
     }
-    
-    ~CircularB() {
+
+~
+
+    CircularB() {
         _print(`CircularB '${this.name}' destroyed`);
         this.a = null;
     }
-    
+
     setA(a: CircularA): void {
         this.a = a;
     }
-    
+
     getName(): string {
         return this.name;
     }
@@ -165,16 +179,18 @@ class CircularB {
 // Test 7: RAII with inheritance
 class BaseResource {
     protected name: string;
-    
+
     constructor(name: string) {
         this.name = name;
         _print(`Base resource '${name}' created`);
     }
-    
-    ~BaseResource() {
+
+~
+
+    BaseResource() {
         _print(`Base resource '${this.name}' destroyed`);
     }
-    
+
     getName(): string {
         return this.name;
     }
@@ -182,17 +198,19 @@ class BaseResource {
 
 class DerivedResource extends BaseResource {
     private extra: string;
-    
+
     constructor(name: string, extra: string) {
         super(name);
         this.extra = extra;
         _print(`Derived resource '${name}' with extra '${extra}' created`);
     }
-    
-    ~DerivedResource() {
+
+~
+
+    DerivedResource() {
         _print(`Derived resource '${this.name}' with extra '${this.extra}' destroyed`);
     }
-    
+
     getExtra(): string {
         return this.extra;
     }
@@ -202,21 +220,23 @@ class DerivedResource extends BaseResource {
 class GenericResource<T> {
     private data: T;
     private name: string;
-    
+
     constructor(name: string, data: T) {
         this.name = name;
         this.data = data;
         _print(`Generic resource '${name}' created with data`);
     }
-    
-    ~GenericResource() {
+
+~
+
+    GenericResource() {
         _print(`Generic resource '${this.name}' destroyed`);
     }
-    
+
     getData(): T {
         return this.data;
     }
-    
+
     getName(): string {
         return this.name;
     }
@@ -226,18 +246,20 @@ class GenericResource<T> {
 class SmartPointerResource {
     private ptr: shared_ptr<string>;
     private name: string;
-    
+
     constructor(name: string, value: string) {
         this.name = name;
         this.ptr = new shared_ptr<string>(value);
         _print(`Smart pointer resource '${name}' created`);
     }
-    
-    ~SmartPointerResource() {
+
+~
+
+    SmartPointerResource() {
         _print(`Smart pointer resource '${this.name}' destroyed`);
         this.ptr = null;
     }
-    
+
     getValue(): string {
         if (this.ptr) {
             return this.ptr.get();
@@ -252,28 +274,30 @@ class MoveableResource {
     private data: number[];
     private name: string;
     private moved: boolean;
-    
+
     constructor(name: string, size: number) {
         this.name = name;
         this.data = new Array(size);
         this.moved = false;
         _print(`Moveable resource '${name}' created`);
     }
-    
-    ~MoveableResource() {
+
+~
+
+    MoveableResource() {
         if (!this.moved) {
             _print(`Moveable resource '${this.name}' destroyed`);
         } else {
             _print(`Moveable resource '${this.name}' was moved, not destroyed`);
         }
     }
-    
+
     move(): MoveableResource {
         this.moved = true;
         _print(`Moveable resource '${this.name}' moved`);
         return this;
     }
-    
+
     getName(): string {
         return this.name;
     }
@@ -366,7 +390,7 @@ function testMoveSemantics(): void {
 function runAllTests(): void {
     _print("🚀 Starting RAII Unit Tests");
     _print("================================");
-    
+
     testBasicRAII();
     testComplexRAII();
     testNestedRAII();
@@ -377,7 +401,7 @@ function runAllTests(): void {
     testGenericTypes();
     testSmartPointers();
     testMoveSemantics();
-    
+
     _print("================================");
     _print("✅ All RAII Unit Tests Completed");
 }

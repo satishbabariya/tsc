@@ -3,15 +3,15 @@
 
 class TestArray<T> {
     data: T[];
-    
+
     constructor() {
         this.data = [];
     }
-    
+
     push(value: T): void {
         this.data.push(value);
     }
-    
+
     size(): number {
         return this.data.length;
     }

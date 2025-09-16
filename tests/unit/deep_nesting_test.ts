@@ -1,4 +1,3 @@
-
 // Deep Nesting Performance Test
 // Test deeply nested generics and complex type inference
 
@@ -21,8 +20,8 @@ interface MultiContainer<T, U, V> extends ConstrainedContainer<T> {
 }
 
 // Level 4: Generic with conditional types
-type ConditionalContainer<T> = T extends string ? 
-    MultiContainer<T, number, boolean> : 
+type ConditionalContainer<T> = T extends string ?
+    MultiContainer<T, number, boolean> :
     MultiContainer<T, string, number>;
 
 // Level 5: Generic with mapped types
@@ -84,7 +83,7 @@ function createDeepNestedContainer<T>(value: T): ComplexContainer<T> {
 // Performance test
 function performanceTest() {
     const startTime = performance.now();
-    
+
     // Create many nested containers
     for (let i = 0; i < 1000; i++) {
         const container = createDeepNestedContainer(i);
@@ -93,7 +92,7 @@ function performanceTest() {
         const filtered = container.filter(x => x > 0);
         const reduced = container.reduce((acc, x) => acc + x, 0);
     }
-    
+
     const endTime = performance.now();
     console.log(`Deep nesting test completed in ${endTime - startTime}ms`);
 }

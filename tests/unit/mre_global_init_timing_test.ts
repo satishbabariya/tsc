@@ -1,11 +1,11 @@
 // MRE: Minimal Reproducible Example for global initialization timing issue
 class SimpleClass {
     value: number;
-    
+
     constructor() {
         this.value = 42; // This initialization might be skipped in global context
     }
-    
+
     getValue(): number {
         return this.value; // This might access uninitialized memory
     }

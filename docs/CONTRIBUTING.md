@@ -1,6 +1,7 @@
 # Contributing to TSC
 
-Thank you for your interest in contributing to TSC! This document provides guidelines for contributing to the TypeScript Static Compiler project.
+Thank you for your interest in contributing to TSC! This document provides guidelines for contributing to the TypeScript
+Static Compiler project.
 
 ## Development Setup
 
@@ -84,12 +85,14 @@ git diff --cached
 ### Build Directory Management
 
 The `build/` directory:
+
 - Contains **generated files only**
 - Is **completely disposable** - can be deleted and recreated
 - Is **ignored by git** (in `.gitignore`)
 - Should **never be committed** to version control
 
 If you accidentally commit build files:
+
 ```bash
 # Remove from git (keeps files on disk)
 git rm -r build/ --cached
@@ -101,6 +104,7 @@ git commit -m "Remove build artifacts from git tracking"
 ## Development Workflow
 
 ### 1. Create Feature Branch
+
 ```bash
 git checkout -b feature/your-feature-name
 ```
@@ -114,6 +118,7 @@ git checkout -b feature/your-feature-name
 - **Unit tests** for new functionality
 
 ### 3. Build and Test
+
 ```bash
 cd build
 make -j10
@@ -153,18 +158,21 @@ Fixes #123"
 ## Architecture Guidelines
 
 ### Memory Management
+
 - Use `unique_ptr<T>` for exclusive ownership
-- Use `shared_ptr<T>` for shared ownership  
+- Use `shared_ptr<T>` for shared ownership
 - Use `weak_ptr<T>` for non-owning references
 - Follow **manual memory management** principles (no GC)
 
 ### Error Handling
+
 - Use `DiagnosticEngine` for all error reporting
 - Include **source locations** in all errors
 - Provide **helpful suggestions** when possible
 - Support **multiple error reporting** (don't stop at first error)
 
 ### Performance
+
 - Design for **compilation speed** and **runtime performance**
 - Use **parallel algorithms** where appropriate
 - Follow **zero-cost abstractions** principle
@@ -173,6 +181,7 @@ Fixes #123"
 ## Testing
 
 ### Unit Tests
+
 ```bash
 # Build with tests (requires GTest)
 cmake .. -DCMAKE_BUILD_TYPE=Debug
@@ -181,6 +190,7 @@ make test
 ```
 
 ### Integration Tests
+
 ```bash
 # Test with real TypeScript files
 ./tsc examples/demo.ts --emit-llvm
@@ -188,6 +198,7 @@ make test
 ```
 
 ### Adding Tests
+
 - **Unit tests** in `tests/test_*.cpp`
 - **Integration tests** using example files
 - **Performance tests** for compilation speed
@@ -196,12 +207,14 @@ make test
 ## Debugging
 
 ### Debug Builds
+
 ```bash
 cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address"
 make -j10
 ```
 
 ### LLVM Integration
+
 ```bash
 # Check LLVM configuration
 llvm-config-20 --version
@@ -215,17 +228,20 @@ cat hello.ll
 ## Common Issues
 
 ### Build Fails
+
 1. **Check LLVM installation**: `llvm-config-20 --version`
 2. **Clean build**: `rm -rf build && mkdir build && cd build`
 3. **Check dependencies**: CMake, C++17 compiler
 4. **Verify git status**: No build artifacts committed
 
 ### Linker Errors
+
 1. **LLVM library issues**: Check monolithic vs component libraries
 2. **Missing dependencies**: Install LLVM development packages
 3. **Version conflicts**: Ensure consistent LLVM version
 
 ### Git Issues
+
 1. **Build files tracked**: Use `git rm -r build/ --cached`
 2. **Large commits**: Check for accidentally committed binaries
 3. **Merge conflicts**: Never merge build artifacts
@@ -244,4 +260,6 @@ cat hello.ll
 - **Help others** learn and contribute
 - **Focus on code quality** and maintainability
 
-Remember: The goal is to create a **high-performance TypeScript static compiler** that generates **native binaries** using LLVM. Every contribution should align with this vision while maintaining **code quality** and **architectural consistency**.
+Remember: The goal is to create a **high-performance TypeScript static compiler** that generates **native binaries**
+using LLVM. Every contribution should align with this vision while maintaining **code quality** and **architectural
+consistency**.

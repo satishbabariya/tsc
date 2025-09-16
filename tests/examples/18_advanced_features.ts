@@ -15,13 +15,13 @@ type NonNullable<T> = T extends null | undefined ? never : T;
 type Flatten<T> = T extends (infer U)[] ? U : T;
 
 // Conditional type with multiple branches
-type TypeName<T> = 
-  T extends string ? "string" :
-  T extends number ? "number" :
-  T extends boolean ? "boolean" :
-  T extends undefined ? "undefined" :
-  T extends null ? "null" :
-  "object";
+type TypeName<T> =
+    T extends string ? "string" :
+        T extends number ? "number" :
+            T extends boolean ? "boolean" :
+                T extends undefined ? "undefined" :
+                    T extends null ? "null" :
+                        "object";
 
 // 22. Infer Keyword (Concept)
 // These patterns show how infer would work in full TypeScript
@@ -39,17 +39,17 @@ type ConstructorParameters<T> = T extends new (...args: infer P) => any ? P : ne
 // These show recursive type patterns
 
 // JSON value type
-type JSONValue = 
-  | string
-  | number
-  | boolean
-  | null
-  | JSONValue[]
-  | { [key: string]: JSONValue };
+type JSONValue =
+    | string
+    | number
+    | boolean
+    | null
+    | JSONValue[]
+    | { [key: string]: JSONValue };
 
 // Deep readonly type
 type DeepReadonly<T> = {
-  readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
+    readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
 };
 
 // 24. Advanced Mapped Types (Concept)
@@ -57,17 +57,17 @@ type DeepReadonly<T> = {
 
 // Make all properties optional and nullable
 type PartialNullable<T> = {
-  [P in keyof T]?: T[P] | null;
+    [P in keyof T]?: T[P] | null;
 };
 
 // Make all properties required and non-nullable
 type RequiredNonNullable<T> = {
-  [P in keyof T]-?: NonNullable<T[P]>;
+    [P in keyof T]-?: NonNullable<T[P]>;
 };
 
 // Create a type with specific property types
 type Stringify<T> = {
-  [K in keyof T]: string;
+    [K in keyof T]: string;
 };
 
 // 25. Branded Types (Concept)
@@ -80,15 +80,15 @@ type ProductId = Brand<number, 'ProductId'>;
 type OrderId = Brand<number, 'OrderId'>;
 
 function createUserId(id: number): UserId {
-  return id as UserId;
+    return id as UserId;
 }
 
 function createProductId(id: number): ProductId {
-  return id as ProductId;
+    return id as ProductId;
 }
 
 function createOrderId(id: number): OrderId {
-  return id as OrderId;
+    return id as OrderId;
 }
 
 // 26. Advanced Utility Types (Concept)
@@ -101,8 +101,8 @@ type Extract<T, U> = T extends U ? T : never;
 type Exclude<T, U> = T extends U ? never : T;
 
 // Get all possible values of a union
-type UnionToIntersection<U> = 
-  (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+type UnionToIntersection<U> =
+    (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 // 27. Complex Generic Constraints (Concept)
 // These show complex generic constraint patterns
@@ -118,8 +118,8 @@ type FunctionLike<T> = T extends (...args: any[]) => any ? T : never;
 
 // Multiple constraints
 function processEntity<T extends object & { id: number } & { name: string }>(item: T): T {
-  _print(`Processing ${item.name} with ID ${item.id}`);
-  return item;
+    _print(`Processing ${item.name} with ID ${item.id}`);
+    return item;
 }
 
 // 28. Template Literal Types (Advanced Concept)
@@ -128,8 +128,8 @@ function processEntity<T extends object & { id: number } & { name: string }>(ite
 type Join<K, P> = K extends string ? P extends string ? `${K}${P}` : never : never;
 
 type Paths<T> = T extends object ? {
-  [K in keyof T]-?: K extends string ? 
-    `${K}` | Join<K, Paths<T[K]>> : never
+    [K in keyof T]-?: K extends string ?
+        `${K}` | Join<K, Paths<T[K]>> : never
 }[keyof T] : '';
 
 // 29. Advanced Type Manipulation (Concept)
@@ -149,31 +149,31 @@ type PartialExcept<T, K extends keyof T> = Partial<T> & Pick<T, K>;
 
 // API Response type
 type ApiResponse<T> = {
-  data: T;
-  status: number;
-  message: string;
-  timestamp: string;
+    data: T;
+    status: number;
+    message: string;
+    timestamp: string;
 };
 
 // Paginated response
 type PaginatedResponse<T> = ApiResponse<T[]> & {
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
 };
 
 // Error response
 type ErrorResponse = {
-  error: {
-    code: string;
-    message: string;
-    details?: any;
-  };
-  status: number;
-  timestamp: string;
+    error: {
+        code: string;
+        message: string;
+        details?: any;
+    };
+    status: number;
+    timestamp: string;
 };
 
 // Union of all possible responses
@@ -181,38 +181,38 @@ type ApiResult<T> = ApiResponse<T> | PaginatedResponse<T> | ErrorResponse;
 
 // Event system with typed events
 type EventMap = {
-  'user.created': { id: number; name: string; email: string };
-  'user.updated': { id: number; changes: Partial<{ name: string; email: string }> };
-  'user.deleted': { id: number };
-  'order.created': { id: number; userId: number; total: number };
-  'order.completed': { id: number; completedAt: string };
+    'user.created': { id: number; name: string; email: string };
+    'user.updated': { id: number; changes: Partial<{ name: string; email: string }> };
+    'user.deleted': { id: number };
+    'order.created': { id: number; userId: number; total: number };
+    'order.completed': { id: number; completedAt: string };
 };
 
 type EventHandler<T> = (event: T) => void;
 
 // Generic event emitter
 class TypedEventEmitter {
-  private listeners: Map<string, Function[]> = new Map();
-  
-  on<K extends keyof EventMap>(event: K, handler: EventHandler<EventMap[K]>): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
-    }
-    this.listeners.get(event)!.push(handler);
-  }
-  
-  emit<K extends keyof EventMap>(event: K, data: EventMap[K]): void {
-    let handlers = this.listeners.get(event);
-    if (handlers) {
-      handlers.forEach(handler => {
-        try {
-          handler(data);
-        } catch (error) {
-          _print("Error in event handler:", error);
+    private listeners: Map<string, Function[]> = new Map();
+
+    on<K extends keyof EventMap>(event: K, handler: EventHandler<EventMap[K]>): void {
+        if (!this.listeners.has(event)) {
+            this.listeners.set(event, []);
         }
-      });
+        this.listeners.get(event)!.push(handler);
     }
-  }
+
+    emit<K extends keyof EventMap>(event: K, data: EventMap[K]): void {
+        let handlers = this.listeners.get(event);
+        if (handlers) {
+            handlers.forEach(handler => {
+                try {
+                    handler(data);
+                } catch (error) {
+                    _print("Error in event handler:", error);
+                }
+            });
+        }
+    }
 }
 
 // Usage examples (these would work in full TypeScript)
@@ -220,24 +220,24 @@ let eventEmitter = new TypedEventEmitter();
 
 // Type-safe event handling
 eventEmitter.on('user.created', (user) => {
-  _print(`User created: ${user.name} (${user.email})`);
+    _print(`User created: ${user.name} (${user.email})`);
 });
 
 eventEmitter.on('order.created', (order) => {
-  _print(`Order created: ${order.id} for user ${order.userId}`);
+    _print(`Order created: ${order.id} for user ${order.userId}`);
 });
 
 // Type-safe event emission
 eventEmitter.emit('user.created', {
-  id: 1,
-  name: "Alice",
-  email: "alice@example.com"
+    id: 1,
+    name: "Alice",
+    email: "alice@example.com"
 });
 
 eventEmitter.emit('order.created', {
-  id: 100,
-  userId: 1,
-  total: 99.99
+    id: 100,
+    userId: 1,
+    total: 99.99
 });
 
 // Branded type usage
@@ -250,21 +250,21 @@ let orderId: OrderId = createOrderId(789);
 
 // Advanced generic usage
 let entity = processEntity({
-  id: 1,
-  name: "Test Entity",
-  description: "A test entity"
+    id: 1,
+    name: "Test Entity",
+    description: "A test entity"
 });
 
 // JSON value usage
 let jsonData: JSONValue = {
-  name: "Alice",
-  age: 30,
-  hobbies: ["reading", "coding"],
-  address: {
-    street: "123 Main St",
-    city: "New York",
-    coordinates: [40.7128, -74.0060]
-  }
+    name: "Alice",
+    age: 30,
+    hobbies: ["reading", "coding"],
+    address: {
+        street: "123 Main St",
+        city: "New York",
+        coordinates: [40.7128, -74.0060]
+    }
 };
 
 // This example demonstrates advanced TypeScript concepts and patterns

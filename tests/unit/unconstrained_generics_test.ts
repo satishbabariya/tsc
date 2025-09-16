@@ -3,34 +3,34 @@
 class UnconstrainedContainer<T> {
     value: T;
     items: T[];
-    
+
     constructor(value: T) {
         this.value = value;
         this.items = [];
     }
-    
+
     // Test basic operations with unconstrained generics
     getValue(): T {
         return this.value;
     }
-    
+
     setValue(newValue: T): void {
         this.value = newValue;
     }
-    
+
     // Test array operations with unconstrained generics
     addItem(item: T): void {
         this.items.push(item);
     }
-    
+
     getItemCount(): number {
         return this.items.length;
     }
-    
+
     getItemCountAsString(): string {
         return this.items.length.toString();
     }
-    
+
     // Test nested property access with unconstrained generics
     getFirstItem(): T {
         if (this.items.length > 0) {
@@ -38,14 +38,14 @@ class UnconstrainedContainer<T> {
         }
         return this.value;
     }
-    
+
     getLastItem(): T {
         if (this.items.length > 0) {
             return this.items[this.items.length - 1];
         }
         return this.value;
     }
-    
+
     // Test complex nested operations
     getItemAt(index: number): T {
         if (index >= 0 && index < this.items.length) {
@@ -53,22 +53,22 @@ class UnconstrainedContainer<T> {
         }
         return this.items[this.items.length - 1];
     }
-    
+
     // Test conditional operations based on array length
     hasItems(): boolean {
         return this.items.length > 0;
     }
-    
+
     isEmpty(): boolean {
         return this.items.length === 0;
     }
-    
+
     // Test nested operations with length calculations
     getMiddleIndex(): number {
         if (this.items.length === 0) return 0;
         return Math.floor(this.items.length / 2);
     }
-    
+
     getMiddleItem(): T {
         if (this.items.length === 0) return this.value;
         let middleIndex = this.getMiddleIndex();
@@ -78,34 +78,34 @@ class UnconstrainedContainer<T> {
 
 class UnconstrainedArrayOperations<T> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     // Test various array operations with unconstrained generics
     pushItem(item: T): number {
         this.items.push(item);
         return this.items.length;
     }
-    
+
     popItem(): T {
         if (this.items.length > 0) {
             return this.items.pop();
         }
         return this.items[0]; // Return first item if array is empty (undefined behavior)
     }
-    
+
     // Test nested property access
     getLengthOperations(): string {
         let len = this.items.length;
         let lenStr = len.toString();
         let lenPlusOne = len + 1;
         let lenMinusOne = len - 1;
-        
+
         return "Length: " + lenStr + ", +1: " + lenPlusOne.toString() + ", -1: " + lenMinusOne.toString();
     }
-    
+
     // Test array manipulation with nested operations
     removeFirst(): T {
         if (this.items.length > 0) {
@@ -119,7 +119,7 @@ class UnconstrainedArrayOperations<T> {
         }
         return this.items[0]; // Return first item if array is empty
     }
-    
+
     // Test conditional operations
     getItemSafely(index: number): T {
         if (index >= 0 && index < this.items.length) {
@@ -127,22 +127,22 @@ class UnconstrainedArrayOperations<T> {
         }
         return this.items[this.items.length - 1];
     }
-    
+
     // Test nested operations with array length
     getLastIndex(): number {
         return this.items.length - 1;
     }
-    
+
     getSecondLastIndex(): number {
         return this.items.length - 2;
     }
-    
+
     // Test array length in various contexts
     getLengthInfo(): string {
         let len = this.items.length;
         let isEmpty = len === 0;
         let hasItems = len > 0;
-        
+
         return "Length: " + len.toString() + ", Empty: " + isEmpty.toString() + ", Has items: " + hasItems.toString();
     }
 }
@@ -168,7 +168,7 @@ function processUnconstrainedArrayOperations<T>(arr: T[]): string {
     let lenStr = len.toString();
     let lastIndex = len - 1;
     let middleIndex = Math.floor(len / 2);
-    
+
     return "Length: " + lenStr + ", Last index: " + lastIndex.toString() + ", Middle index: " + middleIndex.toString();
 }
 

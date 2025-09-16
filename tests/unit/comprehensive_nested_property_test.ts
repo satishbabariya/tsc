@@ -3,42 +3,42 @@
 
 class ArrayOperations<T> {
     items: T[];
-    
+
     constructor() {
         this.items = [];
     }
-    
+
     addItem(item: T): void {
         this.items.push(item);
     }
-    
+
     getLength(): number {
         return this.items.length;
     }
-    
+
     getFirstItem(): T {
         return this.items[0];
     }
-    
+
     getLastItem(): T {
         return this.items[this.items.length - 1];
     }
-    
+
     // Test nested property access with array length
     getLengthAsString(): string {
         return this.items.length.toString();
     }
-    
+
     // Test array indexing with length
     getSecondToLast(): T {
         return this.items[this.items.length - 2];
     }
-    
+
     // Test complex nested operations
     getLengthPlusOne(): number {
         return this.items.length + 1;
     }
-    
+
     getLengthMinusOne(): number {
         return this.items.length - 1;
     }
@@ -49,7 +49,7 @@ class StringArrayOperations extends ArrayOperations<string> {
     getLengthAsString(): string {
         return "Length: " + this.items.length.toString();
     }
-    
+
     // Test array methods with nested access
     getAllItemsAsString(): string {
         let result = "";
@@ -73,7 +73,7 @@ class NumberArrayOperations extends ArrayOperations<number> {
         }
         return sum;
     }
-    
+
     // Test nested property access in arithmetic
     getAverage(): number {
         if (this.items.length === 0) {

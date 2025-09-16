@@ -138,12 +138,12 @@ function processValue<T>(value: T): T extends string ? string : T extends number
 
 // Generic function with mapped types
 function createReadonly<T>(obj: T): Readonly<T> {
-    return Object.freeze({ ...obj });
+    return Object.freeze({...obj});
 }
 
 // Generic function with utility types
 function makePartial<T>(obj: T): Partial<T> {
-    return { ...obj };
+    return {...obj};
 }
 
 function makeRequired<T>(obj: Partial<T>): Required<T> {
@@ -238,7 +238,7 @@ let booleanIdentity: boolean = identity(true);
 let stringPair: [string, number] = pair("Alice", 25);
 let mixedPair: [number, string] = pair(100, "points");
 
-let person = { name: "Bob", age: 30, city: "New York" };
+let person = {name: "Bob", age: 30, city: "New York"};
 let name: string = getProperty(person, "name");
 let age: number = getProperty(person, "age");
 
@@ -265,8 +265,8 @@ let firstAge: number = nameAgePair.getSecond();
 
 // Generic repository usage
 let userRepo: Repository<{ id: number; name: string }> = new Repository();
-userRepo.add({ id: 1, name: "Alice" });
-userRepo.add({ id: 2, name: "Bob" });
+userRepo.add({id: 1, name: "Alice"});
+userRepo.add({id: 2, name: "Bob"});
 
 let user: { id: number; name: string } | undefined = userRepo.findById(1);
 let allUsers: { id: number; name: string }[] = userRepo.getAll();
@@ -303,9 +303,9 @@ let processedValue2: number = processValue(21);
 let processedValue3: unknown = processValue(true);
 
 // Generic utility functions usage
-let readonlyPerson = createReadonly({ name: "Alice", age: 30 });
-let partialPerson = makePartial({ name: "Bob", age: 25, city: "NYC" });
-let requiredPerson = makeRequired({ name: "Charlie", age: 35 });
+let readonlyPerson = createReadonly({name: "Alice", age: 30});
+let partialPerson = makePartial({name: "Bob", age: 25, city: "NYC"});
+let requiredPerson = makeRequired({name: "Charlie", age: 35});
 
 // Generic static methods usage
 let sum: number = MathUtils.add(5, 3);
@@ -346,7 +346,10 @@ let spreaded: number[] = spread(original);
 
 // Generic async usage
 async function example() {
-    let data: { name: string; age: number } = await fetchData<{ name: string; age: number }>("https://api.example.com/user");
+    let data: { name: string; age: number } = await fetchData<{
+        name: string;
+        age: number
+    }>("https://api.example.com/user");
     // Use the fetched data
 }
 

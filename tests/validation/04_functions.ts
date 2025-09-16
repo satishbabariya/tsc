@@ -15,9 +15,9 @@ function testFunctions() {
     // Function calls
     let sum = add(10, 5);
     let message = greet("World");
-    
+
     // Call function without return
     noReturn();
-    
+
     return sum;
 }

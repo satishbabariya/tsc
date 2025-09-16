@@ -199,22 +199,27 @@ let DirectionUtils = {
     Down: Direction.Down,
     Left: Direction.Left,
     Right: Direction.Right,
-    
-    isHorizontal: function(direction: Direction): boolean {
+
+    isHorizontal: function (direction: Direction): boolean {
         return direction === Direction.Left || direction === Direction.Right;
     },
-    
-    isVertical: function(direction: Direction): boolean {
+
+    isVertical: function (direction: Direction): boolean {
         return direction === Direction.Up || direction === Direction.Down;
     },
-    
-    opposite: function(direction: Direction): Direction {
+
+    opposite: function (direction: Direction): Direction {
         switch (direction) {
-            case Direction.Up: return Direction.Down;
-            case Direction.Down: return Direction.Up;
-            case Direction.Left: return Direction.Right;
-            case Direction.Right: return Direction.Left;
-            default: return direction;
+            case Direction.Up:
+                return Direction.Down;
+            case Direction.Down:
+                return Direction.Up;
+            case Direction.Left:
+                return Direction.Right;
+            case Direction.Right:
+                return Direction.Left;
+            default:
+                return direction;
         }
     }
 };
@@ -230,12 +235,12 @@ let MessageUtils = {
     Warning: MessageType.Warning,
     Error: MessageType.Error,
     Debug: MessageType.Debug,
-    
-    formatMessage: function(type: MessageType, message: string): string {
+
+    formatMessage: function (type: MessageType, message: string): string {
         return "[" + type + "] " + message;
     },
-    
-    isError: function(type: MessageType): boolean {
+
+    isError: function (type: MessageType): boolean {
         return type === MessageType.Error;
     }
 };

@@ -1,4 +1,3 @@
-
 // Complex nested structures for parser coverage
 function complexNestedStructures(): void {
     // Deeply nested if statements
@@ -13,7 +12,7 @@ function complexNestedStructures(): void {
             }
         }
     }
-    
+
     // Deeply nested loops
     for (let i = 0; i < 3; i++) {
         for (let j = 0; j < 3; j++) {
@@ -26,7 +25,7 @@ function complexNestedStructures(): void {
             }
         }
     }
-    
+
     // Complex switch statements
     switch (1) {
         case 1:

@@ -1,4 +1,3 @@
-
 // Complex control flow for code generation coverage
 function complexControlFlow(): void {
     // Complex nested loops with breaks and continues
@@ -13,13 +12,13 @@ function complexControlFlow(): void {
             console.log(i, j);
         }
     }
-    
+
     // Complex switch with fallthrough
     let value = 1;
     switch (value) {
         case 1:
             console.log("one");
-            // fallthrough
+        // fallthrough
         case 2:
             console.log("two");
             break;
@@ -29,7 +28,7 @@ function complexControlFlow(): void {
         default:
             console.log("default");
     }
-    
+
     // Complex try-catch with multiple catch blocks
     try {
         throw new Error("test error");
@@ -38,7 +37,7 @@ function complexControlFlow(): void {
     } finally {
         console.log("finally executed");
     }
-    
+
     // Complex conditional expressions
     let result = (true ? (false ? "nested true" : "nested false") : "outer false");
     console.log(result);

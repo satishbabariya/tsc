@@ -1,12 +1,14 @@
 class TestClass {
     id: number;
-    
+
     constructor(id: number) {
         this.id = id;
         _print("Constructor: Stored id =", id);
     }
-    
-    ~TestClass() {
+
+~
+
+    TestClass() {
         _print("Destructor: Reading id =", this.id);
     }
 }

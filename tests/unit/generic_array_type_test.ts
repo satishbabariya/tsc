@@ -13,12 +13,15 @@ let booleanArray2: boolean[] = [];
 // Test 3: Generic class with Array<T>
 class GenericArrayContainer<T> {
     items: Array<T>;
+
     constructor() {
         this.items = [];
     }
+
     addItem(item: T): void {
         this.items.push(item);
     }
+
     getLength(): number {
         return this.items.length;
     }
@@ -27,12 +30,15 @@ class GenericArrayContainer<T> {
 // Test 4: Generic class with T[]
 class GenericArrayContainer2<T> {
     items: T[];
+
     constructor() {
         this.items = [];
     }
+
     addItem(item: T): void {
         this.items.push(item);
     }
+
     getLength(): number {
         return this.items.length;
     }
@@ -66,7 +72,10 @@ function processConstrainedArray<T extends number>(arr: Array<T>): T {
 // Test 10: Array of generic types
 class GenericItem<T> {
     value: T;
-    constructor(v: T) { this.value = v; }
+
+    constructor(v: T) {
+        this.value = v;
+    }
 }
 
 let genericItemArray: Array<GenericItem<number>> = [];

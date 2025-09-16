@@ -10,7 +10,7 @@
 
 using namespace tsc;
 
-void printUsage(const char* programName) {
+void printUsage(const char *programName) {
     std::cout << "TSC - TypeScript Static Compiler\n";
     std::cout << "Usage: " << programName << " [options] <input-files>\n\n";
     std::cout << "Options:\n";
@@ -38,23 +38,23 @@ void printVersion() {
     std::cout << "Target: " << getDefaultTargetTriple() << std::endl;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     if (argc < 2) {
         printUsage(argv[0]);
         return 1;
     }
-    
+
     try {
         CompilerOptions options;
         std::vector<String> inputFiles;
         bool emitLLVM = false;
         bool printAST = false;
         bool printSymbols = false;
-        
+
         // Parse command line arguments
         for (int i = 1; i < argc; ++i) {
             String arg = argv[i];
-            
+
             if (arg == "-h" || arg == "--help") {
                 printUsage(argv[0]);
                 return 0;
@@ -76,12 +76,12 @@ int main(int argc, char* argv[]) {
                 }
                 options.target.triple = argv[++i];
             } else if (arg == "--list-targets") {
-                auto& registry = TargetRegistry::getInstance();
+                auto &registry = TargetRegistry::getInstance();
                 registry.initializeAllTargets();
                 auto targets = registry.getAllTargets();
-                
+
                 std::cout << "Supported targets:\n";
-                for (const auto& target : targets) {
+                for (const auto &target: targets) {
                     if (target.isSupported) {
                         std::cout << "  " << target.triple;
                         std::cout << " (" << target.arch.description;
@@ -90,18 +90,20 @@ int main(int argc, char* argv[]) {
                 }
                 return 0;
             } else if (arg == "--target-status") {
-                auto& registry = TargetRegistry::getInstance();
+                auto &registry = TargetRegistry::getInstance();
                 registry.initializeAllTargets();
-                
+
                 auto status = registry.getInitializationStatus();
-                
+
                 std::cout << "=== TSC Compiler Target Status ===" << std::endl;
                 std::cout << "Initialization: " << (status.success ? "SUCCESS" : "FAILED") << std::endl;
                 std::cout << "Host Triple: " << status.hostTriple << std::endl;
                 std::cout << "Total Targets: " << status.totalTargets << std::endl;
                 std::cout << "Supported Targets: " << status.supportedTargets << std::endl;
-                std::cout << "Cross-Compilation: " << (registry.supportsCrossCompilation() ? "SUPPORTED" : "NOT SUPPORTED") << std::endl;
-                
+                std::cout << "Cross-Compilation: " << (registry.supportsCrossCompilation()
+                                                           ? "SUPPORTED"
+                                                           : "NOT SUPPORTED") << std::endl;
+
                 if (!status.availableArchitectures.empty()) {
                     std::cout << "Available Architectures: ";
                     for (size_t i = 0; i < status.availableArchitectures.size(); ++i) {
@@ -110,7 +112,7 @@ int main(int argc, char* argv[]) {
                     }
                     std::cout << std::endl;
                 }
-                
+
                 if (!status.availableOSes.empty()) {
                     std::cout << "Available Operating Systems: ";
                     for (size_t i = 0; i < status.availableOSes.size(); ++i) {
@@ -119,11 +121,11 @@ int main(int argc, char* argv[]) {
                     }
                     std::cout << std::endl;
                 }
-                
+
                 if (!status.errorMessage.empty()) {
                     std::cout << "Error: " << status.errorMessage << std::endl;
                 }
-                
+
                 std::cout << "=================================" << std::endl;
                 return 0;
             } else if (arg == "--emit-llvm") {
@@ -158,12 +160,12 @@ int main(int argc, char* argv[]) {
                 inputFiles.push_back(arg);
             }
         }
-        
+
         if (inputFiles.empty()) {
             std::cerr << "Error: No input files specified\n";
             return 1;
         }
-        
+
         // Set default output file if not specified
         if (options.outputFile.empty()) {
             if (inputFiles.size() == 1) {
@@ -174,7 +176,7 @@ int main(int argc, char* argv[]) {
                 } else {
                     options.outputFile = inputFile;
                 }
-                
+
                 if (emitLLVM) {
                     options.outputFile += ".ll";
                 } else {
@@ -184,28 +186,28 @@ int main(int argc, char* argv[]) {
                 options.outputFile = "a.out";
             }
         }
-        
+
         options.inputFiles = inputFiles;
-        
+
         // Create compiler and compile
         Compiler compiler(options);
-        
+
         CompilationResult result;
         if (inputFiles.size() == 1) {
             result = compiler.compile(inputFiles[0]);
         } else {
             result = compiler.compileModule(inputFiles);
         }
-        
+
         // Print diagnostics
         compiler.getDiagnostics().printDiagnostics();
-        
+
         if (!result.success) {
             std::cerr << "Compilation failed: " << result.errorMessage << std::endl;
             compiler.getDiagnostics().printSummary();
             return 1;
         }
-        
+
         // Print AST if requested
         if (printAST && result.ast) {
             std::cout << "\n=== Abstract Syntax Tree ===\n";
@@ -213,7 +215,7 @@ int main(int argc, char* argv[]) {
             printer.print(*result.ast);
             std::cout << "=============================\n\n";
         }
-        
+
         // Print symbol table if requested
         if (printSymbols && result.success) {
             std::cout << "\n=== Symbol Table ===\n";
@@ -222,14 +224,14 @@ int main(int argc, char* argv[]) {
             std::cout << "Symbol table printing not yet implemented\n";
             std::cout << "====================\n\n";
         }
-        
+
         // Handle emit-llvm option
         if (emitLLVM && !result.llvmIR.empty()) {
             String llvmFile = options.outputFile;
             if (llvmFile.substr(llvmFile.length() - 3) != ".ll") {
                 llvmFile += ".ll";
             }
-            
+
             std::ofstream file(llvmFile);
             if (file.is_open()) {
                 file << result.llvmIR;
@@ -244,14 +246,13 @@ int main(int argc, char* argv[]) {
         } else if (!result.objectFile.empty()) {
             std::cout << "Object file generated: " << result.objectFile << std::endl;
         }
-        
+
         compiler.getDiagnostics().printSummary();
         return 0;
-        
-    } catch (const CompilerError& e) {
+    } catch (const CompilerError &e) {
         std::cerr << "Compiler error: " << e.what() << std::endl;
         return 1;
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         std::cerr << "Internal error: " << e.what() << std::endl;
         return 1;
     }
