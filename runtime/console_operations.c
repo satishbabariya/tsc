@@ -152,3 +152,17 @@ void console_log(void* value) {
     double* num_ptr = (double*)value;
     printf("%f\n", *num_ptr);
 }
+
+// Console.log for boolean values
+void console_log_bool(int value) {
+    printf("%s\n", value ? "true" : "false");
+}
+
+// Console.log for string values
+void console_log_string(char* value) {
+    if (!value) {
+        printf("undefined\n");
+        return;
+    }
+    printf("%s\n", value);
+}

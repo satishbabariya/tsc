@@ -1446,6 +1446,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
             std::vector<llvm::Value*> args;
             
             // Special handling for console.log - don't pass the console object as first argument
+            bool consoleLogHandled = false;
             if (function && function->getName().str() == "console_log") {
                 std::cout << "DEBUG: CallExpression - Special handling for console.log" << std::endl;
                 // For console.log, we don't pass the console object, just the arguments
@@ -1501,19 +1502,46 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
                     }
                     
-                    // Special handling for console.log calls - convert arguments to void* pointers
+                    // Special handling for console.log calls - call appropriate function based on type
                     if (function && function->getName().str() == "console_log") {
                         std::cout << "DEBUG: CallExpression - Converting argument for console.log" << std::endl;
-                        // For console.log, we need to pass the argument as a void* pointer
+                        // For console.log, we need to call the appropriate function based on the argument type
                         if (argValue->getType() == getNumberType()) {
-                            // For numbers, we need to pass a pointer to the value
-                            // Create a temporary variable to store the value
+                            // For numbers, call console_log with void* pointer
                             llvm::Value* tempVar = builder_->CreateAlloca(getNumberType(), nullptr, "temp_arg");
                             builder_->CreateStore(argValue, tempVar);
                             argValue = builder_->CreateBitCast(tempVar, llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0));
+                        } else if (argValue->getType() == getBooleanType()) {
+                            // For booleans, call console_log_bool with int value
+                            llvm::Function* boolFunc = module_->getFunction("console_log_bool");
+                            if (!boolFunc) {
+                                // Create console_log_bool function
+                                llvm::Type* voidType = llvm::Type::getVoidTy(*context_);
+                                llvm::Type* intType = llvm::Type::getInt32Ty(*context_);
+                                std::vector<llvm::Type*> paramTypes = {intType};
+                                llvm::FunctionType* funcType = llvm::FunctionType::get(voidType, paramTypes, false);
+                                boolFunc = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, "console_log_bool", module_.get());
+                            }
+                            // Convert boolean to int and call console_log_bool
+                            llvm::Value* boolAsInt = builder_->CreateZExt(argValue, llvm::Type::getInt32Ty(*context_));
+                            builder_->CreateCall(boolFunc, {boolAsInt});
+                            consoleLogHandled = true;
+                            continue; // Skip adding to args since we already called the function
                         } else if (argValue->getType()->isPointerTy()) {
-                            // For pointers, just cast to void*
-                            argValue = builder_->CreateBitCast(argValue, llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0));
+                            // For strings, call console_log_string with char* value
+                            llvm::Function* strFunc = module_->getFunction("console_log_string");
+                            if (!strFunc) {
+                                // Create console_log_string function
+                                llvm::Type* voidType = llvm::Type::getVoidTy(*context_);
+                                llvm::Type* charPtrType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+                                std::vector<llvm::Type*> paramTypes = {charPtrType};
+                                llvm::FunctionType* funcType = llvm::FunctionType::get(voidType, paramTypes, false);
+                                strFunc = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, "console_log_string", module_.get());
+                            }
+                            // Call console_log_string with the string value
+                            builder_->CreateCall(strFunc, {argValue});
+                            consoleLogHandled = true;
+                            continue; // Skip adding to args since we already called the function
                         }
                     }
                     
@@ -1563,15 +1591,20 @@ void LLVMCodeGen::visit(CallExpression& node) {
             
             // Generate the method call
             llvm::Value* callResult;
-            if (function->getReturnType()->isVoidTy()) {
+            if (consoleLogHandled) {
+                // Console.log was already handled by specialized functions, no need to call the main function
+                std::cout << "DEBUG: Console.log already handled by specialized functions" << std::endl;
+                setCurrentValue(nullptr); // No return value for void functions
+            } else if (function->getReturnType()->isVoidTy()) {
                 // Don't assign a name to void method calls
                 callResult = builder_->CreateCall(function, args);
                 std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
+                setCurrentValue(callResult);
             } else {
                 callResult = builder_->CreateCall(function, args, "method_call_result");
                 std::cout << "DEBUG: Created function call to " << function->getName().str() << std::endl;
+                setCurrentValue(callResult);
             }
-            setCurrentValue(callResult);
             return;
         } else if (calleeValue) {
             // The property access returned a result - check if it's a function that needs to be called

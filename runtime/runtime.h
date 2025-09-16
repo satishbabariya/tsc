@@ -29,6 +29,8 @@ void _print(void* first_arg, ...);
 
 // Console operations
 void console_log(void* value);
+void console_log_bool(int value);
+void console_log_string(char* value);
 
 // Memory operations are handled by ARC runtime functions
 // See arc/arc_runtime.h for __tsc_alloc, __tsc_retain, __tsc_release, etc.
