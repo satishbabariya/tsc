@@ -5140,8 +5140,8 @@ llvm::Value* LLVMCodeGen::generateBinaryOp(BinaryExpression::Operator op, llvm::
                                            llvm::Value* right, llvm::Type* leftType, llvm::Type* rightType) {
     switch (op) {
         case BinaryExpression::Operator::Add:
-            // Check if it's string concatenation (both operands must be string type)
-            if (leftType == getStringType() && rightType == getStringType()) {
+            // Check if it's string concatenation (at least one operand is string type)
+            if (leftType == getStringType() || rightType == getStringType()) {
                 return generateStringConcat(left, right);
             }
             return generateArithmeticOp(op, left, right);
@@ -5287,9 +5287,13 @@ llvm::Value* LLVMCodeGen::generateLogicalOp(BinaryExpression::Operator op,
 }
 
 llvm::Value* LLVMCodeGen::generateStringConcat(llvm::Value* left, llvm::Value* right) {
-    // For now, use a simple string concatenation function
+    // Convert operands to strings if needed
+    llvm::Value* leftStr = convertToString(left, left->getType());
+    llvm::Value* rightStr = convertToString(right, right->getType());
+    
+    // Use string concatenation function
     llvm::Function* concatFunc = getOrCreateStringConcatFunction();
-    return builder_->CreateCall(concatFunc, {left, right}, "strcat");
+    return builder_->CreateCall(concatFunc, {leftStr, rightStr}, "strcat");
 }
 
 // Unary operations implementation
@@ -5350,6 +5354,24 @@ llvm::Value* LLVMCodeGen::convertToBoolean(llvm::Value* value, llvm::Type* fromT
     }
     // For other types, return false for now
     return createBooleanLiteral(false);
+}
+
+llvm::Value* LLVMCodeGen::convertToString(llvm::Value* value, llvm::Type* fromType) {
+    if (fromType == getStringType()) {
+        return value; // Already a string
+    }
+    if (fromType->isDoubleTy()) {
+        // Number to string - use a runtime function
+        llvm::Function* numToStrFunc = getOrCreateNumberToStringFunction();
+        return builder_->CreateCall(numToStrFunc, {value}, "num_to_str");
+    }
+    if (fromType->isIntegerTy(1)) {
+        // Boolean to string - use a runtime function
+        llvm::Function* boolToStrFunc = getOrCreateBooleanToStringFunction();
+        return builder_->CreateCall(boolToStrFunc, {value}, "bool_to_str");
+    }
+    // For other types, return empty string for now
+    return createStringLiteral("");
 }
 
 // Function generation implementation
