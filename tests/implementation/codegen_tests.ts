@@ -578,19 +578,19 @@ function testErrorHandling(): void {
         // Test function pointer with null
         let funcPtr: (() => void) | null = null;
         if (funcPtr !== null) {
-            funcPtr();
+            (funcPtr as () => void)();
         }
         
         // Test method call on null object
         let obj: TestClass | null = null;
         if (obj !== null) {
-            obj.getValue();
+            (obj as TestClass).getValue();
         }
         
         // Test property access on undefined
         let propObj: PropertyTestClass | undefined = undefined;
         if (propObj !== undefined) {
-            console.log(propObj.publicProperty);
+            console.log((propObj as PropertyTestClass).publicProperty);
         }
         
         // Test index access out of bounds

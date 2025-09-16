@@ -589,13 +589,13 @@ function testARCErrorHandling(): void {
         // Test null reference handling
         let obj: LifecycleTestClass | null = null;
         if (obj !== null) {
-            obj.getName();
+            (obj as LifecycleTestClass).getName();
         }
         
         // Test undefined reference handling
         let obj2: LifecycleTestClass | undefined = undefined;
         if (obj2 !== undefined) {
-            obj2.getId();
+            (obj2 as LifecycleTestClass).getId();
         }
         
         // Test reference after destruction

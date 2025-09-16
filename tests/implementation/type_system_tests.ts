@@ -148,7 +148,7 @@ enum NumericEnum {
 enum MixedEnum {
     StringValue = "string",
     NumericValue = 42,
-    BooleanValue = true
+    BooleanValue = 1  // Use 1 instead of true for enum value
 }
 
 function testEnumEquivalence(): void {
@@ -158,7 +158,7 @@ function testEnumEquivalence(): void {
     let stringEnum3: StringEnum = StringEnum.Second;
     
     console.log(`String enum equivalence: ${stringEnum1} === ${stringEnum2} = ${stringEnum1 === stringEnum2}`);
-    console.log(`String enum non-equivalence: ${stringEnum1} === ${stringEnum3} = ${stringEnum1 === stringEnum3}`);
+    console.log(`String enum non-equivalence: ${stringEnum1} === ${stringEnum3} = ${(stringEnum1 as any) === (stringEnum3 as any)}`);
     
     // Test numeric enum equivalence
     let numericEnum1: NumericEnum = NumericEnum.One;
@@ -166,7 +166,7 @@ function testEnumEquivalence(): void {
     let numericEnum3: NumericEnum = NumericEnum.Two;
     
     console.log(`Numeric enum equivalence: ${numericEnum1} === ${numericEnum2} = ${numericEnum1 === numericEnum2}`);
-    console.log(`Numeric enum non-equivalence: ${numericEnum1} === ${numericEnum3} = ${numericEnum1 === numericEnum3}`);
+    console.log(`Numeric enum non-equivalence: ${numericEnum1} === ${numericEnum3} = ${(numericEnum1 as any) === (numericEnum3 as any)}`);
     
     // Test mixed enum equivalence
     let mixedEnum1: MixedEnum = MixedEnum.StringValue;
@@ -174,7 +174,7 @@ function testEnumEquivalence(): void {
     let mixedEnum3: MixedEnum = MixedEnum.NumericValue;
     
     console.log(`Mixed enum equivalence: ${mixedEnum1} === ${mixedEnum2} = ${mixedEnum1 === mixedEnum2}`);
-    console.log(`Mixed enum non-equivalence: ${mixedEnum1} === ${mixedEnum3} = ${mixedEnum1 === mixedEnum3}`);
+    console.log(`Mixed enum non-equivalence: ${mixedEnum1} === ${mixedEnum3} = ${(mixedEnum1 as any) === (mixedEnum3 as any)}`);
 }
 
 // =============================================================================

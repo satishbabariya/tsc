@@ -405,7 +405,7 @@ add_custom_target(test_all
 
 # Add custom target for running implementation tests
 add_custom_target(test_implementation
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/implementation/run_all_implementation_tests.ts
+    COMMAND npx ts-node ${CMAKE_CURRENT_SOURCE_DIR}/tests/implementation/run_all_implementation_tests.ts
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Running all implementation tests"
     VERBATIM
@@ -413,7 +413,7 @@ add_custom_target(test_implementation
 
 # Add custom target for running implementation tests with verbose output
 add_custom_target(test_implementation_verbose
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/implementation/run_all_implementation_tests.ts --verbose
+    COMMAND npx ts-node ${CMAKE_CURRENT_SOURCE_DIR}/tests/implementation/run_all_implementation_tests.ts --verbose
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Running all implementation tests with verbose output"
     VERBATIM

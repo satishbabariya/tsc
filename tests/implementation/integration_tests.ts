@@ -9,7 +9,7 @@
 enum ComplexEnum {
     StringValue = "complex_string",
     NumericValue = 42,
-    BooleanValue = true
+    BooleanValue = 1  // Use 1 instead of true for enum value
 }
 
 // Test generic with enum constraints
@@ -384,6 +384,10 @@ class FullPipelineTest {
     
     getName(): string {
         return this.name;
+    }
+    
+    getData(): number[] {
+        return this.data;
     }
     
     destructor(): void {

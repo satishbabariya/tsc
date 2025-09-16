@@ -1,0 +1,29 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "A TypeScript-syntax static language compiler that generates native binaries using LLVM.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/satishbabariya/tsc.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/satishbabariya/tsc/issues"
+  },
+  "homepage": "https://github.com/satishbabariya/tsc#readme",
+  "dependencies": {
+    "@types/node": "^24.5.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}

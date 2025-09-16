@@ -190,7 +190,7 @@ enum NumericEnum {
 enum MixedEnum {
     StringValue = "string",
     NumericValue = 42,
-    BooleanValue = true
+    BooleanValue = 1  // Use 1 instead of true for enum value
 }
 
 // Test enum with constant expressions
@@ -492,7 +492,7 @@ function testErrorHandling(): void {
     try {
         // Test tuple index out of bounds
         let tuple: [string, number] = ["hello", 42];
-        let invalidIndex = tuple[5]; // Should handle gracefully
+        let invalidIndex = (tuple as any)[5]; // Should handle gracefully
         console.log(`Invalid tuple index: ${invalidIndex}`);
         
         // Test enum with invalid value
