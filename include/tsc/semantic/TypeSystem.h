@@ -19,6 +19,7 @@ class UnaryExpression;
 class InterfaceDeclaration;
 class EnumDeclaration;
 class TypeAliasDeclaration;
+class GenericConstraintChecker;
 
 // Type categories for the TypeScript type system
 enum class TypeKind {
@@ -307,6 +308,7 @@ public:
     
     String toString() const override { return name_; }
     bool isEquivalentTo(const Type& other) const override;
+    bool isStructurallyCompatible(const ClassType& other) const;
 
 private:
     String name_;
@@ -330,6 +332,7 @@ public:
     
     String toString() const override { return name_; }
     bool isEquivalentTo(const Type& other) const override;
+    bool isStructurallyCompatible(const InterfaceType& other) const;
 
 private:
     String name_;
@@ -350,6 +353,7 @@ public:
     
     String toString() const override { return name_; }
     bool isEquivalentTo(const Type& other) const override;
+    bool isStructurallyCompatible(const EnumType& other) const;
 
 private:
     String name_;
@@ -499,6 +503,7 @@ public:
     shared_ptr<Type> getCommonType(const Type& type1, const Type& type2) const;
     shared_ptr<Type> widenType(const Type& type) const;
     bool isConvertibleToBoolean(shared_ptr<Type> type) const;
+    bool isConvertibleToString(shared_ptr<Type> type) const;
     bool isArrayType(shared_ptr<Type> type) const;
     shared_ptr<Type> getArrayElementType(shared_ptr<Type> arrayType) const;
     
@@ -512,6 +517,9 @@ public:
     // Utilities
     String typeToString(const Type& type) const;
     void printTypeHierarchy() const;
+    
+    // Generic constraint checking
+    GenericConstraintChecker* getConstraintChecker() const;
 
 private:
     // Built-in types
@@ -528,6 +536,9 @@ private:
     
     // Type cache for performance (mutable to allow caching in const methods)
     mutable std::unordered_map<String, shared_ptr<Type>> typeCache_;
+    
+    // Generic constraint checker for type substitution
+    mutable std::unique_ptr<GenericConstraintChecker> constraintChecker_;
     
     void initializeBuiltinTypes();
     String getCacheKey(TypeKind kind, const std::vector<shared_ptr<Type>>& types) const;

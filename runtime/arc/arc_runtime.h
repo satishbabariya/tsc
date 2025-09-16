@@ -32,6 +32,8 @@ void __tsc_dealloc(void* obj);
 // Cycle detection
 bool __tsc_has_cycles(void* obj);
 void __tsc_break_cycles(void* obj);
+void __tsc_cleanup_cycle_detection(void);
+void __tsc_dump_cycle_context(void);
 
 // Debug functions
 void __tsc_print_ref_counts(void* obj);
@@ -56,6 +58,21 @@ typedef struct {
 
 ARC_MemoryStats __tsc_get_memory_stats(void);
 void __tsc_reset_memory_stats(void);
+
+// Enhanced memory management functions
+void __tsc_enable_leak_detection(bool enable);
+void __tsc_register_allocation(void* obj, size_t size, void* type_info, const char* site);
+void __tsc_unregister_allocation(void* obj);
+void __tsc_report_leaks(void);
+
+// Performance monitoring functions
+void __tsc_enable_optimizations(bool enable);
+void __tsc_enable_cycle_detection(bool enable);
+void __tsc_enable_memory_pooling(bool enable);
+void __tsc_memory_pool_stats(void);
+
+// Cleanup function
+void __tsc_cleanup_arc_runtime(void);
 
 #ifdef __cplusplus
 }

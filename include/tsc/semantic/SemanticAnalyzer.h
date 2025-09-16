@@ -35,6 +35,10 @@ public:
     void enterLoop() { loopDepth_++; }
     void exitLoop() { if (loopDepth_ > 0) loopDepth_--; }
     
+    bool isInSwitch() const { return switchDepth_ > 0; }
+    void enterSwitch() { switchDepth_++; }
+    void exitSwitch() { if (switchDepth_ > 0) switchDepth_--; }
+    
     // Error tracking
     size_t getErrorCount() const { return errorCount_; }
     void incrementErrorCount() { errorCount_++; }
@@ -46,6 +50,7 @@ private:
     
     shared_ptr<Type> currentFunctionReturnType_;
     int loopDepth_ = 0;
+    int switchDepth_ = 0;
     size_t errorCount_ = 0;
 };
 
@@ -158,6 +163,8 @@ private:
     shared_ptr<Type> inferReturnType(const Statement& body);
     shared_ptr<Type> findMemberType(shared_ptr<Type> type, const String& memberName);
     void collectNestedFunctionDeclarations(const Statement& stmt);
+    bool isValidIndexType(shared_ptr<Type> type) const;
+    shared_ptr<Type> createObjectTypeFromProperties(const std::vector<std::pair<String, shared_ptr<Type>>>& properties) const;
     void markCurrentFunctionAsCaptured();
     void markVariableAsCaptured(Symbol* symbol);
     DiagnosticEngine& diagnostics_;
@@ -272,6 +279,9 @@ private:
     FunctionDeclaration* getFunctionDeclaration(const String& functionName);
     bool validateFunctionArguments(const CallExpression& call, const FunctionType& functionType);
     bool validateGenericFunctionCall(const CallExpression& call, const FunctionDeclaration& funcDecl, const FunctionType& functionType);
+    bool validateGenericInterfaceInheritance(GenericType* genericType, const SourceLocation& location);
+    bool validateInterfaceInheritance(shared_ptr<Type> extendedType, const SourceLocation& location);
+    bool checkCircularInterfaceInheritance(shared_ptr<Type> interfaceType, const SourceLocation& location);
     
     // ARC Memory Management Analysis
     void analyzeOwnership(const Expression& expr);

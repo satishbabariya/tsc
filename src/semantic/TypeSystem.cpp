@@ -1,4 +1,6 @@
 #include "tsc/semantic/TypeSystem.h"
+#include "tsc/semantic/GenericConstraintChecker.h"
+#include "tsc/utils/DiagnosticEngine.h"
 #include "tsc/AST.h"
 #include <sstream>
 #include <algorithm>
@@ -331,10 +333,23 @@ shared_ptr<Type> TypeSystem::createGenericType(shared_ptr<Type> baseType, std::v
 
 shared_ptr<Type> TypeSystem::instantiateGenericType(shared_ptr<Type> genericType, 
                                                    const std::vector<shared_ptr<Type>>& typeArguments) const {
-    // For now, create a new generic type with the provided arguments
-    // In a full implementation, this would perform type substitution
     if (auto generic = dynamic_cast<GenericType*>(genericType.get())) {
-        return createGenericType(generic->getBaseType(), typeArguments);
+        // Create type parameter substitution map
+        // For now, we need to get the type parameters from the base type
+        // This is a simplified implementation - in a full implementation,
+        // we would need access to the class/function declaration to get the type parameters
+        std::unordered_map<String, shared_ptr<Type>> substitutions;
+        
+        // For now, assume type parameters are named T, U, V, etc. in order
+        // This is a placeholder - in a real implementation, we'd get the actual parameter names
+        const char* paramNames[] = {"T", "U", "V", "W", "X", "Y", "Z"};
+        for (size_t i = 0; i < typeArguments.size() && i < 7; ++i) {
+            substitutions[paramNames[i]] = typeArguments[i];
+        }
+        
+        // Perform type substitution using GenericConstraintChecker
+        auto constraintChecker = getConstraintChecker();
+        return constraintChecker->substituteTypeParameters(generic->getBaseType(), substitutions);
     }
     
     // If it's not a generic type, just return it as-is
@@ -549,6 +564,31 @@ bool TypeSystem::isConvertibleToBoolean(shared_ptr<Type> type) const {
     }
 }
 
+bool TypeSystem::isConvertibleToString(shared_ptr<Type> type) const {
+    if (!type) return true; // any can be converted to string
+    
+    switch (type->getKind()) {
+        case TypeKind::String:
+            return true;
+        case TypeKind::Number:
+        case TypeKind::Boolean:
+        case TypeKind::Any:
+        case TypeKind::Unknown:
+            return true; // These types can be converted to string
+        case TypeKind::Null:
+        case TypeKind::Undefined:
+            return true; // These can be converted to string ("null", "undefined")
+        case TypeKind::Object:
+        case TypeKind::Array:
+        case TypeKind::Function:
+            return true; // Objects can be converted to string (toString method)
+        case TypeKind::Void:
+            return false; // void cannot be converted to string
+        default:
+            return false; // Other types require explicit conversion
+    }
+}
+
 bool TypeSystem::isArrayType(shared_ptr<Type> type) const {
     return type && type->getKind() == TypeKind::Array;
 }
@@ -630,9 +670,93 @@ bool ClassType::isEquivalentTo(const Type& other) const {
     
     const auto& otherClass = static_cast<const ClassType&>(other);
     
-    // Classes are equivalent if they have the same name
-    // In a full implementation, we might also check for structural compatibility
-    return name_ == otherClass.name_;
+    // First check name-based equivalence (nominal typing)
+    if (name_ == otherClass.name_) {
+        return true;
+    }
+    
+    // Then check structural compatibility
+    return isStructurallyCompatible(otherClass);
+}
+
+bool ClassType::isStructurallyCompatible(const ClassType& other) const {
+    // If either class doesn't have a declaration, we can't check structural compatibility
+    if (!declaration_ || !other.declaration_) {
+        return false;
+    }
+    
+    // Check if they have the same number of properties
+    if (declaration_->getProperties().size() != other.declaration_->getProperties().size()) {
+        return false;
+    }
+    
+    // Check if they have the same number of methods
+    if (declaration_->getMethods().size() != other.declaration_->getMethods().size()) {
+        return false;
+    }
+    
+    // Check property compatibility
+    for (const auto& prop : declaration_->getProperties()) {
+        bool foundMatchingProperty = false;
+        for (const auto& otherProp : other.declaration_->getProperties()) {
+            if (prop->getName() == otherProp->getName()) {
+                // Check if property types are compatible
+                if (prop->getType() && otherProp->getType()) {
+                    if (!prop->getType()->isEquivalentTo(*otherProp->getType())) {
+                        return false;
+                    }
+                } else if (prop->getType() != otherProp->getType()) {
+                    return false;
+                }
+                foundMatchingProperty = true;
+                break;
+            }
+        }
+        if (!foundMatchingProperty) {
+            return false;
+        }
+    }
+    
+    // Check method compatibility
+    for (const auto& method : declaration_->getMethods()) {
+        bool foundMatchingMethod = false;
+        for (const auto& otherMethod : other.declaration_->getMethods()) {
+            if (method->getName() == otherMethod->getName()) {
+                // Check if method signatures are compatible
+                if (method->getParameters().size() != otherMethod->getParameters().size()) {
+                    return false;
+                }
+                
+                // Check parameter types
+                for (size_t i = 0; i < method->getParameters().size(); ++i) {
+                    if (method->getParameters()[i].type && otherMethod->getParameters()[i].type) {
+                        if (!method->getParameters()[i].type->isEquivalentTo(*otherMethod->getParameters()[i].type)) {
+                            return false;
+                        }
+                    } else if (method->getParameters()[i].type != otherMethod->getParameters()[i].type) {
+                        return false;
+                    }
+                }
+                
+                // Check return types
+                if (method->getReturnType() && otherMethod->getReturnType()) {
+                    if (!method->getReturnType()->isEquivalentTo(*otherMethod->getReturnType())) {
+                        return false;
+                    }
+                } else if (method->getReturnType() != otherMethod->getReturnType()) {
+                    return false;
+                }
+                
+                foundMatchingMethod = true;
+                break;
+            }
+        }
+        if (!foundMatchingMethod) {
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 // InterfaceType implementation
@@ -643,9 +767,93 @@ bool InterfaceType::isEquivalentTo(const Type& other) const {
     
     const auto& otherInterface = static_cast<const InterfaceType&>(other);
     
-    // Interfaces are equivalent if they have the same name
-    // In a full implementation, we might also check for structural compatibility
-    return name_ == otherInterface.name_;
+    // First check name-based equivalence (nominal typing)
+    if (name_ == otherInterface.name_) {
+        return true;
+    }
+    
+    // Then check structural compatibility
+    return isStructurallyCompatible(otherInterface);
+}
+
+bool InterfaceType::isStructurallyCompatible(const InterfaceType& other) const {
+    // If either interface doesn't have a declaration, we can't check structural compatibility
+    if (!declaration_ || !other.declaration_) {
+        return false;
+    }
+    
+    // Check if they have the same number of properties
+    if (declaration_->getProperties().size() != other.declaration_->getProperties().size()) {
+        return false;
+    }
+    
+    // Check if they have the same number of methods
+    if (declaration_->getMethods().size() != other.declaration_->getMethods().size()) {
+        return false;
+    }
+    
+    // Check property compatibility
+    for (const auto& prop : declaration_->getProperties()) {
+        bool foundMatchingProperty = false;
+        for (const auto& otherProp : other.declaration_->getProperties()) {
+            if (prop->getName() == otherProp->getName()) {
+                // Check if property types are compatible
+                if (prop->getType() && otherProp->getType()) {
+                    if (!prop->getType()->isEquivalentTo(*otherProp->getType())) {
+                        return false;
+                    }
+                } else if (prop->getType() != otherProp->getType()) {
+                    return false;
+                }
+                foundMatchingProperty = true;
+                break;
+            }
+        }
+        if (!foundMatchingProperty) {
+            return false;
+        }
+    }
+    
+    // Check method compatibility
+    for (const auto& method : declaration_->getMethods()) {
+        bool foundMatchingMethod = false;
+        for (const auto& otherMethod : other.declaration_->getMethods()) {
+            if (method->getName() == otherMethod->getName()) {
+                // Check if method signatures are compatible
+                if (method->getParameters().size() != otherMethod->getParameters().size()) {
+                    return false;
+                }
+                
+                // Check parameter types
+                for (size_t i = 0; i < method->getParameters().size(); ++i) {
+                    if (method->getParameters()[i].type && otherMethod->getParameters()[i].type) {
+                        if (!method->getParameters()[i].type->isEquivalentTo(*otherMethod->getParameters()[i].type)) {
+                            return false;
+                        }
+                    } else if (method->getParameters()[i].type != otherMethod->getParameters()[i].type) {
+                        return false;
+                    }
+                }
+                
+                // Check return types
+                if (method->getReturnType() && otherMethod->getReturnType()) {
+                    if (!method->getReturnType()->isEquivalentTo(*otherMethod->getReturnType())) {
+                        return false;
+                    }
+                } else if (method->getReturnType() != otherMethod->getReturnType()) {
+                    return false;
+                }
+                
+                foundMatchingMethod = true;
+                break;
+            }
+        }
+        if (!foundMatchingMethod) {
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 // EnumType implementation
@@ -656,9 +864,46 @@ bool EnumType::isEquivalentTo(const Type& other) const {
     
     const auto& otherEnum = static_cast<const EnumType&>(other);
     
-    // Enums are equivalent if they have the same name
-    // In a full implementation, we might also check for structural compatibility
-    return name_ == otherEnum.name_;
+    // First check name-based equivalence (nominal typing)
+    if (name_ == otherEnum.name_) {
+        return true;
+    }
+    
+    // Then check structural compatibility
+    return isStructurallyCompatible(otherEnum);
+}
+
+bool EnumType::isStructurallyCompatible(const EnumType& other) const {
+    // If either enum doesn't have a declaration, we can't check structural compatibility
+    if (!declaration_ || !other.declaration_) {
+        return false;
+    }
+    
+    // Check if they have the same number of members
+    if (declaration_->getMembers().size() != other.declaration_->getMembers().size()) {
+        return false;
+    }
+    
+    // Check member compatibility
+    for (const auto& member : declaration_->getMembers()) {
+        bool foundMatchingMember = false;
+        for (const auto& otherMember : other.declaration_->getMembers()) {
+            if (member->getName() == otherMember->getName()) {
+                // For enum members, we check if both have values or both don't have values
+                // In a full implementation, we'd also check if the values are equivalent
+                if ((member->getValue() != nullptr) != (otherMember->getValue() != nullptr)) {
+                    return false;
+                }
+                foundMatchingMember = true;
+                break;
+            }
+        }
+        if (!foundMatchingMember) {
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 // AliasType implementation
@@ -741,6 +986,16 @@ shared_ptr<Type> TypeSystem::createSharedPtrType(shared_ptr<Type> elementType) c
 
 shared_ptr<Type> TypeSystem::createWeakPtrType(shared_ptr<Type> elementType) const {
     return make_shared<SmartPointerType>(SmartPointerType::Kind::Weak, elementType);
+}
+
+GenericConstraintChecker* TypeSystem::getConstraintChecker() const {
+    if (!constraintChecker_) {
+        // Create a dummy DiagnosticEngine for now
+        // In a full implementation, this would be passed from the caller
+        static DiagnosticEngine dummyDiagnostics;
+        constraintChecker_ = make_unique<GenericConstraintChecker>(dummyDiagnostics, const_cast<TypeSystem&>(*this));
+    }
+    return constraintChecker_.get();
 }
 
 } // namespace tsc

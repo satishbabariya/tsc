@@ -191,8 +191,24 @@ bool GenericConstraintChecker::satisfiesConstraint(shared_ptr<Type> type, shared
         return true; // No constraint to satisfy
     }
 
-    // Check if type satisfies the constraint
-    return isSubtypeOf(type, constraint);
+    // Handle different constraint types
+    switch (constraint->getKind()) {
+        case TypeKind::Class:
+            return checkClassConstraint(constraint, type);
+        case TypeKind::Interface:
+            return checkInterfaceConstraint(constraint, type);
+        case TypeKind::Union:
+            return checkUnionConstraint(constraint, type);
+        case TypeKind::Intersection:
+            return checkIntersectionConstraint(constraint, type);
+        case TypeKind::Number:
+        case TypeKind::String:
+        case TypeKind::Boolean:
+            return checkPrimitiveConstraint(constraint, type);
+        default:
+            // Fall back to subtype checking
+            return isSubtypeOf(type, constraint);
+    }
 }
 
 bool GenericConstraintChecker::isSubtypeOf(shared_ptr<Type> subtype, shared_ptr<Type> supertype) {
@@ -333,8 +349,26 @@ bool GenericConstraintChecker::checkInterfaceConstraint(shared_ptr<Type> constra
     }
 
     // Check if typeArgument implements the constraint interface
-    // This is a simplified implementation
-    return typeArgument->isEquivalentTo(*constraint);
+    if (typeArgument->getKind() == TypeKind::Class) {
+        auto classType = std::static_pointer_cast<ClassType>(typeArgument);
+        auto constraintInterface = std::static_pointer_cast<InterfaceType>(constraint);
+        
+        // Check if the class implements the interface
+        // This would require checking the class's implemented interfaces
+        // For now, we'll use subtype checking
+        return isSubtypeOf(typeArgument, constraint);
+    }
+    
+    if (typeArgument->getKind() == TypeKind::Interface) {
+        auto typeArgInterface = std::static_pointer_cast<InterfaceType>(typeArgument);
+        auto constraintInterface = std::static_pointer_cast<InterfaceType>(constraint);
+        
+        // Check if the interface extends the constraint interface
+        return typeArgInterface->isStructurallyCompatible(*constraintInterface);
+    }
+    
+    // For other types, check if they're equivalent or subtypes
+    return typeArgument->isEquivalentTo(*constraint) || isSubtypeOf(typeArgument, constraint);
 }
 
 bool GenericConstraintChecker::checkUnionConstraint(shared_ptr<Type> constraint, shared_ptr<Type> typeArgument) {

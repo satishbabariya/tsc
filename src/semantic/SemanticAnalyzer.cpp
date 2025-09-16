@@ -200,20 +200,6 @@ void SemanticAnalyzer::visit(StringLiteral& node) {
     setExpressionType(node, type);
 }
 
-// TODO: Template literals semantic analysis
-/*
-void SemanticAnalyzer::visit(TemplateLiteral& node) {
-    // Analyze all expressions within the template literal
-    for (const auto& element : node.getElements()) {
-        if (element.isExpression()) {
-            element.getExpression()->accept(*this);
-        }
-    }
-    
-    // Template literals result in strings
-    setExpressionType(node, typeSystem_->getStringType());
-}
-*/
 
 void SemanticAnalyzer::visit(BooleanLiteral& node) {
     auto type = typeSystem_->getBooleanType();
@@ -465,8 +451,11 @@ void SemanticAnalyzer::visit(ConditionalExpression& node) {
     auto trueType = getExpressionType(*node.getTrueExpression());
     auto falseType = getExpressionType(*node.getFalseExpression());
     
-    // Condition should be boolean (but we allow any type for now)
-    // TODO: Add proper boolean conversion checking
+    // Check if condition is convertible to boolean
+    if (conditionType && !typeSystem_->isConvertibleToBoolean(conditionType)) {
+        reportError("Condition must be convertible to boolean, got: " + conditionType->toString(), 
+                   node.getCondition()->getLocation());
+    }
     
     // Result type is the union of true and false types
     // For now, use the true type if both are the same, otherwise use any
@@ -521,23 +510,54 @@ void SemanticAnalyzer::visit(CallExpression& node) {
 }
 
 void SemanticAnalyzer::visit(ArrayLiteral& node) {
+    std::cout << "DEBUG: Analyzing array literal with " << node.getElements().size() << " elements" << std::endl;
+    
     // Analyze all elements
-    for (const auto& element : node.getElements()) {
-        element->accept(*this);
+    std::vector<shared_ptr<Type>> elementTypes;
+    bool hasSpreadElements = false;
+    
+    for (size_t i = 0; i < node.getElements().size(); ++i) {
+        const auto& element = node.getElements()[i];
+        
+        if (auto spreadElement = dynamic_cast<SpreadElement*>(element.get())) {
+            std::cout << "DEBUG: Found spread element at index " << i << std::endl;
+            hasSpreadElements = true;
+            
+            // Analyze the spread element
+            spreadElement->accept(*this);
+            auto spreadType = getExpressionType(*spreadElement);
+            
+            if (spreadType && spreadType->getKind() == TypeKind::Array) {
+                // Get the element type of the spread array
+                auto arrayType = static_cast<ArrayType*>(spreadType.get());
+                auto spreadElementType = arrayType->getElementType();
+                elementTypes.push_back(spreadElementType);
+                std::cout << "DEBUG: Spread array element type: " << spreadElementType->toString() << std::endl;
+            } else {
+                // For non-array spreads or unknown types, use 'any'
+                elementTypes.push_back(typeSystem_->getAnyType());
+                std::cout << "DEBUG: Spread non-array type: " << (spreadType ? spreadType->toString() : "unknown") << std::endl;
+            }
+        } else {
+            // Regular element
+            element->accept(*this);
+            auto elementType = getExpressionType(*element);
+            elementTypes.push_back(elementType);
+            std::cout << "DEBUG: Regular element " << i << " type: " << (elementType ? elementType->toString() : "unknown") << std::endl;
+        }
     }
     
     // Infer array type based on elements
-    shared_ptr<Type> elementType = typeSystem_->getAnyType(); // Default
+    shared_ptr<Type> resultElementType = typeSystem_->getAnyType(); // Default
     
-    if (!node.getElements().empty()) {
+    if (!elementTypes.empty()) {
         // Get type of first element
-        elementType = getExpressionType(*node.getElements()[0]);
+        resultElementType = elementTypes[0];
         
         // Check if all elements have the same type
         bool allSameType = true;
-        for (size_t i = 1; i < node.getElements().size(); ++i) {
-            auto currentElementType = getExpressionType(*node.getElements()[i]);
-            if (!elementType->isEquivalentTo(*currentElementType)) {
+        for (size_t i = 1; i < elementTypes.size(); ++i) {
+            if (!resultElementType->isEquivalentTo(*elementTypes[i])) {
                 allSameType = false;
                 break;
             }
@@ -545,31 +565,57 @@ void SemanticAnalyzer::visit(ArrayLiteral& node) {
         
         // If elements have different types, use 'any' as element type
         if (!allSameType) {
-            elementType = typeSystem_->getAnyType();
+            resultElementType = typeSystem_->getAnyType();
+            std::cout << "DEBUG: Array has mixed element types, using 'any'" << std::endl;
+        } else {
+            std::cout << "DEBUG: Array has uniform element type: " << resultElementType->toString() << std::endl;
         }
     } else {
-        // For empty arrays, we need to be more careful about type inference
-        // Check if this array literal is in an assignment context
-        // If so, we'll let the assignment checker handle the type compatibility
-        // For now, use 'any' as the default element type for empty arrays
-        elementType = typeSystem_->getAnyType();
+        // For empty arrays, use 'any' as the default element type
+        std::cout << "DEBUG: Empty array, using 'any' element type" << std::endl;
     }
     
-    auto arrayType = typeSystem_->createArrayType(elementType);
+    auto arrayType = typeSystem_->createArrayType(resultElementType);
     setExpressionType(node, arrayType);
+    std::cout << "DEBUG: Array literal type: " << arrayType->toString() << std::endl;
 }
 
 void SemanticAnalyzer::visit(TemplateLiteral& node) {
-    // TODO: Implement template literal semantic analysis
-    // For now, just analyze all elements and set type to string
-    for (const auto& element : node.getElements()) {
+    std::cout << "DEBUG: Analyzing template literal with " << node.getElements().size() << " elements" << std::endl;
+    
+    // Analyze all template elements
+    for (size_t i = 0; i < node.getElements().size(); ++i) {
+        const auto& element = node.getElements()[i];
+        
         if (element.isExpression()) {
+            std::cout << "DEBUG: Analyzing template expression at position " << i << std::endl;
+            
+            // Analyze the expression
             element.getExpression()->accept(*this);
+            
+            // Get the type of the expression
+            auto exprType = getExpressionType(*element.getExpression());
+            if (!exprType) {
+                reportError("Could not determine type of expression in template literal", node.getLocation());
+                setExpressionType(node, typeSystem_->getStringType());
+                return;
+            }
+            
+            // Check if the expression type can be converted to string
+            if (!typeSystem_->isConvertibleToString(exprType)) {
+                reportError("Expression in template literal cannot be converted to string: " + exprType->toString(), 
+                           node.getLocation());
+            }
+            
+            std::cout << "DEBUG: Template expression type: " << exprType->toString() << std::endl;
+        } else {
+            std::cout << "DEBUG: Template text element at position " << i << ": \"" << element.getText() << "\"" << std::endl;
         }
     }
     
-    // Template literals always result in strings
+    // Template literals always result in string type
     setExpressionType(node, typeSystem_->getStringType());
+    std::cout << "DEBUG: Template literal type set to: string" << std::endl;
 }
 
 void SemanticAnalyzer::visit(IndexExpression& node) {
@@ -580,27 +626,99 @@ void SemanticAnalyzer::visit(IndexExpression& node) {
     auto objectType = getExpressionType(*node.getObject());
     auto indexType = getExpressionType(*node.getIndex());
     
-    // Check if object is indexable (array, string, etc.)
-    // For now, assume it returns the element type or any
-    // TODO: Implement proper indexing type checking
-    if (objectType && typeSystem_->isArrayType(objectType)) {
-        auto elementType = typeSystem_->getArrayElementType(objectType);
-        setExpressionType(node, elementType);
+    // Check if object is indexable and validate index type
+    shared_ptr<Type> resultType = nullptr;
+    
+    if (objectType) {
+        // Check if index type is valid for indexing
+        if (!isValidIndexType(indexType)) {
+            reportError("Index must be number or string, got: " + indexType->toString(), 
+                       node.getIndex()->getLocation());
+            setExpressionType(node, typeSystem_->getErrorType());
+            return;
+        }
+        
+        // Determine result type based on object type
+        switch (objectType->getKind()) {
+            case TypeKind::Array: {
+                auto elementType = typeSystem_->getArrayElementType(objectType);
+                resultType = elementType;
+                break;
+            }
+            case TypeKind::String: {
+                // String indexing returns string (single character)
+                resultType = typeSystem_->getStringType();
+                break;
+            }
+            case TypeKind::Object: {
+                // Object indexing returns any (property access)
+                resultType = typeSystem_->getAnyType();
+                break;
+            }
+            case TypeKind::Tuple: {
+                // Tuple indexing returns union of element types
+                // For now, return any - in a full implementation we'd check the index value
+                resultType = typeSystem_->getAnyType();
+                break;
+            }
+            default: {
+                reportError("Cannot index into type: " + objectType->toString(), 
+                           node.getObject()->getLocation());
+                setExpressionType(node, typeSystem_->getErrorType());
+                return;
+            }
+        }
     } else {
-        setExpressionType(node, typeSystem_->getAnyType());
+        resultType = typeSystem_->getAnyType();
     }
+    
+    setExpressionType(node, resultType);
 }
 
 void SemanticAnalyzer::visit(ObjectLiteral& node) {
+    std::cout << "DEBUG: Analyzing object literal with " << node.getProperties().size() << " properties" << std::endl;
+    
     // Analyze all property values
-    for (const auto& property : node.getProperties()) {
-        property.getValue()->accept(*this);
+    std::vector<std::pair<String, shared_ptr<Type>>> propertyTypes;
+    
+    for (size_t i = 0; i < node.getProperties().size(); ++i) {
+        const auto& property = node.getProperties()[i];
+        
+        if (auto spreadElement = dynamic_cast<SpreadElement*>(property.getValue())) {
+            std::cout << "DEBUG: Found spread element in object property " << i << std::endl;
+            
+            // Analyze the spread element
+            spreadElement->accept(*this);
+            auto spreadType = getExpressionType(*spreadElement);
+            
+            if (spreadType && spreadType->getKind() == TypeKind::Object) {
+                // Get the properties of the spread object
+                auto objectType = static_cast<ObjectType*>(spreadType.get());
+                const auto& spreadProperties = objectType->getProperties();
+                
+                // Add all properties from the spread object
+                for (const auto& spreadProp : spreadProperties) {
+                    propertyTypes.emplace_back(spreadProp.first, spreadProp.second);
+                    std::cout << "DEBUG: Added spread property: " << spreadProp.first << " with type: " << spreadProp.second->toString() << std::endl;
+                }
+            } else {
+                // For non-object spreads or unknown types, add a generic property
+                propertyTypes.emplace_back("...", typeSystem_->getAnyType());
+                std::cout << "DEBUG: Spread non-object type: " << (spreadType ? spreadType->toString() : "unknown") << std::endl;
+            }
+        } else {
+            // Regular property
+            property.getValue()->accept(*this);
+            auto valueType = getExpressionType(*property.getValue());
+            propertyTypes.emplace_back(property.getKey(), valueType);
+            std::cout << "DEBUG: Regular property " << property.getKey() << " type: " << (valueType ? valueType->toString() : "unknown") << std::endl;
+        }
     }
     
-    // For now, infer object type as any (like a generic object)
-    // TODO: Implement proper object type inference based on properties
-    auto objectType = typeSystem_->getAnyType();
+    // Create an object type based on the properties
+    auto objectType = createObjectTypeFromProperties(propertyTypes);
     setExpressionType(node, objectType);
+    std::cout << "DEBUG: Object literal type: " << objectType->toString() << std::endl;
 }
 
 void SemanticAnalyzer::visit(PropertyAccess& node) {
@@ -1004,16 +1122,28 @@ void SemanticAnalyzer::visit(WhileStatement& node) {
         reportWarning("While condition should be boolean-compatible", node.getCondition()->getLocation());
     }
     
+    // Enter loop context for break/continue validation
+    context_->enterLoop();
+    
     // Analyze body
     node.getBody()->accept(*this);
+    
+    // Exit loop context
+    context_->exitLoop();
     
     // Set type to void
     node.setType(typeSystem_->getVoidType());
 }
 
 void SemanticAnalyzer::visit(DoWhileStatement& node) {
+    // Enter loop context for break/continue validation
+    context_->enterLoop();
+    
     // Analyze body first
     node.getBody()->accept(*this);
+    
+    // Exit loop context
+    context_->exitLoop();
     
     // Analyze condition
     node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
@@ -1050,8 +1180,14 @@ void SemanticAnalyzer::visit(ForStatement& node) {
         node.getIncrement()->accept(*this);
     }
     
+    // Enter loop context for break/continue validation
+    context_->enterLoop();
+    
     // Analyze body
     node.getBody()->accept(*this);
+    
+    // Exit loop context
+    context_->exitLoop();
     
     // Set type to void
     node.setType(typeSystem_->getVoidType());
@@ -1102,10 +1238,16 @@ void SemanticAnalyzer::visit(SwitchStatement& node) {
     // Analyze discriminant
     node.getDiscriminant()->accept(*this);
     
+    // Enter switch context for break validation
+    context_->enterSwitch();
+    
     // Analyze all case clauses
     for (const auto& caseClause : node.getCases()) {
         caseClause->accept(*this);
     }
+    
+    // Exit switch context
+    context_->exitSwitch();
     
     // Set type to void
     node.setType(typeSystem_->getVoidType());
@@ -1124,14 +1266,22 @@ void SemanticAnalyzer::visit(CaseClause& node) {
 }
 
 void SemanticAnalyzer::visit(BreakStatement& node) {
-    // TODO: Check if break is in valid context (loop or switch)
-    // For now, just set type to void
+    // Check if break is in valid context (loop or switch)
+    if (!context_->isInLoop() && !context_->isInSwitch()) {
+        reportError("Break statement must be inside a loop or switch statement", node.getLocation());
+    }
+    
+    // Set type to void
     node.setType(typeSystem_->getVoidType());
 }
 
 void SemanticAnalyzer::visit(ContinueStatement& node) {
-    // TODO: Check if continue is in valid context (loop)
-    // For now, just set type to void
+    // Check if continue is in valid context (loop only)
+    if (!context_->isInLoop()) {
+        reportError("Continue statement must be inside a loop", node.getLocation());
+    }
+    
+    // Set type to void
     node.setType(typeSystem_->getVoidType());
 }
 
@@ -2308,13 +2458,18 @@ void SemanticAnalyzer::visit(InterfaceDeclaration& node) {
         if (auto genericType = dynamic_cast<GenericType*>(extended.get())) {
             std::cout << "DEBUG: Extended interface is generic with " << genericType->getTypeArguments().size() << " type arguments" << std::endl;
             
-            // TODO: Validate that type arguments satisfy constraints
-            // This would require looking up the base interface and checking its constraints
+            // Validate that type arguments satisfy constraints
+            if (!validateGenericInterfaceInheritance(genericType, node.getLocation())) {
+                reportError("Type arguments do not satisfy constraints for extended interface", node.getLocation());
+                continue;
+            }
         }
         
-        // TODO: Implement full interface inheritance validation
-        // This would include checking that the extended interface exists,
-        // validating type argument constraints, and ensuring compatibility
+        // Implement full interface inheritance validation
+        if (!validateInterfaceInheritance(extended, node.getLocation())) {
+            reportError("Invalid interface inheritance: " + extended->toString(), node.getLocation());
+            continue;
+        }
     }
     
     // Analyze property signatures
@@ -3052,6 +3207,123 @@ bool SemanticAnalyzer::validateGenericFunctionCall(const CallExpression& call,
     return true; // All constraints satisfied
 }
 
+bool SemanticAnalyzer::validateGenericInterfaceInheritance(GenericType* genericType, const SourceLocation& location) {
+    if (!genericType) {
+        return false;
+    }
+    
+    auto baseType = genericType->getBaseType();
+    auto typeArguments = genericType->getTypeArguments();
+    
+    // Look up the base interface to get its type parameters
+    auto baseInterfaceSymbol = symbolTable_->lookupSymbol(baseType->toString());
+    if (!baseInterfaceSymbol) {
+        reportError("Base interface not found: " + baseType->toString(), location);
+        return false;
+    }
+    
+    // Get the interface declaration to access its type parameters
+    auto interfaceType = baseInterfaceSymbol->getType();
+    if (interfaceType->getKind() != TypeKind::Interface) {
+        reportError("Base type is not an interface: " + baseType->toString(), location);
+        return false;
+    }
+    
+    auto interfaceDecl = static_cast<InterfaceType*>(interfaceType.get())->getDeclaration();
+    if (!interfaceDecl) {
+        reportError("Interface declaration not found for: " + baseType->toString(), location);
+        return false;
+    }
+    
+    // Validate each type argument against its corresponding type parameter constraint
+    const auto& typeParameters = interfaceDecl->getTypeParameters();
+    if (typeArguments.size() != typeParameters.size()) {
+        reportError("Type argument count mismatch for interface " + baseType->toString() + 
+                   ": expected " + std::to_string(typeParameters.size()) + 
+                   ", got " + std::to_string(typeArguments.size()), location);
+        return false;
+    }
+    
+    for (size_t i = 0; i < typeArguments.size(); ++i) {
+        const auto& typeParam = typeParameters[i];
+        auto typeArg = typeArguments[i];
+        
+        // Check constraint if present
+        if (typeParam->hasConstraint()) {
+            auto constraint = typeParam->getConstraint();
+            if (!constraintChecker_->satisfiesConstraint(typeArg, constraint)) {
+                reportError("Type argument '" + typeArg->toString() + 
+                           "' does not satisfy constraint '" + constraint->toString() + 
+                           "' for type parameter '" + typeParam->getName() + "'", location);
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+bool SemanticAnalyzer::validateInterfaceInheritance(shared_ptr<Type> extendedType, const SourceLocation& location) {
+    if (!extendedType) {
+        return false;
+    }
+    
+    // Check if the extended type exists in the symbol table
+    auto extendedSymbol = symbolTable_->lookupSymbol(extendedType->toString());
+    if (!extendedSymbol) {
+        reportError("Extended interface not found: " + extendedType->toString(), location);
+        return false;
+    }
+    
+    // Verify it's actually an interface
+    auto interfaceType = extendedSymbol->getType();
+    if (interfaceType->getKind() != TypeKind::Interface) {
+        reportError("Extended type is not an interface: " + extendedType->toString(), location);
+        return false;
+    }
+    
+    // Check for circular inheritance
+    if (!checkCircularInterfaceInheritance(extendedType, location)) {
+        return false;
+    }
+    
+    return true;
+}
+
+bool SemanticAnalyzer::checkCircularInterfaceInheritance(shared_ptr<Type> interfaceType, const SourceLocation& location) {
+    // Simple circular inheritance check - in a full implementation, this would
+    // maintain a stack of interfaces being processed
+    static std::unordered_set<std::string> processingInterfaces;
+    
+    auto interfaceName = interfaceType->toString();
+    if (processingInterfaces.find(interfaceName) != processingInterfaces.end()) {
+        reportError("Circular interface inheritance detected: " + interfaceName, location);
+        return false;
+    }
+    
+    processingInterfaces.insert(interfaceName);
+    
+    // Check extended interfaces recursively
+    auto interfaceSymbol = symbolTable_->lookupSymbol(interfaceName);
+    if (interfaceSymbol) {
+        auto type = interfaceSymbol->getType();
+        if (type->getKind() == TypeKind::Interface) {
+            auto interfaceDecl = static_cast<InterfaceType*>(type.get())->getDeclaration();
+            if (interfaceDecl) {
+                for (const auto& extended : interfaceDecl->getExtends()) {
+                    if (!checkCircularInterfaceInheritance(extended, location)) {
+                        processingInterfaces.erase(interfaceName);
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+    
+    processingInterfaces.erase(interfaceName);
+    return true;
+}
+
 // ARC Memory Management Analysis Implementation
 void SemanticAnalyzer::analyzeOwnership(const Expression& expr) {
     // Analyze ownership patterns in expressions
@@ -3350,59 +3622,380 @@ void SemanticAnalyzer::validateDestructorSafety(const DestructorDeclaration& des
 
 // Destructuring visitor method implementations
 void SemanticAnalyzer::visit(DestructuringPattern& node) {
-    // TODO: Implement destructuring pattern semantic analysis
+    std::cout << "DEBUG: Analyzing destructuring pattern" << std::endl;
+    
+    // Destructuring patterns are LValues that can be assigned to
+    // The actual analysis is done by the specific pattern types
+    setExpressionType(node, typeSystem_->getAnyType());
 }
 
 void SemanticAnalyzer::visit(ArrayDestructuringPattern& node) {
-    // TODO: Implement array destructuring pattern semantic analysis
-    for (const auto& element : node.getElements()) {
-        element->accept(*this);
+    std::cout << "DEBUG: Analyzing array destructuring pattern with " << node.getElements().size() << " elements" << std::endl;
+    
+    // Analyze each element in the array destructuring pattern
+    for (size_t i = 0; i < node.getElements().size(); ++i) {
+        const auto& element = node.getElements()[i];
+        
+        if (element) {
+            std::cout << "DEBUG: Analyzing array destructuring element " << i << std::endl;
+            element->accept(*this);
+            
+            // Get the type of the element pattern
+            auto elementType = getExpressionType(*element);
+            if (elementType) {
+                std::cout << "DEBUG: Array destructuring element " << i << " type: " << elementType->toString() << std::endl;
+            }
+        } else {
+            std::cout << "DEBUG: Array destructuring element " << i << " is null (rest element)" << std::endl;
+        }
     }
+    
+    // Array destructuring patterns are LValues
+    setExpressionType(node, typeSystem_->getAnyType());
+    std::cout << "DEBUG: Array destructuring pattern analysis completed" << std::endl;
 }
 
 void SemanticAnalyzer::visit(ObjectDestructuringPattern& node) {
-    // TODO: Implement object destructuring pattern semantic analysis
-    for (const auto& property : node.getProperties()) {
+    std::cout << "DEBUG: Analyzing object destructuring pattern with " << node.getProperties().size() << " properties" << std::endl;
+    
+    // Analyze each property in the object destructuring pattern
+    for (size_t i = 0; i < node.getProperties().size(); ++i) {
+        const auto& property = node.getProperties()[i];
+        
+        std::cout << "DEBUG: Analyzing object destructuring property " << i << ": " << property.getKey() << std::endl;
+        
+        // Analyze the pattern for this property
         property.getPattern()->accept(*this);
+        
+        // Get the type of the property pattern
+        auto patternType = getExpressionType(*property.getPattern());
+        if (patternType) {
+            std::cout << "DEBUG: Object destructuring property " << property.getKey() << " pattern type: " << patternType->toString() << std::endl;
+        }
+        
+        // Analyze default value if present
         if (property.getDefaultValue()) {
+            std::cout << "DEBUG: Analyzing default value for property: " << property.getKey() << std::endl;
             property.getDefaultValue()->accept(*this);
+            
+            auto defaultValueType = getExpressionType(*property.getDefaultValue());
+            if (defaultValueType) {
+                std::cout << "DEBUG: Default value type for property " << property.getKey() << ": " << defaultValueType->toString() << std::endl;
+                
+                // Check type compatibility between pattern and default value
+                if (patternType && !typeSystem_->areTypesCompatible(*defaultValueType, *patternType)) {
+                    reportError("Default value type '" + defaultValueType->toString() + 
+                               "' is not compatible with pattern type '" + patternType->toString() + 
+                               "' for property '" + property.getKey() + "'", 
+                               property.getLocation());
+                }
+            }
         }
     }
+    
+    // Object destructuring patterns are LValues
+    setExpressionType(node, typeSystem_->getAnyType());
+    std::cout << "DEBUG: Object destructuring pattern analysis completed" << std::endl;
 }
 
 void SemanticAnalyzer::visit(IdentifierPattern& node) {
-    // TODO: Implement identifier pattern semantic analysis
-    // This should create a symbol for the identifier
+    std::cout << "DEBUG: Analyzing identifier pattern: " << node.getName() << std::endl;
+    
+    // Check if this identifier is already declared in the current scope
+    auto existingSymbol = symbolTable_->lookupSymbol(node.getName());
+    if (existingSymbol) {
+        reportError("Identifier '" + node.getName() + "' is already declared in this scope", 
+                   node.getLocation());
+        setExpressionType(node, typeSystem_->getAnyType());
+        return;
+    }
+    
+    // Analyze default value if present
+    shared_ptr<Type> inferredType = nullptr;
+    if (node.getDefaultValue()) {
+        std::cout << "DEBUG: Analyzing default value for identifier pattern: " << node.getName() << std::endl;
+        node.getDefaultValue()->accept(*this);
+        
+        auto defaultValueType = getExpressionType(*node.getDefaultValue());
+        if (defaultValueType) {
+            inferredType = defaultValueType;
+            std::cout << "DEBUG: Default value type for identifier " << node.getName() << ": " << defaultValueType->toString() << std::endl;
+        }
+    }
+    
+    // If no default value, infer type as 'any' for now
+    if (!inferredType) {
+        inferredType = typeSystem_->getAnyType();
+    }
+    
+    // Add the identifier to the symbol table
+    symbolTable_->addSymbol(node.getName(), SymbolKind::Variable, inferredType, node.getLocation());
+    std::cout << "DEBUG: Added identifier pattern '" << node.getName() << "' to symbol table with type: " << inferredType->toString() << std::endl;
+    
+    // Set the expression type
+    setExpressionType(node, inferredType);
+    std::cout << "DEBUG: Identifier pattern analysis completed for: " << node.getName() << std::endl;
 }
 
 void SemanticAnalyzer::visit(DestructuringAssignment& node) {
-    // TODO: Implement destructuring assignment semantic analysis
-    node.getPattern()->accept(*this);
+    std::cout << "DEBUG: Analyzing destructuring assignment" << std::endl;
+    
+    // Analyze the value being destructured
     node.getValue()->accept(*this);
+    auto valueType = getExpressionType(*node.getValue());
+    if (!valueType) {
+        reportError("Could not determine type of value in destructuring assignment", node.getLocation());
+        setExpressionType(node, typeSystem_->getVoidType());
+        return;
+    }
+    
+    std::cout << "DEBUG: Destructuring assignment value type: " << valueType->toString() << std::endl;
+    
+    // Analyze the destructuring pattern
+    node.getPattern()->accept(*this);
+    auto patternType = getExpressionType(*node.getPattern());
+    
+    // Validate that the value type is compatible with the pattern
+    // For now, we'll allow any type to be destructured
+    // In a full implementation, we'd check:
+    // - Array destructuring requires array type
+    // - Object destructuring requires object type
+    // - Specific property/key validation
+    
+    std::cout << "DEBUG: Destructuring assignment pattern type: " << (patternType ? patternType->toString() : "unknown") << std::endl;
+    
+    // Destructuring assignments are RValues that return void
+    setExpressionType(node, typeSystem_->getVoidType());
+    std::cout << "DEBUG: Destructuring assignment analysis completed" << std::endl;
 }
 
 void SemanticAnalyzer::visit(OptionalPropertyAccess& node) {
-    // TODO: Implement optional property access semantic analysis
+    std::cout << "DEBUG: Analyzing optional property access: " << node.getProperty() << std::endl;
+    
+    // Analyze the object being accessed
     node.getObject()->accept(*this);
+    auto objectType = getExpressionType(*node.getObject());
+    
+    if (!objectType) {
+        reportError("Could not determine type of object in optional property access", node.getLocation());
+        setExpressionType(node, typeSystem_->getAnyType());
+        return;
+    }
+    
+    std::cout << "DEBUG: Optional property access object type: " << objectType->toString() << std::endl;
+    
+    // Check if the object type supports optional chaining
+    // Optional chaining is safe for any type, but we should warn about potential issues
+    if (objectType->getKind() == TypeKind::Null || objectType->getKind() == TypeKind::Undefined) {
+        // This is actually useful - the optional chaining will prevent errors
+        std::cout << "DEBUG: Optional chaining on null/undefined type - this is safe" << std::endl;
+    } else if (objectType->getKind() == TypeKind::Any || objectType->getKind() == TypeKind::Unknown) {
+        // Unknown type - optional chaining is safe
+        std::cout << "DEBUG: Optional chaining on unknown type - this is safe" << std::endl;
+    } else {
+        // For known types, we could validate that the property exists
+        // For now, we'll allow any property access
+        std::cout << "DEBUG: Optional chaining on known type: " << objectType->toString() << std::endl;
+    }
+    
+    // Optional property access always returns a potentially undefined value
+    // The result type should be the property type union with undefined
+    // For now, we'll use 'any' type to represent the union
+    setExpressionType(node, typeSystem_->getAnyType());
+    std::cout << "DEBUG: Optional property access analysis completed" << std::endl;
 }
 
 void SemanticAnalyzer::visit(OptionalIndexAccess& node) {
-    // TODO: Implement optional index access semantic analysis
+    std::cout << "DEBUG: Analyzing optional index access" << std::endl;
+    
+    // Analyze the object being accessed
     node.getObject()->accept(*this);
+    auto objectType = getExpressionType(*node.getObject());
+    
+    if (!objectType) {
+        reportError("Could not determine type of object in optional index access", node.getLocation());
+        setExpressionType(node, typeSystem_->getAnyType());
+        return;
+    }
+    
+    std::cout << "DEBUG: Optional index access object type: " << objectType->toString() << std::endl;
+    
+    // Analyze the index expression
     node.getIndex()->accept(*this);
+    auto indexType = getExpressionType(*node.getIndex());
+    
+    if (!indexType) {
+        reportError("Could not determine type of index in optional index access", node.getLocation());
+        setExpressionType(node, typeSystem_->getAnyType());
+        return;
+    }
+    
+    std::cout << "DEBUG: Optional index access index type: " << indexType->toString() << std::endl;
+    
+    // Validate that the index type is valid for indexing
+    if (!isValidIndexType(indexType)) {
+        reportError("Invalid index type '" + indexType->toString() + "' for optional index access", 
+                   node.getLocation());
+    }
+    
+    // Check if the object type supports optional chaining
+    if (objectType->getKind() == TypeKind::Null || objectType->getKind() == TypeKind::Undefined) {
+        std::cout << "DEBUG: Optional chaining on null/undefined type - this is safe" << std::endl;
+    } else if (objectType->getKind() == TypeKind::Any || objectType->getKind() == TypeKind::Unknown) {
+        std::cout << "DEBUG: Optional chaining on unknown type - this is safe" << std::endl;
+    } else if (objectType->getKind() == TypeKind::Array) {
+        std::cout << "DEBUG: Optional chaining on array type - this is safe" << std::endl;
+    } else if (objectType->getKind() == TypeKind::String) {
+        std::cout << "DEBUG: Optional chaining on string type - this is safe" << std::endl;
+    } else {
+        std::cout << "DEBUG: Optional chaining on object type: " << objectType->toString() << std::endl;
+    }
+    
+    // Optional index access always returns a potentially undefined value
+    setExpressionType(node, typeSystem_->getAnyType());
+    std::cout << "DEBUG: Optional index access analysis completed" << std::endl;
 }
 
 void SemanticAnalyzer::visit(OptionalCallExpr& node) {
-    // TODO: Implement optional call expression semantic analysis
+    std::cout << "DEBUG: Analyzing optional call expression with " << node.getArguments().size() << " arguments" << std::endl;
+    
+    // Analyze the callee expression
     node.getCallee()->accept(*this);
-    for (const auto& arg : node.getArguments()) {
-        arg->accept(static_cast<ASTVisitor&>(*this));
+    auto calleeType = getExpressionType(*node.getCallee());
+    
+    if (!calleeType) {
+        reportError("Could not determine type of callee in optional call expression", node.getLocation());
+        setExpressionType(node, typeSystem_->getAnyType());
+        return;
     }
+    
+    std::cout << "DEBUG: Optional call expression callee type: " << calleeType->toString() << std::endl;
+    
+    // Check if the callee type supports optional chaining
+    if (calleeType->getKind() == TypeKind::Null || calleeType->getKind() == TypeKind::Undefined) {
+        std::cout << "DEBUG: Optional chaining on null/undefined callee - this is safe" << std::endl;
+    } else if (calleeType->getKind() == TypeKind::Any || calleeType->getKind() == TypeKind::Unknown) {
+        std::cout << "DEBUG: Optional chaining on unknown callee type - this is safe" << std::endl;
+    } else if (calleeType->getKind() == TypeKind::Function) {
+        std::cout << "DEBUG: Optional chaining on function type - this is safe" << std::endl;
+    } else {
+        std::cout << "DEBUG: Optional chaining on non-function type: " << calleeType->toString() << std::endl;
+        // This might be an error - trying to call a non-function
+        reportError("Optional call on non-function type '" + calleeType->toString() + "'", 
+                   node.getLocation());
+    }
+    
+    // Analyze all arguments
+    for (size_t i = 0; i < node.getArguments().size(); ++i) {
+        const auto& arg = node.getArguments()[i];
+        std::cout << "DEBUG: Analyzing optional call argument " << i << std::endl;
+        
+        arg->accept(*this);
+        auto argType = getExpressionType(*arg);
+        
+        if (argType) {
+            std::cout << "DEBUG: Optional call argument " << i << " type: " << argType->toString() << std::endl;
+        }
+    }
+    
+    // Optional call expressions always return a potentially undefined value
+    // The result type should be the function return type union with undefined
+    // For now, we'll use 'any' type to represent the union
+    setExpressionType(node, typeSystem_->getAnyType());
+    std::cout << "DEBUG: Optional call expression analysis completed" << std::endl;
 }
 
 void SemanticAnalyzer::visit(SpreadElement& node) {
-    // TODO: Implement spread element semantic analysis
+    std::cout << "DEBUG: Analyzing spread element" << std::endl;
+    
+    // Analyze the expression being spread
     node.getExpression()->accept(*this);
+    auto spreadType = getExpressionType(*node.getExpression());
+    
+    if (!spreadType) {
+        reportError("Could not determine type of expression in spread element", node.getLocation());
+        setExpressionType(node, typeSystem_->getAnyType());
+        return;
+    }
+    
+    std::cout << "DEBUG: Spread element expression type: " << spreadType->toString() << std::endl;
+    
+    // Validate that the expression can be spread
+    switch (spreadType->getKind()) {
+        case TypeKind::Array:
+            std::cout << "DEBUG: Spreading array type" << std::endl;
+            // Array spreading is valid - the result type will be determined by context
+            break;
+            
+        case TypeKind::Object:
+            std::cout << "DEBUG: Spreading object type" << std::endl;
+            // Object spreading is valid - the result type will be determined by context
+            break;
+            
+        case TypeKind::Any:
+        case TypeKind::Unknown:
+            std::cout << "DEBUG: Spreading any/unknown type" << std::endl;
+            // Any/unknown types can be spread
+            break;
+            
+        case TypeKind::String:
+            std::cout << "DEBUG: Spreading string type" << std::endl;
+            // String spreading is valid (spreads characters)
+            break;
+            
+        default:
+            reportError("Cannot spread expression of type '" + spreadType->toString() + "'", node.getLocation());
+            setExpressionType(node, typeSystem_->getAnyType());
+            return;
+    }
+    
+    // The spread element itself doesn't have a specific type - it depends on context
+    // For now, we'll use 'any' type, but in a full implementation, we'd need to
+    // analyze the context (array literal, object literal, function call) to determine
+    // the appropriate type
+    setExpressionType(node, typeSystem_->getAnyType());
+    std::cout << "DEBUG: Spread element analysis completed" << std::endl;
+}
+
+bool SemanticAnalyzer::isValidIndexType(shared_ptr<Type> type) const {
+    if (!type) return true; // any can be used as index
+    
+    switch (type->getKind()) {
+        case TypeKind::Number:
+        case TypeKind::String:
+        case TypeKind::Any:
+        case TypeKind::Unknown:
+            return true;
+        case TypeKind::Boolean:
+            // Boolean can be converted to number (0 or 1)
+            return true;
+        case TypeKind::Null:
+        case TypeKind::Undefined:
+            // These can be converted to number (0) or string ("null"/"undefined")
+            return true;
+        default:
+            return false;
+    }
+}
+
+shared_ptr<Type> SemanticAnalyzer::createObjectTypeFromProperties(const std::vector<std::pair<String, shared_ptr<Type>>>& properties) const {
+    if (properties.empty()) {
+        // Empty object literal - return a generic object type
+        return typeSystem_->getAnyType();
+    }
+    
+    // Create ObjectType with the properties using TypeSystem factory method
+    std::vector<ObjectType::Property> objectProperties;
+    for (const auto& prop : properties) {
+        ObjectType::Property objectProp;
+        objectProp.name = prop.first;
+        objectProp.type = prop.second ? prop.second : typeSystem_->getAnyType();
+        objectProp.optional = false; // Object literal properties are always present
+        objectProp.readonly = false; // Object literal properties are mutable
+        objectProperties.push_back(std::move(objectProp));
+    }
+    
+    return typeSystem_->createObjectType(std::move(objectProperties));
 }
 
 // Factory function
