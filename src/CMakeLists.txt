@@ -8,10 +8,25 @@ add_library(tsc_lib STATIC
 
         # Lexer
         lexer/Lexer.cpp
+        
+        # Refactored Lexer Modules
+        lexer/LexerRefactored.cpp
+        lexer/core/LexerCore.cpp
+        lexer/tokens/TokenScanner.cpp
+        lexer/keywords/KeywordMatcher.cpp
+        lexer/scanners/CharacterClassifier.cpp
 
         # Parser
         parser/Parser.cpp
         parser/VectorTokenStream.cpp
+        
+        # Refactored Parser Modules
+        parser/ParserRefactored.cpp
+        parser/core/ParserCore.cpp
+        parser/expressions/ExpressionParser.cpp
+        parser/statements/StatementParser.cpp
+        parser/declarations/DeclarationParser.cpp
+        parser/grammar/GrammarRules.cpp
 
         # Semantic Analysis
         semantic/TypeChecker.cpp
