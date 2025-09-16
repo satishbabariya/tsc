@@ -402,3 +402,19 @@ add_custom_target(test_all
     COMMENT "Running all monomorphization tests with verbose output"
     VERBATIM
 )
+
+# Add custom target for running implementation tests
+add_custom_target(test_implementation
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/implementation/run_all_implementation_tests.ts
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Running all implementation tests"
+    VERBATIM
+)
+
+# Add custom target for running implementation tests with verbose output
+add_custom_target(test_implementation_verbose
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/implementation/run_all_implementation_tests.ts --verbose
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Running all implementation tests with verbose output"
+    VERBATIM
+)
