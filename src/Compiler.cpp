@@ -5,8 +5,9 @@
 #include "tsc/semantic/TypeChecker.h"
 #include "tsc/semantic/SemanticAnalyzer.h"
 #include "tsc/codegen/LLVMCodeGen.h"
+#include "tsc/codegen/ObjectFileGenerator.h"
+#include "tsc/codegen/ExecutableLinker.h"
 #include "tsc/utils/DiagnosticEngine.h"
-#include <cstdlib>  // For system() and std::remove()
 
 // LLVM includes - simplified for now
 // Full LLVM integration will be added in Phase 4
@@ -29,6 +30,8 @@ Compiler::Compiler(const CompilerOptions& options) : options_(options) {
     typeChecker_ = make_unique<TypeChecker>(*diagnostics_);
     parser_ = createParser(*diagnostics_, typeChecker_->getTypeSystem());
     codeGenerator_ = createLLVMCodeGen(*diagnostics_, options_);
+    objectFileGenerator_ = make_unique<ObjectFileGenerator>(*diagnostics_);
+    executableLinker_ = make_unique<ExecutableLinker>(*diagnostics_);
     
     // Setup target
     if (!setupTarget()) {
@@ -289,82 +292,21 @@ String Compiler::generateLLVMIR(const Module& module) {
 }
 
 bool Compiler::generateObjectFile(const String& llvmIR, const String& outputFile) {
-    // For now, use clang to compile LLVM IR to object file
-    // In a full implementation, we'd use LLVM's MC layer directly
     try {
-        // Write LLVM IR to a temporary file
-        String tempIRFile = outputFile + ".tmp.ll";
-        std::ofstream irFile(tempIRFile);
-        if (!irFile.is_open()) {
-            return false;
-        }
-        irFile << llvmIR;
-        irFile.close();
-        
-        // Use clang to compile LLVM IR to object file
-        String command = "clang -c " + tempIRFile + " -o " + outputFile;
-        int result = system(command.c_str());
-        
-        // Clean up temporary file
-        std::remove(tempIRFile.c_str());
-        
-        return result == 0;
-    } catch (...) {
+        // Use the ObjectFileGenerator to create object file directly from LLVM IR
+        return objectFileGenerator_->generateObjectFile(llvmIR, outputFile, options_.target.triple);
+    } catch (const std::exception& e) {
+        diagnostics_->error("Object file generation failed: " + String(e.what()), {});
         return false;
     }
 }
 
 bool Compiler::linkExecutable(const std::vector<String>& objectFiles, const String& outputFile) {
-    // Use clang to link object files into executable
-    // In a full implementation, we'd use LLVM's lld or system linker directly
     try {
-        if (objectFiles.empty()) {
-            return false;
-        }
-        
-        // Build clang command
-        String command = "clang";
-        for (const auto& objFile : objectFiles) {
-            command += " " + objFile;
-        }
-        
-        // Add our runtime library (if it exists)
-        // Try multiple possible paths for the runtime library
-        std::vector<String> possiblePaths = {
-            "build/libtsc_runtime.a",           // From project root
-            "../build/libtsc_runtime.a",        // From subdirectory
-            "../../build/libtsc_runtime.a",    // From deeper subdirectory
-            "./libtsc_runtime.a"               // Current directory
-        };
-        
-        String runtimePath;
-        for (const auto& path : possiblePaths) {
-            std::ifstream runtimeFile(path);
-            if (runtimeFile.good()) {
-                runtimePath = path;
-                runtimeFile.close();
-                break;
-            }
-        }
-        
-        if (!runtimePath.empty()) {
-            command += " " + runtimePath;
-        } else {
-            // Debug: print available files to help diagnose
-            std::cerr << "WARNING: Runtime library not found. Tried paths:" << std::endl;
-            for (const auto& path : possiblePaths) {
-                std::cerr << "  - " << path << std::endl;
-            }
-        }
-        
-        command += " -o " + outputFile;
-        
-        // Add standard libraries and runtime
-        // For now, use default C runtime
-        
-        int result = system(command.c_str());
-        return result == 0;
-    } catch (...) {
+        // Use the ExecutableLinker to create executable directly from object files
+        return executableLinker_->linkExecutable(objectFiles, outputFile, options_.target.triple);
+    } catch (const std::exception& e) {
+        diagnostics_->error("Executable linking failed: " + String(e.what()), {});
         return false;
     }
 }

@@ -10,6 +10,8 @@ class Lexer;
 class Parser;
 class TypeChecker;
 class LLVMCodeGen;
+class ObjectFileGenerator;
+class ExecutableLinker;
 class DiagnosticEngine;
 class SemanticAnalyzer;
 
@@ -76,6 +78,8 @@ private:
     unique_ptr<Parser> parser_;
     unique_ptr<TypeChecker> typeChecker_;
     unique_ptr<LLVMCodeGen> codeGenerator_;
+    unique_ptr<ObjectFileGenerator> objectFileGenerator_;
+    unique_ptr<ExecutableLinker> executableLinker_;
     
     // LLVM context and related objects
     void initializeLLVM();
