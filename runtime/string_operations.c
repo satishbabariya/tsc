@@ -16,8 +16,8 @@ char* string_concat(char* str1, char* str2) {
     size_t len2 = strlen(str2);
     size_t total_len = len1 + len2 + 1; // +1 for null terminator
     
-    // Use ARC allocation for string operations
-    char* result = (char*)__tsc_alloc(total_len, NULL, NULL);
+    // Use regular malloc for now
+    char* result = (char*)malloc(total_len);
     if (!result) {
         fprintf(stderr, "Memory allocation failed in string_concat\n");
         exit(1);
@@ -33,8 +33,8 @@ char* string_concat(char* str1, char* str2) {
 // Signature: char* number_to_string(double value)
 // Returns: A newly allocated string representation of the number
 char* number_to_string(double value) {
-    // Allocate buffer for the string representation using ARC
-    char* buffer = (char*)__tsc_alloc(32, NULL, NULL); // 32 chars should be enough for most doubles
+    // Allocate buffer for the string representation using malloc
+    char* buffer = (char*)malloc(32); // 32 chars should be enough for most doubles
     if (!buffer) {
         fprintf(stderr, "Memory allocation failed in number_to_string\n");
         exit(1);
@@ -50,7 +50,7 @@ char* number_to_string(double value) {
 // Signature: char* boolean_to_string(bool value)
 // Returns: A newly allocated string representation of the boolean
 char* boolean_to_string(bool value) {
-    char* result = (char*)__tsc_alloc(value ? 5 : 6, NULL, NULL); // "true" or "false"
+    char* result = (char*)malloc(value ? 5 : 6); // "true" or "false"
     if (!result) {
         fprintf(stderr, "Memory allocation failed in boolean_to_string\n");
         exit(1);
@@ -65,7 +65,7 @@ char* boolean_to_string(bool value) {
 // Returns: A newly allocated string representation of the object
 char* object_to_string(void* obj) {
     if (!obj) {
-        char* result = (char*)__tsc_alloc(5, NULL, NULL); // "null"
+        char* result = (char*)malloc(5); // "null"
         if (!result) {
             fprintf(stderr, "Memory allocation failed in object_to_string\n");
             exit(1);
@@ -75,7 +75,7 @@ char* object_to_string(void* obj) {
     }
     
     // For now, return a placeholder string with the object address
-    char* result = (char*)__tsc_alloc(32, NULL, NULL);
+    char* result = (char*)malloc(32);
     if (!result) {
         fprintf(stderr, "Memory allocation failed in object_to_string\n");
         exit(1);
@@ -109,8 +109,12 @@ char* number_to_string_5(double value) {
 
 // Convert pointer to string representation
 char* pointer_to_string(void* ptr) {
-    static char buffer[32]; // Buffer for pointer string representation
-    snprintf(buffer, sizeof(buffer), "%p", ptr);
+    char* buffer = (char*)malloc(32); // Allocate buffer dynamically
+    if (!buffer) {
+        fprintf(stderr, "Memory allocation failed in pointer_to_string\n");
+        exit(1);
+    }
+    snprintf(buffer, 32, "%p", ptr);
     return buffer;
 }
 
