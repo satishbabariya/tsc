@@ -387,8 +387,21 @@ void EnhancedErrorReporting::addDiagnostic(DiagnosticLevel level, const String& 
         diagnostics_.note("Suggestion: " + suggestion, location, code + "_suggestion");
     }
     
-    // Add the main diagnostic
-    diagnostics_.error(message, location, code);
+    // Add the main diagnostic with the correct level
+    switch (level) {
+        case DiagnosticLevel::Error:
+            diagnostics_.error(message, location, code);
+            break;
+        case DiagnosticLevel::Warning:
+            diagnostics_.warning(message, location, code);
+            break;
+        case DiagnosticLevel::Note:
+            diagnostics_.note(message, location, code);
+            break;
+        case DiagnosticLevel::Fatal:
+            diagnostics_.fatal(message, location, code);
+            break;
+    }
 }
 
 } // namespace tsc

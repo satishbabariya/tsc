@@ -20,6 +20,10 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     cycleDetector_ = make_unique<semantic::CycleDetector>(symbolTable_.get());
     errorReporter_ = make_unique<EnhancedErrorReporting>(diagnostics_);
     
+    // Configure error reporting to treat warnings as warnings, not errors
+    errorReporter_->setWarningsAsErrors(false);
+    errorReporter_->setSuppressWarnings(false);
+    
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
     
     setupBuiltinEnvironment();
