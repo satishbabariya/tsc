@@ -20,6 +20,10 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     cycleDetector_ = make_unique<semantic::CycleDetector>(symbolTable_.get());
     errorReporter_ = make_unique<EnhancedErrorReporting>(diagnostics_);
     
+    // Configure error reporting to treat warnings as warnings, not errors
+    errorReporter_->setWarningsAsErrors(false);
+    errorReporter_->setSuppressWarnings(false);
+    
     std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
     
     setupBuiltinEnvironment();
@@ -1919,6 +1923,16 @@ void SemanticAnalyzer::setupBuiltinEnvironment() {
     // Add console object
     auto consoleType = typeSystem_->createObjectType();
     symbolTable_->addSymbol("console", SymbolKind::Variable, consoleType, SourceLocation());
+    
+    // Add _print function (variadic function that takes any type arguments)
+    std::vector<FunctionType::Parameter> printParams;
+    FunctionType::Parameter param;
+    param.name = "args";
+    param.type = typeSystem_->getAnyType();
+    param.rest = true; // This makes it variadic
+    printParams.push_back(param);
+    auto printFunctionType = typeSystem_->createFunctionType(std::move(printParams), typeSystem_->getVoidType());
+    symbolTable_->addSymbol("_print", SymbolKind::Function, printFunctionType, SourceLocation());
     
     // Add built-in number constants
     auto numberType = typeSystem_->getNumberType();

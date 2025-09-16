@@ -151,6 +151,7 @@ public:
     // Validation
     bool validateSymbolRedeclaration(const String& name, const SourceLocation& location) const;
     std::vector<Symbol*> getUnusedSymbols() const;
+    bool isBuiltinSymbol(const String& name) const;
     
     // Debug and introspection
     void printSymbolTable() const;

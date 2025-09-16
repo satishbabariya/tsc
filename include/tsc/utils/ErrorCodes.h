@@ -357,11 +357,11 @@ namespace ErrorSuggestions {
 namespace Syntax {
     constexpr const char* UNEXPECTED_TOKEN_SUGGESTION = "Did you mean '{0}'?";
     constexpr const char* EXPECTED_TOKEN_SUGGESTION = "Add '{0}' here.";
-    constexpr const char* MISSING_SEMICOLON_SUGGESTION = "Add a semicolon ';' at the end of the statement.";
+    constexpr const char* MISSING_SEMICOLON_SUGGESTION = "Add a semicolon ';' at the end of the statement. Most statements in TypeScript require semicolons for proper parsing.";
     constexpr const char* MISSING_BRACE_SUGGESTION = "Add '{0}' brace here.";
     constexpr const char* MISSING_PARENTHESIS_SUGGESTION = "Add '{0}' parenthesis here.";
     constexpr const char* MISSING_BRACKET_SUGGESTION = "Add '{0}' bracket here.";
-    constexpr const char* INVALID_EXPRESSION_SUGGESTION = "Check the expression syntax.";
+    constexpr const char* INVALID_EXPRESSION_SUGGESTION = "Check the expression syntax. Common issues: missing operators, incorrect parentheses, or unsupported syntax features. Note: 'as' type assertions and 'typeof' operator are not yet supported.";
     constexpr const char* INVALID_STATEMENT_SUGGESTION = "Check the statement syntax.";
     constexpr const char* INVALID_DECLARATION_SUGGESTION = "Check the declaration syntax.";
     constexpr const char* DUPLICATE_DECLARATION_SUGGESTION = "Remove the duplicate declaration or rename one of them.";
@@ -369,7 +369,7 @@ namespace Syntax {
     constexpr const char* INVALID_SWITCH_CASE_SUGGESTION = "Check the switch case syntax: case value: { statements }.";
     constexpr const char* INVALID_TRY_CATCH_SUGGESTION = "Check the try-catch syntax: try { } catch (error) { }.";
     constexpr const char* INVALID_FUNCTION_SIGNATURE_SUGGESTION = "Check the function signature syntax.";
-    constexpr const char* INVALID_CLASS_DECLARATION_SUGGESTION = "Check the class declaration syntax.";
+    constexpr const char* INVALID_CLASS_DECLARATION_SUGGESTION = "Check the class declaration syntax. Note: 'implements' keyword is not yet supported in this compiler version.";
     constexpr const char* INVALID_INTERFACE_DECLARATION_SUGGESTION = "Check the interface declaration syntax.";
     constexpr const char* INVALID_ENUM_DECLARATION_SUGGESTION = "Check the enum declaration syntax.";
     constexpr const char* INVALID_TYPE_ALIAS_SUGGESTION = "Check the type alias declaration syntax.";
@@ -379,8 +379,8 @@ namespace Syntax {
 
 // Type suggestions
 namespace Type {
-    constexpr const char* TYPE_MISMATCH_SUGGESTION = "Consider using type '{0}' instead of '{1}'.";
-    constexpr const char* UNDEFINED_VARIABLE_SUGGESTION = "Declare the variable '{0}' or check the spelling.";
+    constexpr const char* TYPE_MISMATCH_SUGGESTION = "Consider using type '{0}' instead of '{1}'. If this is intentional, you may need to add a type assertion or modify the type declaration. Note: Empty arrays '[]' are currently inferred as 'any[]' - consider initializing with values or using explicit typing.";
+    constexpr const char* UNDEFINED_VARIABLE_SUGGESTION = "Declare the variable '{0}' or check the spelling. Common causes: missing declaration, typo in variable name, or variable declared in different scope.";
     constexpr const char* UNDEFINED_FUNCTION_SUGGESTION = "Declare the function '{0}' or check the spelling.";
     constexpr const char* UNDEFINED_PROPERTY_SUGGESTION = "Add property '{0}' to type '{1}' or check the spelling.";
     constexpr const char* UNDEFINED_TYPE_SUGGESTION = "Import or declare the type '{0}'.";

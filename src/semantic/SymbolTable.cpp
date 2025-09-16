@@ -2,6 +2,7 @@
 #include "tsc/semantic/TypeSystem.h"
 #include <iostream>
 #include <sstream>
+#include <set>
 
 namespace tsc {
 
@@ -262,7 +263,7 @@ size_t SymbolTable::getScopeCount() const {
 
 void SymbolTable::collectUnusedSymbols(Scope* scope, std::vector<Symbol*>& unused) const {
     for (const auto& [name, symbol] : scope->getSymbols()) {
-        if (!symbol->isUsed() && symbol->getKind() != SymbolKind::Parameter) {
+        if (!symbol->isUsed() && symbol->getKind() != SymbolKind::Parameter && !isBuiltinSymbol(name)) {
             unused.push_back(symbol.get());
         }
     }
@@ -286,6 +287,14 @@ size_t SymbolTable::countSymbols(Scope* scope) const {
         count += countSymbols(child.get());
     }
     return count;
+}
+
+bool SymbolTable::isBuiltinSymbol(const String& name) const {
+    // List of built-in symbols that should not be flagged as unused
+    static const std::set<String> builtinSymbols = {
+        "console", "_print", "Infinity", "NaN", "unique_ptr", "shared_ptr", "weak_ptr", "std"
+    };
+    return builtinSymbols.find(name) != builtinSymbols.end();
 }
 
 // Factory functions
