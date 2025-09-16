@@ -38,29 +38,13 @@ static bool validate_format_string(char* format, int arg_count) {
     return format_count <= arg_count;
 }
 
-// Internal print function for static compiler
-// This is a variadic function that can accept multiple arguments
-void _print(void* first_arg, ...) {
-    // Handle null format string gracefully
-    if (!first_arg) {
-        putchar('\n');
-        return;
-    }
-    
-    char* format = (char*)first_arg; // Treat the first argument as the format string
-    
-    // Validate format string is not empty
-    if (strlen(format) == 0) {
-        putchar('\n');
-        return;
-    }
-    
+void _print(char* format, ...) {
     va_list args;
-    va_start(args, first_arg); // Initialize the variable argument list
-
-    // Use vprintf to handle the format string and arguments
-    vprintf(format, args);
-
-    va_end(args); // Clean up the variable argument list
-    putchar('\n'); // Add newline at the end, as per original behavior
+    va_start(args, format);
+    
+    // For now, just print the format string
+    // TODO: Implement proper format string parsing
+    printf("%s", format);
+    
+    va_end(args);
 }

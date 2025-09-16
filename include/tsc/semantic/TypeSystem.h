@@ -307,6 +307,7 @@ public:
     
     String toString() const override { return name_; }
     bool isEquivalentTo(const Type& other) const override;
+    bool isStructurallyCompatible(const ClassType& other) const;
 
 private:
     String name_;
@@ -330,6 +331,7 @@ public:
     
     String toString() const override { return name_; }
     bool isEquivalentTo(const Type& other) const override;
+    bool isStructurallyCompatible(const InterfaceType& other) const;
 
 private:
     String name_;
@@ -350,6 +352,7 @@ public:
     
     String toString() const override { return name_; }
     bool isEquivalentTo(const Type& other) const override;
+    bool isStructurallyCompatible(const EnumType& other) const;
 
 private:
     String name_;
@@ -475,6 +478,9 @@ public:
     shared_ptr<Type> createGenericType(shared_ptr<Type> baseType, std::vector<shared_ptr<Type>> typeArguments) const;
     shared_ptr<Type> instantiateGenericType(shared_ptr<Type> genericType, 
                                            const std::vector<shared_ptr<Type>>& typeArguments) const;
+    shared_ptr<Type> substituteTypeParameters(shared_ptr<Type> type, 
+                                             const std::vector<shared_ptr<Type>>& typeParameters,
+                                             const std::vector<shared_ptr<Type>>& typeArguments) const;
     
     // Class type creation
     shared_ptr<Type> createClassType(const String& name, ClassDeclaration* declaration = nullptr, 

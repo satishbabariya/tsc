@@ -331,14 +331,133 @@ shared_ptr<Type> TypeSystem::createGenericType(shared_ptr<Type> baseType, std::v
 
 shared_ptr<Type> TypeSystem::instantiateGenericType(shared_ptr<Type> genericType, 
                                                    const std::vector<shared_ptr<Type>>& typeArguments) const {
-    // For now, create a new generic type with the provided arguments
-    // In a full implementation, this would perform type substitution
     if (auto generic = dynamic_cast<GenericType*>(genericType.get())) {
+        // For now, just create a new generic type with the provided arguments
+        // In a full implementation, this would perform type substitution
         return createGenericType(generic->getBaseType(), typeArguments);
     }
     
     // If it's not a generic type, just return it as-is
     return genericType;
+}
+
+shared_ptr<Type> TypeSystem::substituteTypeParameters(shared_ptr<Type> type, 
+                                                     const std::vector<shared_ptr<Type>>& typeParameters,
+                                                     const std::vector<shared_ptr<Type>>& typeArguments) const {
+    if (!type) {
+        return type;
+    }
+    
+    // Check if this type is a type parameter that needs substitution
+    if (auto typeParam = dynamic_cast<TypeParameterType*>(type.get())) {
+        // Find the corresponding type argument
+        for (size_t i = 0; i < typeParameters.size(); ++i) {
+            if (typeParameters[i] && typeParameters[i]->isEquivalentTo(*typeParam)) {
+                if (i < typeArguments.size()) {
+                    return typeArguments[i];
+                }
+            }
+        }
+        // If no substitution found, return the original type parameter
+        return type;
+    }
+    
+    // For composite types, recursively substitute type parameters in their components
+    switch (type->getKind()) {
+        case TypeKind::Array: {
+            auto arrayType = static_cast<ArrayType*>(type.get());
+            auto substitutedElementType = substituteTypeParameters(arrayType->getElementType(), typeParameters, typeArguments);
+            return createArrayType(substitutedElementType);
+        }
+        
+        case TypeKind::Tuple: {
+            auto tupleType = static_cast<TupleType*>(type.get());
+            std::vector<shared_ptr<Type>> substitutedElementTypes;
+            for (const auto& elementType : tupleType->getElementTypes()) {
+                substitutedElementTypes.push_back(substituteTypeParameters(elementType, typeParameters, typeArguments));
+            }
+            return createTupleType(substitutedElementTypes);
+        }
+        
+        case TypeKind::Function: {
+            auto functionType = static_cast<FunctionType*>(type.get());
+            std::vector<FunctionType::Parameter> substitutedParameters;
+            for (const auto& param : functionType->getParameters()) {
+                substitutedParameters.push_back({
+                    param.name,
+                    substituteTypeParameters(param.type, typeParameters, typeArguments)
+                });
+            }
+            auto substitutedReturnType = substituteTypeParameters(functionType->getReturnType(), typeParameters, typeArguments);
+            return createFunctionType(substitutedParameters, substitutedReturnType);
+        }
+        
+        case TypeKind::Object: {
+            auto objectType = static_cast<ObjectType*>(type.get());
+            std::vector<ObjectType::Property> substitutedProperties;
+            for (const auto& prop : objectType->getProperties()) {
+                substitutedProperties.push_back({
+                    prop.name,
+                    substituteTypeParameters(prop.type, typeParameters, typeArguments),
+                    prop.optional
+                });
+            }
+            return createObjectType(substitutedProperties);
+        }
+        
+        case TypeKind::Union: {
+            auto unionType = static_cast<UnionType*>(type.get());
+            std::vector<shared_ptr<Type>> substitutedTypes;
+            for (const auto& memberType : unionType->getTypes()) {
+                substitutedTypes.push_back(substituteTypeParameters(memberType, typeParameters, typeArguments));
+            }
+            return createUnionType(substitutedTypes);
+        }
+        
+        case TypeKind::Intersection: {
+            auto intersectionType = static_cast<IntersectionType*>(type.get());
+            std::vector<shared_ptr<Type>> substitutedTypes;
+            for (const auto& memberType : intersectionType->getTypes()) {
+                substitutedTypes.push_back(substituteTypeParameters(memberType, typeParameters, typeArguments));
+            }
+            return createIntersectionType(substitutedTypes);
+        }
+        
+        case TypeKind::Generic: {
+            auto genericType = static_cast<GenericType*>(type.get());
+            std::vector<shared_ptr<Type>> substitutedArguments;
+            for (const auto& arg : genericType->getTypeArguments()) {
+                substitutedArguments.push_back(substituteTypeParameters(arg, typeParameters, typeArguments));
+            }
+            return createGenericType(genericType->getBaseType(), substitutedArguments);
+        }
+        
+        case TypeKind::UniquePtr:
+        case TypeKind::SharedPtr:
+        case TypeKind::WeakPtr: {
+            // For smart pointer types, substitute in the element type
+            auto smartPtrType = static_cast<SmartPointerType*>(type.get());
+            auto substitutedElementType = substituteTypeParameters(smartPtrType->getElementType(), typeParameters, typeArguments);
+            switch (type->getKind()) {
+                case TypeKind::UniquePtr:
+                    return createUniquePtrType(substitutedElementType);
+                case TypeKind::SharedPtr:
+                    return createSharedPtrType(substitutedElementType);
+                case TypeKind::WeakPtr:
+                    return createWeakPtrType(substitutedElementType);
+                default:
+                    break;
+            }
+            break;
+        }
+        
+        default:
+            // For primitive types and other types that don't contain type parameters,
+            // return the type as-is
+            return type;
+    }
+    
+    return type;
 }
 
 // Class type creation method
@@ -630,9 +749,13 @@ bool ClassType::isEquivalentTo(const Type& other) const {
     
     const auto& otherClass = static_cast<const ClassType&>(other);
     
-    // Classes are equivalent if they have the same name
-    // In a full implementation, we might also check for structural compatibility
-    return name_ == otherClass.name_;
+    // First check name-based equivalence
+    if (name_ == otherClass.name_) {
+        return true;
+    }
+    
+    // Check structural compatibility
+    return isStructurallyCompatible(otherClass);
 }
 
 // InterfaceType implementation
@@ -643,9 +766,13 @@ bool InterfaceType::isEquivalentTo(const Type& other) const {
     
     const auto& otherInterface = static_cast<const InterfaceType&>(other);
     
-    // Interfaces are equivalent if they have the same name
-    // In a full implementation, we might also check for structural compatibility
-    return name_ == otherInterface.name_;
+    // First check name-based equivalence
+    if (name_ == otherInterface.name_) {
+        return true;
+    }
+    
+    // Check structural compatibility
+    return isStructurallyCompatible(otherInterface);
 }
 
 // EnumType implementation
@@ -656,9 +783,64 @@ bool EnumType::isEquivalentTo(const Type& other) const {
     
     const auto& otherEnum = static_cast<const EnumType&>(other);
     
-    // Enums are equivalent if they have the same name
-    // In a full implementation, we might also check for structural compatibility
-    return name_ == otherEnum.name_;
+    // First check name-based equivalence
+    if (name_ == otherEnum.name_) {
+        return true;
+    }
+    
+    // Check structural compatibility
+    return isStructurallyCompatible(otherEnum);
+}
+
+// Structural compatibility implementations
+bool ClassType::isStructurallyCompatible(const ClassType& other) const {
+    // For now, structural compatibility means having the same base class
+    // In a full implementation, this would check all properties and methods
+    if (baseClass_ && other.baseClass_) {
+        return baseClass_->isEquivalentTo(*other.baseClass_);
+    }
+    
+    // If one has a base class and the other doesn't, they're not structurally compatible
+    if (baseClass_ || other.baseClass_) {
+        return false;
+    }
+    
+    // If both have no base class, they're structurally compatible
+    // (this is a simplified implementation)
+    return true;
+}
+
+bool InterfaceType::isStructurallyCompatible(const InterfaceType& other) const {
+    // For interfaces, structural compatibility means having compatible extends
+    if (extends_.size() != other.extends_.size()) {
+        return false;
+    }
+    
+    // Check if all extended interfaces are compatible
+    for (size_t i = 0; i < extends_.size(); ++i) {
+        if (!extends_[i]->isEquivalentTo(*other.extends_[i])) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+bool EnumType::isStructurallyCompatible(const EnumType& other) const {
+    // For enums, structural compatibility means having the same declaration
+    // In a full implementation, this would check all enum members
+    if (declaration_ && other.declaration_) {
+        return declaration_ == other.declaration_;
+    }
+    
+    // If one has a declaration and the other doesn't, they're not structurally compatible
+    if (declaration_ || other.declaration_) {
+        return false;
+    }
+    
+    // If both have no declaration, they're structurally compatible
+    // (this is a simplified implementation)
+    return true;
 }
 
 // AliasType implementation

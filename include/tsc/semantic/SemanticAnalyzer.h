@@ -49,6 +49,13 @@ private:
     size_t errorCount_ = 0;
 };
 
+// Control flow context for break/continue validation
+enum class ControlFlowContext {
+    None,           // Not in any control flow construct
+    Loop,           // Inside a loop (for, while, do-while)
+    Switch          // Inside a switch statement
+};
+
 // Main semantic analyzer class
 class SemanticAnalyzer : public ASTVisitor {
 public:
@@ -70,6 +77,11 @@ public:
     SymbolTable& getSymbolTable() { return *symbolTable_; }
     const TypeSystem& getTypeSystem() const { return *typeSystem_; }
     ModuleSymbolManager* getModuleSymbolManager() { return moduleSymbolManager_.get(); }
+    
+    // Type checking utilities
+    bool canConvertToBoolean(shared_ptr<Type> type) const;
+    bool isIndexableType(shared_ptr<Type> type) const;
+    bool isValidIndexType(shared_ptr<Type> type) const;
     
     // Cycle detection
     void runCycleDetection();
@@ -285,6 +297,22 @@ private:
 
 private:
     unique_ptr<EnhancedErrorReporting> errorReporter_;
+    
+    // Control flow context tracking
+    std::vector<ControlFlowContext> controlFlowStack_;
+    
+    // Helper methods for control flow validation
+    void pushControlFlowContext(ControlFlowContext context);
+    void popControlFlowContext();
+    ControlFlowContext getCurrentControlFlowContext() const;
+    
+    // Helper methods for generic constraints validation
+    void validateInterfaceTypeArguments(GenericType* genericType, const SourceLocation& location);
+    void validateInterfaceInheritance(shared_ptr<Type> extendedType, const SourceLocation& location);
+    bool isCircularInterfaceInheritance(InterfaceDeclaration* interfaceDecl, const SourceLocation& location);
+    
+    // Helper methods for exception handling
+    bool isThrowableType(shared_ptr<Type> type) const;
 };
 
 // Semantic analysis result

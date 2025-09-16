@@ -191,8 +191,29 @@ bool GenericConstraintChecker::satisfiesConstraint(shared_ptr<Type> type, shared
         return true; // No constraint to satisfy
     }
 
-    // Check if type satisfies the constraint
-    return isSubtypeOf(type, constraint);
+    // Use specific constraint checking methods based on constraint type
+    switch (constraint->getKind()) {
+        case TypeKind::Number:
+        case TypeKind::String:
+        case TypeKind::Boolean:
+            return checkPrimitiveConstraint(constraint, type);
+            
+        case TypeKind::Class:
+            return checkClassConstraint(constraint, type);
+            
+        case TypeKind::Interface:
+            return checkInterfaceConstraint(constraint, type);
+            
+        case TypeKind::Union:
+            return checkUnionConstraint(constraint, type);
+            
+        case TypeKind::Intersection:
+            return checkIntersectionConstraint(constraint, type);
+            
+        default:
+            // Fall back to subtype checking for other types
+            return isSubtypeOf(type, constraint);
+    }
 }
 
 bool GenericConstraintChecker::isSubtypeOf(shared_ptr<Type> subtype, shared_ptr<Type> supertype) {
@@ -228,6 +249,38 @@ bool GenericConstraintChecker::isSubtypeOf(shared_ptr<Type> subtype, shared_ptr<
                 return true;
             }
             currentClass = std::static_pointer_cast<ClassType>(currentClass->getBaseClass());
+        }
+    }
+    
+    // Check interface implementation
+    if (subtype->getKind() == TypeKind::Class && supertype->getKind() == TypeKind::Interface) {
+        auto classType = std::static_pointer_cast<ClassType>(subtype);
+        auto interfaceType = std::static_pointer_cast<InterfaceType>(supertype);
+        auto classDecl = classType->getDeclaration();
+        
+        if (classDecl) {
+            // Check if the class implements the interface
+            for (const auto& implementedInterface : classDecl->getInterfaces()) {
+                if (implementedInterface->isEquivalentTo(*supertype)) {
+                    return true;
+                }
+            }
+        }
+    }
+    
+    // Check interface inheritance
+    if (subtype->getKind() == TypeKind::Interface && supertype->getKind() == TypeKind::Interface) {
+        auto subInterface = std::static_pointer_cast<InterfaceType>(subtype);
+        auto superInterface = std::static_pointer_cast<InterfaceType>(supertype);
+        auto interfaceDecl = subInterface->getDeclaration();
+        
+        if (interfaceDecl) {
+            // Check if the interface extends the super interface
+            for (const auto& extended : interfaceDecl->getExtends()) {
+                if (extended->isEquivalentTo(*supertype)) {
+                    return true;
+                }
+            }
         }
     }
 
@@ -333,8 +386,44 @@ bool GenericConstraintChecker::checkInterfaceConstraint(shared_ptr<Type> constra
     }
 
     // Check if typeArgument implements the constraint interface
-    // This is a simplified implementation
-    return typeArgument->isEquivalentTo(*constraint);
+    if (constraint->getKind() == TypeKind::Interface) {
+        auto constraintInterface = std::static_pointer_cast<InterfaceType>(constraint);
+        
+        // Check if typeArgument is a class that implements the interface
+        if (typeArgument->getKind() == TypeKind::Class) {
+            auto classType = std::static_pointer_cast<ClassType>(typeArgument);
+            auto classDecl = classType->getDeclaration();
+            
+            if (classDecl) {
+                // Check if the class implements the interface
+                for (const auto& implementedInterface : classDecl->getInterfaces()) {
+                    if (implementedInterface->isEquivalentTo(*constraint)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        // Check if typeArgument is an interface that extends the constraint
+        if (typeArgument->getKind() == TypeKind::Interface) {
+            auto typeArgumentInterface = std::static_pointer_cast<InterfaceType>(typeArgument);
+            auto interfaceDecl = typeArgumentInterface->getDeclaration();
+            
+            if (interfaceDecl) {
+                // Check if the interface extends the constraint
+                for (const auto& extended : interfaceDecl->getExtends()) {
+                    if (extended->isEquivalentTo(*constraint)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        // Check if typeArgument is equivalent to the constraint
+        return typeArgument->isEquivalentTo(*constraint);
+    }
+    
+    return false;
 }
 
 bool GenericConstraintChecker::checkUnionConstraint(shared_ptr<Type> constraint, shared_ptr<Type> typeArgument) {

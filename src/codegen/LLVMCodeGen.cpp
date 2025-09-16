@@ -1360,13 +1360,8 @@ void LLVMCodeGen::visit(CallExpression& node) {
             // Generate the object being called on
             llvm::Value* objectInstance = nullptr;
             
-            // Special case: don't pass the console object for console.log calls
-            if (function && function->getName().str() == "_print") {
-                std::cout << "DEBUG: CallExpression - Skipping console object for _print call" << std::endl;
-            } else {
-                propertyAccess->getObject()->accept(static_cast<ASTVisitor&>(*this));
-                objectInstance = getCurrentValue();
-            }
+            propertyAccess->getObject()->accept(static_cast<ASTVisitor&>(*this));
+            objectInstance = getCurrentValue();
             
             // Special handling for arrayPush calls - we need to pass the array structure pointer,
             // not the data pointer that PropertyAccess returns for the 'items' field
@@ -1456,11 +1451,8 @@ void LLVMCodeGen::visit(CallExpression& node) {
             // Prepare arguments for the method call
             std::vector<llvm::Value*> args;
             
-            // Add 'this' pointer as first argument (object instance)
-            // Skip for _print calls since we don't want to pass the console object
-            if (function && function->getName().str() != "_print") {
-                args.push_back(objectInstance);
-            }
+        // Add 'this' pointer as first argument (object instance)
+        args.push_back(objectInstance);
             
             // Add method arguments
             for (const auto& arg : node.getArguments()) {
@@ -1501,56 +1493,6 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         return;
                     }
                     
-                    // Special handling for _print calls - convert double arguments to strings
-                    bool wasConvertedFromNumber = false;
-                    if (function && function->getName().str() == "_print" && argValue->getType() == getNumberType()) {
-                        std::cout << "DEBUG: CallExpression - Converting double argument to string for _print" << std::endl;
-                        // Convert double to string using number_to_string
-                        llvm::Function* numberToStringFunc = createBuiltinMethodFunction("toString", std::make_shared<PrimitiveType>(TypeKind::Number), node.getLocation());
-                        argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
-                        wasConvertedFromNumber = true;
-                    }
-                    
-                    // Special handling for _print calls - convert non-string pointer arguments to strings
-                    // Skip if this was already converted from a number (number_to_string returns a string pointer)
-                    if (function && function->getName().str() == "_print" && argValue->getType()->isPointerTy() && !wasConvertedFromNumber) {
-                        // Check if this is a string constant (GlobalVariable with string data)
-                        bool isStringConstant = false;
-                        if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(argValue)) {
-                            if (globalVar->hasInitializer()) {
-                                if (auto* initArray = llvm::dyn_cast<llvm::ConstantDataArray>(globalVar->getInitializer())) {
-                                    if (initArray->isString()) {
-                                        isStringConstant = true;
-                                        std::cout << "DEBUG: CallExpression - Found string constant: " << globalVar->getName().str() << std::endl;
-                                    }
-                                } else if (auto* zeroInit = llvm::dyn_cast<llvm::ConstantAggregateZero>(globalVar->getInitializer())) {
-                                    // Check if this is an empty string constant (zeroinitializer)
-                                    if (globalVar->getName().str().find("str") != std::string::npos) {
-                                        isStringConstant = true;
-                                        std::cout << "DEBUG: CallExpression - Found empty string constant: " << globalVar->getName().str() << std::endl;
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Check if this looks like a string by examining the value name
-                        std::string valueName = argValue->getName().str();
-                        std::cout << "DEBUG: CallExpression - Argument value name: '" << valueName << "'" << std::endl;
-                        if (valueName.find("template_concat") != std::string::npos || 
-                            valueName.find("string_concat") != std::string::npos ||
-                            valueName.find("number_to_string") != std::string::npos ||
-                            valueName.find("@str") != std::string::npos ||
-                            isStringConstant) {
-                            // This looks like a string result, don't convert
-                            std::cout << "DEBUG: CallExpression - String-like value, not converting" << std::endl;
-                        } else {
-                            // This is likely a non-string pointer, convert to string representation
-                            std::cout << "DEBUG: CallExpression - Converting non-string pointer argument to string for _print" << std::endl;
-                            llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
-                            argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
-                        }
-                    }
-                    
                     args.push_back(argValue);
                     std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
                 }
@@ -1559,22 +1501,8 @@ void LLVMCodeGen::visit(CallExpression& node) {
             // Generate the method call
             llvm::Value* callResult;
             if (function->getReturnType()->isVoidTy()) {
-                // Special handling for _print function - add format string as first argument
-                if (function->getName().str() == "_print") {
-                    // Create a format string constant for _print based on number of arguments
-                    std::string formatStr = "";
-                    for (size_t i = 0; i < args.size(); i++) {
-                        formatStr += "%s";
-                    }
-                    llvm::Value* formatString = createStringLiteral(formatStr);
-                    std::vector<llvm::Value*> printArgs = {formatString};
-                    printArgs.insert(printArgs.end(), args.begin(), args.end());
-                    callResult = builder_->CreateCall(function, printArgs);
-                    std::cout << "DEBUG: Created void function call to " << function->getName().str() << " with format string: " << formatStr << std::endl;
-                } else {
-                    callResult = builder_->CreateCall(function, args);
-                    std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
-                }
+                callResult = builder_->CreateCall(function, args);
+                std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
             } else {
                 callResult = builder_->CreateCall(function, args, "method_call_result");
                 std::cout << "DEBUG: Created function call to " << function->getName().str() << std::endl;
@@ -1722,56 +1650,6 @@ void LLVMCodeGen::visit(CallExpression& node) {
                             return;
                         }
                         
-                        // Special handling for _print calls - convert double arguments to strings
-                        bool wasConvertedFromNumber = false;
-                        if (function && function->getName().str() == "_print" && argValue->getType() == getNumberType()) {
-                            std::cout << "DEBUG: CallExpression - Converting double argument to string for _print" << std::endl;
-                            // Convert double to string using number_to_string
-                            llvm::Function* numberToStringFunc = createBuiltinMethodFunction("toString", std::make_shared<PrimitiveType>(TypeKind::Number), node.getLocation());
-                            argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
-                            wasConvertedFromNumber = true;
-                        }
-                        
-                        // Special handling for _print calls - convert non-string pointer arguments to strings
-                        // Skip if this was already converted from a number (number_to_string returns a string pointer)
-                        if (function && function->getName().str() == "_print" && argValue->getType()->isPointerTy() && !wasConvertedFromNumber) {
-                            // Check if this is a string constant (GlobalVariable with string data)
-                            bool isStringConstant = false;
-                            if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(argValue)) {
-                                if (globalVar->hasInitializer()) {
-                                    if (auto* initArray = llvm::dyn_cast<llvm::ConstantDataArray>(globalVar->getInitializer())) {
-                                        if (initArray->isString()) {
-                                            isStringConstant = true;
-                                            std::cout << "DEBUG: CallExpression - Found string constant: " << globalVar->getName().str() << std::endl;
-                                        }
-                                    } else if (auto* zeroInit = llvm::dyn_cast<llvm::ConstantAggregateZero>(globalVar->getInitializer())) {
-                                        // Check if this is an empty string constant (zeroinitializer)
-                                        if (globalVar->getName().str().find("str") != std::string::npos) {
-                                            isStringConstant = true;
-                                            std::cout << "DEBUG: CallExpression - Found empty string constant: " << globalVar->getName().str() << std::endl;
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Check if this looks like a string by examining the value name
-                            std::string valueName = argValue->getName().str();
-                            std::cout << "DEBUG: CallExpression - Argument value name: '" << valueName << "'" << std::endl;
-                            if (valueName.find("template_concat") != std::string::npos || 
-                                valueName.find("string_concat") != std::string::npos ||
-                                valueName.find("number_to_string") != std::string::npos ||
-                                valueName.find("@str") != std::string::npos ||
-                                isStringConstant) {
-                                // This looks like a string result, don't convert
-                                std::cout << "DEBUG: CallExpression - String-like value, not converting" << std::endl;
-                            } else {
-                                // This is likely a non-string pointer, convert to string representation
-                                std::cout << "DEBUG: CallExpression - Converting non-string pointer argument to string for _print" << std::endl;
-                                llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
-                                argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
-                            }
-                        }
-                        
                         args.push_back(argValue);
                         std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
                     }
@@ -1780,22 +1658,8 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 // Generate the method call
                 llvm::Value* callResult;
                 if (function->getReturnType()->isVoidTy()) {
-                    // Special handling for _print function - add format string as first argument
-                    if (function->getName().str() == "_print") {
-                        // Create a format string constant for _print based on number of arguments
-                        std::string formatStr = "";
-                        for (size_t i = 0; i < args.size(); i++) {
-                            formatStr += "%s";
-                        }
-                        llvm::Value* formatString = createStringLiteral(formatStr);
-                        std::vector<llvm::Value*> printArgs = {formatString};
-                        printArgs.insert(printArgs.end(), args.begin(), args.end());
-                        callResult = builder_->CreateCall(function, printArgs);
-                        std::cout << "DEBUG: Created void function call to " << function->getName().str() << " with format string: " << formatStr << std::endl;
-                    } else {
-                        callResult = builder_->CreateCall(function, args);
-                        std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
-                    }
+                    callResult = builder_->CreateCall(function, args);
+                    std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
                 } else {
                     callResult = builder_->CreateCall(function, args, "method_call_result");
                     std::cout << "DEBUG: Created function call to " << function->getName().str() << std::endl;
@@ -2681,17 +2545,6 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         return;
     }
     
-    // Check if this is console.log access first
-    if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {
-        std::cout << "DEBUG: PropertyAccess - identifier name: " << identifier->getName() << ", property: " << node.getProperty() << std::endl;
-        if (identifier->getName() == "console" && node.getProperty() == "log") {
-            std::cout << "DEBUG: PropertyAccess - Found console.log, creating function" << std::endl;
-            // This is console.log - return a function pointer to our _print implementation
-            llvm::Function* printFunc = getOrCreatePrintFunction();
-            setCurrentValue(printFunc);
-            return;
-        }
-    }
     
     // Check if this is _print access
     if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {

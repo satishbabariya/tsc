@@ -16,7 +16,6 @@ char* string_concat(char* str1, char* str2) {
     size_t len2 = strlen(str2);
     size_t total_len = len1 + len2 + 1; // +1 for null terminator
     
-    // Use regular malloc for now
     char* result = (char*)malloc(total_len);
     if (!result) {
         fprintf(stderr, "Memory allocation failed in string_concat\n");
@@ -33,7 +32,6 @@ char* string_concat(char* str1, char* str2) {
 // Signature: char* number_to_string(double value)
 // Returns: A newly allocated string representation of the number
 char* number_to_string(double value) {
-    // Allocate buffer for the string representation using malloc
     char* buffer = (char*)malloc(32); // 32 chars should be enough for most doubles
     if (!buffer) {
         fprintf(stderr, "Memory allocation failed in number_to_string\n");
@@ -109,12 +107,8 @@ char* number_to_string_5(double value) {
 
 // Convert pointer to string representation
 char* pointer_to_string(void* ptr) {
-    char* buffer = (char*)malloc(32); // Allocate buffer dynamically
-    if (!buffer) {
-        fprintf(stderr, "Memory allocation failed in pointer_to_string\n");
-        exit(1);
-    }
-    snprintf(buffer, 32, "%p", ptr);
+    static char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%p", ptr);
     return buffer;
 }
 

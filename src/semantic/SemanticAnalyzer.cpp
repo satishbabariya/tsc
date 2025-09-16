@@ -465,8 +465,10 @@ void SemanticAnalyzer::visit(ConditionalExpression& node) {
     auto trueType = getExpressionType(*node.getTrueExpression());
     auto falseType = getExpressionType(*node.getFalseExpression());
     
-    // Condition should be boolean (but we allow any type for now)
-    // TODO: Add proper boolean conversion checking
+    // Check if condition can be converted to boolean
+    if (!canConvertToBoolean(conditionType)) {
+        reportError("Condition expression must be convertible to boolean", node.getCondition()->getLocation());
+    }
     
     // Result type is the union of true and false types
     // For now, use the true type if both are the same, otherwise use any
@@ -580,15 +582,35 @@ void SemanticAnalyzer::visit(IndexExpression& node) {
     auto objectType = getExpressionType(*node.getObject());
     auto indexType = getExpressionType(*node.getIndex());
     
-    // Check if object is indexable (array, string, etc.)
-    // For now, assume it returns the element type or any
-    // TODO: Implement proper indexing type checking
-    if (objectType && typeSystem_->isArrayType(objectType)) {
-        auto elementType = typeSystem_->getArrayElementType(objectType);
-        setExpressionType(node, elementType);
-    } else {
+    // Check if object is indexable and validate index type
+    if (!isIndexableType(objectType)) {
+        reportError("Object is not indexable", node.getObject()->getLocation());
         setExpressionType(node, typeSystem_->getAnyType());
+        return;
     }
+    
+    // Check if index type is valid for indexing
+    if (!isValidIndexType(indexType)) {
+        reportError("Invalid index type for array/object access", node.getIndex()->getLocation());
+        setExpressionType(node, typeSystem_->getAnyType());
+        return;
+    }
+    
+    // Determine the result type based on the object type
+    shared_ptr<Type> resultType;
+    if (typeSystem_->isArrayType(objectType)) {
+        resultType = typeSystem_->getArrayElementType(objectType);
+    } else if (objectType->isString()) {
+        resultType = typeSystem_->getStringType(); // String indexing returns string
+    } else if (objectType->getKind() == TypeKind::Object) {
+        // For object types, we need to check if the index is a string literal
+        // and if so, return the type of that property
+        resultType = typeSystem_->getAnyType(); // For now, return any
+    } else {
+        resultType = typeSystem_->getAnyType();
+    }
+    
+    setExpressionType(node, resultType);
 }
 
 void SemanticAnalyzer::visit(ObjectLiteral& node) {
@@ -597,9 +619,18 @@ void SemanticAnalyzer::visit(ObjectLiteral& node) {
         property.getValue()->accept(*this);
     }
     
-    // For now, infer object type as any (like a generic object)
-    // TODO: Implement proper object type inference based on properties
-    auto objectType = typeSystem_->getAnyType();
+    // Infer object type based on properties
+    std::vector<ObjectType::Property> properties;
+    for (const auto& property : node.getProperties()) {
+        auto propertyType = getExpressionType(*property.getValue());
+        properties.push_back({
+            property.getKey(),
+            propertyType,
+            false // TODO: Handle optional properties
+        });
+    }
+    
+    auto objectType = typeSystem_->createObjectType(properties);
     setExpressionType(node, objectType);
 }
 
@@ -977,9 +1008,9 @@ void SemanticAnalyzer::visit(IfStatement& node) {
     node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
     
     // Check if condition is boolean-compatible
-    auto conditionType = node.getCondition()->getType();
-    if (conditionType && !typeSystem_->isConvertibleToBoolean(conditionType)) {
-        reportWarning("Condition should be boolean-compatible", node.getCondition()->getLocation());
+    auto conditionType = getExpressionType(*node.getCondition());
+    if (!canConvertToBoolean(conditionType)) {
+        reportError("If condition must be convertible to boolean", node.getCondition()->getLocation());
     }
     
     // Analyze then statement
@@ -999,29 +1030,41 @@ void SemanticAnalyzer::visit(WhileStatement& node) {
     node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
     
     // Check if condition is boolean-compatible
-    auto conditionType = node.getCondition()->getType();
-    if (conditionType && !typeSystem_->isConvertibleToBoolean(conditionType)) {
-        reportWarning("While condition should be boolean-compatible", node.getCondition()->getLocation());
+    auto conditionType = getExpressionType(*node.getCondition());
+    if (!canConvertToBoolean(conditionType)) {
+        reportError("While condition must be convertible to boolean", node.getCondition()->getLocation());
     }
+    
+    // Push loop context for break/continue validation
+    pushControlFlowContext(ControlFlowContext::Loop);
     
     // Analyze body
     node.getBody()->accept(*this);
+    
+    // Pop loop context
+    popControlFlowContext();
     
     // Set type to void
     node.setType(typeSystem_->getVoidType());
 }
 
 void SemanticAnalyzer::visit(DoWhileStatement& node) {
+    // Push loop context for break/continue validation
+    pushControlFlowContext(ControlFlowContext::Loop);
+    
     // Analyze body first
     node.getBody()->accept(*this);
+    
+    // Pop loop context
+    popControlFlowContext();
     
     // Analyze condition
     node.getCondition()->accept(static_cast<ASTVisitor&>(*this));
     
     // Check if condition is boolean-compatible
-    auto conditionType = node.getCondition()->getType();
-    if (conditionType && !typeSystem_->isConvertibleToBoolean(conditionType)) {
-        reportWarning("Do-while condition should be boolean-compatible", node.getCondition()->getLocation());
+    auto conditionType = getExpressionType(*node.getCondition());
+    if (!canConvertToBoolean(conditionType)) {
+        reportError("Do-while condition must be convertible to boolean", node.getCondition()->getLocation());
     }
     
     // Set type to void
@@ -1050,8 +1093,14 @@ void SemanticAnalyzer::visit(ForStatement& node) {
         node.getIncrement()->accept(*this);
     }
     
+    // Push loop context for break/continue validation
+    pushControlFlowContext(ControlFlowContext::Loop);
+    
     // Analyze body
     node.getBody()->accept(*this);
+    
+    // Pop loop context
+    popControlFlowContext();
     
     // Set type to void
     node.setType(typeSystem_->getVoidType());
@@ -1102,10 +1151,16 @@ void SemanticAnalyzer::visit(SwitchStatement& node) {
     // Analyze discriminant
     node.getDiscriminant()->accept(*this);
     
+    // Push switch context for break statements
+    pushControlFlowContext(ControlFlowContext::Switch);
+    
     // Analyze all case clauses
     for (const auto& caseClause : node.getCases()) {
         caseClause->accept(*this);
     }
+    
+    // Pop switch context
+    popControlFlowContext();
     
     // Set type to void
     node.setType(typeSystem_->getVoidType());
@@ -1124,14 +1179,22 @@ void SemanticAnalyzer::visit(CaseClause& node) {
 }
 
 void SemanticAnalyzer::visit(BreakStatement& node) {
-    // TODO: Check if break is in valid context (loop or switch)
-    // For now, just set type to void
+    // Check if break is in valid context (loop or switch)
+    ControlFlowContext context = getCurrentControlFlowContext();
+    if (context == ControlFlowContext::None) {
+        reportError("Break statement must be inside a loop or switch statement", node.getLocation());
+    }
+    
     node.setType(typeSystem_->getVoidType());
 }
 
 void SemanticAnalyzer::visit(ContinueStatement& node) {
-    // TODO: Check if continue is in valid context (loop)
-    // For now, just set type to void
+    // Check if continue is in valid context (loop only)
+    ControlFlowContext context = getCurrentControlFlowContext();
+    if (context != ControlFlowContext::Loop) {
+        reportError("Continue statement must be inside a loop", node.getLocation());
+    }
+    
     node.setType(typeSystem_->getVoidType());
 }
 
@@ -1146,8 +1209,8 @@ void SemanticAnalyzer::visit(TryStatement& node) {
         // Add catch parameter to scope if it exists
         if (node.getCatchClause()->hasParameter()) {
             const String& paramName = node.getCatchClause()->getParameter();
-            // TODO: Define proper error type for catch parameters
-            auto errorType = typeSystem_->getAnyType();
+            // Use proper error type for catch parameters
+            auto errorType = typeSystem_->getErrorType();
             symbolTable_->addSymbol(paramName, SymbolKind::Variable, errorType, node.getLocation());
         }
         
@@ -1172,8 +1235,16 @@ void SemanticAnalyzer::visit(ThrowStatement& node) {
     // Analyze the expression being thrown
     node.getExpression()->accept(*this);
     
-    // TODO: Type check that the expression is throwable
-    // For now, allow any type to be thrown
+    // Type check that the expression is throwable
+    auto expressionType = node.getExpression()->getType();
+    if (!isThrowableType(expressionType)) {
+        reportError("Expression of type '" + expressionType->toString() + 
+                  "' cannot be thrown. Only Error types and their subtypes can be thrown.", 
+                  node.getLocation());
+        node.setType(typeSystem_->getErrorType());
+        return;
+    }
+    
     node.setType(typeSystem_->getVoidType());
 }
 
@@ -2308,13 +2379,12 @@ void SemanticAnalyzer::visit(InterfaceDeclaration& node) {
         if (auto genericType = dynamic_cast<GenericType*>(extended.get())) {
             std::cout << "DEBUG: Extended interface is generic with " << genericType->getTypeArguments().size() << " type arguments" << std::endl;
             
-            // TODO: Validate that type arguments satisfy constraints
-            // This would require looking up the base interface and checking its constraints
+            // Validate that type arguments satisfy constraints
+            validateInterfaceTypeArguments(genericType, node.getLocation());
         }
         
-        // TODO: Implement full interface inheritance validation
-        // This would include checking that the extended interface exists,
-        // validating type argument constraints, and ensuring compatibility
+        // Implement full interface inheritance validation
+        validateInterfaceInheritance(extended, node.getLocation());
     }
     
     // Analyze property signatures
@@ -3350,7 +3420,14 @@ void SemanticAnalyzer::validateDestructorSafety(const DestructorDeclaration& des
 
 // Destructuring visitor method implementations
 void SemanticAnalyzer::visit(DestructuringPattern& node) {
-    // TODO: Implement destructuring pattern semantic analysis
+    // Analyze the pattern type
+    auto patternType = node.getPatternType();
+    if (patternType) {
+        patternType->accept(*this);
+    }
+    
+    // Set the pattern type
+    node.setType(patternType);
 }
 
 void SemanticAnalyzer::visit(ArrayDestructuringPattern& node) {
@@ -3403,6 +3480,311 @@ void SemanticAnalyzer::visit(OptionalCallExpr& node) {
 void SemanticAnalyzer::visit(SpreadElement& node) {
     // TODO: Implement spread element semantic analysis
     node.getExpression()->accept(*this);
+}
+
+// Type checking utilities
+bool SemanticAnalyzer::canConvertToBoolean(shared_ptr<Type> type) const {
+    if (!type) {
+        return false;
+    }
+    
+    // Boolean types can always be converted to boolean
+    if (type->isBoolean()) {
+        return true;
+    }
+    
+    // Number types can be converted to boolean (0 = false, non-zero = true)
+    if (type->isNumber()) {
+        return true;
+    }
+    
+    // String types can be converted to boolean (empty = false, non-empty = true)
+    if (type->isString()) {
+        return true;
+    }
+    
+    // Null and undefined can be converted to boolean (both = false)
+    if (type->isNull() || type->isUndefined()) {
+        return true;
+    }
+    
+    // Any type can be converted to boolean (but with runtime behavior)
+    if (type->isAny()) {
+        return true;
+    }
+    
+    // Object types can be converted to boolean (null = false, non-null = true)
+    if (type->getKind() == TypeKind::Object || 
+        type->getKind() == TypeKind::Class ||
+        type->getKind() == TypeKind::Interface ||
+        type->getKind() == TypeKind::Array) {
+        return true;
+    }
+    
+    // Union types can be converted if all members can be converted
+    if (type->getKind() == TypeKind::Union) {
+        auto unionType = static_cast<UnionType*>(type.get());
+        for (const auto& memberType : unionType->getTypes()) {
+            if (!canConvertToBoolean(memberType)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    // Never type cannot be converted to boolean
+    if (type->isNever()) {
+        return false;
+    }
+    
+    // Unknown type cannot be converted to boolean
+    if (type->isUnknown()) {
+        return false;
+    }
+    
+    // For other types, assume they can be converted (conservative approach)
+    return true;
+}
+
+bool SemanticAnalyzer::isIndexableType(shared_ptr<Type> type) const {
+    if (!type) {
+        return false;
+    }
+    
+    // Arrays are indexable
+    if (typeSystem_->isArrayType(type)) {
+        return true;
+    }
+    
+    // Strings are indexable
+    if (type->isString()) {
+        return true;
+    }
+    
+    // Objects are indexable
+    if (type->getKind() == TypeKind::Object) {
+        return true;
+    }
+    
+    // Any type is indexable (but with runtime behavior)
+    if (type->isAny()) {
+        return true;
+    }
+    
+    // Union types are indexable if all members are indexable
+    if (type->getKind() == TypeKind::Union) {
+        auto unionType = static_cast<UnionType*>(type.get());
+        for (const auto& memberType : unionType->getTypes()) {
+            if (!isIndexableType(memberType)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    return false;
+}
+
+bool SemanticAnalyzer::isValidIndexType(shared_ptr<Type> type) const {
+    if (!type) {
+        return false;
+    }
+    
+    // Number types are valid indices for arrays
+    if (type->isNumber()) {
+        return true;
+    }
+    
+    // String types are valid indices for objects
+    if (type->isString()) {
+        return true;
+    }
+    
+    // Any type is a valid index (but with runtime behavior)
+    if (type->isAny()) {
+        return true;
+    }
+    
+    // Union types are valid if all members are valid
+    if (type->getKind() == TypeKind::Union) {
+        auto unionType = static_cast<UnionType*>(type.get());
+        for (const auto& memberType : unionType->getTypes()) {
+            if (!isValidIndexType(memberType)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    return false;
+}
+
+// Control flow context helper methods
+void SemanticAnalyzer::pushControlFlowContext(ControlFlowContext context) {
+    controlFlowStack_.push_back(context);
+}
+
+void SemanticAnalyzer::popControlFlowContext() {
+    if (!controlFlowStack_.empty()) {
+        controlFlowStack_.pop_back();
+    }
+}
+
+ControlFlowContext SemanticAnalyzer::getCurrentControlFlowContext() const {
+    if (controlFlowStack_.empty()) {
+        return ControlFlowContext::None;
+    }
+    return controlFlowStack_.back();
+}
+
+void SemanticAnalyzer::validateInterfaceTypeArguments(GenericType* genericType, const SourceLocation& location) {
+    if (!genericType) {
+        return;
+    }
+    
+    auto baseType = genericType->getBaseType();
+    auto typeArguments = genericType->getTypeArguments();
+    
+    // Look up the base interface to get its type parameters
+    if (baseType->getKind() == TypeKind::Interface) {
+        auto interfaceType = static_cast<InterfaceType*>(baseType.get());
+        auto interfaceDecl = interfaceType->getDeclaration();
+        
+        if (interfaceDecl) {
+            const auto& typeParameters = interfaceDecl->getTypeParameters();
+            
+            // Validate that we have the right number of type arguments
+            if (typeArguments.size() != typeParameters.size()) {
+                reportError("Interface '" + interfaceType->getName() + "' requires " + 
+                          std::to_string(typeParameters.size()) + " type arguments, but " + 
+                          std::to_string(typeArguments.size()) + " were provided", location);
+                return;
+            }
+            
+            // Validate each type argument against its constraint
+            for (size_t i = 0; i < typeArguments.size(); ++i) {
+                const auto& typeParam = typeParameters[i];
+                auto typeArg = typeArguments[i];
+                
+                if (typeParam->hasConstraint()) {
+                    auto constraint = typeParam->getConstraint();
+                    if (!constraintChecker_->satisfiesConstraint(typeArg, constraint)) {
+                        reportError("Type argument '" + typeArg->toString() + 
+                                  "' does not satisfy constraint '" + constraint->toString() + 
+                                  "' for type parameter '" + typeParam->getName() + "'", location);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void SemanticAnalyzer::validateInterfaceInheritance(shared_ptr<Type> extendedType, const SourceLocation& location) {
+    if (!extendedType) {
+        return;
+    }
+    
+    // Check if the extended type is a valid interface type
+    if (extendedType->getKind() == TypeKind::Interface) {
+        auto interfaceType = static_cast<InterfaceType*>(extendedType.get());
+        auto interfaceDecl = interfaceType->getDeclaration();
+        
+        if (interfaceDecl) {
+            // Check for circular inheritance
+            if (isCircularInterfaceInheritance(interfaceDecl, location)) {
+                reportError("Circular interface inheritance detected", location);
+                return;
+            }
+            
+            // Validate that the interface exists and is accessible
+            auto symbol = symbolTable_->lookupSymbol(interfaceType->getName());
+            if (!symbol || symbol->getKind() != SymbolKind::Type) {
+                reportError("Interface '" + interfaceType->getName() + "' is not defined", location);
+                return;
+            }
+        }
+    } else if (extendedType->getKind() == TypeKind::Generic) {
+        // For generic interfaces, validate the base type
+        auto genericType = static_cast<GenericType*>(extendedType.get());
+        validateInterfaceInheritance(genericType->getBaseType(), location);
+    } else {
+        reportError("Only interfaces can be extended by interfaces", location);
+    }
+}
+
+bool SemanticAnalyzer::isCircularInterfaceInheritance(InterfaceDeclaration* interfaceDecl, const SourceLocation& location) {
+    if (!interfaceDecl) {
+        return false;
+    }
+    
+    // Simple circular inheritance check - in a full implementation, this would
+    // need to track the inheritance chain more carefully
+    for (const auto& extended : interfaceDecl->getExtends()) {
+        if (extended->getKind() == TypeKind::Interface) {
+            auto extendedInterface = static_cast<InterfaceType*>(extended.get());
+            if (extendedInterface->getName() == interfaceDecl->getName()) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+bool SemanticAnalyzer::isThrowableType(shared_ptr<Type> type) const {
+    if (!type) {
+        return false;
+    }
+    
+    // Error types are throwable
+    if (type->getKind() == TypeKind::Error) {
+        return true;
+    }
+    
+    // Classes that extend Error are throwable
+    if (type->getKind() == TypeKind::Class) {
+        auto classType = static_cast<ClassType*>(type.get());
+        auto classDecl = classType->getDeclaration();
+        
+        if (classDecl) {
+            // Check if the class extends Error
+            auto baseClass = classDecl->getBaseClass();
+            while (baseClass) {
+                if (baseClass->getKind() == TypeKind::Class) {
+                    auto baseClassType = static_cast<ClassType*>(baseClass.get());
+                    if (baseClassType->getName() == "Error") {
+                        return true;
+                    }
+                    // Check the next level up
+                    auto baseClassDecl = baseClassType->getDeclaration();
+                    if (baseClassDecl) {
+                        baseClass = baseClassDecl->getBaseClass();
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Union types are throwable if any member is throwable
+    if (type->getKind() == TypeKind::Union) {
+        auto unionType = static_cast<UnionType*>(type.get());
+        for (const auto& memberType : unionType->getTypes()) {
+            if (isThrowableType(memberType)) {
+                return true;
+            }
+        }
+    }
+    
+    // Any type can be thrown (but with runtime behavior)
+    if (type->isAny()) {
+        return true;
+    }
+    
+    return false;
 }
 
 // Factory function
