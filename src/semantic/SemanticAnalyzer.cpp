@@ -510,54 +510,23 @@ void SemanticAnalyzer::visit(CallExpression& node) {
 }
 
 void SemanticAnalyzer::visit(ArrayLiteral& node) {
-    std::cout << "DEBUG: Analyzing array literal with " << node.getElements().size() << " elements" << std::endl;
-    
     // Analyze all elements
-    std::vector<shared_ptr<Type>> elementTypes;
-    bool hasSpreadElements = false;
-    
-    for (size_t i = 0; i < node.getElements().size(); ++i) {
-        const auto& element = node.getElements()[i];
-        
-        if (auto spreadElement = dynamic_cast<SpreadElement*>(element.get())) {
-            std::cout << "DEBUG: Found spread element at index " << i << std::endl;
-            hasSpreadElements = true;
-            
-            // Analyze the spread element
-            spreadElement->accept(*this);
-            auto spreadType = getExpressionType(*spreadElement);
-            
-            if (spreadType && spreadType->getKind() == TypeKind::Array) {
-                // Get the element type of the spread array
-                auto arrayType = static_cast<ArrayType*>(spreadType.get());
-                auto spreadElementType = arrayType->getElementType();
-                elementTypes.push_back(spreadElementType);
-                std::cout << "DEBUG: Spread array element type: " << spreadElementType->toString() << std::endl;
-            } else {
-                // For non-array spreads or unknown types, use 'any'
-                elementTypes.push_back(typeSystem_->getAnyType());
-                std::cout << "DEBUG: Spread non-array type: " << (spreadType ? spreadType->toString() : "unknown") << std::endl;
-            }
-        } else {
-            // Regular element
-            element->accept(*this);
-            auto elementType = getExpressionType(*element);
-            elementTypes.push_back(elementType);
-            std::cout << "DEBUG: Regular element " << i << " type: " << (elementType ? elementType->toString() : "unknown") << std::endl;
-        }
+    for (const auto& element : node.getElements()) {
+        element->accept(*this);
     }
     
     // Infer array type based on elements
-    shared_ptr<Type> resultElementType = typeSystem_->getAnyType(); // Default
+    shared_ptr<Type> elementType = typeSystem_->getAnyType(); // Default
     
-    if (!elementTypes.empty()) {
+    if (!node.getElements().empty()) {
         // Get type of first element
-        resultElementType = elementTypes[0];
+        elementType = getExpressionType(*node.getElements()[0]);
         
         // Check if all elements have the same type
         bool allSameType = true;
-        for (size_t i = 1; i < elementTypes.size(); ++i) {
-            if (!resultElementType->isEquivalentTo(*elementTypes[i])) {
+        for (size_t i = 1; i < node.getElements().size(); ++i) {
+            auto currentElementType = getExpressionType(*node.getElements()[i]);
+            if (!elementType->isEquivalentTo(*currentElementType)) {
                 allSameType = false;
                 break;
             }
@@ -565,19 +534,18 @@ void SemanticAnalyzer::visit(ArrayLiteral& node) {
         
         // If elements have different types, use 'any' as element type
         if (!allSameType) {
-            resultElementType = typeSystem_->getAnyType();
-            std::cout << "DEBUG: Array has mixed element types, using 'any'" << std::endl;
-        } else {
-            std::cout << "DEBUG: Array has uniform element type: " << resultElementType->toString() << std::endl;
+            elementType = typeSystem_->getAnyType();
         }
     } else {
-        // For empty arrays, use 'any' as the default element type
-        std::cout << "DEBUG: Empty array, using 'any' element type" << std::endl;
+        // For empty arrays, we need to be more careful about type inference
+        // Check if this array literal is in an assignment context
+        // If so, we'll let the assignment checker handle the type compatibility
+        // For now, use 'any' as the default element type for empty arrays
+        elementType = typeSystem_->getAnyType();
     }
     
-    auto arrayType = typeSystem_->createArrayType(resultElementType);
+    auto arrayType = typeSystem_->createArrayType(elementType);
     setExpressionType(node, arrayType);
-    std::cout << "DEBUG: Array literal type: " << arrayType->toString() << std::endl;
 }
 
 void SemanticAnalyzer::visit(TemplateLiteral& node) {
@@ -676,49 +644,18 @@ void SemanticAnalyzer::visit(IndexExpression& node) {
 }
 
 void SemanticAnalyzer::visit(ObjectLiteral& node) {
-    std::cout << "DEBUG: Analyzing object literal with " << node.getProperties().size() << " properties" << std::endl;
-    
     // Analyze all property values
     std::vector<std::pair<String, shared_ptr<Type>>> propertyTypes;
     
-    for (size_t i = 0; i < node.getProperties().size(); ++i) {
-        const auto& property = node.getProperties()[i];
-        
-        if (auto spreadElement = dynamic_cast<SpreadElement*>(property.getValue())) {
-            std::cout << "DEBUG: Found spread element in object property " << i << std::endl;
-            
-            // Analyze the spread element
-            spreadElement->accept(*this);
-            auto spreadType = getExpressionType(*spreadElement);
-            
-            if (spreadType && spreadType->getKind() == TypeKind::Object) {
-                // Get the properties of the spread object
-                auto objectType = static_cast<ObjectType*>(spreadType.get());
-                const auto& spreadProperties = objectType->getProperties();
-                
-                // Add all properties from the spread object
-                for (const auto& spreadProp : spreadProperties) {
-                    propertyTypes.emplace_back(spreadProp.first, spreadProp.second);
-                    std::cout << "DEBUG: Added spread property: " << spreadProp.first << " with type: " << spreadProp.second->toString() << std::endl;
-                }
-            } else {
-                // For non-object spreads or unknown types, add a generic property
-                propertyTypes.emplace_back("...", typeSystem_->getAnyType());
-                std::cout << "DEBUG: Spread non-object type: " << (spreadType ? spreadType->toString() : "unknown") << std::endl;
-            }
-        } else {
-            // Regular property
-            property.getValue()->accept(*this);
-            auto valueType = getExpressionType(*property.getValue());
-            propertyTypes.emplace_back(property.getKey(), valueType);
-            std::cout << "DEBUG: Regular property " << property.getKey() << " type: " << (valueType ? valueType->toString() : "unknown") << std::endl;
-        }
+    for (const auto& property : node.getProperties()) {
+        property.getValue()->accept(*this);
+        auto valueType = getExpressionType(*property.getValue());
+        propertyTypes.emplace_back(property.getKey(), valueType);
     }
     
     // Create an object type based on the properties
     auto objectType = createObjectTypeFromProperties(propertyTypes);
     setExpressionType(node, objectType);
-    std::cout << "DEBUG: Object literal type: " << objectType->toString() << std::endl;
 }
 
 void SemanticAnalyzer::visit(PropertyAccess& node) {
@@ -3906,55 +3843,8 @@ void SemanticAnalyzer::visit(OptionalCallExpr& node) {
 }
 
 void SemanticAnalyzer::visit(SpreadElement& node) {
-    std::cout << "DEBUG: Analyzing spread element" << std::endl;
-    
-    // Analyze the expression being spread
+    // TODO: Implement spread element semantic analysis
     node.getExpression()->accept(*this);
-    auto spreadType = getExpressionType(*node.getExpression());
-    
-    if (!spreadType) {
-        reportError("Could not determine type of expression in spread element", node.getLocation());
-        setExpressionType(node, typeSystem_->getAnyType());
-        return;
-    }
-    
-    std::cout << "DEBUG: Spread element expression type: " << spreadType->toString() << std::endl;
-    
-    // Validate that the expression can be spread
-    switch (spreadType->getKind()) {
-        case TypeKind::Array:
-            std::cout << "DEBUG: Spreading array type" << std::endl;
-            // Array spreading is valid - the result type will be determined by context
-            break;
-            
-        case TypeKind::Object:
-            std::cout << "DEBUG: Spreading object type" << std::endl;
-            // Object spreading is valid - the result type will be determined by context
-            break;
-            
-        case TypeKind::Any:
-        case TypeKind::Unknown:
-            std::cout << "DEBUG: Spreading any/unknown type" << std::endl;
-            // Any/unknown types can be spread
-            break;
-            
-        case TypeKind::String:
-            std::cout << "DEBUG: Spreading string type" << std::endl;
-            // String spreading is valid (spreads characters)
-            break;
-            
-        default:
-            reportError("Cannot spread expression of type '" + spreadType->toString() + "'", node.getLocation());
-            setExpressionType(node, typeSystem_->getAnyType());
-            return;
-    }
-    
-    // The spread element itself doesn't have a specific type - it depends on context
-    // For now, we'll use 'any' type, but in a full implementation, we'd need to
-    // analyze the context (array literal, object literal, function call) to determine
-    // the appropriate type
-    setExpressionType(node, typeSystem_->getAnyType());
-    std::cout << "DEBUG: Spread element analysis completed" << std::endl;
 }
 
 bool SemanticAnalyzer::isValidIndexType(shared_ptr<Type> type) const {

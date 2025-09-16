@@ -1346,20 +1346,76 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
                 location
             );
         }
-        else if (check(TokenType::QuestionDot) && peekAhead(1).getType() == TokenType::LeftBracket) {
-            // Parse optional index access: expr?.[index]
+        else if (check(TokenType::QuestionDot)) {
             advance(); // consume '?.'
-            consume(TokenType::LeftBracket, "Expected '[' after '?.'");
-            
-            auto index = parseExpression();
-            consume(TokenType::RightBracket, "Expected ']' after optional array index");
-            
-            SourceLocation location = getCurrentLocation();
-            expr = make_unique<OptionalIndexAccess>(
-                std::move(expr),
-                std::move(index),
-                location
-            );
+            if (peek().getType() == TokenType::LeftBracket) {
+                // Parse optional index access: expr?.[index]
+                consume(TokenType::LeftBracket, "Expected '[' after '?.'");
+                
+                auto index = parseExpression();
+                consume(TokenType::RightBracket, "Expected ']' after optional array index");
+                
+                SourceLocation location = getCurrentLocation();
+                expr = make_unique<OptionalIndexAccess>(
+                    std::move(expr),
+                    std::move(index),
+                    location
+                );
+            } else if (peek().getType() == TokenType::LeftParen) {
+                // Parse optional function call: expr?.method()
+                
+                // Parse optional type arguments if present
+                std::vector<shared_ptr<Type>> typeArguments;
+                if (check(TokenType::Less) && isTypeArgumentList()) {
+                    typeArguments = parseTypeArgumentList();
+                }
+                
+                // Parse arguments
+                consume(TokenType::LeftParen, "Expected '(' after '?.'");
+                
+                std::vector<unique_ptr<Expression>> arguments;
+                if (!check(TokenType::RightParen)) {
+                    do {
+                        auto arg = parseExpression();
+                        if (!arg) {
+                            reportError("Expected expression in optional function call argument", getCurrentLocation());
+                            return nullptr;
+                        }
+                        arguments.push_back(std::move(arg));
+                    } while (match(TokenType::Comma));
+                }
+                
+                consume(TokenType::RightParen, "Expected ')' after optional function call arguments");
+                
+                SourceLocation location = getCurrentLocation();
+                if (typeArguments.empty()) {
+                    expr = make_unique<OptionalCallExpr>(
+                        std::move(expr),
+                        std::move(arguments),
+                        location
+                    );
+                } else {
+                    expr = make_unique<OptionalCallExpr>(
+                        std::move(expr),
+                        std::move(typeArguments),
+                        std::move(arguments),
+                        location
+                    );
+                }
+            } else {
+                // Parse optional property access: expr?.property
+                if (!check(TokenType::Identifier)) {
+                    reportError("Expected property name after '?.'", getCurrentLocation());
+                    return nullptr;
+                }
+                Token propertyToken = advance();
+                SourceLocation location = getCurrentLocation();
+                expr = make_unique<OptionalPropertyAccess>(
+                    std::move(expr),
+                    propertyToken.getStringValue(),
+                    location
+                );
+            }
         }
         else if (check(TokenType::LeftParen) || (check(TokenType::Less) && isTypeArgumentList())) {
             // Parse function call with optional type arguments: expr<T>(args...) or expr(args...)
@@ -1409,56 +1465,6 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
                 );
             }
         }
-        else if (check(TokenType::QuestionDot) && peekAhead(1).getType() == TokenType::LeftParen) {
-            // Parse optional function call: expr?.method()
-            advance(); // consume '?.'
-            
-            // Parse optional type arguments if present
-            std::vector<shared_ptr<Type>> typeArguments;
-            if (check(TokenType::Less) && isTypeArgumentList()) {
-                advance(); // consume '<'
-                if (!check(TokenType::Greater)) {
-                    do {
-                        typeArguments.push_back(parseTypeAnnotation());
-                    } while (match(TokenType::Comma));
-                }
-                consume(TokenType::Greater, "Expected '>' after type arguments");
-            }
-            
-            // Parse the function call
-            consume(TokenType::LeftParen, "Expected '(' after '?.'");
-            std::vector<unique_ptr<Expression>> arguments;
-            
-            // Parse arguments if not empty
-            if (!check(TokenType::RightParen)) {
-                do {
-                    auto arg = parseExpression();
-                    if (!arg) {
-                        reportError("Expected expression in optional function call argument", getCurrentLocation());
-                        return nullptr;
-                    }
-                    arguments.push_back(std::move(arg));
-                } while (match(TokenType::Comma));
-            }
-            
-            consume(TokenType::RightParen, "Expected ')' after optional function call arguments");
-            
-            SourceLocation location = getCurrentLocation();
-            if (typeArguments.empty()) {
-                expr = make_unique<OptionalCallExpr>(
-                    std::move(expr),
-                    std::move(arguments),
-                    location
-                );
-            } else {
-                expr = make_unique<OptionalCallExpr>(
-                    std::move(expr),
-                    std::move(typeArguments),
-                    std::move(arguments),
-                    location
-                );
-            }
-        }
         else if (match(TokenType::Dot)) {
             // Parse property access: expr.property
             if (!check(TokenType::Identifier)) {
@@ -1474,13 +1480,14 @@ unique_ptr<Expression> Parser::parsePostfixExpression() {
                 location
             );
         }
-        else if (match(TokenType::QuestionDot)) {
+        else if (check(TokenType::QuestionDot)) {
             // Parse optional property access: expr?.property
+            std::cout << "DEBUG: Parsing optional property access" << std::endl;
+            advance(); // consume '?.'
             if (!check(TokenType::Identifier)) {
                 reportError("Expected property name after '?.'", getCurrentLocation());
                 return nullptr;
             }
-            
             Token propertyToken = advance();
             SourceLocation location = getCurrentLocation();
             expr = make_unique<OptionalPropertyAccess>(
