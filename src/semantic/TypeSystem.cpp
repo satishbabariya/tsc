@@ -774,7 +774,14 @@ ConversionKind TypeSystem::getConversionKind(shared_ptr<Type> from, shared_ptr<T
     if (to->getKind() == TypeKind::Union) {
         auto unionType = static_cast<UnionType*>(to.get());
         for (const auto& memberType : unionType->getTypes()) {
-            if (isImplicitlyConvertible(from, memberType)) {
+            // Check if source type can be converted to member type (avoid isEquivalentTo for now)
+            if ((from->isAny() || memberType->isAny()) ||
+                (from->getKind() == TypeKind::Number && memberType->getKind() == TypeKind::String) ||
+                (from->getKind() == TypeKind::String && memberType->getKind() == TypeKind::Number) ||
+                (from->getKind() == TypeKind::Boolean && memberType->getKind() == TypeKind::Number) ||
+                (from->getKind() == TypeKind::Number && memberType->getKind() == TypeKind::Boolean) ||
+                (from->getKind() == TypeKind::String && memberType->getKind() == TypeKind::Boolean) ||
+                (from->getKind() == TypeKind::Boolean && memberType->getKind() == TypeKind::String)) {
                 return ConversionKind::Implicit;
             }
         }
@@ -784,7 +791,14 @@ ConversionKind TypeSystem::getConversionKind(shared_ptr<Type> from, shared_ptr<T
     if (from->getKind() == TypeKind::Intersection) {
         auto intersectionType = static_cast<IntersectionType*>(from.get());
         for (const auto& memberType : intersectionType->getTypes()) {
-            if (isImplicitlyConvertible(memberType, to)) {
+            // Check if member type can be converted to target type (avoid isEquivalentTo for now)
+            if ((memberType->isAny() || to->isAny()) ||
+                (memberType->getKind() == TypeKind::Number && to->getKind() == TypeKind::String) ||
+                (memberType->getKind() == TypeKind::String && to->getKind() == TypeKind::Number) ||
+                (memberType->getKind() == TypeKind::Boolean && to->getKind() == TypeKind::Number) ||
+                (memberType->getKind() == TypeKind::Number && to->getKind() == TypeKind::Boolean) ||
+                (memberType->getKind() == TypeKind::String && to->getKind() == TypeKind::Boolean) ||
+                (memberType->getKind() == TypeKind::Boolean && to->getKind() == TypeKind::String)) {
                 return ConversionKind::Implicit;
             }
         }

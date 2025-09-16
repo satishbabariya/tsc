@@ -355,7 +355,7 @@ add_subdirectory(src)
 
 # Enable testing
 enable_testing()
-# add_subdirectory(test)  # Disabled - GTest not available
+add_subdirectory(tests)
 
 # Create runtime library
 add_library(tsc_runtime STATIC
