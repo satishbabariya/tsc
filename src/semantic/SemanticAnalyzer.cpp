@@ -1920,6 +1920,16 @@ void SemanticAnalyzer::setupBuiltinEnvironment() {
     auto consoleType = typeSystem_->createObjectType();
     symbolTable_->addSymbol("console", SymbolKind::Variable, consoleType, SourceLocation());
     
+    // Add _print function (variadic function that takes any type arguments)
+    std::vector<FunctionType::Parameter> printParams;
+    FunctionType::Parameter param;
+    param.name = "args";
+    param.type = typeSystem_->getAnyType();
+    param.rest = true; // This makes it variadic
+    printParams.push_back(param);
+    auto printFunctionType = typeSystem_->createFunctionType(std::move(printParams), typeSystem_->getVoidType());
+    symbolTable_->addSymbol("_print", SymbolKind::Function, printFunctionType, SourceLocation());
+    
     // Add built-in number constants
     auto numberType = typeSystem_->getNumberType();
     symbolTable_->addSymbol("Infinity", SymbolKind::Variable, numberType, SourceLocation());

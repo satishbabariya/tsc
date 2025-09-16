@@ -292,7 +292,7 @@ size_t SymbolTable::countSymbols(Scope* scope) const {
 bool SymbolTable::isBuiltinSymbol(const String& name) const {
     // List of built-in symbols that should not be flagged as unused
     static const std::set<String> builtinSymbols = {
-        "console", "Infinity", "NaN", "unique_ptr", "shared_ptr", "weak_ptr", "std"
+        "console", "_print", "Infinity", "NaN", "unique_ptr", "shared_ptr", "weak_ptr", "std"
     };
     return builtinSymbols.find(name) != builtinSymbols.end();
 }

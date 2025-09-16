@@ -389,6 +389,14 @@ void LLVMCodeGen::visit(Identifier& node) {
         }
     }
     
+    // Special handling for built-in functions like _print
+    if (node.getName() == "_print") {
+        std::cout << "DEBUG: Identifier - Found _print, creating function" << std::endl;
+        llvm::Function* printFunc = getOrCreatePrintFunction();
+        setCurrentValue(printFunc);
+        return;
+    }
+    
     // If not found anywhere, report error
     reportError("Undefined variable: " + node.getName(), node.getLocation());
     setCurrentValue(createNullValue(getAnyType()));
@@ -941,8 +949,14 @@ void LLVMCodeGen::visit(CallExpression& node) {
     llvm::Function* function = nullptr;
     
     if (auto identifier = dynamic_cast<Identifier*>(node.getCallee())) {
-        // First try to look up as an LLVM function (for regular function declarations)
-        function = module_->getFunction(identifier->getName());
+        // Special handling for built-in functions like _print
+        if (identifier->getName() == "_print") {
+            std::cout << "DEBUG: CallExpression - Found _print, creating function" << std::endl;
+            function = getOrCreatePrintFunction();
+        } else {
+            // First try to look up as an LLVM function (for regular function declarations)
+            function = module_->getFunction(identifier->getName());
+        }
         
         if (!function) {
             // Check if it's a nested function stored in the symbol table
