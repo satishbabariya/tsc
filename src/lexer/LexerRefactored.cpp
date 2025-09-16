@@ -41,11 +41,23 @@ std::vector<Token> Lexer::tokenize() {
     
     while (!isAtEnd()) {
         Token token = nextToken();
-        tokens.push_back(token);
         
-        if (token.getType() == TokenType::Eof) {
+        // Always add EndOfInput token, but skip whitespace and comments
+        if (token.getType() == TokenType::EndOfInput) {
+            tokens.push_back(token);
             break;
         }
+
+        if (token.getType() != TokenType::WhiteSpace &&
+            token.getType() != TokenType::SingleLineComment &&
+            token.getType() != TokenType::MultiLineComment) {
+            tokens.push_back(token);
+        }
+    }
+    
+    // Ensure we always have an EndOfInput token at the end
+    if (tokens.empty() || tokens.back().getType() != TokenType::EndOfInput) {
+        tokens.push_back(core_->makeToken(TokenType::EndOfInput, TokenValue()));
     }
     
     return tokens;

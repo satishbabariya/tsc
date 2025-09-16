@@ -4,11 +4,11 @@ namespace tsc {
 namespace lexer {
 
 bool CharacterClassifier::isAlpha(char c) const {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '$';
+    return std::isalpha(c) || c == '_' || c == '$';
 }
 
 bool CharacterClassifier::isDigit(char c) const {
-    return c >= '0' && c <= '9';
+    return std::isdigit(c);
 }
 
 bool CharacterClassifier::isAlphaNumeric(char c) const {
@@ -16,7 +16,7 @@ bool CharacterClassifier::isAlphaNumeric(char c) const {
 }
 
 bool CharacterClassifier::isHexDigit(char c) const {
-    return isDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+    return std::isxdigit(c);
 }
 
 bool CharacterClassifier::isOctalDigit(char c) const {
@@ -28,15 +28,16 @@ bool CharacterClassifier::isBinaryDigit(char c) const {
 }
 
 bool CharacterClassifier::isIdentifierStart(char c) const {
-    return isAlpha(c) || isUnicodeIdentifierStart(c);
+    return isAlpha(c) || c == '\\'; // Unicode escapes handled separately
 }
 
 bool CharacterClassifier::isIdentifierPart(char c) const {
-    return isAlphaNumeric(c) || isUnicodeIdentifierPart(c);
+    return isAlphaNumeric(c);
 }
 
 bool CharacterClassifier::isWhitespace(char c) const {
-    return c == ' ' || c == '\t' || c == '\v' || c == '\f' || c == '\r';
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n' ||
+           c == '\v' || c == '\f';
 }
 
 bool CharacterClassifier::isLineTerminator(char c) const {

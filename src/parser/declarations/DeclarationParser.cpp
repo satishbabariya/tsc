@@ -12,8 +12,35 @@ std::unique_ptr<Statement> DeclarationParser::parseDeclaration() {
 }
 
 std::unique_ptr<Statement> DeclarationParser::parseFunctionDeclaration() {
-    // TODO: Implement function declaration parsing
-    return nullptr;
+    parser_.consume(TokenType::Function, "Expected 'function'");
+
+    Token nameToken = parser_.consume(TokenType::Identifier, "Expected function name");
+    String name = nameToken.getStringValue();
+
+    // Parse optional type parameters
+    std::vector<std::unique_ptr<TypeParameter>> typeParameters;
+    if (parser_.check(TokenType::Less)) {
+        // TODO: Set type context for type parameter parsing
+        typeParameters = parseTypeParameterList();
+    }
+
+    parser_.consume(TokenType::LeftParen, "Expected '(' after function name");
+    auto parameters = parseParameterList();
+    parser_.consume(TokenType::RightParen, "Expected ')' after parameters");
+
+    // Optional return type
+    std::shared_ptr<Type> returnType = nullptr;
+    if (parser_.match(TokenType::Colon)) {
+        // TODO: Parse return type
+        // returnType = parseUnionType();
+    }
+
+    auto body = parseFunctionBody();
+
+    return std::make_unique<FunctionDeclaration>(
+        name, std::move(typeParameters), std::move(parameters), returnType, std::move(body),
+        nameToken.getLocation(), false, false
+    );
 }
 
 std::unique_ptr<FunctionDeclaration> DeclarationParser::parseFunctionSignature() {

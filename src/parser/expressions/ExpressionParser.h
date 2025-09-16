@@ -57,6 +57,10 @@ private:
     std::vector<std::unique_ptr<Expression>> parseArgumentList();
     std::vector<std::unique_ptr<Expression>> parseExpressionList();
     std::vector<std::unique_ptr<ObjectLiteral::Property>> parseObjectProperties();
+    
+    // Token conversion helpers
+    BinaryExpression::Operator tokenToBinaryOperator(TokenType type);
+    int tokenToUnaryOperator(TokenType type, bool isPrefix);
 };
 
 } // namespace parser

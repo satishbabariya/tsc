@@ -17,8 +17,28 @@ std::unique_ptr<Statement> StatementParser::parseBlockStatement() {
 }
 
 std::unique_ptr<Statement> StatementParser::parseIfStatement() {
-    // TODO: Implement if statement parsing
-    return nullptr;
+    SourceLocation location = parser_.getCurrentLocation();
+
+    // Parse condition
+    parser_.consume(TokenType::LeftParen, "Expected '(' after 'if'");
+    auto condition = parser_.getExpressionParser()->parseExpression();
+    parser_.consume(TokenType::RightParen, "Expected ')' after if condition");
+
+    // Parse then statement
+    auto thenStmt = parseStatement();
+
+    // Optional else clause
+    std::unique_ptr<Statement> elseStmt = nullptr;
+    if (parser_.match(TokenType::Else)) {
+        elseStmt = parseStatement();
+    }
+
+    return std::make_unique<IfStatement>(
+        std::move(condition),
+        std::move(thenStmt),
+        std::move(elseStmt),
+        location
+    );
 }
 
 std::unique_ptr<Statement> StatementParser::parseWhileStatement() {
