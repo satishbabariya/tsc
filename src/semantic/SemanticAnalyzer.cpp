@@ -3,6 +3,7 @@
 #include "tsc/lexer/Lexer.h"
 #include "tsc/parser/Parser.h"
 #include "tsc/parser/VectorTokenStream.h"
+#include "tsc/utils/Logger.h"
 #include <iostream>
 #include <fstream>
 
@@ -24,7 +25,7 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
     errorReporter_->setWarningsAsErrors(false);
     errorReporter_->setSuppressWarnings(false);
     
-    std::cout << "DEBUG: SemanticAnalyzer created SymbolTable at address: " << symbolTable_.get() << std::endl;
+    TSC_LOG_DEBUG("SemanticAnalyzer created SymbolTable", "Semantic");
     
     setupBuiltinEnvironment();
 }
@@ -32,11 +33,11 @@ SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& diagnostics)
 SemanticAnalyzer::~SemanticAnalyzer() = default;
 
 bool SemanticAnalyzer::analyze(Module& module) {
-    std::cout << "DEBUG: *** ANALYZE METHOD CALLED *** for module" << std::endl;
+    TSC_LOG_DEBUG("*** ANALYZE METHOD CALLED *** for module", "Semantic");
     std::cout.flush();
     try {
         // Multi-phase semantic analysis
-        std::cout << "DEBUG: *** CALLING performSymbolResolution ***" << std::endl;
+        TSC_LOG_DEBUG("*** CALLING performSymbolResolution ***", "Semantic");
         std::cout.flush();
         performSymbolResolution(module);
         resolveDeferredSuperExpressions();
@@ -61,7 +62,7 @@ bool SemanticAnalyzer::analyze(Module& module) {
 
 bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
     try {
-        std::cout << "DEBUG: Starting multi-module analysis for " << modulePaths.size() << " modules" << std::endl;
+        TSC_LOG_DEBUG("Starting multi-module analysis for" + std::to_string(modulePaths.size()) + " modules" , "Semantic");
         
         // Phase 1: Scan dependencies and detect circular dependencies
         auto dependencyGraph = dependencyScanner_->scanProjectWithValidation(modulePaths);
@@ -81,14 +82,14 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
         
         // Phase 3: Analyze each module individually
         std::vector<String> compilationOrder = dependencyGraph->getCompilationOrder();
-        std::cout << "DEBUG: Compilation order: ";
+        TSC_LOG_DEBUG("Compilation order: ", "Semantic");
         for (size_t i = 0; i < compilationOrder.size(); ++i) {
             if (i > 0) std::cout << " -> ";
             std::cout << compilationOrder[i];
         }
         std::cout << std::endl;
         
-        std::cout << "DEBUG: *** STARTING LOOP *** with " << compilationOrder.size() << " modules" << std::endl;
+        TSC_LOG_DEBUG("*** STARTING LOOP *** with" + std::to_string(compilationOrder.size()) + " modules" , "Semantic");
         std::cout.flush();
         
         // Store AST modules to keep them alive throughout analysis
@@ -96,8 +97,8 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
         astModules.reserve(compilationOrder.size());
         
         for (const String& modulePath : compilationOrder) {
-            std::cout << "DEBUG: Analyzing module: " << modulePath << std::endl;
-            std::cout << "DEBUG: *** ABOUT TO READ FILE *** " << modulePath << std::endl;
+            TSC_LOG_DEBUG("Analyzing module:" + modulePath , "Semantic");
+            TSC_LOG_DEBUG("*** ABOUT TO READ FILE ***" + modulePath , "Semantic");
             std::cout.flush();
             
             // Parse the module
@@ -110,7 +111,7 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
             std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
             file.close();
             
-            std::cout << "DEBUG: *** FILE READ SUCCESSFULLY *** for " << modulePath << std::endl;
+            TSC_LOG_DEBUG("*** FILE READ SUCCESSFULLY *** for" + modulePath , "Semantic");
             
             // Tokenize and parse
             Lexer lexer(diagnostics_);
@@ -120,16 +121,16 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
                 return false;
             }
             
-            std::cout << "DEBUG: *** TOKENIZATION SUCCESSFUL *** for " << modulePath << " (" << tokens.size() << " tokens)" << std::endl;
+            TSC_LOG_DEBUG("*** TOKENIZATION SUCCESSFUL *** for" + modulePath + " (" + std::to_string(tokens.size()) + " tokens)" , "Semantic");
             
-            std::cout << "DEBUG: *** BEFORE PARSER *** About to create parser for " << modulePath << std::endl;
+            TSC_LOG_DEBUG("*** BEFORE PARSER *** About to create parser for" + modulePath , "Semantic");
             std::cout.flush();
             VectorTokenStream tokenStream(tokens);
             Parser parser(diagnostics_, *typeSystem_);
-            std::cout << "DEBUG: *** PARSER INVOCATION *** About to call parser.parse() for " << modulePath << std::endl;
+            TSC_LOG_DEBUG("*** PARSER INVOCATION *** About to call parser.parse() for" + modulePath , "Semantic");
             std::cout.flush();
             auto module = parser.parse(tokens, modulePath);
-            std::cout << "DEBUG: *** PARSER RESULT *** Parser.parse() returned " << (module ? "SUCCESS" : "NULL") << " for " << modulePath << std::endl;
+            TSC_LOG_DEBUG("*** PARSER RESULT *** Parser.parse() returned"  + (module ? "SUCCESS" : "NULL") " for " + modulePath , "Semantic");
             std::cout.flush();
             if (!module) {
                 diagnostics_.error("Failed to parse: " + modulePath, SourceLocation());
@@ -150,10 +151,10 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
         }
         
         // Phase 4: Perform export-to-import binding
-        std::cout << "DEBUG: Performing export-to-import binding" << std::endl;
-        std::cout << "DEBUG: *** ABOUT TO CALL bindExportsToImports ***" << std::endl;
+        TSC_LOG_DEBUG("Performing export-to-import binding" , "Semantic");
+        TSC_LOG_DEBUG("*** ABOUT TO CALL bindExportsToImports ***" , "Semantic");
         bool bindingResult = moduleSymbolManager_->bindExportsToImports();
-        std::cout << "DEBUG: *** bindExportsToImports returned: " << (bindingResult ? "true" : "false") << " ***" << std::endl;
+        TSC_LOG_DEBUG("*** bindExportsToImports returned:"  + (bindingResult ? "true" : "false") " ***" , "Semantic");
         if (!bindingResult) {
             diagnostics_.error("Failed to bind exports to imports", SourceLocation());
             return false;
@@ -165,7 +166,7 @@ bool SemanticAnalyzer::analyzeProject(const std::vector<String>& modulePaths) {
             return false;
         }
         
-        std::cout << "DEBUG: Multi-module analysis completed successfully" << std::endl;
+        TSC_LOG_DEBUG("Multi-module analysis completed successfully" , "Semantic");
         return context_->getErrorCount() == 0;
         
     } catch (const std::exception& e) {
@@ -351,8 +352,8 @@ void SemanticAnalyzer::visit(SuperExpression& node) {
 }
 
 void SemanticAnalyzer::visit(NewExpression& node) {
-    std::cout << "DEBUG: SemanticAnalyzer::visit(NewExpression) called for: " << node.toString() << std::endl;
-    std::cout << "DEBUG: hasExplicitTypeArguments: " << (node.hasExplicitTypeArguments() ? "true" : "false") << std::endl;
+    TSC_LOG_DEBUG("SemanticAnalyzer::visit(NewExpression) called for:" + node.toString() , "Semantic");
+    TSC_LOG_DEBUG("hasExplicitTypeArguments:" + (node.hasExplicitTypeArguments() ? "true" : "false") , "Semantic");
     
     // Analyze arguments first
     for (const auto& arg : node.getArguments()) {
@@ -361,12 +362,12 @@ void SemanticAnalyzer::visit(NewExpression& node) {
     
     // Handle constructor expression
     if (auto identifier = dynamic_cast<Identifier*>(node.getConstructor())) {
-        std::cout << "DEBUG: Constructor identifier: " << identifier->getName() << std::endl;
+        TSC_LOG_DEBUG("Constructor identifier:" + identifier->getName() , "Semantic");
         // Try to find the class type in the symbol table
         Symbol* classSymbol = resolveSymbol(identifier->getName(), node.getLocation());
         if (classSymbol && classSymbol->getKind() == SymbolKind::Class) {
             auto classType = classSymbol->getType();
-            std::cout << "DEBUG: Class type: " << classType->toString() << ", kind: " << static_cast<int>(classType->getKind()) << std::endl;
+            TSC_LOG_DEBUG("Class type:" + classType->toString() + ", kind: " + static_cast<int>(classType->getKind()) , "Semantic");
             
             // Check if this is a class type that can be instantiated
             if (classType->getKind() == TypeKind::Class || 
@@ -375,17 +376,17 @@ void SemanticAnalyzer::visit(NewExpression& node) {
                 classType->getKind() == TypeKind::WeakPtr) {
                 // Handle explicit type arguments for generic classes
                 if (node.hasExplicitTypeArguments()) {
-                    std::cout << "DEBUG: Processing explicit type arguments" << std::endl;
+                    TSC_LOG_DEBUG("Processing explicit type arguments" , "Semantic");
                     // Process explicit type arguments (e.g., Container<number>)
                     const auto& typeArguments = node.getTypeArguments();
-                    std::cout << "DEBUG: Number of type arguments: " << typeArguments.size() << std::endl;
+                    TSC_LOG_DEBUG("Number of type arguments:" + typeArguments.size() , "Semantic");
                     
                     // Resolve each type argument
                     std::vector<shared_ptr<Type>> resolvedTypeArgs;
                     for (const auto& typeArg : typeArguments) {
-                        std::cout << "DEBUG: Resolving type argument: " << typeArg->toString() << std::endl;
+                        TSC_LOG_DEBUG("Resolving type argument:" + typeArg->toString() , "Semantic");
                         auto resolvedType = resolveType(typeArg);
-                        std::cout << "DEBUG: Resolved to: " << resolvedType->toString() << ", kind: " << static_cast<int>(resolvedType->getKind()) << std::endl;
+                        TSC_LOG_DEBUG("Resolved to:" + resolvedType->toString() + ", kind: " + static_cast<int>(resolvedType->getKind()) , "Semantic");
                         if (resolvedType->getKind() == TypeKind::Error) {
                             reportError("Invalid type argument: " + typeArg->toString(), node.getLocation());
                             setExpressionType(node, typeSystem_->getErrorType());
@@ -402,7 +403,7 @@ void SemanticAnalyzer::visit(NewExpression& node) {
                     
                     // Create a generic type instance (e.g., Container<number>)
                     auto genericType = typeSystem_->createGenericType(classType, resolvedTypeArgs);
-                    std::cout << "DEBUG: Created GenericType: " << genericType->toString() << ", kind: " << static_cast<int>(genericType->getKind()) << std::endl;
+                    TSC_LOG_DEBUG("Created GenericType:" + genericType->toString() + ", kind: " + static_cast<int>(genericType->getKind()) , "Semantic");
                     setExpressionType(node, genericType);
                 } else {
                     // No explicit type arguments - use the raw class type
@@ -951,8 +952,8 @@ void SemanticAnalyzer::visit(ReturnStatement& node) {
         
         // Debug: Print return type (commented out for now)
         // if (auto identifier = dynamic_cast<Identifier*>(node.getValue())) {
-        //     std::cout << "DEBUG: Return statement returning identifier '" << identifier->getName() 
-        //               << "' with type: " << returnType->toString() << std::endl;
+        //     TSC_LOG_DEBUG("Return statement returning identifier '" + identifier->getName() 
+        // + "' with type: " + returnType->toString() , "Semantic");
         // }
     }
     
@@ -1212,11 +1213,11 @@ void SemanticAnalyzer::visit(VariableDeclaration& node) {
     // Add symbol to current scope
     bool mutable_ = (node.getDeclarationKind() != VariableDeclaration::Kind::Const);
     
-    std::cout << "DEBUG: Adding variable " << node.getName() << " with type: " << varType->toString() << std::endl;
-    std::cout << "DEBUG: Current scope when adding variable: " << symbolTable_->getCurrentScope() << std::endl;
+    TSC_LOG_DEBUG("Adding variable" + node.getName() + " with type: " + varType->toString() , "Semantic");
+    TSC_LOG_DEBUG("Current scope when adding variable:" + symbolTable_->getCurrentScope() , "Semantic");
     
     // Debug: Print scope hierarchy when adding variable
-    std::cout << "DEBUG: Scope hierarchy when adding variable " << node.getName() << ":" << std::endl;
+    TSC_LOG_DEBUG("Scope hierarchy when adding variable" + node.getName() + ":" , "Semantic");
     Scope* current = symbolTable_->getCurrentScope();
     int level = 0;
     while (current) {
@@ -1326,7 +1327,7 @@ void SemanticAnalyzer::visit(Module& module) {
 
 // Analysis phase implementations
 void SemanticAnalyzer::performSymbolResolution(Module& module) {
-    std::cout << "DEBUG: *** performSymbolResolution CALLED ***" << std::endl;
+    TSC_LOG_DEBUG("*** performSymbolResolution CALLED ***" , "Semantic");
     std::cout.flush();
     // Three-pass symbol resolution:
     // Pass 1: Collect all function and class declarations
@@ -1336,10 +1337,10 @@ void SemanticAnalyzer::performSymbolResolution(Module& module) {
     resolveInheritance(module);
     
     // Pass 3: Process all statements including function bodies
-    std::cout << "DEBUG: *** CALLING module.accept(*this) ***" << std::endl;
+    TSC_LOG_DEBUG("*** CALLING module.accept(*this) ***" , "Semantic");
     std::cout.flush();
     module.accept(*this);
-    std::cout << "DEBUG: *** module.accept(*this) COMPLETED ***" << std::endl;
+    TSC_LOG_DEBUG("*** module.accept(*this) COMPLETED ***" , "Semantic");
     std::cout.flush();
 }
 
@@ -1347,10 +1348,10 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
     // First pass: collect function signatures and class declarations, don't process bodies
     // Debug: Check how many statements we're processing
     const auto& statements = module.getStatements();
-    std::cout << "DEBUG: collectFunctionDeclarations found " << statements.size() << " statements" << std::endl;
+    TSC_LOG_DEBUG("collectFunctionDeclarations found" + std::to_string(statements.size()) + " statements" , "Semantic");
     
     for (const auto& stmt : statements) {
-        std::cout << "DEBUG: Processing statement type: " << typeid(*stmt.get()).name() << std::endl;
+        TSC_LOG_DEBUG("Processing statement type:" + typeid(*stmt.get()).name() , "Semantic");
         if (auto classDecl = dynamic_cast<ClassDeclaration*>(stmt.get())) {
             // Collect class declarations first so they're available for constructor calls
             // Create class type WITHOUT base class (will be resolved in second pass)
@@ -1358,11 +1359,11 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
             declareSymbol(classDecl->getName(), SymbolKind::Class, classType, classDecl->getLocation());
         } else if (auto exportDecl = dynamic_cast<ExportDeclaration*>(stmt.get())) {
             // Handle export declarations that contain function/class declarations
-            std::cout << "DEBUG: Found export declaration in collectFunctionDeclarations" << std::endl;
+            TSC_LOG_DEBUG("Found export declaration in collectFunctionDeclarations" , "Semantic");
             const ExportClause& clause = exportDecl->getClause();
-            std::cout << "DEBUG: Export clause type: " << clause.getType() << std::endl;
+            TSC_LOG_DEBUG("Export clause type:" + clause.getType() , "Semantic");
             if (clause.getType() == ExportClause::Default && clause.getDefaultExport()) {
-                std::cout << "DEBUG: Processing default export" << std::endl;
+                TSC_LOG_DEBUG("Processing default export" , "Semantic");
                 if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(clause.getDefaultExport())) {
                     // Collect exported function declarations
                     std::vector<FunctionType::Parameter> paramTypes;
@@ -1378,12 +1379,12 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
                     auto returnType = funcDecl->getReturnType() ? funcDecl->getReturnType() : typeSystem_->getVoidType();
                     auto functionType = typeSystem_->createFunctionType(std::move(paramTypes), returnType);
                     
-                    std::cout << "DEBUG: Adding exported function to symbol table: " << funcDecl->getName() << std::endl;
+                    TSC_LOG_DEBUG("Adding exported function to symbol table:" + funcDecl->getName() , "Semantic");
                     if (!symbolTable_->addSymbol(funcDecl->getName(), SymbolKind::Function, functionType,
                                                funcDecl->getLocation(), funcDecl)) {
                         reportError("Failed to declare exported function: " + funcDecl->getName(), funcDecl->getLocation());
                     } else {
-                        std::cout << "DEBUG: Successfully added exported function to symbol table: " << funcDecl->getName() << std::endl;
+                        TSC_LOG_DEBUG("Successfully added exported function to symbol table:" + funcDecl->getName() , "Semantic");
                     }
                 } else if (auto classDecl = dynamic_cast<ClassDeclaration*>(clause.getDefaultExport())) {
                     // Collect exported class declarations
@@ -1400,7 +1401,7 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
                 }
             }
         } else if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
-            std::cout << "DEBUG: Found function declaration: " << funcDecl->getName() << std::endl;
+            TSC_LOG_DEBUG("Found function declaration:" + funcDecl->getName() , "Semantic");
             // Create function type
             std::vector<FunctionType::Parameter> paramTypes;
             for (const auto& param : funcDecl->getParameters()) {
@@ -1423,7 +1424,7 @@ void SemanticAnalyzer::collectFunctionDeclarations(Module& module) {
                                          funcDecl->getLocation(), funcDecl)) {
                 reportError("Failed to declare function: " + funcDecl->getName(), funcDecl->getLocation());
             } else {
-                // std::cout << "DEBUG: Successfully added function " << funcDecl->getName() << " to symbol table" << std::endl;
+                // TSC_LOG_DEBUG("Successfully added function" + funcDecl->getName() + " to symbol table" , "Semantic");
             }
             
             // Note: Nested functions will be collected during the second pass
@@ -1631,12 +1632,12 @@ void SemanticAnalyzer::performFlowAnalysis(Module& module) {
 // Helper method implementations
 void SemanticAnalyzer::declareSymbol(const String& name, SymbolKind kind, shared_ptr<Type> type, 
                                     const SourceLocation& location, ASTNode* declaration) {
-    std::cout << "DEBUG: declareSymbol called for: " << name << " (kind: " << static_cast<int>(kind) << ")" << std::endl;
+    TSC_LOG_DEBUG("declareSymbol called for:" + name + " (kind: "  + std::to_string(static_cast<int>(kind)) ")" , "Semantic");
     if (!symbolTable_->addSymbol(name, kind, type, location, declaration)) {
-        std::cout << "DEBUG: Symbol redeclaration detected for: " << name << std::endl;
+        TSC_LOG_DEBUG("Symbol redeclaration detected for:" + name , "Semantic");
         reportError("Symbol redeclaration: " + name, location);
     } else {
-        std::cout << "DEBUG: Symbol successfully declared: " << name << std::endl;
+        TSC_LOG_DEBUG("Symbol successfully declared:" + name , "Semantic");
     }
 }
 
@@ -1878,8 +1879,7 @@ void SemanticAnalyzer::reportUndefinedSymbol(const String& name, const SourceLoc
 void SemanticAnalyzer::reportRedefinitionError(const String& name, const SourceLocation& location, 
                                               const SourceLocation& originalLocation) {
     if (errorReporter_) {
-        errorReporter_->reportDuplicateDeclaration(location, name, 
-                                                 "Rename one of the identifiers to make them unique");
+        errorReporter_->reportDuplicateDeclaration(location, name, "Rename one of the identifiers to make them unique");
     } else {
         reportError("Redefinition of symbol: " + name + 
                    " (originally defined at " + originalLocation.getFilename() + ":" + 
@@ -2022,14 +2022,14 @@ void SemanticAnalyzer::visit(PropertyDeclaration& node) {
         }
     } else {
         // Resolve the property type (important for generic type parameters)
-        std::cout << "DEBUG: PropertyDeclaration resolving type: " << (propertyType ? propertyType->toString() : "null") << std::endl;
+        TSC_LOG_DEBUG("PropertyDeclaration resolving type:" + (propertyType ? propertyType->toString() : "null") , "Semantic");
         if (propertyType) {
-            std::cout << "DEBUG: PropertyDeclaration type kind: " << static_cast<int>(propertyType->getKind()) << std::endl;
+            TSC_LOG_DEBUG("PropertyDeclaration type kind:" + static_cast<int>(propertyType->getKind()) , "Semantic");
         }
         propertyType = resolveType(propertyType);
-        std::cout << "DEBUG: PropertyDeclaration resolved type: " << (propertyType ? propertyType->toString() : "null") << std::endl;
+        TSC_LOG_DEBUG("PropertyDeclaration resolved type:" + (propertyType ? propertyType->toString() : "null") , "Semantic");
         if (propertyType) {
-            std::cout << "DEBUG: PropertyDeclaration resolved type kind: " << static_cast<int>(propertyType->getKind()) << std::endl;
+            TSC_LOG_DEBUG("PropertyDeclaration resolved type kind:" + static_cast<int>(propertyType->getKind()) , "Semantic");
         }
     }
     
@@ -2062,9 +2062,9 @@ void SemanticAnalyzer::visit(MethodDeclaration& node) {
         funcParam.name = param.name;
         // Resolve parameter types to handle generic type parameters
         funcParam.type = param.type ? resolveType(param.type) : typeSystem_->getAnyType();
-        std::cout << "DEBUG: MethodDeclaration resolved parameter '" << param.name << "' type: " << (funcParam.type ? funcParam.type->toString() : "null") << std::endl;
+        TSC_LOG_DEBUG("MethodDeclaration resolved parameter '" + param.name + "' type: " + (funcParam.type ? funcParam.type->toString() : "null") , "Semantic");
         if (funcParam.type) {
-            std::cout << "DEBUG: MethodDeclaration parameter type kind: " << static_cast<int>(funcParam.type->getKind()) << std::endl;
+            TSC_LOG_DEBUG("MethodDeclaration parameter type kind:" + static_cast<int>(funcParam.type->getKind()) , "Semantic");
         }
         funcParam.optional = param.optional;
         paramTypes.push_back(funcParam);
@@ -2093,7 +2093,7 @@ void SemanticAnalyzer::visit(DestructorDeclaration& node) {
     enterScope(Scope::ScopeType::Function, "~" + node.getClassName());
     functionDepth_++;
     
-    std::cout << "DEBUG: Analyzing destructor for class: " << node.getClassName() << std::endl;
+    TSC_LOG_DEBUG("Analyzing destructor for class:" + node.getClassName() , "Semantic");
     
     // Analyze destructor body
     if (node.getBody()) {
@@ -2108,7 +2108,7 @@ void SemanticAnalyzer::visit(DestructorDeclaration& node) {
     // Perform RAII analysis on the destructor
     analyzeDestructor(node);
     
-    std::cout << "DEBUG: Destructor analysis completed for class: " << node.getClassName() << std::endl;
+    TSC_LOG_DEBUG("Destructor analysis completed for class:" + node.getClassName() , "Semantic");
     
     // Exit destructor scope
     functionDepth_--;
@@ -2135,13 +2135,13 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     // Process type parameters AFTER entering class scope
     std::vector<shared_ptr<Type>> typeParameters;
     for (const auto& typeParam : node.getTypeParameters()) {
-        std::cout << "DEBUG: Processing type parameter: " << typeParam->getName() << std::endl;
-        std::cout << "DEBUG: Current scope when adding type parameter: " << symbolTable_->getCurrentScope() << std::endl;
+        TSC_LOG_DEBUG("Processing type parameter:" + typeParam->getName() , "Semantic");
+        TSC_LOG_DEBUG("Current scope when adding type parameter:" + symbolTable_->getCurrentScope() , "Semantic");
         auto paramType = typeSystem_->createTypeParameter(typeParam->getName(), typeParam->getConstraint());
         typeParameters.push_back(paramType);
         
         // Add type parameter to class scope so it can be referenced within the class
-        std::cout << "DEBUG: Declaring type parameter symbol: " << typeParam->getName() << std::endl;
+        TSC_LOG_DEBUG("Declaring type parameter symbol:" + typeParam->getName() , "Semantic");
         declareSymbol(typeParam->getName(), SymbolKind::Type, paramType, typeParam->getLocation());
     }
     
@@ -2195,8 +2195,8 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     
     // Analyze properties
     for (const auto& property : node.getProperties()) {
-        std::cout << "DEBUG: Processing property: " << property->getName() << std::endl;
-        std::cout << "DEBUG: Current scope when processing property: " << symbolTable_->getCurrentScope() << std::endl;
+        TSC_LOG_DEBUG("Processing property:" + property->getName() , "Semantic");
+        TSC_LOG_DEBUG("Current scope when processing property:" + symbolTable_->getCurrentScope() , "Semantic");
         property->accept(*this);
         
         // Add property to class scope
@@ -2206,19 +2206,19 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     
     // Analyze constructor if present
     if (node.getConstructor()) {
-        std::cout << "DEBUG: Processing constructor method" << std::endl;
+        TSC_LOG_DEBUG("Processing constructor method" , "Semantic");
         node.getConstructor()->accept(static_cast<ASTVisitor&>(*this));
         
         // Add constructor to class scope as a method
         auto constructorType = getDeclarationType(*node.getConstructor());
         declareSymbol("constructor", SymbolKind::Method, constructorType, node.getConstructor()->getLocation());
-        std::cout << "DEBUG: Added constructor to class scope" << std::endl;
+        TSC_LOG_DEBUG("Added constructor to class scope" , "Semantic");
     }
     
     // Analyze methods
-    std::cout << "DEBUG: ClassDeclaration processing " << node.getMethods().size() << " methods" << std::endl;
+    TSC_LOG_DEBUG("ClassDeclaration processing" + node.getMethods().size() + " methods" , "Semantic");
     for (const auto& method : node.getMethods()) {
-        std::cout << "DEBUG: Processing method: " << method->getName() << std::endl;
+        TSC_LOG_DEBUG("Processing method:" + method->getName() , "Semantic");
         method->accept(*this);
         
         // Add method to class scope
@@ -2228,13 +2228,13 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     
         // Analyze destructor if present
         if (node.getDestructor()) {
-            std::cout << "DEBUG: Processing destructor for class: " << node.getName() << std::endl;
+            TSC_LOG_DEBUG("Processing destructor for class:" + node.getName() , "Semantic");
             node.getDestructor()->accept(*this);
             
             // Add destructor to class scope as a method
             auto destructorType = getDeclarationType(*node.getDestructor());
             declareSymbol("~" + node.getName(), SymbolKind::Method, destructorType, node.getDestructor()->getLocation());
-            std::cout << "DEBUG: Added destructor to class scope" << std::endl;
+            TSC_LOG_DEBUG("Added destructor to class scope" , "Semantic");
         }
         
         // Perform RAII analysis on the entire class
@@ -2243,9 +2243,9 @@ void SemanticAnalyzer::visit(ClassDeclaration& node) {
     
     // Check constructor
     if (node.getConstructor()) {
-        std::cout << "DEBUG: ClassDeclaration found constructor method" << std::endl;
+        TSC_LOG_DEBUG("ClassDeclaration found constructor method" , "Semantic");
     } else {
-        std::cout << "DEBUG: ClassDeclaration no constructor method found" << std::endl;
+        TSC_LOG_DEBUG("ClassDeclaration no constructor method found" , "Semantic");
     }
     
     // Exit class scope
@@ -2268,14 +2268,14 @@ void SemanticAnalyzer::visit(InterfaceDeclaration& node) {
     // Process type parameters AFTER entering interface scope
     std::vector<shared_ptr<Type>> typeParameters;
     for (const auto& typeParam : node.getTypeParameters()) {
-        std::cout << "DEBUG: Processing interface type parameter: " << typeParam->getName() << std::endl;
-        std::cout << "DEBUG: Current scope when adding interface type parameter: " << symbolTable_->getCurrentScope() << std::endl;
+        TSC_LOG_DEBUG("Processing interface type parameter:" + typeParam->getName() , "Semantic");
+        TSC_LOG_DEBUG("Current scope when adding interface type parameter:" + symbolTable_->getCurrentScope() , "Semantic");
         
         // Validate type parameter constraint if present
         if (typeParam->getConstraint()) {
-            std::cout << "DEBUG: Validating constraint for type parameter: " << typeParam->getName() << std::endl;
+            TSC_LOG_DEBUG("Validating constraint for type parameter:" + typeParam->getName() , "Semantic");
             auto constraintType = typeParam->getConstraint();
-            std::cout << "DEBUG: Constraint type: " << constraintType->toString() << std::endl;
+            TSC_LOG_DEBUG("Constraint type:" + constraintType->toString() , "Semantic");
             
             // For now, we validate that the constraint is a valid type
             // In a full implementation, we'd check that the constraint is a valid base type
@@ -2289,13 +2289,13 @@ void SemanticAnalyzer::visit(InterfaceDeclaration& node) {
         typeParameters.push_back(paramType);
         
         // Add type parameter to interface scope so it can be referenced within the interface
-        std::cout << "DEBUG: Declaring interface type parameter symbol: " << typeParam->getName() << std::endl;
+        TSC_LOG_DEBUG("Declaring interface type parameter symbol:" + typeParam->getName() , "Semantic");
         declareSymbol(typeParam->getName(), SymbolKind::Type, paramType, typeParam->getLocation());
     }
     
     // Analyze extended interfaces if present
     for (const auto& extended : node.getExtends()) {
-        std::cout << "DEBUG: Processing interface extension: " << extended->toString() << std::endl;
+        TSC_LOG_DEBUG("Processing interface extension:" + extended->toString() , "Semantic");
         
         // Validate that the extended type is a valid interface type
         if (extended->isError()) {
@@ -2306,7 +2306,7 @@ void SemanticAnalyzer::visit(InterfaceDeclaration& node) {
         // For generic interfaces with type arguments, validate that the type arguments
         // satisfy the constraints of the base interface
         if (auto genericType = dynamic_cast<GenericType*>(extended.get())) {
-            std::cout << "DEBUG: Extended interface is generic with " << genericType->getTypeArguments().size() << " type arguments" << std::endl;
+            TSC_LOG_DEBUG("Extended interface is generic with" + genericType->getTypeArguments().size() + " type arguments" , "Semantic");
             
             // TODO: Validate that type arguments satisfy constraints
             // This would require looking up the base interface and checking its constraints
@@ -2426,7 +2426,7 @@ void SemanticAnalyzer::visit(TypeAliasDeclaration& node) {
 }
 
 void SemanticAnalyzer::visit(ImportDeclaration& node) {
-    std::cout << "DEBUG: Processing import declaration: " << node.getModuleSpecifier() << std::endl;
+    TSC_LOG_DEBUG("Processing import declaration:" + node.getModuleSpecifier() , "Semantic");
     
     // Resolve the module
     String currentFile = currentModulePath_.empty() ? "current_file.ts" : currentModulePath_;
@@ -2437,7 +2437,7 @@ void SemanticAnalyzer::visit(ImportDeclaration& node) {
         return;
     }
     
-    std::cout << "DEBUG: Resolved module " << node.getModuleSpecifier() << " to " << result.resolvedPath << std::endl;
+    TSC_LOG_DEBUG("Resolved module" + node.getModuleSpecifier() + " to " + result.resolvedPath , "Semantic");
     
     // Get or create module symbol table for current module
     ModuleSymbolTable* currentModuleTable = moduleSymbolManager_->getModuleSymbolTable(currentFile);
@@ -2491,7 +2491,7 @@ void SemanticAnalyzer::visit(ImportDeclaration& node) {
 }
 
 void SemanticAnalyzer::visit(ExportDeclaration& node) {
-    std::cout << "DEBUG: *** EXPORT DECLARATION VISITED *** Processing export declaration: " << node.getModuleSpecifier() << std::endl;
+    TSC_LOG_DEBUG("*** EXPORT DECLARATION VISITED *** Processing export declaration:" + node.getModuleSpecifier() , "Semantic");
     std::cout.flush();
     
     String currentFile = currentModulePath_.empty() ? "current_file.ts" : currentModulePath_;
@@ -2511,7 +2511,7 @@ void SemanticAnalyzer::visit(ExportDeclaration& node) {
             return;
         }
         
-        std::cout << "DEBUG: Resolved re-export module " << node.getModuleSpecifier() << " to " << result.resolvedPath << std::endl;
+        TSC_LOG_DEBUG("Resolved re-export module" + node.getModuleSpecifier() + " to " + result.resolvedPath , "Semantic");
         
         // Add module dependency
         currentModuleTable->addModuleDependency(result.resolvedPath);
@@ -2544,16 +2544,16 @@ void SemanticAnalyzer::visit(ExportDeclaration& node) {
         const ExportClause& clause = node.getClause();
         switch (clause.getType()) {
             case ExportClause::Default: {
-                std::cout << "DEBUG: Processing default export" << std::endl;
+                TSC_LOG_DEBUG("Processing default export" , "Semantic");
                 // Export default expression/declaration
                 if (clause.getDefaultExport()) {
-                    std::cout << "DEBUG: Default export is not null" << std::endl;
+                    TSC_LOG_DEBUG("Default export is not null" , "Semantic");
                     // Process the declaration first
                     if (auto decl = dynamic_cast<Declaration*>(clause.getDefaultExport())) {
-                        std::cout << "DEBUG: Default export is a Declaration: " << decl->getName() << std::endl;
+                        TSC_LOG_DEBUG("Default export is a Declaration:" + decl->getName() , "Semantic");
                         // Process the declaration (this will add it to the symbol table)
                         decl->accept(*this);
-                        std::cout << "DEBUG: Declaration processed successfully" << std::endl;
+                        TSC_LOG_DEBUG("Declaration processed successfully" , "Semantic");
                         
                         // Mark the symbol as exported
                         Symbol* symbol = symbolTable_->lookupSymbol(decl->getName());
@@ -2565,12 +2565,12 @@ void SemanticAnalyzer::visit(ExportDeclaration& node) {
                             ExportedSymbol exported(decl->getName(), decl->getName(), node.getLocation(), symbol->getKind());
                             currentModuleTable->addExportedSymbol(exported);
                             
-                            std::cout << "DEBUG: Added named export: " << decl->getName() << " as '" << decl->getName() << "'" << std::endl;
+                            TSC_LOG_DEBUG("Added named export:" + decl->getName() + " as '" + decl->getName() + "'" , "Semantic");
                         } else {
-                            std::cout << "DEBUG: Symbol not found for: " << decl->getName() << std::endl;
+                            TSC_LOG_DEBUG("Symbol not found for:" + decl->getName() , "Semantic");
                         }
                     } else if (auto expr = dynamic_cast<Expression*>(clause.getDefaultExport())) {
-                        std::cout << "DEBUG: Default export is an Expression" << std::endl;
+                        TSC_LOG_DEBUG("Default export is an Expression" , "Semantic");
                         // Process the expression
                         expr->accept(*this);
                         
@@ -2578,12 +2578,12 @@ void SemanticAnalyzer::visit(ExportDeclaration& node) {
                         ExportedSymbol exported("default", "default", node.getLocation(), SymbolKind::Variable);
                         currentModuleTable->addExportedSymbol(exported);
                         
-                        std::cout << "DEBUG: Added default export expression as 'default'" << std::endl;
+                        TSC_LOG_DEBUG("Added default export expression as 'default'" , "Semantic");
                     } else {
-                        std::cout << "DEBUG: Default export is neither Declaration nor Expression" << std::endl;
+                        TSC_LOG_DEBUG("Default export is neither Declaration nor Expression" , "Semantic");
                     }
                 } else {
-                    std::cout << "DEBUG: Default export is null" << std::endl;
+                    TSC_LOG_DEBUG("Default export is null" , "Semantic");
                 }
                 break;
             }
@@ -2657,15 +2657,15 @@ shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
     
     // Look up the type name in the symbol table
     Symbol* symbol = resolveSymbol(typeName, SourceLocation());
-    std::cout << "DEBUG: resolveType looking up '" << typeName << "': " << (symbol ? "found" : "not found") << std::endl;
+    TSC_LOG_DEBUG("resolveType looking up '" + typeName + "': " + (symbol ? "found" : "not found") , "Semantic");
     if (symbol) {
-        std::cout << "DEBUG: Symbol kind: " << static_cast<int>(symbol->getKind()) << std::endl;
-        std::cout << "DEBUG: Symbol type: " << (symbol->getType() ? symbol->getType()->toString() : "null") << std::endl;
+        TSC_LOG_DEBUG("Symbol kind:" + static_cast<int>(symbol->getKind()) , "Semantic");
+        TSC_LOG_DEBUG("Symbol type:" + (symbol->getType() ? symbol->getType()->toString() : "null") , "Semantic");
         if (symbol->getType()) {
-            std::cout << "DEBUG: Symbol type kind: " << static_cast<int>(symbol->getType()->getKind()) << std::endl;
+            TSC_LOG_DEBUG("Symbol type kind:" + static_cast<int>(symbol->getType()->getKind()) , "Semantic");
         }
     } else {
-        std::cout << "DEBUG: resolveType failed to find symbol '" << typeName << "' - this will cause type parameter to be treated as variable" << std::endl;
+        TSC_LOG_DEBUG("resolveType failed to find symbol '" + typeName + "' - this will cause type parameter to be treated as variable" , "Semantic");
     }
     if (symbol && (symbol->getKind() == SymbolKind::Type || symbol->getKind() == SymbolKind::Class)) {
         auto resolvedType = symbol->getType();
@@ -3075,10 +3075,10 @@ void SemanticAnalyzer::analyzeMoveSemantics(const MoveExpression& moveExpr) {
     // Check if the operand is a unique_ptr or has move semantics
     if (operandType->getKind() == TypeKind::UniquePtr) {
         // Move semantics for unique_ptr - this is valid
-        std::cout << "DEBUG: Move semantics applied to unique_ptr" << std::endl;
+        TSC_LOG_DEBUG("Move semantics applied to unique_ptr" , "Semantic");
     } else if (operandType->getKind() == TypeKind::SharedPtr) {
         // Move semantics for shared_ptr - this transfers ownership
-        std::cout << "DEBUG: Move semantics applied to shared_ptr" << std::endl;
+        TSC_LOG_DEBUG("Move semantics applied to shared_ptr" , "Semantic");
     } else {
         // For other types, move semantics might not be meaningful
         reportWarning("Move semantics applied to non-smart-pointer type: " + operandType->toString(),
@@ -3108,7 +3108,7 @@ void SemanticAnalyzer::detectCycles(const ClassDeclaration& classDecl) {
     // This is a simplified implementation - a full implementation would
     // analyze the class structure for circular references
     
-    std::cout << "DEBUG: Analyzing class " << classDecl.getName() << " for cycles" << std::endl;
+    TSC_LOG_DEBUG("Analyzing class" + classDecl.getName() + " for cycles" , "Semantic");
     
     // For now, just check for obvious patterns
     // In a full implementation, this would:
@@ -3121,7 +3121,7 @@ void SemanticAnalyzer::suggestWeakReferences(const ClassDeclaration& classDecl) 
     // Suggest weak references to break cycles
     // This is a placeholder implementation
     
-    std::cout << "DEBUG: Suggesting weak references for class " << classDecl.getName() << std::endl;
+    TSC_LOG_DEBUG("Suggesting weak references for class" + classDecl.getName() , "Semantic");
     
     // In a full implementation, this would:
     // 1. Analyze the class structure

@@ -2,6 +2,7 @@
 #include "tsc/Compiler.h"
 #include "tsc/TargetRegistry.h"
 #include "tsc/semantic/TypeSystem.h"
+#include "tsc/utils/Logger.h"
 #include "tsc/AST.h"
 #include <cmath>
 #include <limits>
@@ -105,7 +106,7 @@ void CodeGenContext::addARCManagedObject(const String& name, llvm::Value* object
     // Add the object to the current scope
     if (!arcObjectStack_.empty()) {
         arcObjectStack_.back().push_back({name, object, className});
-        std::cout << "DEBUG: Added ARC-managed object '" << name << "' (class: " << className << ") to scope" << std::endl;
+        TSC_LOG_DEBUG("Added ARC-managed object '" + name + "' (class: " + className + ") to scope" , "CodeGen");
     }
 }
 
@@ -117,15 +118,15 @@ void CodeGenContext::generateScopeCleanup(class LLVMCodeGen* codeGen) {
     // Generate destructor calls and ARC release calls in reverse order
     for (auto it = currentScope.rbegin(); it != currentScope.rend(); ++it) {
         const ARCManagedObject& obj = *it;
-        std::cout << "DEBUG: Generating cleanup for ARC object '" << obj.name << "' (class: " << obj.className << ")" << std::endl;
+        TSC_LOG_DEBUG("Generating cleanup for ARC object '" + obj.name + "' (class: " + obj.className + ")" , "CodeGen");
         
         // Call __tsc_release to decrement reference count (this will automatically call the destructor when ref count reaches 0)
         llvm::Function* releaseFunc = codeGen->getOrCreateARCReleaseFunction();
         if (releaseFunc) {
-            std::cout << "DEBUG: Calling __tsc_release for object " << obj.name << std::endl;
+            TSC_LOG_DEBUG("Calling __tsc_release for object" + obj.name , "CodeGen");
             builder_.CreateCall(releaseFunc, {obj.object});
         } else {
-            std::cout << "DEBUG: Failed to create __tsc_release function" << std::endl;
+            TSC_LOG_DEBUG("Failed to create __tsc_release function" , "CodeGen");
         }
     }
     
@@ -220,7 +221,7 @@ bool LLVMCodeGen::generateCode(Module& module, SymbolTable& symbolTable,
     symbolTable_ = &symbolTable;
     typeSystem_ = &typeSystem;
     
-    std::cout << "DEBUG: LLVMCodeGen received SymbolTable at address: " << symbolTable_ << std::endl;
+    TSC_LOG_DEBUG("LLVMCodeGen received SymbolTable at address:" + symbolTable_ , "CodeGen");
     
     try {
         // Generate code for the module
@@ -262,7 +263,7 @@ void LLVMCodeGen::visit(StringLiteral& node) {
 }
 
 void LLVMCodeGen::visit(TemplateLiteral& node) {
-    std::cout << "DEBUG: TemplateLiteral visitor called" << std::endl;
+    TSC_LOG_DEBUG("TemplateLiteral visitor called" , "CodeGen");
     // Build the template literal by concatenating all parts
     llvm::Value* result = nullptr;
     
@@ -271,34 +272,34 @@ void LLVMCodeGen::visit(TemplateLiteral& node) {
         
         if (element.isExpression()) {
             // Generate code for the expression
-            std::cout << "DEBUG: Processing template expression" << std::endl;
+            TSC_LOG_DEBUG("Processing template expression" , "CodeGen");
             element.getExpression()->accept(static_cast<ASTVisitor&>(*this));
             elementValue = getCurrentValue();
-            std::cout << "DEBUG: Template expression result type: " << (elementValue ? elementValue->getType()->getTypeID() : -1) << std::endl;
+            TSC_LOG_DEBUG("Template expression result type:" + (elementValue ? elementValue->getType()->getTypeID() : -1) , "CodeGen");
             
             // Convert expression results to string representation
             // Note: Currently supports simple variable references only
             // Future enhancement: Support complex expressions (arithmetic, function calls, etc.)
-            std::cout << "DEBUG: Converting template expression to string, type: " << elementValue->getType()->getTypeID() << std::endl;
+            TSC_LOG_DEBUG("Converting template expression to string, type:" + elementValue->getType()->getTypeID() , "CodeGen");
             if (elementValue->getType()->isDoubleTy()) {
                 // Convert number to string using runtime function
-                std::cout << "DEBUG: Converting double to string" << std::endl;
+                TSC_LOG_DEBUG("Converting double to string" , "CodeGen");
                 llvm::Function* numberToStringFunc = getOrCreateNumberToStringFunction();
-                std::cout << "DEBUG: numberToStringFunc type: " << numberToStringFunc->getReturnType()->getTypeID() << std::endl;
+                TSC_LOG_DEBUG("numberToStringFunc type:" + numberToStringFunc->getReturnType()->getTypeID() , "CodeGen");
                 elementValue = builder_->CreateCall(numberToStringFunc, {elementValue}, "number_to_string");
-                std::cout << "DEBUG: After CreateCall, elementValue type: " << elementValue->getType()->getTypeID() << std::endl;
+                TSC_LOG_DEBUG("After CreateCall, elementValue type:" + elementValue->getType()->getTypeID() , "CodeGen");
             } else if (elementValue->getType()->isIntegerTy(1)) {
                 // Convert boolean to string using runtime function
-                std::cout << "DEBUG: Converting boolean to string" << std::endl;
+                TSC_LOG_DEBUG("Converting boolean to string" , "CodeGen");
                 llvm::Function* booleanToStringFunc = getOrCreateBooleanToStringFunction();
                 elementValue = builder_->CreateCall(booleanToStringFunc, {elementValue}, "boolean_to_string");
             } else if (elementValue->getType() != getStringType()) {
                 // For other types, convert to string representation using runtime function
-                std::cout << "DEBUG: Converting other type to string" << std::endl;
+                TSC_LOG_DEBUG("Converting other type to string" , "CodeGen");
                 llvm::Function* objectToStringFunc = getOrCreateObjectToStringFunction();
                 elementValue = builder_->CreateCall(objectToStringFunc, {elementValue}, "object_to_string");
             }
-            std::cout << "DEBUG: After conversion, type: " << elementValue->getType()->getTypeID() << std::endl;
+            TSC_LOG_DEBUG("After conversion, type:" + elementValue->getType()->getTypeID() , "CodeGen");
         } else {
             // Text element
             elementValue = createStringLiteral(element.getText());
@@ -318,7 +319,7 @@ void LLVMCodeGen::visit(TemplateLiteral& node) {
         result = createStringLiteral("");
     }
     
-    std::cout << "DEBUG: TemplateLiteral result type: " << (result ? result->getType()->getTypeID() : -1) << std::endl;
+    TSC_LOG_DEBUG("TemplateLiteral result type:" + (result ? result->getType()->getTypeID() : -1) , "CodeGen");
     setCurrentValue(result);
 }
 
@@ -331,7 +332,7 @@ void LLVMCodeGen::visit(NullLiteral& node) {
 }
 
 void LLVMCodeGen::visit(Identifier& node) {
-    std::cout << "DEBUG: Identifier visitor called for: " << node.getName() << std::endl;
+    TSC_LOG_DEBUG("Identifier visitor called for:" + node.getName() , "CodeGen");
     
     // First, check if this identifier refers to a function
     llvm::Function* function = module_->getFunction(node.getName());
@@ -347,7 +348,7 @@ void LLVMCodeGen::visit(Identifier& node) {
     if (capturedValue) {
         // Use the captured value directly (it's already loaded from the closure environment)
         setCurrentValue(capturedValue);
-        std::cout << "DEBUG: Using captured variable " << node.getName() << " from closure environment" << std::endl;
+        TSC_LOG_DEBUG("Using captured variable" + node.getName() + " from closure environment" , "CodeGen");
         return;
     }
     
@@ -391,7 +392,7 @@ void LLVMCodeGen::visit(Identifier& node) {
     
     // Special handling for built-in functions like _print
     if (node.getName() == "_print") {
-        std::cout << "DEBUG: Identifier - Found _print, creating function" << std::endl;
+        TSC_LOG_DEBUG("Identifier - Found _print, creating function" , "CodeGen");
         llvm::Function* printFunc = getOrCreatePrintFunction();
         setCurrentValue(printFunc);
         return;
@@ -447,21 +448,21 @@ void LLVMCodeGen::visit(SuperExpression& node) {
 }
 
 void LLVMCodeGen::visit(NewExpression& node) {
-    std::cout << "DEBUG: *** NewExpression visitor called for: " << node.toString() << " ***" << std::endl;
-    std::cout << "DEBUG: Current insert point at start of NewExpression: " << builder_->GetInsertBlock() << std::endl;
+    TSC_LOG_DEBUG("*** NewExpression visitor called for:" + node.toString() + " ***" , "CodeGen");
+    TSC_LOG_DEBUG("Current insert point at start of NewExpression:" + builder_->GetInsertBlock() , "CodeGen");
     if (builder_->GetInsertBlock()) {
-        std::cout << "DEBUG: Current block name at start of NewExpression: " << builder_->GetInsertBlock()->getName().str() << std::endl;
-        std::cout << "DEBUG: Current block parent function at start of NewExpression: " << (builder_->GetInsertBlock()->getParent() ? builder_->GetInsertBlock()->getParent()->getName().str() : "null") << std::endl;
+        TSC_LOG_DEBUG("Current block name at start of NewExpression:" + builder_->GetInsertBlock()->getName().str() , "CodeGen");
+        TSC_LOG_DEBUG("Current block parent function at start of NewExpression:" + (builder_->GetInsertBlock()->getParent() ? builder_->GetInsertBlock()->getParent()->getName().str() : "null") , "CodeGen");
     }
     if (auto identifier = dynamic_cast<Identifier*>(node.getConstructor())) {
         String className = identifier->getName();
         
         // Get the class type from the symbol table
         Symbol* classSymbol = symbolTable_->lookupSymbol(className);
-        std::cout << "DEBUG: Class symbol lookup for '" << className << "': " << (classSymbol ? "found" : "not found") << std::endl;
+        TSC_LOG_DEBUG("Class symbol lookup for '" + className + "': " + (classSymbol ? "found" : "not found") , "CodeGen");
         if (classSymbol) {
-            std::cout << "DEBUG: Class symbol kind: " << static_cast<int>(classSymbol->getKind()) << std::endl;
-            std::cout << "DEBUG: Class symbol has declaration: " << (classSymbol->getDeclaration() ? "yes" : "no") << std::endl;
+            TSC_LOG_DEBUG("Class symbol kind:" + static_cast<int>(classSymbol->getKind()) , "CodeGen");
+            TSC_LOG_DEBUG("Class symbol has declaration:" + (classSymbol->getDeclaration() ? "yes" : "no") , "CodeGen");
         }
         if (!classSymbol || classSymbol->getKind() != SymbolKind::Class) {
             reportError("Class not found: " + className, node.getLocation());
@@ -471,63 +472,63 @@ void LLVMCodeGen::visit(NewExpression& node) {
         
         // Get the class type and map it to LLVM type
         shared_ptr<Type> classType = classSymbol->getType();
-        std::cout << "DEBUG: Class type: " << classType->toString() << ", kind: " << static_cast<int>(classType->getKind()) << std::endl;
+        TSC_LOG_DEBUG("Class type:" + classType->toString() + ", kind: " + static_cast<int>(classType->getKind()) , "CodeGen");
         llvm::Type* objectType = nullptr;
         
         // Handle generic class instantiation
         if (node.hasExplicitTypeArguments()) {
-            std::cout << "DEBUG: Processing explicit type arguments for generic class" << std::endl;
+            TSC_LOG_DEBUG("Processing explicit type arguments for generic class" , "CodeGen");
             const auto& typeArguments = node.getTypeArguments();
-            std::cout << "DEBUG: Number of type arguments: " << typeArguments.size() << std::endl;
+            TSC_LOG_DEBUG("Number of type arguments:" + typeArguments.size() , "CodeGen");
             
             // Create a GenericType for this instantiation
             auto genericType = typeSystem_->createGenericType(classType, typeArguments);
-            std::cout << "DEBUG: Created GenericType: " << genericType->toString() << ", kind: " << static_cast<int>(genericType->getKind()) << std::endl;
+            TSC_LOG_DEBUG("Created GenericType:" + genericType->toString() + ", kind: " + static_cast<int>(genericType->getKind()) , "CodeGen");
             
             // Cast to GenericType* for monomorphization
             auto genericTypePtr = std::static_pointer_cast<GenericType>(genericType);
             
             // Create monomorphized type and methods
-            std::cout << "DEBUG: Creating monomorphized type for: " << genericType->toString() << std::endl;
+            TSC_LOG_DEBUG("Creating monomorphized type for:" + genericType->toString() , "CodeGen");
             objectType = createMonomorphizedType(*genericTypePtr);
-            std::cout << "DEBUG: Created monomorphized object type: " << (objectType ? "valid" : "null") << std::endl;
+            TSC_LOG_DEBUG("Created monomorphized object type:" + (objectType ? "valid" : "null") , "CodeGen");
             if (objectType) {
-                std::cout << "DEBUG: Monomorphized object type == getAnyType(): " << (objectType == getAnyType() ? "true" : "false") << std::endl;
+                TSC_LOG_DEBUG("Monomorphized object type == getAnyType():" + (objectType == getAnyType() ? "true" : "false") , "CodeGen");
             }
             
             // Generate monomorphized methods for this instantiation
-            std::cout << "DEBUG: Generating monomorphized methods for: " << genericType->toString() << std::endl;
+            TSC_LOG_DEBUG("Generating monomorphized methods for:" + genericType->toString() , "CodeGen");
             
             // Save the current insert point before generating methods
             llvm::IRBuilderBase::InsertPoint savedInsertPoint = builder_->saveIP();
-            std::cout << "DEBUG: Saved insert point before method generation" << std::endl;
+            TSC_LOG_DEBUG("Saved insert point before method generation" , "CodeGen");
             
             generateMonomorphizedMethods(*genericTypePtr, classSymbol);
             
             // Restore the insert point after method generation
             builder_->restoreIP(savedInsertPoint);
-            std::cout << "DEBUG: Restored insert point after method generation" << std::endl;
-            std::cout << "DEBUG: Current block after restore: " << builder_->GetInsertBlock() << std::endl;
+            TSC_LOG_DEBUG("Restored insert point after method generation" , "CodeGen");
+            TSC_LOG_DEBUG("Current block after restore:" + builder_->GetInsertBlock() , "CodeGen");
             if (builder_->GetInsertBlock()) {
-                std::cout << "DEBUG: Current block name after restore: " << builder_->GetInsertBlock()->getName().str() << std::endl;
-                std::cout << "DEBUG: Current block parent function after restore: " << (builder_->GetInsertBlock()->getParent() ? builder_->GetInsertBlock()->getParent()->getName().str() : "null") << std::endl;
+                TSC_LOG_DEBUG("Current block name after restore:" + builder_->GetInsertBlock()->getName().str() , "CodeGen");
+                TSC_LOG_DEBUG("Current block parent function after restore:" + (builder_->GetInsertBlock()->getParent() ? builder_->GetInsertBlock()->getParent()->getName().str() : "null") , "CodeGen");
             }
         } else {
             // For non-generic classes, use the base class type
             objectType = mapTypeScriptTypeToLLVM(*classType);
-            std::cout << "DEBUG: Mapped non-generic object type: " << (objectType ? "valid" : "null") << std::endl;
+            TSC_LOG_DEBUG("Mapped non-generic object type:" + (objectType ? "valid" : "null") , "CodeGen");
             if (objectType) {
-                std::cout << "DEBUG: Non-generic object type == getAnyType(): " << (objectType == getAnyType() ? "true" : "false") << std::endl;
+                TSC_LOG_DEBUG("Non-generic object type == getAnyType():" + (objectType == getAnyType() ? "true" : "false") , "CodeGen");
             }
         }
         
         // Calculate actual object size based on the type
         llvm::Type* pointeeType = nullptr;
-        std::cout << "DEBUG: NewExpression - objectType: " << (objectType ? "valid" : "null") << std::endl;
+        TSC_LOG_DEBUG("NewExpression - objectType:" + (objectType ? "valid" : "null") , "CodeGen");
         if (objectType) {
-            std::cout << "DEBUG: NewExpression - objectType->isPointerTy(): " << (objectType->isPointerTy() ? "true" : "false") << std::endl;
-            std::cout << "DEBUG: NewExpression - objectType->getTypeID(): " << objectType->getTypeID() << std::endl;
-            std::cout << "DEBUG: NewExpression - objectType == getAnyType(): " << (objectType == getAnyType() ? "true" : "false") << std::endl;
+            TSC_LOG_DEBUG("NewExpression - objectType->isPointerTy():" + (objectType->isPointerTy() ? "true" : "false") , "CodeGen");
+            TSC_LOG_DEBUG("NewExpression - objectType->getTypeID():" + objectType->getTypeID() , "CodeGen");
+            TSC_LOG_DEBUG("NewExpression - objectType == getAnyType():" + (objectType == getAnyType() ? "true" : "false") , "CodeGen");
         }
         bool isPointerType = objectType->isPointerTy();
         bool isTypedPointerType = (objectType->getTypeID() == llvm::Type::TypedPointerTyID);
@@ -540,12 +541,12 @@ void LLVMCodeGen::visit(NewExpression& node) {
                 llvm::Type::getInt32Ty(*context_),  // length field (not used, but kept for compatibility)
                 llvm::PointerType::get(*context_, 0)  // pointer to array data
             });
-            std::cout << "DEBUG: Object type is pointer, using struct type { i32, ptr } for allocation" << std::endl;
-            std::cout << "DEBUG: Created pointeeType: " << (pointeeType ? "valid" : "null") << std::endl;
-            std::cout << "DEBUG: pointeeType isStructTy(): " << (pointeeType->isStructTy() ? "true" : "false") << std::endl;
+            TSC_LOG_DEBUG("Object type is pointer, using struct type { i32, ptr } for allocation" , "CodeGen");
+            TSC_LOG_DEBUG("Created pointeeType:" + (pointeeType ? "valid" : "null") , "CodeGen");
+            TSC_LOG_DEBUG("pointeeType isStructTy():" + (pointeeType->isStructTy() ? "true" : "false") , "CodeGen");
         } else {
             pointeeType = objectType;
-            std::cout << "DEBUG: Object type is not pointer, using objectType directly" << std::endl;
+            TSC_LOG_DEBUG("Object type is not pointer, using objectType directly" , "CodeGen");
         }
         
         // Allocate memory using ARC if the type is ARC-managed
@@ -563,9 +564,9 @@ void LLVMCodeGen::visit(NewExpression& node) {
         
         if (isARCManaged) {
             // Use ARC allocation
-            std::cout << "DEBUG: Using ARC allocation for type: " << classType->toString() << std::endl;
+            TSC_LOG_DEBUG("Using ARC allocation for type:" + classType->toString() , "CodeGen");
             llvm::Function* arcAllocFunc = getOrCreateARCAllocFunction();
-            std::cout << "DEBUG: ARC alloc function: " << (arcAllocFunc ? "created" : "null") << std::endl;
+            TSC_LOG_DEBUG("ARC alloc function:" + (arcAllocFunc ? "created" : "null") , "CodeGen");
             llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
             
             // Calculate size of the struct
@@ -574,11 +575,11 @@ void LLVMCodeGen::visit(NewExpression& node) {
                 llvm::StructType* structType = llvm::cast<llvm::StructType>(pointeeType);
                 objectSize = llvm::ConstantInt::get(sizeType, 
                     module_->getDataLayout().getTypeAllocSize(structType));
-                std::cout << "DEBUG: ARC allocating " << module_->getDataLayout().getTypeAllocSize(structType) << " bytes for struct type" << std::endl;
+                TSC_LOG_DEBUG("ARC allocating" + module_->getDataLayout().getTypeAllocSize(structType) + " bytes for struct type" , "CodeGen");
             } else {
                 // For the hardcoded struct type, calculate the size manually
                 objectSize = llvm::ConstantInt::get(sizeType, 16);
-                std::cout << "DEBUG: ARC allocating 16 bytes for struct type { i32, ptr }" << std::endl;
+                TSC_LOG_DEBUG("ARC allocating 16 bytes for struct type { i32, ptr }" , "CodeGen");
             }
             
             // Create destructor function pointer
@@ -590,10 +591,10 @@ void LLVMCodeGen::visit(NewExpression& node) {
             llvm::Value* typeInfoPtr = llvm::ConstantPointerNull::get(llvm::PointerType::get(*context_, 0));
             
             objectPtr = builder_->CreateCall(arcAllocFunc, {objectSize, destructorPtr, typeInfoPtr}, "arc_allocated_object");
-            std::cout << "DEBUG: ARC allocation call created: " << (objectPtr ? "success" : "failed") << std::endl;
+            TSC_LOG_DEBUG("ARC allocation call created:" + (objectPtr ? "success" : "failed") , "CodeGen");
         } else {
             // Use regular malloc for non-ARC types
-            std::cout << "DEBUG: Using regular malloc for type: " << classType->toString() << std::endl;
+            TSC_LOG_DEBUG("Using regular malloc for type:" + classType->toString() , "CodeGen");
             llvm::Function* mallocFunc = getOrCreateMallocFunction();
             llvm::Type* sizeType = llvm::Type::getInt64Ty(*context_);
             
@@ -603,11 +604,11 @@ void LLVMCodeGen::visit(NewExpression& node) {
                 llvm::StructType* structType = llvm::cast<llvm::StructType>(pointeeType);
                 objectSize = llvm::ConstantInt::get(sizeType, 
                     module_->getDataLayout().getTypeAllocSize(structType));
-                std::cout << "DEBUG: Allocating " << module_->getDataLayout().getTypeAllocSize(structType) << " bytes for struct type" << std::endl;
+                TSC_LOG_DEBUG("Allocating" + module_->getDataLayout().getTypeAllocSize(structType) + " bytes for struct type" , "CodeGen");
             } else {
                 // For the hardcoded struct type, calculate the size manually
                 objectSize = llvm::ConstantInt::get(sizeType, 16);
-                std::cout << "DEBUG: Using hardcoded allocation of 16 bytes for struct type { i32, ptr }" << std::endl;
+                TSC_LOG_DEBUG("Using hardcoded allocation of 16 bytes for struct type { i32, ptr }" , "CodeGen");
             }
             
             objectPtr = builder_->CreateCall(mallocFunc, {objectSize}, "malloced_object");
@@ -646,12 +647,12 @@ void LLVMCodeGen::visit(NewExpression& node) {
             // This ensures proper function context and avoids cross-function reference issues
             if (codeGenContext_->getCurrentFunction()) {
                 // We're in a function context, call the constructor normally
-                std::cout << "DEBUG: Calling constructor function: " << constructorName << std::endl;
+                TSC_LOG_DEBUG("Calling constructor function:" + constructorName , "CodeGen");
                 builder_->CreateCall(constructorFunc, constructorArgs);
-                std::cout << "DEBUG: Constructor function call completed" << std::endl;
+                TSC_LOG_DEBUG("Constructor function call completed" , "CodeGen");
             } else {
                 // We're in global context, defer the constructor call to initialization time
-                std::cout << "DEBUG: Deferring constructor call for global context" << std::endl;
+                TSC_LOG_DEBUG("Deferring constructor call for global context" , "CodeGen");
                 
                 // Store the constructor call information for later execution
                 DeferredConstructorCall deferredCall;
@@ -664,7 +665,7 @@ void LLVMCodeGen::visit(NewExpression& node) {
                 
                 // Store the constructor call info for later processing
                 deferredConstructorCalls_.push_back(deferredCall);
-                std::cout << "DEBUG: Stored deferred constructor call for class: " << className << std::endl;
+                TSC_LOG_DEBUG("Stored deferred constructor call for class:" + className , "CodeGen");
             }
         } else {
             // If no constructor found, just initialize with default values
@@ -718,17 +719,17 @@ void LLVMCodeGen::visit(UnaryExpression& node) {
 }
 
 void LLVMCodeGen::visit(AssignmentExpression& node) {
-    std::cout << "DEBUG: AssignmentExpression visitor called" << std::endl;
+    TSC_LOG_DEBUG("AssignmentExpression visitor called" , "CodeGen");
     // Generate right-hand side value
     node.getRight()->accept(static_cast<ASTVisitor&>(*this));
     llvm::Value* value = getCurrentValue();
-    std::cout << "DEBUG: AssignmentExpression right-hand side value: " << (value ? "found" : "null") << std::endl;
+    TSC_LOG_DEBUG("AssignmentExpression right-hand side value:" + (value ? "found" : "null") , "CodeGen");
     
     // Insert ARC retain for the new value if it's ARC-managed
     if (value && isARCManagedType(node.getRight()->getType())) {
         llvm::Function* retainFunc = getOrCreateARCRetainFunction();
         value = builder_->CreateCall(retainFunc, {value}, "retained_value");
-        std::cout << "DEBUG: Inserted ARC retain for assignment" << std::endl;
+        TSC_LOG_DEBUG("Inserted ARC retain for assignment" , "CodeGen");
     }
     
     // Handle left-hand side
@@ -738,7 +739,7 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
         if (oldValue && isARCManagedType(node.getLeft()->getType())) {
             llvm::Function* releaseFunc = getOrCreateARCReleaseFunction();
             builder_->CreateCall(releaseFunc, {oldValue}, "release_old_value");
-            std::cout << "DEBUG: Inserted ARC release for old value" << std::endl;
+            TSC_LOG_DEBUG("Inserted ARC release for old value" , "CodeGen");
         }
         
         // Simple variable assignment
@@ -751,12 +752,12 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
         
         if (objectPtr) {
             String propertyName = propertyAccess->getProperty();
-            std::cout << "DEBUG: PropertyAssignment - property: " << propertyName << std::endl;
+            TSC_LOG_DEBUG("PropertyAssignment - property:" + propertyName , "CodeGen");
             
             // Handle specific property assignments for class fields
             if (propertyName == "items" || propertyName == "data" || propertyName == "id") {
                 // Implement proper property assignment to object fields
-                std::cout << "DEBUG: PropertyAssignment - assigning to " << propertyName << " field" << std::endl;
+                TSC_LOG_DEBUG("PropertyAssignment - assigning to" + propertyName + " field" , "CodeGen");
                 
                 if (propertyName == "id") {
                     // Handle id property assignment for class constructors
@@ -774,7 +775,7 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
                         llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), "id_field_ptr");
                     
                     builder_->CreateStore(value, idFieldPtr);
-                    std::cout << "DEBUG: PropertyAssignment - id value stored in object data" << std::endl;
+                    TSC_LOG_DEBUG("PropertyAssignment - id value stored in object data" , "CodeGen");
                     
                     setCurrentValue(value); // Assignment returns the assigned value
                     return;
@@ -787,59 +788,59 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
                 
                 // Get the object type from the object pointer
                 llvm::Type* objectType = objectPtr->getType();
-                std::cout << "DEBUG: PropertyAssignment - object type: " << (objectType ? "valid" : "null") << std::endl;
+                TSC_LOG_DEBUG("PropertyAssignment - object type:" + (objectType ? "valid" : "null") , "CodeGen");
                 
                 if (objectType && objectType->isPointerTy()) {
                     // Get the element type of the pointer
                     // Check the actual type ID to determine how to get the element type
-                    std::cout << "DEBUG: PropertyAssignment - object type ID: " << objectType->getTypeID() << std::endl;
+                    TSC_LOG_DEBUG("PropertyAssignment - object type ID:" + objectType->getTypeID() , "CodeGen");
                     
                     llvm::Type* elementType = nullptr;
                     if (objectType->getTypeID() == llvm::Type::TypedPointerTyID) {
                         // It's a TypedPointerType
                         llvm::TypedPointerType* typedPointerType = llvm::cast<llvm::TypedPointerType>(objectType);
                         elementType = typedPointerType->getElementType();
-                        std::cout << "DEBUG: PropertyAssignment - using TypedPointerType::getElementType()" << std::endl;
+                        TSC_LOG_DEBUG("PropertyAssignment - using TypedPointerType::getElementType()" , "CodeGen");
                     } else if (objectType->getTypeID() == llvm::Type::PointerTyID) {
                         // It's a regular PointerType - in LLVM 20, we need to get the element type differently
                         // For now, let's try to infer the type from context or use a different approach
-                        std::cout << "DEBUG: PropertyAssignment - object is regular PointerType, cannot get element type directly" << std::endl;
+                        TSC_LOG_DEBUG("PropertyAssignment - object is regular PointerType, cannot get element type directly" , "CodeGen");
                         // For now, assume it's a pointer to the expected struct type
                         // The object structure is { i32, ptr } where ptr points to array data
                         elementType = llvm::StructType::get(*context_, {
                             llvm::Type::getInt32Ty(*context_),  // length field (not used, but kept for compatibility)
                             llvm::PointerType::get(*context_, 0)  // pointer to array data
                         });
-                        std::cout << "DEBUG: PropertyAssignment - using hardcoded struct type { i32, ptr } as workaround" << std::endl;
+                        TSC_LOG_DEBUG("PropertyAssignment - using hardcoded struct type { i32, ptr } as workaround" , "CodeGen");
                     }
-                    std::cout << "DEBUG: PropertyAssignment - element type: " << (elementType ? "valid" : "null") << std::endl;
+                    TSC_LOG_DEBUG("PropertyAssignment - element type:" + (elementType ? "valid" : "null") , "CodeGen");
                     
                     if (elementType && elementType->isStructTy()) {
                         llvm::StructType* structType = llvm::cast<llvm::StructType>(elementType);
-                        std::cout << "DEBUG: PropertyAssignment - struct type with " << structType->getNumElements() << " elements" << std::endl;
+                        TSC_LOG_DEBUG("PropertyAssignment - struct type with" + structType->getNumElements() + " elements" , "CodeGen");
                         
                         // The items/data field is at index 1 (after the length field at index 0)
                         if (structType->getNumElements() >= 2) {
                             // Get pointer to the items/data field
                             llvm::Value* itemsFieldPtr = builder_->CreateStructGEP(structType, objectPtr, 1, "items_field_ptr");
-                            std::cout << "DEBUG: PropertyAssignment - " << propertyName << " field pointer created" << std::endl;
+                            TSC_LOG_DEBUG("PropertyAssignment -" + propertyName + " field pointer created" , "CodeGen");
                             
                             // Store the array value to the items/data field
                             builder_->CreateStore(value, itemsFieldPtr);
-                            std::cout << "DEBUG: PropertyAssignment - array value stored to " << propertyName << " field" << std::endl;
+                            TSC_LOG_DEBUG("PropertyAssignment - array value stored to" + propertyName + " field" , "CodeGen");
                         } else {
-                            std::cout << "DEBUG: PropertyAssignment - struct has insufficient elements" << std::endl;
+                            TSC_LOG_DEBUG("PropertyAssignment - struct has insufficient elements" , "CodeGen");
                         }
                     } else {
-                        std::cout << "DEBUG: PropertyAssignment - element type is not a struct" << std::endl;
+                        TSC_LOG_DEBUG("PropertyAssignment - element type is not a struct" , "CodeGen");
                     }
                 } else {
-                    std::cout << "DEBUG: PropertyAssignment - object type is not a pointer" << std::endl;
+                    TSC_LOG_DEBUG("PropertyAssignment - object type is not a pointer" , "CodeGen");
                 }
             } else {
                 // For other properties, implement a general property store
                 // This is a simplified implementation for now
-                std::cout << "DEBUG: PropertyAssignment - unknown property: " << propertyName << std::endl;
+                TSC_LOG_DEBUG("PropertyAssignment - unknown property:" + propertyName , "CodeGen");
             }
             
             setCurrentValue(value); // Assignment returns the assigned value
@@ -849,7 +850,7 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
         }
     } else if (auto indexExpr = dynamic_cast<IndexExpression*>(node.getLeft())) {
         // Array element assignment (e.g., numbers[0] = value)
-        std::cout << "DEBUG: IndexExpression assignment - array element assignment" << std::endl;
+        TSC_LOG_DEBUG("IndexExpression assignment - array element assignment" , "CodeGen");
         
         // Generate the array object
         indexExpr->getObject()->accept(static_cast<ASTVisitor&>(*this));
@@ -890,7 +891,7 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
                             // Store the value to the array element
                             builder_->CreateStore(value, elementPtr);
                             
-                            std::cout << "DEBUG: Array element assignment completed" << std::endl;
+                            TSC_LOG_DEBUG("Array element assignment completed" , "CodeGen");
                             setCurrentValue(value); // Assignment returns the assigned value
                             return;
                         }
@@ -908,14 +909,14 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
                 if (ptrType->getTypeID() == llvm::Type::TypedPointerTyID) {
                     llvm::TypedPointerType* typedPtrType = llvm::cast<llvm::TypedPointerType>(ptrType);
                     elementType = typedPtrType->getElementType();
-                    std::cout << "DEBUG: Array assignment - using TypedPointerType::getElementType()" << std::endl;
+                    TSC_LOG_DEBUG("Array assignment - using TypedPointerType::getElementType()" , "CodeGen");
                 } else if (ptrType->getTypeID() == llvm::Type::PointerTyID) {
                     // Regular PointerType - assume it's a pointer to the array struct
                     elementType = llvm::StructType::get(*context_, {
                         llvm::Type::getInt32Ty(*context_),  // length field
                         llvm::PointerType::get(*context_, 0)  // pointer to array data
                     });
-                    std::cout << "DEBUG: Array assignment - using hardcoded struct type { i32, ptr } as workaround" << std::endl;
+                    TSC_LOG_DEBUG("Array assignment - using hardcoded struct type { i32, ptr } as workaround" , "CodeGen");
                 }
                 
                 if (elementType && elementType->isPointerTy()) {
@@ -932,7 +933,7 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
                     llvm::Value* elementPtr = builder_->CreateGEP(elementType, actualArrayPtr, indices, "element_ptr");
                     builder_->CreateStore(value, elementPtr);
                     
-                    std::cout << "DEBUG: Array element assignment completed (pointer fallback)" << std::endl;
+                    TSC_LOG_DEBUG("Array element assignment completed (pointer fallback)" , "CodeGen");
                     setCurrentValue(value); // Assignment returns the assigned value
                     return;
                 }
@@ -981,7 +982,7 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
                 llvm::Value* elementPtr = builder_->CreateGEP(arrayStructType, actualArrayPtr, indices, "element_ptr");
                 builder_->CreateStore(value, elementPtr);
                 
-                std::cout << "DEBUG: Array element assignment completed (final fallback)" << std::endl;
+                TSC_LOG_DEBUG("Array element assignment completed (final fallback)" , "CodeGen");
                 setCurrentValue(value); // Assignment returns the assigned value
             } else {
                 // Direct array access
@@ -992,7 +993,7 @@ void LLVMCodeGen::visit(AssignmentExpression& node) {
                 llvm::Value* elementPtr = builder_->CreateGEP(getStringType(), arrayPtr, indices, "element_ptr");
                 builder_->CreateStore(value, elementPtr);
                 
-                std::cout << "DEBUG: Array element assignment completed (direct fallback)" << std::endl;
+                TSC_LOG_DEBUG("Array element assignment completed (direct fallback)" , "CodeGen");
                 setCurrentValue(value); // Assignment returns the assigned value
             }
         } else {
@@ -1024,9 +1025,7 @@ void LLVMCodeGen::visit(ConditionalExpression& node) {
             // For other types, assume already boolean or convert to boolean
             conditionValue = builder_->CreateICmpNE(
                 conditionValue,
-                llvm::Constant::getNullValue(conditionValue->getType()),
-                "tobool"
-            );
+                llvm::Constant::getNullValue(conditionValue->getType()), "tobool");
         }
     }
     
@@ -1082,14 +1081,14 @@ void LLVMCodeGen::visit(ConditionalExpression& node) {
 }
 
 void LLVMCodeGen::visit(CallExpression& node) {
-    std::cout << "DEBUG: CallExpression visitor called" << std::endl;
+    TSC_LOG_DEBUG("CallExpression visitor called" , "CodeGen");
     
     // Check if this is a method call and what method it is
     if (auto propertyAccess = dynamic_cast<PropertyAccess*>(node.getCallee())) {
-        std::cout << "DEBUG: CallExpression - Method call detected: " << propertyAccess->getProperty() << std::endl;
-        std::cout << "DEBUG: CallExpression - Number of arguments: " << node.getArguments().size() << std::endl;
+        TSC_LOG_DEBUG("CallExpression - Method call detected:" + propertyAccess->getProperty() , "CodeGen");
+        TSC_LOG_DEBUG("CallExpression - Number of arguments:" + node.getArguments().size() , "CodeGen");
         for (size_t i = 0; i < node.getArguments().size(); ++i) {
-            std::cout << "DEBUG: CallExpression - Argument " << i << " type: " << typeid(*node.getArguments()[i].get()).name() << std::endl;
+            TSC_LOG_DEBUG("CallExpression - Argument" + i + " type: " + typeid(*node.getArguments()[i].get()).name() , "CodeGen");
         }
     }
     // Generate the callee (function to call)
@@ -1103,7 +1102,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
     if (auto identifier = dynamic_cast<Identifier*>(node.getCallee())) {
         // Special handling for built-in functions like _print
         if (identifier->getName() == "_print") {
-            std::cout << "DEBUG: CallExpression - Found _print, creating function" << std::endl;
+            TSC_LOG_DEBUG("CallExpression - Found _print, creating function" , "CodeGen");
             function = getOrCreatePrintFunction();
         } else {
             // First try to look up as an LLVM function (for regular function declarations)
@@ -1144,7 +1143,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     
                     if (!capturedVars.empty()) {
                         // This is a closure - extract the function pointer from the closure struct
-                        std::cout << "DEBUG: Calling closure function: " << identifier->getName() << std::endl;
+                        TSC_LOG_DEBUG("Calling closure function:" + identifier->getName() , "CodeGen");
                         
                         // The calleeValue is a pointer to the closure struct
                         // We need to get the function pointer from field 0
@@ -1172,7 +1171,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         auto llvmFunctionType = llvm::FunctionType::get(returnType, paramTypes, false);
                         functionPtr = builder_->CreateLoad(llvmFunctionType->getPointerTo(), funcPtrField);
                         
-                        std::cout << "DEBUG: Extracted function pointer from closure struct" << std::endl;
+                        TSC_LOG_DEBUG("Extracted function pointer from closure struct" , "CodeGen");
                         
                         // Prepare arguments for closure function call
                         std::vector<llvm::Value*> args;
@@ -1199,9 +1198,9 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         }
                         
                         // Call the closure function
-                        std::cout << "DEBUG: Calling closure function with " << args.size() << " arguments" << std::endl;
+                        TSC_LOG_DEBUG("Calling closure function with" + std::to_string(args.size()) + " arguments" , "CodeGen");
                         for (size_t i = 0; i < args.size(); i++) {
-                            std::cout << "DEBUG: Argument " << i << ": " << (args[i] ? "valid" : "null") << std::endl;
+                            TSC_LOG_DEBUG("Argument" + i + ": " + (args[i] ? "valid" : "null") , "CodeGen");
                         }
                         llvm::FunctionCallee callee = llvm::FunctionCallee(llvm::cast<llvm::FunctionType>(llvmFunctionType), functionPtr);
                         llvm::Value* result = builder_->CreateCall(callee, args, "call_result");
@@ -1235,12 +1234,12 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     // Search all scopes starting from current scope
                     symbol = symbolTable_->lookupSymbol(identifier->getName());
                     
-                    std::cout << "DEBUG: Looking up symbol " << identifier->getName() << " in symbol table" << std::endl;
-                    std::cout << "DEBUG: Current scope: " << symbolTable_->getCurrentScope() << ", Global scope: " << symbolTable_->getGlobalScope() << std::endl;
+                    TSC_LOG_DEBUG("Looking up symbol" + identifier->getName() + " in symbol table" , "CodeGen");
+                    TSC_LOG_DEBUG("Current scope:"  + std::to_string(symbolTable_->getCurrentScope()) ", Global scope: " + symbolTable_->getGlobalScope() , "CodeGen");
                     if (symbol) {
-                        std::cout << "DEBUG: Symbol found with type: " << symbol->getType()->toString() << std::endl;
+                        TSC_LOG_DEBUG("Symbol found with type:" + symbol->getType()->toString() , "CodeGen");
                     } else {
-                        std::cout << "DEBUG: Symbol not found in symbol table" << std::endl;
+                        TSC_LOG_DEBUG("Symbol not found in symbol table" , "CodeGen");
                     }
                 }
                 
@@ -1248,7 +1247,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     // Debug: Check if the variable exists in the code generation context
                     llvm::Value* varValue = codeGenContext_->getSymbolValue(identifier->getName());
                     if (varValue) {
-                        std::cout << "DEBUG: Variable " << identifier->getName() << " exists in code gen context but not in symbol table" << std::endl;
+                        TSC_LOG_DEBUG("Variable" + identifier->getName() + " exists in code gen context but not in symbol table" , "CodeGen");
                         // For now, create a simple function type as fallback
                         auto fallbackType = std::make_shared<FunctionType>(
                             std::vector<FunctionType::Parameter>{}, // no parameters
@@ -1353,8 +1352,8 @@ void LLVMCodeGen::visit(CallExpression& node) {
         // Check if the property access returned a function
         if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
             function = llvm::cast<llvm::Function>(calleeValue);
-            std::cout << "DEBUG: CallExpression - Found function from PropertyAccess: " << function->getName().str() << std::endl;
-            std::cout << "DEBUG: CallExpression - Processing method call with " << node.getArguments().size() << " arguments" << std::endl;
+            TSC_LOG_DEBUG("CallExpression - Found function from PropertyAccess:" + function->getName().str() , "CodeGen");
+            TSC_LOG_DEBUG("CallExpression - Processing method call with" + node.getArguments().size() + " arguments" , "CodeGen");
             
             // For method calls, we need to pass the object as the first argument
             // Generate the object being called on
@@ -1364,14 +1363,14 @@ void LLVMCodeGen::visit(CallExpression& node) {
             // Special handling for arrayPush calls - we need to pass the array structure pointer,
             // not the data pointer that PropertyAccess returns for the 'items' field
             if (function && function->getName().str().find("arrayPush") != std::string::npos) {
-                std::cout << "DEBUG: CallExpression - Detected arrayPush call, fixing object instance" << std::endl;
+                TSC_LOG_DEBUG("CallExpression - Detected arrayPush call, fixing object instance" , "CodeGen");
                 
                 // For arrayPush calls on 'this.items.push()', we need to get the array structure pointer
                 // instead of the data pointer. The PropertyAccess for 'items' returns the data pointer,
                 // but arrayPush expects the array structure pointer.
                 if (auto nestedPropertyAccess = dynamic_cast<PropertyAccess*>(propertyAccess->getObject())) {
                     if (nestedPropertyAccess->getProperty() == "items") {
-                        std::cout << "DEBUG: CallExpression - Detected this.items.push() call" << std::endl;
+                        TSC_LOG_DEBUG("CallExpression - Detected this.items.push() call" , "CodeGen");
                         
                         // Get the 'this' pointer (the object instance)
                         nestedPropertyAccess->getObject()->accept(*this);
@@ -1385,22 +1384,20 @@ void LLVMCodeGen::visit(CallExpression& node) {
                             }),
                             thisPointer,
                             {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),
-                             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)},
-                            "items_field_ptr"
-                        );
+                             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)}, "items_field_ptr");
                         
                         // Load the array structure pointer from the items field
                         objectInstance = builder_->CreateLoad(llvm::Type::getInt8Ty(*context_)->getPointerTo(), itemsFieldPtr, "array_structure_ptr");
-                        std::cout << "DEBUG: CallExpression - Fixed object instance for arrayPush: using array structure pointer instead of data pointer" << std::endl;
+                        TSC_LOG_DEBUG("CallExpression - Fixed object instance for arrayPush: using array structure pointer instead of data pointer" , "CodeGen");
                     }
                 }
             }
             
             // Check if this is a method call on a global variable in global context
-            std::cout << "DEBUG: CallExpression - Checking if method call should be deferred" << std::endl;
-            std::cout << "DEBUG: CallExpression - Current function: " << (codeGenContext_->getCurrentFunction() ? "exists" : "null") << std::endl;
-            std::cout << "DEBUG: CallExpression - Object instance type: " << objectInstance->getType()->getTypeID() << std::endl;
-            std::cout << "DEBUG: CallExpression - Is GlobalVariable: " << (llvm::isa<llvm::GlobalVariable>(objectInstance) ? "YES" : "NO") << std::endl;
+            TSC_LOG_DEBUG("CallExpression - Checking if method call should be deferred" , "CodeGen");
+            TSC_LOG_DEBUG("CallExpression - Current function:" + (codeGenContext_->getCurrentFunction() ? "exists" : "null") , "CodeGen");
+            TSC_LOG_DEBUG("CallExpression - Object instance type:" + objectInstance->getType()->getTypeID() , "CodeGen");
+            TSC_LOG_DEBUG("CallExpression - Is GlobalVariable:" + (llvm::isa<llvm::GlobalVariable>(objectInstance) ? "YES" : "NO") , "CodeGen");
             
             if (!codeGenContext_->getCurrentFunction()) {
                 // Check if this is a method call on a global variable
@@ -1417,8 +1414,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 if (globalVar) {
                     // This is a method call on a global variable in global context
                     // Defer the method call to be processed after global variables are initialized
-                    std::cout << "DEBUG: CallExpression - Deferring method call on global variable: " << 
-                        globalVar->getName().str() << std::endl;
+                    TSC_LOG_DEBUG("CallExpression - Deferring method call on global variable:" + globalVar->getName().str() , "CodeGen");
                     deferredMethodCalls_.push_back({&node, globalVar});
                     setCurrentValue(createNullValue(getAnyType()));
                     return;
@@ -1432,12 +1428,12 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 llvm::Type* actualType = objectInstance->getType();
                 
                 if (actualType != expectedType) {
-                    std::cout << "DEBUG: Converting object instance from " << actualType->getTypeID() << " to " << expectedType->getTypeID() << std::endl;
+                    TSC_LOG_DEBUG("Converting object instance from" + actualType->getTypeID() + " to " + expectedType->getTypeID() , "CodeGen");
                     
                     if (actualType == getAnyType() && expectedType == getNumberType()) {
                         // Dereference the pointer to get the actual value
                         objectInstance = builder_->CreateLoad(getNumberType(), objectInstance, "dereferenced_value");
-                        std::cout << "DEBUG: Dereferenced pointer to get double value" << std::endl;
+                        TSC_LOG_DEBUG("Dereferenced pointer to get double value" , "CodeGen");
                     }
                 }
             }
@@ -1459,7 +1455,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         llvm::Value* storageLocation = codeGenContext_->getSymbolValue(identifier->getName());
                         if (storageLocation) {
                             args.push_back(storageLocation);
-                            std::cout << "DEBUG: CallExpression - Added storage location for arrayPush argument: " << storageLocation->getName().str() << std::endl;
+                            TSC_LOG_DEBUG("CallExpression - Added storage location for arrayPush argument:" + storageLocation->getName().str() , "CodeGen");
                         } else {
                             reportError("Failed to find storage location for arrayPush argument", node.getLocation());
                             setCurrentValue(createNullValue(getAnyType()));
@@ -1475,7 +1471,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                             return;
                         }
                         args.push_back(argValue);
-                        std::cout << "DEBUG: CallExpression - Added argument to arrayPush call: " << argValue->getName().str() << std::endl;
+                        TSC_LOG_DEBUG("CallExpression - Added argument to arrayPush call:" + argValue->getName().str() , "CodeGen");
                     }
                 } else {
                     // Normal argument processing for non-arrayPush calls
@@ -1489,7 +1485,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     
                     // Special handling for _print calls - convert double arguments to strings
                     if (function && function->getName().str() == "_print" && argValue->getType() == getNumberType()) {
-                        std::cout << "DEBUG: CallExpression - Converting double argument to string for _print" << std::endl;
+                        TSC_LOG_DEBUG("CallExpression - Converting double argument to string for _print" , "CodeGen");
                         // Convert double to string using number_to_string
                         llvm::Function* numberToStringFunc = createBuiltinMethodFunction("toString", std::make_shared<PrimitiveType>(TypeKind::Number), node.getLocation());
                         argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
@@ -1504,13 +1500,13 @@ void LLVMCodeGen::visit(CallExpression& node) {
                                 if (auto* initArray = llvm::dyn_cast<llvm::ConstantDataArray>(globalVar->getInitializer())) {
                                     if (initArray->isString()) {
                                         isStringConstant = true;
-                                        std::cout << "DEBUG: CallExpression - Found string constant: " << globalVar->getName().str() << std::endl;
+                                        TSC_LOG_DEBUG("CallExpression - Found string constant:" + globalVar->getName().str() , "CodeGen");
                                     }
                                 } else if (auto* zeroInit = llvm::dyn_cast<llvm::ConstantAggregateZero>(globalVar->getInitializer())) {
                                     // Check if this is an empty string constant (zeroinitializer)
                                     if (globalVar->getName().str().find("str") != std::string::npos) {
                                         isStringConstant = true;
-                                        std::cout << "DEBUG: CallExpression - Found empty string constant: " << globalVar->getName().str() << std::endl;
+                                        TSC_LOG_DEBUG("CallExpression - Found empty string constant:" + globalVar->getName().str() , "CodeGen");
                                     }
                                 }
                             }
@@ -1518,24 +1514,24 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         
                         // Check if this looks like a string by examining the value name
                         std::string valueName = argValue->getName().str();
-                        std::cout << "DEBUG: CallExpression - Argument value name: '" << valueName << "'" << std::endl;
+                        TSC_LOG_DEBUG("CallExpression - Argument value name: '" + valueName + "'" , "CodeGen");
                         if (valueName.find("template_concat") != std::string::npos || 
                             valueName.find("string_concat") != std::string::npos ||
                             valueName.find("number_to_string") != std::string::npos ||
                             valueName.find("@str") != std::string::npos ||
                             isStringConstant) {
                             // This looks like a string result, don't convert
-                            std::cout << "DEBUG: CallExpression - String-like value, not converting" << std::endl;
+                            TSC_LOG_DEBUG("CallExpression - String-like value, not converting" , "CodeGen");
                         } else {
                             // This is likely a non-string pointer, convert to string representation
-                            std::cout << "DEBUG: CallExpression - Converting non-string pointer argument to string for _print" << std::endl;
+                            TSC_LOG_DEBUG("CallExpression - Converting non-string pointer argument to string for _print" , "CodeGen");
                             llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
                             argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
                         }
                     }
                     
                     args.push_back(argValue);
-                    std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
+                    TSC_LOG_DEBUG("CallExpression - Added argument to method call:" + argValue->getName().str() , "CodeGen");
                 }
             }
             
@@ -1544,10 +1540,10 @@ void LLVMCodeGen::visit(CallExpression& node) {
             if (function->getReturnType()->isVoidTy()) {
                 // Don't assign a name to void method calls
                 callResult = builder_->CreateCall(function, args);
-                std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
+                TSC_LOG_DEBUG("Created void function call to" + function->getName().str() , "CodeGen");
             } else {
                 callResult = builder_->CreateCall(function, args, "method_call_result");
-                std::cout << "DEBUG: Created function call to " << function->getName().str() << std::endl;
+                TSC_LOG_DEBUG("Created function call to" + function->getName().str() , "CodeGen");
             }
             setCurrentValue(callResult);
             return;
@@ -1556,7 +1552,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
             if (llvm::isa<llvm::Function>(calleeValue)) {
                 // This is a function pointer from PropertyAccess - we need to call it
                 llvm::Function* function = llvm::cast<llvm::Function>(calleeValue);
-                std::cout << "DEBUG: CallExpression - Property access returned function: " << function->getName().str() << std::endl;
+                TSC_LOG_DEBUG("CallExpression - Property access returned function:" + function->getName().str() , "CodeGen");
                 
                 // Generate the object being called on
                 propertyAccess->getObject()->accept(static_cast<ASTVisitor&>(*this));
@@ -1565,14 +1561,14 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 // Special handling for arrayPush calls - we need to pass the array structure pointer,
                 // not the data pointer that PropertyAccess returns for the 'items' field
                 if (function && function->getName().str().find("arrayPush") != std::string::npos) {
-                    std::cout << "DEBUG: CallExpression - Detected arrayPush call, fixing object instance" << std::endl;
+                    TSC_LOG_DEBUG("CallExpression - Detected arrayPush call, fixing object instance" , "CodeGen");
                     
                     // For arrayPush calls on 'this.items.push()', we need to get the array structure pointer
                     // instead of the data pointer. The PropertyAccess for 'items' returns the data pointer,
                     // but arrayPush expects the array structure pointer.
                     if (auto nestedPropertyAccess = dynamic_cast<PropertyAccess*>(propertyAccess->getObject())) {
                         if (nestedPropertyAccess->getProperty() == "items") {
-                            std::cout << "DEBUG: CallExpression - Detected this.items.push() call" << std::endl;
+                            TSC_LOG_DEBUG("CallExpression - Detected this.items.push() call" , "CodeGen");
                             
                             // Get the 'this' pointer (the object instance)
                             nestedPropertyAccess->getObject()->accept(*this);
@@ -1586,22 +1582,20 @@ void LLVMCodeGen::visit(CallExpression& node) {
                                 }),
                                 thisPointer,
                                 {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0),
-                                 llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)},
-                                "items_field_ptr"
-                            );
+                                 llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)}, "items_field_ptr");
                             
                             // Load the array structure pointer from the items field
                             objectInstance = builder_->CreateLoad(llvm::Type::getInt8Ty(*context_)->getPointerTo(), itemsFieldPtr, "array_structure_ptr");
-                            std::cout << "DEBUG: CallExpression - Fixed object instance for arrayPush: using array structure pointer instead of data pointer" << std::endl;
+                            TSC_LOG_DEBUG("CallExpression - Fixed object instance for arrayPush: using array structure pointer instead of data pointer" , "CodeGen");
                         }
                     }
                 }
                 
                 // Check if this is a method call on a global variable in global context
-                std::cout << "DEBUG: CallExpression - Checking if method call should be deferred" << std::endl;
-                std::cout << "DEBUG: CallExpression - Current function: " << (codeGenContext_->getCurrentFunction() ? "exists" : "null") << std::endl;
-                std::cout << "DEBUG: CallExpression - Object instance type: " << objectInstance->getType()->getTypeID() << std::endl;
-                std::cout << "DEBUG: CallExpression - Is GlobalVariable: " << (llvm::isa<llvm::GlobalVariable>(objectInstance) ? "YES" : "NO") << std::endl;
+                TSC_LOG_DEBUG("CallExpression - Checking if method call should be deferred" , "CodeGen");
+                TSC_LOG_DEBUG("CallExpression - Current function:" + (codeGenContext_->getCurrentFunction() ? "exists" : "null") , "CodeGen");
+                TSC_LOG_DEBUG("CallExpression - Object instance type:" + objectInstance->getType()->getTypeID() , "CodeGen");
+                TSC_LOG_DEBUG("CallExpression - Is GlobalVariable:" + (llvm::isa<llvm::GlobalVariable>(objectInstance) ? "YES" : "NO") , "CodeGen");
                 
                 if (!codeGenContext_->getCurrentFunction()) {
                     // Check if this is a method call on a global variable
@@ -1618,8 +1612,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     if (globalVar) {
                         // This is a method call on a global variable in global context
                         // Defer the method call to be processed after global variables are initialized
-                        std::cout << "DEBUG: CallExpression - Deferring method call on global variable: " << 
-                            globalVar->getName().str() << std::endl;
+                        TSC_LOG_DEBUG("CallExpression - Deferring method call on global variable:" + globalVar->getName().str() , "CodeGen");
                         deferredMethodCalls_.push_back({&node, globalVar});
                         setCurrentValue(createNullValue(getAnyType()));
                         return;
@@ -1633,12 +1626,12 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     llvm::Type* actualType = objectInstance->getType();
                     
                     if (actualType != expectedType) {
-                        std::cout << "DEBUG: Converting object instance from " << actualType->getTypeID() << " to " << expectedType->getTypeID() << std::endl;
+                        TSC_LOG_DEBUG("Converting object instance from" + actualType->getTypeID() + " to " + expectedType->getTypeID() , "CodeGen");
                         
                         if (actualType == getAnyType() && expectedType == getNumberType()) {
                             // Dereference the pointer to get the actual value
                             objectInstance = builder_->CreateLoad(getNumberType(), objectInstance, "dereferenced_value");
-                            std::cout << "DEBUG: Dereferenced pointer to get double value" << std::endl;
+                            TSC_LOG_DEBUG("Dereferenced pointer to get double value" , "CodeGen");
                         }
                     }
                 }
@@ -1660,7 +1653,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                             llvm::Value* storageLocation = codeGenContext_->getSymbolValue(identifier->getName());
                             if (storageLocation) {
                                 args.push_back(storageLocation);
-                                std::cout << "DEBUG: CallExpression - Added storage location for arrayPush argument: " << storageLocation->getName().str() << std::endl;
+                                TSC_LOG_DEBUG("CallExpression - Added storage location for arrayPush argument:" + storageLocation->getName().str() , "CodeGen");
                             } else {
                                 reportError("Failed to find storage location for arrayPush argument", node.getLocation());
                                 setCurrentValue(createNullValue(getAnyType()));
@@ -1676,7 +1669,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                                 return;
                             }
                             args.push_back(argValue);
-                            std::cout << "DEBUG: CallExpression - Added argument to arrayPush call: " << argValue->getName().str() << std::endl;
+                            TSC_LOG_DEBUG("CallExpression - Added argument to arrayPush call:" + argValue->getName().str() , "CodeGen");
                         }
                     } else {
                         // Normal argument processing for non-arrayPush calls
@@ -1690,7 +1683,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         
                         // Special handling for _print calls - convert double arguments to strings
                         if (function && function->getName().str() == "_print" && argValue->getType() == getNumberType()) {
-                            std::cout << "DEBUG: CallExpression - Converting double argument to string for _print" << std::endl;
+                            TSC_LOG_DEBUG("CallExpression - Converting double argument to string for _print" , "CodeGen");
                             // Convert double to string using number_to_string
                             llvm::Function* numberToStringFunc = createBuiltinMethodFunction("toString", std::make_shared<PrimitiveType>(TypeKind::Number), node.getLocation());
                             argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
@@ -1705,13 +1698,13 @@ void LLVMCodeGen::visit(CallExpression& node) {
                                     if (auto* initArray = llvm::dyn_cast<llvm::ConstantDataArray>(globalVar->getInitializer())) {
                                         if (initArray->isString()) {
                                             isStringConstant = true;
-                                            std::cout << "DEBUG: CallExpression - Found string constant: " << globalVar->getName().str() << std::endl;
+                                            TSC_LOG_DEBUG("CallExpression - Found string constant:" + globalVar->getName().str() , "CodeGen");
                                         }
                                     } else if (auto* zeroInit = llvm::dyn_cast<llvm::ConstantAggregateZero>(globalVar->getInitializer())) {
                                         // Check if this is an empty string constant (zeroinitializer)
                                         if (globalVar->getName().str().find("str") != std::string::npos) {
                                             isStringConstant = true;
-                                            std::cout << "DEBUG: CallExpression - Found empty string constant: " << globalVar->getName().str() << std::endl;
+                                            TSC_LOG_DEBUG("CallExpression - Found empty string constant:" + globalVar->getName().str() , "CodeGen");
                                         }
                                     }
                                 }
@@ -1719,24 +1712,24 @@ void LLVMCodeGen::visit(CallExpression& node) {
                             
                             // Check if this looks like a string by examining the value name
                             std::string valueName = argValue->getName().str();
-                            std::cout << "DEBUG: CallExpression - Argument value name: '" << valueName << "'" << std::endl;
+                            TSC_LOG_DEBUG("CallExpression - Argument value name: '" + valueName + "'" , "CodeGen");
                             if (valueName.find("template_concat") != std::string::npos || 
                                 valueName.find("string_concat") != std::string::npos ||
                                 valueName.find("number_to_string") != std::string::npos ||
                                 valueName.find("@str") != std::string::npos ||
                                 isStringConstant) {
                                 // This looks like a string result, don't convert
-                                std::cout << "DEBUG: CallExpression - String-like value, not converting" << std::endl;
+                                TSC_LOG_DEBUG("CallExpression - String-like value, not converting" , "CodeGen");
                             } else {
                                 // This is likely a non-string pointer, convert to string representation
-                                std::cout << "DEBUG: CallExpression - Converting non-string pointer argument to string for _print" << std::endl;
+                                TSC_LOG_DEBUG("CallExpression - Converting non-string pointer argument to string for _print" , "CodeGen");
                                 llvm::Function* pointerToStringFunc = getOrCreatePointerToStringFunction();
                                 argValue = builder_->CreateCall(pointerToStringFunc, {argValue}, "converted_arg");
                             }
                         }
                         
                         args.push_back(argValue);
-                        std::cout << "DEBUG: CallExpression - Added argument to method call: " << argValue->getName().str() << std::endl;
+                        TSC_LOG_DEBUG("CallExpression - Added argument to method call:" + argValue->getName().str() , "CodeGen");
                     }
                 }
                 
@@ -1745,17 +1738,17 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 if (function->getReturnType()->isVoidTy()) {
                     // Don't assign a name to void method calls
                     callResult = builder_->CreateCall(function, args);
-                    std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
+                    TSC_LOG_DEBUG("Created void function call to" + function->getName().str() , "CodeGen");
                 } else {
                     callResult = builder_->CreateCall(function, args, "method_call_result");
-                    std::cout << "DEBUG: Created function call to " << function->getName().str() << std::endl;
+                    TSC_LOG_DEBUG("Created function call to" + function->getName().str() , "CodeGen");
                 }
                 setCurrentValue(callResult);
                 return;
             } else {
                 // The property access already returned a result (e.g., from nested property access like array.length.toString())
                 // This means the call has already been processed, so we can return the result directly
-                std::cout << "DEBUG: CallExpression - Property access already returned a result, skipping call processing" << std::endl;
+                TSC_LOG_DEBUG("CallExpression - Property access already returned a result, skipping call processing" , "CodeGen");
                 setCurrentValue(calleeValue);
                 return;
             }
@@ -1774,7 +1767,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
             
             if (methodValue && llvm::isa<llvm::Function>(methodValue)) {
                 methodFunc = llvm::cast<llvm::Function>(methodValue);
-                std::cout << "DEBUG: CallExpression - Using method from PropertyAccess: " << methodFunc->getName().str() << std::endl;
+                TSC_LOG_DEBUG("CallExpression - Using method from PropertyAccess:" + methodFunc->getName().str() , "CodeGen");
             } else {
                 // Fallback: Look up the method function by unmangled name
                 methodFunc = module_->getFunction(methodName);
@@ -1783,7 +1776,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     setCurrentValue(createNullValue(getAnyType()));
                     return;
                 }
-                std::cout << "DEBUG: CallExpression - Using method from direct lookup: " << methodFunc->getName().str() << std::endl;
+                TSC_LOG_DEBUG("CallExpression - Using method from direct lookup:" + methodFunc->getName().str() , "CodeGen");
             }
             
             // Prepare arguments for the method call
@@ -1803,7 +1796,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         llvm::Value* storageLocation = codeGenContext_->getSymbolValue(identifier->getName());
                         if (storageLocation) {
                             args.push_back(storageLocation);
-                            std::cout << "DEBUG: CallExpression - Added storage location for arrayPush argument: " << storageLocation->getName().str() << std::endl;
+                            TSC_LOG_DEBUG("CallExpression - Added storage location for arrayPush argument:" + storageLocation->getName().str() , "CodeGen");
                         } else {
                             reportError("Failed to find storage location for arrayPush argument", node.getLocation());
                             setCurrentValue(createNullValue(getAnyType()));
@@ -1819,7 +1812,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                             return;
                         }
                         args.push_back(argValue);
-                        std::cout << "DEBUG: CallExpression - Added argument to arrayPush call: " << argValue->getName().str() << std::endl;
+                        TSC_LOG_DEBUG("CallExpression - Added argument to arrayPush call:" + argValue->getName().str() , "CodeGen");
                     }
                 } else {
                     // Normal argument processing for non-arrayPush calls
@@ -1867,7 +1860,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
             llvm::Type* actualType = objectInstance->getType();
             
             if (expectedType != actualType) {
-                std::cout << "DEBUG: Converting argument type from " << actualType->getTypeID() << " to " << expectedType->getTypeID() << std::endl;
+                TSC_LOG_DEBUG("Converting argument type from" + actualType->getTypeID() + " to " + expectedType->getTypeID() , "CodeGen");
                 
                 if (actualType == getNumberType() && expectedType == getAnyType()) {
                     // Convert double to ptr (allocate on stack and store the value)
@@ -1885,12 +1878,12 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 } else if (actualType->isPointerTy() && expectedType == getNumberType()) {
                     // Convert ptr to double (dereference the pointer to get the actual value)
                     objectInstance = builder_->CreateLoad(getNumberType(), objectInstance, "dereferenced_value");
-                    std::cout << "DEBUG: Converting ptr to double for function argument" << std::endl;
+                    TSC_LOG_DEBUG("Converting ptr to double for function argument" , "CodeGen");
                 }
             }
             
             args.push_back(objectInstance);
-            std::cout << "DEBUG: Prepended object instance as first argument for method call" << std::endl;
+            TSC_LOG_DEBUG("Prepended object instance as first argument for method call" , "CodeGen");
             
             // Skip regular argument processing for method calls since objectInstance is already added
             goto generate_call;
@@ -1901,12 +1894,12 @@ void LLVMCodeGen::visit(CallExpression& node) {
         // Special case: toString() call without arguments - this might be a method call on a value
         // We need to find the object being called on from the context
         // This is a simplified approach - in a real implementation, we'd need better context tracking
-        std::cout << "DEBUG: toString() call without arguments - attempting to find object from context" << std::endl;
+        TSC_LOG_DEBUG("toString() call without arguments - attempting to find object from context" , "CodeGen");
         
         // For now, we'll create a dummy argument - this is a temporary fix
         llvm::Value* dummyArg = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(getAnyType()));
         args.push_back(dummyArg);
-        std::cout << "DEBUG: Added dummy argument to toString call" << std::endl;
+        TSC_LOG_DEBUG("Added dummy argument to toString call" , "CodeGen");
         
         // Skip regular argument processing for this case too
         goto generate_call;
@@ -1922,7 +1915,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                 llvm::Value* storageLocation = codeGenContext_->getSymbolValue(identifier->getName());
                 if (storageLocation) {
                     args.push_back(storageLocation);
-                    std::cout << "DEBUG: CallExpression - Added storage location for arrayPush argument: " << storageLocation->getName().str() << std::endl;
+                    TSC_LOG_DEBUG("CallExpression - Added storage location for arrayPush argument:" + storageLocation->getName().str() , "CodeGen");
                     continue;
                 } else {
                     reportError("Failed to find storage location for arrayPush argument", node.getLocation());
@@ -1939,7 +1932,7 @@ void LLVMCodeGen::visit(CallExpression& node) {
                     return;
                 }
                 args.push_back(argValue);
-                std::cout << "DEBUG: CallExpression - Added argument to arrayPush call: " << argValue->getName().str() << std::endl;
+                TSC_LOG_DEBUG("CallExpression - Added argument to arrayPush call:" + argValue->getName().str() , "CodeGen");
                 continue;
             }
         }
@@ -1974,18 +1967,18 @@ generate_call:
     if (function->getReturnType()->isVoidTy()) {
         // Don't assign a name to void function calls
         callResult = builder_->CreateCall(function, args);
-        std::cout << "DEBUG: Created void function call to " << function->getName().str() << std::endl;
-        std::cout << "DEBUG: Function call generated in block: " << builder_->GetInsertBlock()->getName().str() << std::endl;
+        TSC_LOG_DEBUG("Created void function call to" + function->getName().str() , "CodeGen");
+        TSC_LOG_DEBUG("Function call generated in block:" + builder_->GetInsertBlock()->getName().str() , "CodeGen");
     } else {
         callResult = builder_->CreateCall(function, args, "call_result");
-        std::cout << "DEBUG: Created non-void function call to " << function->getName().str() << std::endl;
-        std::cout << "DEBUG: Function call generated in block: " << builder_->GetInsertBlock()->getName().str() << std::endl;
+        TSC_LOG_DEBUG("Created non-void function call to" + function->getName().str() , "CodeGen");
+        TSC_LOG_DEBUG("Function call generated in block:" + builder_->GetInsertBlock()->getName().str() , "CodeGen");
     }
     setCurrentValue(callResult);
 }
 
 void LLVMCodeGen::visit(ArrayLiteral& node) {
-    std::cout << "DEBUG: ArrayLiteral visitor called with " << node.getElements().size() << " elements" << std::endl;
+    TSC_LOG_DEBUG("ArrayLiteral visitor called with" + node.getElements().size() + " elements" , "CodeGen");
     const auto& elements = node.getElements();
     
     if (elements.empty()) {
@@ -1993,7 +1986,7 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
         llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
         if (!currentFunc) {
             // For global scope, create a proper empty array structure
-            std::cout << "DEBUG: Creating empty array literal for global context" << std::endl;
+            TSC_LOG_DEBUG("Creating empty array literal for global context" , "CodeGen");
             
             // Create array structure: { i32 length, ptr data }
             llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
@@ -2077,7 +2070,7 @@ void LLVMCodeGen::visit(ArrayLiteral& node) {
     
     if (!currentFunc) {
         // For global scope, create a proper array structure
-        std::cout << "DEBUG: Creating array literal for global context" << std::endl;
+        TSC_LOG_DEBUG("Creating array literal for global context" , "CodeGen");
         
         // Create array structure: { i32 length, [size x elementType] data }
         llvm::Type* arrayStructType = llvm::StructType::get(*context_, {
@@ -2276,7 +2269,7 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
     llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
     if (!currentFunc) {
         // Global scope - create a global object
-        std::cout << "DEBUG: Creating object literal for global context" << std::endl;
+        TSC_LOG_DEBUG("Creating object literal for global context" , "CodeGen");
         
         // Separate regular properties from spread properties
         std::vector<const ObjectLiteral::Property*> regularProperties;
@@ -2304,12 +2297,12 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
         std::unordered_map<String, PropertyInfo> propertyMap;
         
         if (!spreadProperties.empty()) {
-            std::cout << "DEBUG: Processing " << spreadProperties.size() << " spread properties with conflict resolution" << std::endl;
+            TSC_LOG_DEBUG("Processing" + std::to_string(spreadProperties.size()) + " spread properties with conflict resolution" , "CodeGen");
             
             // Process each spread property in order to implement last-in-wins semantics
             for (int spreadOrder = 0; spreadOrder < static_cast<int>(spreadProperties.size()); ++spreadOrder) {
                 const auto* spreadProperty = spreadProperties[spreadOrder];
-                std::cout << "DEBUG: Processing spread property " << spreadOrder << std::endl;
+                TSC_LOG_DEBUG("Processing spread property" + spreadOrder , "CodeGen");
                 
                 // Generate the spread expression using SpreadElement visitor
                 spreadProperty->getValue()->accept(*this);
@@ -2325,12 +2318,12 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
                         spreadType = globalVar->getValueType();
                     } else {
                         // If it's still a pointer, the SpreadElement visitor didn't handle it properly
-                        std::cout << "DEBUG: SpreadElement visitor returned pointer, type detection failed" << std::endl;
+                        TSC_LOG_DEBUG("SpreadElement visitor returned pointer, type detection failed" , "CodeGen");
                     }
                     
                     if (spreadType && llvm::isa<llvm::StructType>(spreadType)) {
                         auto* structType = llvm::cast<llvm::StructType>(spreadType);
-                        std::cout << "DEBUG: Spread object has " << structType->getNumElements() << " fields" << std::endl;
+                        TSC_LOG_DEBUG("Spread object has" + structType->getNumElements() + " fields" , "CodeGen");
                         
                         // Add fields from this spread object, implementing last-in-wins semantics
                         for (unsigned i = 0; i < structType->getNumElements(); ++i) {
@@ -2349,10 +2342,10 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
                             
                             // Last-in-wins: later spread objects override earlier ones
                             propertyMap[propertyName] = propInfo;
-                            std::cout << "DEBUG: Property " << propertyName << " defined by spread " << spreadOrder << std::endl;
+                            TSC_LOG_DEBUG("Property" + propertyName + " defined by spread " + spreadOrder , "CodeGen");
                         }
                     } else {
-                        std::cout << "DEBUG: Spread object type not supported: " << (spreadType ? spreadType->getTypeID() : -1) << std::endl;
+                        TSC_LOG_DEBUG("Spread object type not supported:" + (spreadType ? spreadType->getTypeID() : -1) , "CodeGen");
                     }
                 }
             }
@@ -2368,7 +2361,7 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
             fieldTypes.push_back(propInfo.type);
             fieldNames.push_back(propInfo.name);
             resolvedProperties.push_back(propInfo);
-            std::cout << "DEBUG: Resolved property " << propertyName << " from spread " << propInfo.spreadOrder << std::endl;
+            TSC_LOG_DEBUG("Resolved property" + propertyName + " from spread " + propInfo.spreadOrder , "CodeGen");
         }
         
         // Add fields for regular properties (each property can have its own type)
@@ -2379,7 +2372,7 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
                 llvm::Type* propertyType = propertyValue->getType();
                 fieldTypes.push_back(propertyType);
                 fieldNames.push_back(property->getKey());
-                std::cout << "DEBUG: Regular property " << property->getKey() << " has type: " << propertyType->getTypeID() << std::endl;
+                TSC_LOG_DEBUG("Regular property" + property->getKey() + " has type: " + propertyType->getTypeID() , "CodeGen");
             }
         }
         
@@ -2438,7 +2431,7 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
             }
             
             fieldValues.push_back(fieldValue);
-            std::cout << "DEBUG: Copied value for property " << propInfo.name << " from spread " << propInfo.spreadOrder << std::endl;
+            TSC_LOG_DEBUG("Copied value for property" + propInfo.name + " from spread " + propInfo.spreadOrder , "CodeGen");
         }
         
         // Add values for regular properties
@@ -2511,16 +2504,16 @@ void LLVMCodeGen::visit(ObjectLiteral& node) {
 
 void LLVMCodeGen::visit(PropertyAccess& node) {
     String propertyName = node.getProperty();
-    std::cout << "DEBUG: PropertyAccess visitor called for property: " << propertyName << std::endl;
-    std::cout << "DEBUG: PropertyAccess - object type: " << (node.getObject() ? "present" : "null") << std::endl;
+    TSC_LOG_DEBUG("PropertyAccess visitor called for property:" + propertyName , "CodeGen");
+    TSC_LOG_DEBUG("PropertyAccess - object type:" + (node.getObject() ? "present" : "null") , "CodeGen");
     if (node.getObject()) {
-        std::cout << "DEBUG: PropertyAccess - object class: " << typeid(*node.getObject()).name() << std::endl;
+        TSC_LOG_DEBUG("PropertyAccess - object class:" + typeid(*node.getObject()).name() , "CodeGen");
     }
     
     // Handle nested PropertyAccess objects (e.g., array.length.toString()) - MUST BE FIRST
     if (auto nestedPropertyAccess = dynamic_cast<PropertyAccess*>(node.getObject())) {
-        std::cout << "DEBUG: Handling nested PropertyAccess for property: " << propertyName << std::endl;
-        std::cout << "DEBUG: Nested PropertyAccess object type: " << typeid(*node.getObject()).name() << std::endl;
+        TSC_LOG_DEBUG("Handling nested PropertyAccess for property:" + propertyName , "CodeGen");
+        TSC_LOG_DEBUG("Nested PropertyAccess object type:" + typeid(*node.getObject()).name() , "CodeGen");
         
         // First, evaluate the nested PropertyAccess to get its value
         nestedPropertyAccess->accept(*this);
@@ -2535,7 +2528,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         // Now handle the property access on the nested value
         if (propertyName == "toString") {
             // For toString on a number (which is what array.length returns), create a number_to_string function
-            std::cout << "DEBUG: Creating number_to_string function for nested value" << std::endl;
+            TSC_LOG_DEBUG("Creating number_to_string function for nested value" , "CodeGen");
             auto numberType = std::make_shared<PrimitiveType>(TypeKind::Number);
             llvm::Function* toStringFunc = createBuiltinMethodFunction("toString", numberType, node.getLocation());
             
@@ -2546,7 +2539,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
             std::vector<llvm::Value*> args = {nestedValue};
             llvm::Value* result = builder_->CreateCall(toStringFunc, args, "toString_result");
             setCurrentValue(result);
-            std::cout << "DEBUG: Called number_to_string function with double argument" << std::endl;
+            TSC_LOG_DEBUG("Called number_to_string function with double argument" , "CodeGen");
             return;
         }
     }
@@ -2567,10 +2560,10 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         bool isArrayType = false;
         if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {
             Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
-            std::cout << "DEBUG: PropertyAccess - symbol lookup for '" << identifier->getName() << "': " << (symbol ? "found" : "not found") << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - symbol lookup for '" + identifier->getName() + "': " + (symbol ? "found" : "not found") , "CodeGen");
             if (symbol) {
-                std::cout << "DEBUG: PropertyAccess - symbol type: " << symbol->getType()->toString() << std::endl;
-                std::cout << "DEBUG: PropertyAccess - symbol type kind: " << static_cast<int>(symbol->getType()->getKind()) << std::endl;
+                TSC_LOG_DEBUG("PropertyAccess - symbol type:" + symbol->getType()->toString() , "CodeGen");
+                TSC_LOG_DEBUG("PropertyAccess - symbol type kind:" + static_cast<int>(symbol->getType()->getKind()) , "CodeGen");
                 if (symbol->getType()->getKind() == TypeKind::Array || symbol->getType()->getKind() == TypeKind::TypeParameter) {
                     isArrayType = true;
                 }
@@ -2579,15 +2572,15 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
             // This could be something like this.items.length - check if the property access returns an array
             // For now, assume that if we're accessing .length on a PropertyAccess, it's likely an array
             // In a full implementation, we'd check the actual type of the PropertyAccess result
-            std::cout << "DEBUG: PropertyAccess - Found PropertyAccess object, assuming array type for .length access" << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - Found PropertyAccess object, assuming array type for .length access" , "CodeGen");
             isArrayType = true;
         }
         
         if (isArrayType) {
-            std::cout << "DEBUG: PropertyAccess - Found array type, accessing length field" << std::endl;
-            std::cout << "DEBUG: PropertyAccess - arrayValue: " << (arrayValue ? "valid" : "null") << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - Found array type, accessing length field" , "CodeGen");
+            TSC_LOG_DEBUG("PropertyAccess - arrayValue:" + (arrayValue ? "valid" : "null") , "CodeGen");
             if (arrayValue) {
-                std::cout << "DEBUG: PropertyAccess - arrayValue type: " << arrayValue->getType() << std::endl;
+                TSC_LOG_DEBUG("PropertyAccess - arrayValue type:" + arrayValue->getType() , "CodeGen");
             }
             
             // This is an array variable - access its length field
@@ -2600,26 +2593,26 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 llvm::Type::getInt8Ty(*context_)->getPointerTo() // data pointer
             });
             
-            std::cout << "DEBUG: PropertyAccess - Creating GEP for length field with struct type" << std::endl;
-            std::cout << "DEBUG: PropertyAccess - arrayStructType: " << arrayStructType << std::endl;
-            std::cout << "DEBUG: PropertyAccess - arrayValue: " << arrayValue << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - Creating GEP for length field with struct type" , "CodeGen");
+            TSC_LOG_DEBUG("PropertyAccess - arrayStructType:" + arrayStructType , "CodeGen");
+            TSC_LOG_DEBUG("PropertyAccess - arrayValue:" + arrayValue , "CodeGen");
             
             llvm::Value* lengthPtr = builder_->CreateGEP(arrayStructType, arrayValue, 
                 {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0)}, "length.ptr");
-            std::cout << "DEBUG: PropertyAccess - lengthPtr created: " << lengthPtr << std::endl;
-            std::cout << "DEBUG: PropertyAccess - lengthPtr type: " << lengthPtr->getType() << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - lengthPtr created:" + lengthPtr , "CodeGen");
+            TSC_LOG_DEBUG("PropertyAccess - lengthPtr type:" + lengthPtr->getType() , "CodeGen");
             
-            std::cout << "DEBUG: PropertyAccess - Loading length value" << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - Loading length value" , "CodeGen");
             llvm::Value* arrayLength = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "array.length");
-            std::cout << "DEBUG: PropertyAccess - arrayLength loaded: " << arrayLength << std::endl;
-            std::cout << "DEBUG: PropertyAccess - arrayLength type: " << arrayLength->getType() << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - arrayLength loaded:" + arrayLength , "CodeGen");
+            TSC_LOG_DEBUG("PropertyAccess - arrayLength type:" + arrayLength->getType() , "CodeGen");
 
-            std::cout << "DEBUG: PropertyAccess - Converting length to double" << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - Converting length to double" , "CodeGen");
             // Convert i32 to double for consistency with number type
             llvm::Value* lengthAsDouble = builder_->CreateSIToFP(arrayLength, getNumberType(), "length.double");
-            std::cout << "DEBUG: PropertyAccess - lengthAsDouble created: " << lengthAsDouble << std::endl;
-            std::cout << "DEBUG: PropertyAccess - lengthAsDouble type: " << lengthAsDouble->getType() << std::endl;
-            std::cout << "DEBUG: PropertyAccess - Setting current value and returning" << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - lengthAsDouble created:" + lengthAsDouble , "CodeGen");
+            TSC_LOG_DEBUG("PropertyAccess - lengthAsDouble type:" + lengthAsDouble->getType() , "CodeGen");
+            TSC_LOG_DEBUG("PropertyAccess - Setting current value and returning" , "CodeGen");
             setCurrentValue(lengthAsDouble);
             return;
         }
@@ -2633,9 +2626,9 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
     
     // Check if this is _print access first
     if (auto* identifier = dynamic_cast<Identifier*>(node.getObject())) {
-        std::cout << "DEBUG: PropertyAccess - identifier name: " << identifier->getName() << ", property: " << node.getProperty() << std::endl;
+        TSC_LOG_DEBUG("PropertyAccess - identifier name:" + identifier->getName() + ", property: " + node.getProperty() , "CodeGen");
         if (identifier->getName() == "_print") {
-            std::cout << "DEBUG: PropertyAccess - Found _print, creating function" << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - Found _print, creating function" , "CodeGen");
             // This is _print - return a function pointer to our _print implementation
             llvm::Function* printFunc = getOrCreatePrintFunction();
             setCurrentValue(printFunc);
@@ -2690,9 +2683,9 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         llvm::Function* currentFunction = builder_->GetInsertBlock()->getParent();
         String functionName = currentFunction->getName().str();
         
-        std::cout << "DEBUG: PropertyAccess - objectValue type: " << (objectValue->getType()->isPointerTy() ? "pointer" : "not pointer") << std::endl;
-        std::cout << "DEBUG: PropertyAccess - current function: " << functionName << std::endl;
-        std::cout << "DEBUG: PropertyAccess - property name: " << propertyName << std::endl;
+        TSC_LOG_DEBUG("PropertyAccess - objectValue type:" + (objectValue->getType()->isPointerTy() ? "pointer" : "not pointer") , "CodeGen");
+        TSC_LOG_DEBUG("PropertyAccess - current function:" + functionName , "CodeGen");
+        TSC_LOG_DEBUG("PropertyAccess - property name:" + propertyName , "CodeGen");
         
         // If we're in a monomorphized method (e.g., Container_number_getValue or BasicArrayOperations_number_getLength)
         // and accessing 'value', 'items', or 'data', handle it as struct field access
@@ -2704,8 +2697,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                               (functionName == "getValue" || functionName == "constructor" || functionName == "destructor");
         
         if (isMonomorphizedMethod || isDestructor || isConstructor || isSimpleMethod) {
-            std::cout << "DEBUG: PropertyAccess - Entering struct field access for " << 
-                         (isDestructor ? "destructor" : isConstructor ? "constructor" : isSimpleMethod ? "simple method" : "monomorphized method") << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - Entering struct field access for" + (isDestructor ? "destructor" : isConstructor ? "constructor" : isSimpleMethod ? "simple method" : "monomorphized method") , "CodeGen");
             
             // Handle destructors and constructors accessing class properties
             if (isDestructor || isConstructor) {
@@ -2727,8 +2719,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                         llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), "id_ptr");
                     llvm::Value* propertyValue = builder_->CreateLoad(getNumberType(), propertyPtr, "id_value");
                     setCurrentValue(propertyValue);
-                    std::cout << "DEBUG: PropertyAccess - Successfully accessed property 'id' in " << 
-                                 (isDestructor ? "destructor" : "constructor") << std::endl;
+                    TSC_LOG_DEBUG("PropertyAccess - Successfully accessed property 'id' in" + (isDestructor ? "destructor" : "constructor") , "CodeGen");
                     return;
                 } else if (propertyName == "name") {
                     // Assume 'name' is a string at offset 0 in the object data
@@ -2736,8 +2727,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                         llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), "name_ptr");
                     llvm::Value* propertyValue = builder_->CreateLoad(getStringType(), propertyPtr, "name_value");
                     setCurrentValue(propertyValue);
-                    std::cout << "DEBUG: PropertyAccess - Successfully accessed property 'name' in " << 
-                                 (isDestructor ? "destructor" : "constructor") << std::endl;
+                    TSC_LOG_DEBUG("PropertyAccess - Successfully accessed property 'name' in" + (isDestructor ? "destructor" : "constructor") , "CodeGen");
                     return;
                 }
             }
@@ -2760,7 +2750,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                     llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "field_ptr");
                     llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
                     setCurrentValue(fieldValue);
-                    std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'value' in simple method" << std::endl;
+                    TSC_LOG_DEBUG("PropertyAccess - Successfully accessed struct field 'value' in simple method" , "CodeGen");
                     return;
                 }
             }
@@ -2782,7 +2772,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                     llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "field_ptr");
                     llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
                     setCurrentValue(fieldValue);
-                    std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field 'value'" << std::endl;
+                    TSC_LOG_DEBUG("PropertyAccess - Successfully accessed struct field 'value'" , "CodeGen");
                     return;
                 } else if (propertyName == "items" || propertyName == "data") {
                 // For 'items' or 'data', the object structure is { i32, ptr }
@@ -2802,24 +2792,24 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 
                 llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "data_ptr");
                 setCurrentValue(fieldPtr);
-                std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field '" << propertyName << "' at index 1 (pointer to array)" << std::endl;
+                TSC_LOG_DEBUG("PropertyAccess - Successfully accessed struct field '" + propertyName + "' at index 1 (pointer to array)" , "CodeGen");
                 return;
                 }
             }
         } else {
-            std::cout << "DEBUG: PropertyAccess - Not entering struct field access. functionName: " << functionName << ", propertyName: " << propertyName << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - Not entering struct field access. functionName:" + functionName + ", propertyName: " + propertyName , "CodeGen");
         }
     }
     
     // Check if this is property access on a non-generic class type
-    std::cout << "DEBUG: PropertyAccess - objectValue type: " << (objectValue->getType()->isPointerTy() ? "pointer" : "not pointer") << std::endl;
-    std::cout << "DEBUG: PropertyAccess - objectValue type == getAnyType(): " << (objectValue->getType() == getAnyType() ? "true" : "false") << std::endl;
+    TSC_LOG_DEBUG("PropertyAccess - objectValue type:" + (objectValue->getType()->isPointerTy() ? "pointer" : "not pointer") , "CodeGen");
+    TSC_LOG_DEBUG("PropertyAccess - objectValue type == getAnyType():" + (objectValue->getType() == getAnyType() ? "true" : "false") , "CodeGen");
     
     // Check if this is a method call on a primitive value (like num.toString())
     if (!objectValue->getType()->isPointerTy()) {
         // This is a method call on a primitive value
         String propertyName = node.getProperty();
-        std::cout << "DEBUG: PropertyAccess - Handling method call on primitive value: " << propertyName << std::endl;
+        TSC_LOG_DEBUG("PropertyAccess - Handling method call on primitive value:" + propertyName , "CodeGen");
         
         if (propertyName == "toString") {
             // Handle toString() on primitive values
@@ -2832,13 +2822,13 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 std::vector<llvm::Value*> args = {objectValue};
                 llvm::Value* result = builder_->CreateCall(toStringFunc, args, "toString_result");
                 setCurrentValue(result);
-                std::cout << "DEBUG: PropertyAccess - Called toString on number primitive" << std::endl;
+                TSC_LOG_DEBUG("PropertyAccess - Called toString on number primitive" , "CodeGen");
                 return;
             }
         }
         
         // For other methods on primitives, we could add more cases here
-        std::cout << "DEBUG: PropertyAccess - Unknown method on primitive: " << propertyName << std::endl;
+        TSC_LOG_DEBUG("PropertyAccess - Unknown method on primitive:" + propertyName , "CodeGen");
         setCurrentValue(createNullValue(getAnyType()));
         return;
     }
@@ -2860,7 +2850,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
     if (isNonGenericClass) {
         // This is property access on a non-generic class instance
         String propertyName = node.getProperty();
-        std::cout << "DEBUG: PropertyAccess - Handling non-generic class property access: " << propertyName << std::endl;
+        TSC_LOG_DEBUG("PropertyAccess - Handling non-generic class property access:" + propertyName , "CodeGen");
         
         // For now, provide a simple implementation for non-generic classes
         // In a full implementation, we'd look up the actual struct type and field
@@ -2878,19 +2868,19 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
             llvm::Value* fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "field_ptr");
             llvm::Value* fieldValue = builder_->CreateLoad(getNumberType(), fieldPtr, "field_value");
             setCurrentValue(fieldValue);
-            std::cout << "DEBUG: PropertyAccess - Successfully accessed non-generic class field" << std::endl;
+            TSC_LOG_DEBUG("PropertyAccess - Successfully accessed non-generic class field" , "CodeGen");
             return;
         } else {
             // Check if this is a method call (property access that should return a function)
             llvm::Function* methodFunc = module_->getFunction(propertyName);
             if (methodFunc) {
-                std::cout << "DEBUG: PropertyAccess - Found method: " << propertyName << std::endl;
+                TSC_LOG_DEBUG("PropertyAccess - Found method:" + propertyName , "CodeGen");
                 setCurrentValue(methodFunc);
                 return;
             } else {
                 // Debug: List all functions in the module
-                std::cout << "DEBUG: PropertyAccess - Method not found: " << propertyName << std::endl;
-                std::cout << "DEBUG: Available functions in module:" << std::endl;
+                TSC_LOG_DEBUG("PropertyAccess - Method not found:" + propertyName , "CodeGen");
+                TSC_LOG_DEBUG("Available functions in module:" , "CodeGen");
                 for (auto& func : *module_) {
                     std::cout << "  - " << func.getName().str() << std::endl;
                 }
@@ -2910,30 +2900,30 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         if (auto identifier = dynamic_cast<Identifier*>(node.getObject())) {
             Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
             if (symbol) {
-                std::cout << "DEBUG: Found symbol " << identifier->getName() << " with type: " << symbol->getType()->toString() << std::endl;
+                TSC_LOG_DEBUG("Found symbol" + identifier->getName() + " with type: " + symbol->getType()->toString() , "CodeGen");
                 if (symbol->getType()->getKind() == TypeKind::Generic) {
                     // This is a method call on a generic object
                     auto genericType = std::static_pointer_cast<GenericType>(symbol->getType());
                     String mangledMethodName = generateMangledMethodName(*genericType, propertyName);
-                    std::cout << "DEBUG: Generated mangled method name: " << mangledMethodName << std::endl;
+                    TSC_LOG_DEBUG("Generated mangled method name:" + mangledMethodName , "CodeGen");
                     
                     // Look up the monomorphized method
                     llvm::Function* method = module_->getFunction(mangledMethodName);
                     if (method) {
-                        std::cout << "DEBUG: Found method: " << mangledMethodName << std::endl;
+                        TSC_LOG_DEBUG("Found method:" + mangledMethodName , "CodeGen");
                         setCurrentValue(method);
                         return;
                     } else {
-                        std::cout << "DEBUG: Method not found: " << mangledMethodName << std::endl;
+                        TSC_LOG_DEBUG("Method not found:" + mangledMethodName , "CodeGen");
                         reportError("Method not found: " + propertyName, node.getLocation());
                         setCurrentValue(createNullValue(getAnyType()));
                         return;
                     }
                 } else {
-                    std::cout << "DEBUG: Symbol type is not Generic, it's: " << static_cast<int>(symbol->getType()->getKind()) << std::endl;
+                    TSC_LOG_DEBUG("Symbol type is not Generic, it's:" + static_cast<int>(symbol->getType()->getKind()) , "CodeGen");
                 }
             } else {
-                std::cout << "DEBUG: Symbol not found for: " << identifier->getName() << std::endl;
+                TSC_LOG_DEBUG("Symbol not found for:" + identifier->getName() , "CodeGen");
             }
         }
         
@@ -2951,7 +2941,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 // For the 'value' method, try to call it on the object
                 // This is a simplified approach - in a real implementation, we'd need
                 // to track the actual type information
-                std::cout << "DEBUG: Handling 'value' method on any type" << std::endl;
+                TSC_LOG_DEBUG("Handling 'value' method on any type" , "CodeGen");
                 
                 // Create a simple function that returns the object itself
                 // This is a placeholder implementation
@@ -2966,15 +2956,15 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         if (auto identifier = dynamic_cast<Identifier*>(node.getObject())) {
             Symbol* symbol = symbolTable_->lookupSymbol(identifier->getName());
             if (symbol && symbol->getType()) {
-                std::cout << "DEBUG: Attempting generic method lookup for symbol: " << identifier->getName() << " with type: " << symbol->getType()->toString() << std::endl;
+                TSC_LOG_DEBUG("Attempting generic method lookup for symbol:" + identifier->getName() + " with type: " + symbol->getType()->toString() , "CodeGen");
                 llvm::Function* methodFunc = genericMethodLookup(propertyName, symbol->getType(), node.getLocation());
                 if (methodFunc) {
-                    std::cout << "DEBUG: Found generic method: " << propertyName << std::endl;
+                    TSC_LOG_DEBUG("Found generic method:" + propertyName , "CodeGen");
                     setCurrentValue(methodFunc);
                     return;
                 } else if (propertyName == "length") {
                     // Handle length as property access for generic array types
-                    std::cout << "DEBUG: Handling length as property access for generic array type" << std::endl;
+                    TSC_LOG_DEBUG("Handling length as property access for generic array type" , "CodeGen");
                     
                     // Generate the array object
                     node.getObject()->accept(*this);
@@ -3003,11 +2993,11 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
             }
         } else if (auto propertyAccess = dynamic_cast<PropertyAccess*>(node.getObject())) {
             // Handle method access on array returned by property access (e.g., this.items.push)
-            std::cout << "DEBUG: Handling method access on array returned by property access: " << propertyName << std::endl;
+            TSC_LOG_DEBUG("Handling method access on array returned by property access:" + propertyName , "CodeGen");
             
             // Check if this is a method call on an array (like push, pop, etc.)
             if (propertyName == "push" || propertyName == "pop" || propertyName == "length" || propertyName == "toString") {
-                std::cout << "DEBUG: Found array method: " << propertyName << std::endl;
+                TSC_LOG_DEBUG("Found array method:" + propertyName , "CodeGen");
                 
                 // For array methods, we need to create a builtin method function
                 // This is a simplified approach - in a full implementation, we'd look up the actual method
@@ -3015,16 +3005,16 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
                 llvm::Function* methodFunc = createBuiltinMethodFunction(propertyName, arrayType, node.getLocation());
                 
                 if (methodFunc) {
-                    std::cout << "DEBUG: Created builtin method function for: " << propertyName << std::endl;
+                    TSC_LOG_DEBUG("Created builtin method function for:" + propertyName , "CodeGen");
                     setCurrentValue(methodFunc);
                     return;
                 } else {
-                    std::cout << "DEBUG: Failed to create builtin method function for: " << propertyName << std::endl;
+                    TSC_LOG_DEBUG("Failed to create builtin method function for:" + propertyName , "CodeGen");
                 }
             }
         } else if (propertyName == "length") {
             // Handle length access for nested property access (e.g., array.length.toString())
-            std::cout << "DEBUG: Handling nested length property access" << std::endl;
+            TSC_LOG_DEBUG("Handling nested length property access" , "CodeGen");
             
             // Generate the array object
             node.getObject()->accept(*this);
@@ -3053,7 +3043,7 @@ void LLVMCodeGen::visit(PropertyAccess& node) {
         
         // Handle direct length access for generic array types
         if (propertyName == "length") {
-            std::cout << "DEBUG: Handling length property access for generic array type" << std::endl;
+            TSC_LOG_DEBUG("Handling length property access for generic array type" , "CodeGen");
             
             // For generic array types, we need to handle length as a property
             // Get the array value
@@ -3200,25 +3190,25 @@ void LLVMCodeGen::visit(ArrowFunction& node) {
     }
     
     // Generate function body
-    std::cout << "DEBUG: Processing function body" << std::endl;
+    TSC_LOG_DEBUG("Processing function body" , "CodeGen");
     node.getBody()->accept(*this);
-    std::cout << "DEBUG: Finished processing function body" << std::endl;
+    TSC_LOG_DEBUG("Finished processing function body" , "CodeGen");
     
     // Ensure function has a return
-    std::cout << "DEBUG: Checking for terminator in function" << std::endl;
+    TSC_LOG_DEBUG("Checking for terminator in function" , "CodeGen");
     if (!builder_->GetInsertBlock()->getTerminator()) {
-        std::cout << "DEBUG: No terminator found, adding return statement" << std::endl;
+        TSC_LOG_DEBUG("No terminator found, adding return statement" , "CodeGen");
         if (returnType->isVoidTy()) {
             builder_->CreateRetVoid();
-            std::cout << "DEBUG: Added void return" << std::endl;
+            TSC_LOG_DEBUG("Added void return" , "CodeGen");
         } else {
             // Return default value for the type
             llvm::Value* defaultValue = createDefaultValue(returnType);
             builder_->CreateRet(defaultValue);
-            std::cout << "DEBUG: Added default return" << std::endl;
+            TSC_LOG_DEBUG("Added default return" , "CodeGen");
         }
     } else {
-        std::cout << "DEBUG: Function already has terminator" << std::endl;
+        TSC_LOG_DEBUG("Function already has terminator" , "CodeGen");
     }
     
     // Restore insertion point
@@ -3291,25 +3281,25 @@ void LLVMCodeGen::visit(FunctionExpression& node) {
     }
     
     // Generate function body
-    std::cout << "DEBUG: Processing function body" << std::endl;
+    TSC_LOG_DEBUG("Processing function body" , "CodeGen");
     node.getBody()->accept(*this);
-    std::cout << "DEBUG: Finished processing function body" << std::endl;
+    TSC_LOG_DEBUG("Finished processing function body" , "CodeGen");
     
     // Ensure function has a return
-    std::cout << "DEBUG: Checking for terminator in function" << std::endl;
+    TSC_LOG_DEBUG("Checking for terminator in function" , "CodeGen");
     if (!builder_->GetInsertBlock()->getTerminator()) {
-        std::cout << "DEBUG: No terminator found, adding return statement" << std::endl;
+        TSC_LOG_DEBUG("No terminator found, adding return statement" , "CodeGen");
         if (returnType->isVoidTy()) {
             builder_->CreateRetVoid();
-            std::cout << "DEBUG: Added void return" << std::endl;
+            TSC_LOG_DEBUG("Added void return" , "CodeGen");
         } else {
             // Return default value for the type
             llvm::Value* defaultValue = createDefaultValue(returnType);
             builder_->CreateRet(defaultValue);
-            std::cout << "DEBUG: Added default return" << std::endl;
+            TSC_LOG_DEBUG("Added default return" , "CodeGen");
         }
     } else {
-        std::cout << "DEBUG: Function already has terminator" << std::endl;
+        TSC_LOG_DEBUG("Function already has terminator" , "CodeGen");
     }
     
     // Restore insertion point
@@ -3327,7 +3317,7 @@ void LLVMCodeGen::visit(FunctionExpression& node) {
 }
 
 void LLVMCodeGen::visit(ExpressionStatement& node) {
-    std::cout << "DEBUG: ExpressionStatement visitor called" << std::endl;
+    TSC_LOG_DEBUG("ExpressionStatement visitor called" , "CodeGen");
     node.getExpression()->accept(*this);
     // Expression statement doesn't return a value
 }
@@ -3336,7 +3326,7 @@ void LLVMCodeGen::visit(BlockStatement& node) {
     codeGenContext_->enterScope();
     
     // Note: We don't create new scopes in LLVMCodeGen - we reuse existing ones from semantic analysis
-    std::cout << "DEBUG: LLVMCodeGen processing block with current scope: " << symbolTable_->getCurrentScope() << std::endl;
+    TSC_LOG_DEBUG("LLVMCodeGen processing block with current scope:" + symbolTable_->getCurrentScope() , "CodeGen");
     
     for (const auto& stmt : node.getStatements()) {
         // Skip processing if the current block already has a terminator
@@ -3352,7 +3342,7 @@ void LLVMCodeGen::visit(BlockStatement& node) {
     }
     
     // Note: We don't exit scopes in LLVMCodeGen - we leave the SymbolTable as-is
-    std::cout << "DEBUG: LLVMCodeGen finished processing block with current scope: " << symbolTable_->getCurrentScope() << std::endl;
+    TSC_LOG_DEBUG("LLVMCodeGen finished processing block with current scope:" + symbolTable_->getCurrentScope() , "CodeGen");
     
     codeGenContext_->exitScope();
 }
@@ -3772,7 +3762,7 @@ void LLVMCodeGen::visit(ForOfStatement& node) {
 }
 
 void LLVMCodeGen::visit(SwitchStatement& node) {
-    std::cout << "DEBUG: SwitchStatement visitor called" << std::endl;
+    TSC_LOG_DEBUG("SwitchStatement visitor called" , "CodeGen");
     llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
     if (!currentFunc) {
         reportError("Switch statement outside function", node.getLocation());
@@ -4093,7 +4083,7 @@ void LLVMCodeGen::visit(ThrowStatement& node) {
 }
 
 void LLVMCodeGen::visit(VariableDeclaration& node) {
-    std::cout << "DEBUG: VariableDeclaration visitor called for variable: " << node.getName() << std::endl;
+    TSC_LOG_DEBUG("VariableDeclaration visitor called for variable:" + node.getName() , "CodeGen");
     // Generate initializer first to determine the type
     llvm::Value* initValue = nullptr;
     llvm::Type* llvmType = getAnyType(); // Default to any type
@@ -4102,13 +4092,13 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
     Symbol* varSymbol = symbolTable_->lookupSymbol(node.getName());
     if (varSymbol && varSymbol->getType()) {
         llvmType = mapTypeScriptTypeToLLVM(*varSymbol->getType());
-        std::cout << "DEBUG: Variable " << node.getName() << " using symbol table type: " << varSymbol->getType()->toString() << std::endl;
+        TSC_LOG_DEBUG("Variable" + node.getName() + " using symbol table type: " + varSymbol->getType()->toString() , "CodeGen");
         
         // For global variables, keep the original type (don't convert to pointer)
         // Global variables should be declared as the actual type, not a pointer to it
         llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
         if (!currentFunc) {
-            std::cout << "DEBUG: Variable " << node.getName() << " is global variable, keeping original type: " << llvmType << std::endl;
+            TSC_LOG_DEBUG("Variable" + node.getName() + " is global variable, keeping original type: " + llvmType , "CodeGen");
         }
     }
     
@@ -4144,13 +4134,13 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
     
     // Allocate storage for the variable
     llvm::Value* storage = allocateVariable(node.getName(), llvmType, node.getLocation());
-    std::cout << "DEBUG: Variable " << node.getName() << " allocated storage: " << (storage ? "YES" : "NO") << std::endl;
+    TSC_LOG_DEBUG("Variable" + node.getName() + " allocated storage: " + (storage ? "YES" : "NO") , "CodeGen");
     
     // Store the initializer if present
-    std::cout << "DEBUG: Variable " << node.getName() << " initValue: " << (initValue ? "YES" : "NO") << " storage: " << (storage ? "YES" : "NO") << std::endl;
+    TSC_LOG_DEBUG("Variable" + node.getName() + " initValue: "  + (initValue ? "YES" : "NO") " storage: " + (storage ? "YES" : "NO") , "CodeGen");
     if (initValue && storage) {
         llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
-        std::cout << "DEBUG: Variable " << node.getName() << " currentFunc: " << (currentFunc ? currentFunc->getName().str() : "null") << std::endl;
+        TSC_LOG_DEBUG("Variable" + node.getName() + " currentFunc: " + (currentFunc ? currentFunc->getName().str() : "null") , "CodeGen");
         if (currentFunc) {
             // Check if this is a global variable being processed in main function
             llvm::Value* globalStorage = codeGenContext_->getSymbolValue(node.getName());
@@ -4159,38 +4149,38 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
                 builder_->CreateStore(initValue, globalStorage);
             } else {
                 // Local variable - store normally
-                std::cout << "DEBUG: Storing as local variable: " << node.getName() << std::endl;
+                TSC_LOG_DEBUG("Storing as local variable:" + node.getName() , "CodeGen");
                 builder_->CreateStore(initValue, storage);
                 
                 // Track ARC-managed objects for automatic cleanup
                 if (varSymbol && varSymbol->getType() && isARCManagedType(varSymbol->getType())) {
                     String className = varSymbol->getType()->toString();
-                    std::cout << "DEBUG: Tracking ARC-managed object '" << node.getName() << "' (class: " << className << ")" << std::endl;
+                    TSC_LOG_DEBUG("Tracking ARC-managed object '" + node.getName() + "' (class: " + className + ")" , "CodeGen");
                     codeGenContext_->addARCManagedObject(node.getName(), initValue, className);
                 }
             }
         } else {
             // Global variable - set initial value if it's a global variable
             if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(storage)) {
-                std::cout << "DEBUG: Global variable " << node.getName() << " initValue type: " << (initValue ? initValue->getType()->getTypeID() : -1) << std::endl;
-                std::cout << "DEBUG: initValue is constant: " << (llvm::isa<llvm::Constant>(initValue) ? "YES" : "NO") << std::endl;
+                TSC_LOG_DEBUG("Global variable" + node.getName() + " initValue type: " + (initValue ? initValue->getType()->getTypeID() : -1) , "CodeGen");
+                TSC_LOG_DEBUG("initValue is constant:" + (llvm::isa<llvm::Constant>(initValue) ? "YES" : "NO") , "CodeGen");
                 if (auto* constant = llvm::dyn_cast<llvm::Constant>(initValue)) {
                     // Check if this is a null constant (our deferred external symbol marker)
                     if (llvm::isa<llvm::ConstantPointerNull>(initValue) || 
                         (llvm::isa<llvm::ConstantFP>(initValue) && 
                          llvm::cast<llvm::ConstantFP>(initValue)->isNullValue())) {
                         // This is a deferred external symbol - defer initialization
-                        std::cout << "DEBUG: Deferring initialization for global variable with external symbol: " << node.getName() << std::endl;
+                        TSC_LOG_DEBUG("Deferring initialization for global variable with external symbol:" + node.getName() , "CodeGen");
                         deferredGlobalInitializations_.push_back({globalVar, initValue});
                     } else {
-                        std::cout << "DEBUG: Setting constant initializer for global variable: " << node.getName() << std::endl;
+                        TSC_LOG_DEBUG("Setting constant initializer for global variable:" + node.getName() , "CodeGen");
                         globalVar->setInitializer(constant);
                     }
                 } else {
                     // Non-constant initializer for global variable - defer initialization
                     // This happens for template literals with interpolation, function calls, etc.
                     // We'll store the initialization in the main function when it's created
-                    std::cout << "DEBUG: Deferring initialization for global variable: " << node.getName() << std::endl;
+                    TSC_LOG_DEBUG("Deferring initialization for global variable:" + node.getName() , "CodeGen");
                     deferredGlobalInitializations_.push_back({globalVar, initValue});
                     
                     // Check if this is a NewExpression that needs constructor initialization
@@ -4199,7 +4189,7 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
                         auto& lastDeferredCall = deferredConstructorCalls_.back();
                         if (lastDeferredCall.globalVar == nullptr) {
                             lastDeferredCall.globalVar = globalVar;
-                            std::cout << "DEBUG: Associated deferred constructor call with global variable: " << node.getName() << std::endl;
+                            TSC_LOG_DEBUG("Associated deferred constructor call with global variable:" + node.getName() , "CodeGen");
                         }
                     }
                 }
@@ -4209,12 +4199,12 @@ void LLVMCodeGen::visit(VariableDeclaration& node) {
 }
 
 void LLVMCodeGen::visit(FunctionDeclaration& node) {
-    std::cout << "DEBUG: Processing function declaration: " << node.getName() << std::endl;
+    TSC_LOG_DEBUG("Processing function declaration:" + node.getName() , "CodeGen");
     
     // Check if we're currently inside a function (nested function case)
-    std::cout << "DEBUG: Current function context: " << (codeGenContext_->getCurrentFunction() ? "exists" : "null") << std::endl;
+    TSC_LOG_DEBUG("Current function context:" + (codeGenContext_->getCurrentFunction() ? "exists" : "null") , "CodeGen");
     if (codeGenContext_->getCurrentFunction()) {
-        std::cout << "DEBUG: This is a nested function: " << node.getName() << std::endl;
+        TSC_LOG_DEBUG("This is a nested function:" + node.getName() , "CodeGen");
         // This is a nested function - generate it as a local function
         generateNestedFunction(node);
         
@@ -4286,29 +4276,29 @@ void LLVMCodeGen::visit(Module& module) {
     std::vector<Statement*> moduleStatements;
     
     for (const auto& stmt : module.getStatements()) {
-        std::cout << "DEBUG: Module statement type: " << typeid(*stmt.get()).name() << std::endl;
+        TSC_LOG_DEBUG("Module statement type:" + typeid(*stmt.get()).name() , "CodeGen");
         if (dynamic_cast<const FunctionDeclaration*>(stmt.get())) {
-            std::cout << "DEBUG: Adding FunctionDeclaration to functionDecls" << std::endl;
+            TSC_LOG_DEBUG("Adding FunctionDeclaration to functionDecls" , "CodeGen");
             functionDecls.push_back(stmt.get());
         } else if (dynamic_cast<const ClassDeclaration*>(stmt.get())) {
             // ClassDeclarations should not be processed as module-level statements
             // They are processed separately to avoid constructor processing issues
-            std::cout << "DEBUG: Adding ClassDeclaration to classDecls" << std::endl;
+            TSC_LOG_DEBUG("Adding ClassDeclaration to classDecls" , "CodeGen");
             classDecls.push_back(stmt.get());
         } else if (dynamic_cast<const MethodDeclaration*>(stmt.get())) {
             // MethodDeclarations (including constructors) should not be processed as module-level statements
             // They are processed separately as part of class processing
-            std::cout << "DEBUG: Skipping MethodDeclaration from module-level statements" << std::endl;
+            TSC_LOG_DEBUG("Skipping MethodDeclaration from module-level statements" , "CodeGen");
         } else {
-            std::cout << "DEBUG: Adding statement to moduleStatements" << std::endl;
+            TSC_LOG_DEBUG("Adding statement to moduleStatements" , "CodeGen");
             moduleStatements.push_back(stmt.get());
         }
     }
     
     // Generate class declarations first (so methods are available for functions)
-    std::cout << "DEBUG: Processing " << classDecls.size() << " class declarations" << std::endl;
+    TSC_LOG_DEBUG("Processing" + std::to_string(classDecls.size()) + " class declarations" , "CodeGen");
     for (const auto& stmt : classDecls) {
-        std::cout << "DEBUG: Processing ClassDeclaration separately" << std::endl;
+        TSC_LOG_DEBUG("Processing ClassDeclaration separately" , "CodeGen");
         stmt->accept(*this);
         if (hasErrors()) break;
     }
@@ -4325,9 +4315,7 @@ void LLVMCodeGen::visit(Module& module) {
     // Check if main function already exists
     bool mainExists = module_->getFunction("main") != nullptr;
     
-    std::cout << "DEBUG: Checking main function generation: moduleStatements=" << moduleStatements.size() 
-              << ", mainExists=" << (mainExists ? "true" : "false") 
-              << ", generateMainFunction=" << (generateMainFunction_ ? "true" : "false") << std::endl;
+    TSC_LOG_DEBUG("Checking main function generation: moduleStatements=" + std::to_string(moduleStatements.size()) + ", mainExists="  + (mainExists ? "true" : "false") ", generateMainFunction=" + (generateMainFunction_ ? "true" : "false") , "CodeGen");
     if (!moduleStatements.empty() && !mainExists && generateMainFunction_) {
         llvm::FunctionType* mainType = llvm::FunctionType::get(
             llvm::Type::getInt32Ty(*context_), false);
@@ -4339,13 +4327,13 @@ void LLVMCodeGen::visit(Module& module) {
         
         
         // Generate module-level statements within main function
-        std::cout << "DEBUG: Processing " << moduleStatements.size() << " module-level statements in main function" << std::endl;
+        TSC_LOG_DEBUG("Processing" + std::to_string(moduleStatements.size()) + " module-level statements in main function" , "CodeGen");
         for (const auto& stmt : moduleStatements) {
-            std::cout << "DEBUG: Processing module-level statement in main function" << std::endl;
+            TSC_LOG_DEBUG("Processing module-level statement in main function" , "CodeGen");
             
             // Check if current block already has a terminator
             if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
-                std::cout << "DEBUG: Current block already has terminator, skipping remaining statements" << std::endl;
+                TSC_LOG_DEBUG("Current block already has terminator, skipping remaining statements" , "CodeGen");
                 break;
             }
             
@@ -4354,15 +4342,15 @@ void LLVMCodeGen::visit(Module& module) {
             
             // Check if the statement generated a terminator
             if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
-                std::cout << "DEBUG: Statement generated terminator, stopping processing" << std::endl;
+                TSC_LOG_DEBUG("Statement generated terminator, stopping processing" , "CodeGen");
                 break;
             }
         }
         
         // Process deferred global variable initializations AFTER module statements
-        std::cout << "DEBUG: Processing " << deferredGlobalInitializations_.size() << " deferred global initializations" << std::endl;
+        TSC_LOG_DEBUG("Processing" + std::to_string(deferredGlobalInitializations_.size()) + " deferred global initializations" , "CodeGen");
         for (const auto& [globalVar, initValue] : deferredGlobalInitializations_) {
-            std::cout << "DEBUG: Storing to global variable: " << globalVar->getName().str() << std::endl;
+            TSC_LOG_DEBUG("Storing to global variable:" + globalVar->getName().str() , "CodeGen");
             
             // Check if this is a deferred external symbol
             llvm::Value* actualValue = initValue;
@@ -4375,7 +4363,7 @@ void LLVMCodeGen::visit(Module& module) {
                     // Load the actual external symbol value
                     llvm::GlobalVariable* externalVar = deferredExternalSymbols_[varName];
                     actualValue = builder_->CreateLoad(externalVar->getValueType(), externalVar, varName + "_val");
-                    std::cout << "DEBUG: Loading external symbol " << varName << " from " << externalVar->getName().str() << std::endl;
+                    TSC_LOG_DEBUG("Loading external symbol" + varName + " from " + externalVar->getName().str() , "CodeGen");
                 }
             }
             
@@ -4385,10 +4373,10 @@ void LLVMCodeGen::visit(Module& module) {
         deferredExternalSymbols_.clear();
         
         // Process deferred constructor calls AFTER global variables are initialized
-        std::cout << "DEBUG: Processing " << deferredConstructorCalls_.size() << " deferred constructor calls" << std::endl;
+        TSC_LOG_DEBUG("Processing" + std::to_string(deferredConstructorCalls_.size()) + " deferred constructor calls" , "CodeGen");
         for (const auto& deferredCall : deferredConstructorCalls_) {
             if (deferredCall.globalVar) {
-                std::cout << "DEBUG: Processing deferred constructor call for global variable: " << deferredCall.globalVar->getName().str() << std::endl;
+                TSC_LOG_DEBUG("Processing deferred constructor call for global variable:" + deferredCall.globalVar->getName().str() , "CodeGen");
                 
                 // Load the global variable value (the object pointer)
                 llvm::Value* objectPtr = builder_->CreateLoad(deferredCall.globalVar->getValueType(), deferredCall.globalVar, deferredCall.globalVar->getName().str() + "_obj");
@@ -4407,7 +4395,7 @@ void LLVMCodeGen::visit(Module& module) {
                 
                 llvm::Function* constructorFunc = module_->getFunction(constructorName);
                 if (constructorFunc) {
-                    std::cout << "DEBUG: Calling constructor: " << constructorName << std::endl;
+                    TSC_LOG_DEBUG("Calling constructor:" + constructorName , "CodeGen");
                     
                     // Prepare constructor arguments with the loaded object pointer as 'this'
                     std::vector<llvm::Value*> constructorArgs;
@@ -4420,18 +4408,18 @@ void LLVMCodeGen::visit(Module& module) {
                     
                     // Call the constructor
                     builder_->CreateCall(constructorFunc, constructorArgs);
-                    std::cout << "DEBUG: Constructor call completed for: " << deferredCall.globalVar->getName().str() << std::endl;
+                    TSC_LOG_DEBUG("Constructor call completed for:" + deferredCall.globalVar->getName().str() , "CodeGen");
                 } else {
-                    std::cout << "DEBUG: Constructor function not found: " << constructorName << std::endl;
+                    TSC_LOG_DEBUG("Constructor function not found:" + constructorName , "CodeGen");
                 }
             }
         }
         deferredConstructorCalls_.clear();
         
         // Process deferred method calls AFTER global variables are initialized
-        std::cout << "DEBUG: Processing " << deferredMethodCalls_.size() << " deferred method calls" << std::endl;
+        TSC_LOG_DEBUG("Processing" + std::to_string(deferredMethodCalls_.size()) + " deferred method calls" , "CodeGen");
         for (const auto& [callExpr, globalVar] : deferredMethodCalls_) {
-            std::cout << "DEBUG: Processing deferred method call on global variable: " << globalVar->getName().str() << std::endl;
+            TSC_LOG_DEBUG("Processing deferred method call on global variable:" + globalVar->getName().str() , "CodeGen");
             
             // Load the global variable value
             llvm::Value* objectInstance = builder_->CreateLoad(globalVar->getValueType(), globalVar, globalVar->getName().str() + "_val");
@@ -4439,7 +4427,7 @@ void LLVMCodeGen::visit(Module& module) {
             // Process the method call with the loaded object instance
             if (auto propertyAccess = dynamic_cast<PropertyAccess*>(callExpr->getCallee())) {
                 String methodName = propertyAccess->getProperty();
-                std::cout << "DEBUG: Processing deferred method call: " << methodName << std::endl;
+                TSC_LOG_DEBUG("Processing deferred method call:" + methodName , "CodeGen");
                 
                 // Find the method function
                 llvm::Function* methodFunc = nullptr;
@@ -4449,45 +4437,45 @@ void LLVMCodeGen::visit(Module& module) {
                 Symbol* varSymbol = symbolTable_->lookupSymbol(varName);
                 
                 if (varSymbol && varSymbol->getType()) {
-                    std::cout << "DEBUG: Found variable symbol for " << varName << " with type: " << varSymbol->getType()->toString() << std::endl;
+                    TSC_LOG_DEBUG("Found variable symbol for" + varName + " with type: " + varSymbol->getType()->toString() , "CodeGen");
                     
                     // Check if the variable type is a GenericType
                     if (auto genericType = std::dynamic_pointer_cast<GenericType>(varSymbol->getType())) {
                         // Generate the correct mangled method name using the actual type
                         String mangledMethodName = generateMangledMethodName(*genericType, methodName);
-                        std::cout << "DEBUG: Generated correct mangled method name: " << mangledMethodName << std::endl;
+                        TSC_LOG_DEBUG("Generated correct mangled method name:" + mangledMethodName , "CodeGen");
                         methodFunc = module_->getFunction(mangledMethodName);
                     } else {
                         // For non-generic types, use the simple method name
-                        std::cout << "DEBUG: Variable type is not a GenericType: " << varSymbol->getType()->toString() << std::endl;
-                        std::cout << "DEBUG: Looking for simple method name: " << methodName << std::endl;
+                        TSC_LOG_DEBUG("Variable type is not a GenericType:" + varSymbol->getType()->toString() , "CodeGen");
+                        TSC_LOG_DEBUG("Looking for simple method name:" + methodName , "CodeGen");
                         methodFunc = module_->getFunction(methodName);
                         if (methodFunc) {
-                            std::cout << "DEBUG: Found simple method function: " << methodName << std::endl;
+                            TSC_LOG_DEBUG("Found simple method function:" + methodName , "CodeGen");
                         } else {
-                            std::cout << "DEBUG: Simple method function not found: " << methodName << std::endl;
+                            TSC_LOG_DEBUG("Simple method function not found:" + methodName , "CodeGen");
                         }
                     }
                 } else {
-                    std::cout << "DEBUG: Could not find symbol or type for variable: " << varName << std::endl;
+                    TSC_LOG_DEBUG("Could not find symbol or type for variable:" + varName , "CodeGen");
                 }
                 
                 if (!methodFunc) {
-                    std::cout << "DEBUG: Method function not found, trying fallback search" << std::endl;
+                    TSC_LOG_DEBUG("Method function not found, trying fallback search" , "CodeGen");
                     // Fallback: try to find the method by looking for common patterns
                     for (auto& func : module_->functions()) {
                         String funcName = func.getName().str();
                         if (funcName.find(methodName) != String::npos && 
                             funcName.find("BasicArrayOperations") != String::npos) {
                             methodFunc = &func;
-                            std::cout << "DEBUG: Found fallback method function: " << funcName << std::endl;
+                            TSC_LOG_DEBUG("Found fallback method function:" + funcName , "CodeGen");
                             break;
                         }
                     }
                 }
                 
                 if (methodFunc) {
-                    std::cout << "DEBUG: Found method function: " << methodFunc->getName().str() << std::endl;
+                    TSC_LOG_DEBUG("Found method function:" + methodFunc->getName().str() , "CodeGen");
                     
                     // Prepare arguments for the method call
                     std::vector<llvm::Value*> args;
@@ -4505,10 +4493,10 @@ void LLVMCodeGen::visit(Module& module) {
                     // Generate the method call
                     if (methodFunc->getReturnType()->isVoidTy()) {
                         builder_->CreateCall(methodFunc, args);
-                        std::cout << "DEBUG: Created deferred void method call to " << methodFunc->getName().str() << std::endl;
+                        TSC_LOG_DEBUG("Created deferred void method call to" + methodFunc->getName().str() , "CodeGen");
                     } else {
                         llvm::Value* callResult = builder_->CreateCall(methodFunc, args, "deferred_method_call_result");
-                        std::cout << "DEBUG: Created deferred method call to " << methodFunc->getName().str() << std::endl;
+                        TSC_LOG_DEBUG("Created deferred method call to" + methodFunc->getName().str() , "CodeGen");
                         
                         // Store the result back to the global variable that needs it
                         // We need to find which global variable was initialized with a deferred external symbol
@@ -4525,8 +4513,7 @@ void LLVMCodeGen::visit(Module& module) {
                                     (llvm::isa<llvm::ConstantFP>(initValue) && 
                                      llvm::cast<llvm::ConstantFP>(initValue)->isNullValue())) {
                                     // This is a deferred external symbol - update it with the method call result
-                                    std::cout << "DEBUG: Updating deferred global variable " << targetGlobalVar->getName().str() 
-                                             << " with method call result from " << objectVarName << std::endl;
+                                    TSC_LOG_DEBUG("Updating deferred global variable" + targetGlobalVar->getName().str() + " with method call result from " + objectVarName , "CodeGen");
                                     
                                     // Convert the result to the appropriate type for the target variable
                                     llvm::Value* convertedResult = convertValueToType(callResult, targetGlobalVar->getValueType());
@@ -4541,39 +4528,39 @@ void LLVMCodeGen::visit(Module& module) {
                         }
                     }
                 } else {
-                    std::cout << "DEBUG: WARNING - Could not find method function for: " << methodName << std::endl;
+                    TSC_LOG_DEBUG("WARNING - Could not find method function for:" + methodName , "CodeGen");
                 }
             }
         }
         deferredMethodCalls_.clear();
         
         // Always ensure main function has a terminator
-        std::cout << "DEBUG: Checking terminator in main function" << std::endl;
-        std::cout << "DEBUG: Current block: " << builder_->GetInsertBlock() << std::endl;
+        TSC_LOG_DEBUG("Checking terminator in main function" , "CodeGen");
+        TSC_LOG_DEBUG("Current block:" + builder_->GetInsertBlock() , "CodeGen");
         if (builder_->GetInsertBlock()) {
-            std::cout << "DEBUG: Current block name: " << builder_->GetInsertBlock()->getName().str() << std::endl;
-            std::cout << "DEBUG: Current block parent function: " << (builder_->GetInsertBlock()->getParent() ? builder_->GetInsertBlock()->getParent()->getName().str() : "null") << std::endl;
-            std::cout << "DEBUG: Current block has terminator: " << (builder_->GetInsertBlock()->getTerminator() ? "YES" : "NO") << std::endl;
+            TSC_LOG_DEBUG("Current block name:" + builder_->GetInsertBlock()->getName().str() , "CodeGen");
+            TSC_LOG_DEBUG("Current block parent function:" + (builder_->GetInsertBlock()->getParent() ? builder_->GetInsertBlock()->getParent()->getName().str() : "null") , "CodeGen");
+            TSC_LOG_DEBUG("Current block has terminator:" + (builder_->GetInsertBlock()->getTerminator() ? "YES" : "NO") , "CodeGen");
             if (builder_->GetInsertBlock()->getTerminator()) {
-                std::cout << "DEBUG: Current block terminator type: " << builder_->GetInsertBlock()->getTerminator()->getOpcodeName() << std::endl;
+                TSC_LOG_DEBUG("Current block terminator type:" + builder_->GetInsertBlock()->getTerminator()->getOpcodeName() , "CodeGen");
             }
         } else {
-            std::cout << "DEBUG: Current block is null" << std::endl;
+            TSC_LOG_DEBUG("Current block is null" , "CodeGen");
         }
         
         // Check all basic blocks in the main function
-        std::cout << "DEBUG: Checking all basic blocks in main function" << std::endl;
+        TSC_LOG_DEBUG("Checking all basic blocks in main function" , "CodeGen");
         for (auto& block : *mainFunc) {
-            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+            TSC_LOG_DEBUG("Block" + &block + " has terminator: " + (block.getTerminator() ? "YES" : "NO") , "CodeGen");
             // Verify this block actually belongs to the main function and doesn't have a terminator
             if (block.getParent() == mainFunc && !block.getTerminator()) {
-                std::cout << "DEBUG: Adding terminator to block " << &block << std::endl;
+                TSC_LOG_DEBUG("Adding terminator to block" + &block , "CodeGen");
                 // Set insert point to the end of the block
                 builder_->SetInsertPoint(&block);
                 // Only add terminator if the block is empty or the last instruction is not a terminator
                 if (block.empty() || !block.back().isTerminator()) {
                     builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
-                    std::cout << "DEBUG: Added terminator to block " << &block << std::endl;
+                    TSC_LOG_DEBUG("Added terminator to block" + &block , "CodeGen");
                 }
             }
         }
@@ -4596,32 +4583,32 @@ void LLVMCodeGen::visit(Module& module) {
     }
     
         // Verify LLVM IR before dumping
-        std::cout << "DEBUG: Starting LLVM IR verification..." << std::endl;
-        std::cout << "DEBUG: Module has " << module_->size() << " functions" << std::endl;
+        TSC_LOG_DEBUG("Starting LLVM IR verification..." , "CodeGen");
+        TSC_LOG_DEBUG("Module has" + module_->size() + " functions" , "CodeGen");
         
         // Try verification with a simpler approach
         bool isValid = llvm::verifyModule(*module_);
         
-        std::cout << "DEBUG: Verification result: " << (isValid ? "PASSED" : "FAILED") << std::endl;
+        TSC_LOG_DEBUG("Verification result:" + (isValid ? "PASSED" : "FAILED") , "CodeGen");
         
         if (!isValid) {
             std::cout << "WARNING: LLVM IR verification failed, but continuing..." << std::endl;
             std::cout << "WARNING: This may be due to unused external function declarations" << std::endl;
         } else {
-            std::cout << "DEBUG: LLVM IR verification passed" << std::endl;
+            TSC_LOG_DEBUG("LLVM IR verification passed" , "CodeGen");
         }
         
         // Dump LLVM IR to file for debugging
         std::error_code ec;
-        std::cout << "DEBUG: Attempting to create IR file..." << std::endl;
+        TSC_LOG_DEBUG("Attempting to create IR file..." , "CodeGen");
         llvm::raw_fd_ostream irFile("generated_ir.ll", ec, llvm::sys::fs::OF_Text);
         if (!ec) {
-            std::cout << "DEBUG: IR file created successfully, printing module..." << std::endl;
+            TSC_LOG_DEBUG("IR file created successfully, printing module..." , "CodeGen");
             module_->print(irFile, nullptr);
             irFile.flush();
-            std::cout << "DEBUG: LLVM IR dumped to generated_ir.ll" << std::endl;
+            TSC_LOG_DEBUG("LLVM IR dumped to generated_ir.ll" , "CodeGen");
         } else {
-            std::cout << "DEBUG: Failed to dump LLVM IR: " << ec.message() << std::endl;
+            TSC_LOG_DEBUG("Failed to dump LLVM IR:" + ec.message() , "CodeGen");
         }
 }
 
@@ -4678,7 +4665,7 @@ llvm::Type* LLVMCodeGen::getNumberType() const {
 llvm::Type* LLVMCodeGen::getStringType() const {
     // Use i8* for strings (C-style strings for now)
     llvm::Type* stringType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
-    std::cout << "DEBUG: getStringType() returning type: " << stringType->getTypeID() << std::endl;
+    TSC_LOG_DEBUG("getStringType() returning type:" + stringType->getTypeID() , "CodeGen");
     return stringType;
 }
 
@@ -4825,29 +4812,29 @@ String LLVMCodeGen::generateMangledMethodName(const GenericType& genericType, co
 }
 
 void LLVMCodeGen::generateMonomorphizedMethods(const GenericType& genericType, Symbol* classSymbol) {
-    std::cout << "DEBUG: generateMonomorphizedMethods called for: " << genericType.toString() << std::endl;
+    TSC_LOG_DEBUG("generateMonomorphizedMethods called for:" + genericType.toString() , "CodeGen");
     // Get the class declaration to access methods
     if (!classSymbol->getDeclaration()) {
-        std::cout << "DEBUG: No class declaration found" << std::endl;
+        TSC_LOG_DEBUG("No class declaration found" , "CodeGen");
         return;
     }
     
     auto classDecl = dynamic_cast<ClassDeclaration*>(classSymbol->getDeclaration());
     if (!classDecl) {
-        std::cout << "DEBUG: Class declaration is not a ClassDeclaration" << std::endl;
+        TSC_LOG_DEBUG("Class declaration is not a ClassDeclaration" , "CodeGen");
         return;
     }
     
-    std::cout << "DEBUG: Found class declaration with " << classDecl->getMethods().size() << " methods" << std::endl;
+    TSC_LOG_DEBUG("Found class declaration with" + classDecl->getMethods().size() + " methods" , "CodeGen");
     
     // Generate monomorphized methods for each method in the class
     for (const auto& method : classDecl->getMethods()) {
         String mangledMethodName = generateMangledMethodName(genericType, method->getName());
-        std::cout << "DEBUG: Generating method: " << mangledMethodName << std::endl;
+        TSC_LOG_DEBUG("Generating method:" + mangledMethodName , "CodeGen");
         
         // Check if we've already generated this method
         if (module_->getFunction(mangledMethodName)) {
-            std::cout << "DEBUG: Method already exists, skipping" << std::endl;
+            TSC_LOG_DEBUG("Method already exists, skipping" , "CodeGen");
             continue; // Already generated
         }
         
@@ -4858,14 +4845,14 @@ void LLVMCodeGen::generateMonomorphizedMethods(const GenericType& genericType, S
     // Also generate constructor if present
     if (classDecl->getConstructor()) {
         String mangledConstructorName = generateMangledMethodName(genericType, "constructor");
-        std::cout << "DEBUG: Generating constructor: " << mangledConstructorName << std::endl;
+        TSC_LOG_DEBUG("Generating constructor:" + mangledConstructorName , "CodeGen");
         if (!module_->getFunction(mangledConstructorName)) {
             generateMonomorphizedMethod(*classDecl->getConstructor(), genericType, mangledConstructorName);
         } else {
-            std::cout << "DEBUG: Constructor already exists, skipping" << std::endl;
+            TSC_LOG_DEBUG("Constructor already exists, skipping" , "CodeGen");
         }
     } else {
-        std::cout << "DEBUG: No constructor found" << std::endl;
+        TSC_LOG_DEBUG("No constructor found" , "CodeGen");
     }
 }
 
@@ -4883,11 +4870,11 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
     // Add method parameters with type substitution
     for (const auto& param : method.getParameters()) {
         llvm::Type* paramType = getAnyType(); // Default fallback
-        std::cout << "DEBUG: Processing parameter: " << param.name << ", type: " << (param.type ? param.type->toString() : "null") << std::endl;
+        TSC_LOG_DEBUG("Processing parameter:" + param.name + ", type: " + (param.type ? param.type->toString() : "null") , "CodeGen");
         if (param.type) {
-            std::cout << "DEBUG: Parameter type kind: " << static_cast<int>(param.type->getKind()) << std::endl;
-            std::cout << "DEBUG: Parameter type pointer: " << param.type.get() << std::endl;
-            std::cout << "DEBUG: Parameter type use_count: " << param.type.use_count() << std::endl;
+            TSC_LOG_DEBUG("Parameter type kind:" + static_cast<int>(param.type->getKind()) , "CodeGen");
+            TSC_LOG_DEBUG("Parameter type pointer:" + param.type.get() , "CodeGen");
+            TSC_LOG_DEBUG("Parameter type use_count:" + param.type.use_count() , "CodeGen");
             
             // Implement proper type parameter substitution
             // Handle both TypeParameter and Unresolved types that represent type parameters
@@ -4895,7 +4882,7 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
                                   (param.type->getKind() == TypeKind::Unresolved && param.type->toString() == "T");
             
             if (isTypeParameter) {
-                std::cout << "DEBUG: Found type parameter: " << param.name << std::endl;
+                TSC_LOG_DEBUG("Found type parameter:" + param.name , "CodeGen");
                 // This is a type parameter, substitute with the actual type argument
                 String paramName = param.type->toString(); // Use the string representation
                 
@@ -4910,7 +4897,7 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
                         for (size_t i = 0; i < typeParams.size() && i < typeArgs.size(); ++i) {
                             if (typeParams[i]->getName() == paramName) {
                                 paramType = convertTypeToLLVM(typeArgs[i]);
-                                std::cout << "DEBUG: Type parameter substitution: " << paramName << " -> " << typeArgs[i]->toString() << " -> " << (paramType ? "success" : "failed") << std::endl;
+                                TSC_LOG_DEBUG("Type parameter substitution:" + paramName + " -> " + typeArgs[i]->toString() + " -> " + (paramType ? "success" : "failed") , "CodeGen");
                                 break;
                             }
                         }
@@ -4969,64 +4956,64 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
     // Generate function body if present
     if (method.getBody()) {
         llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*context_, "entry", function);
-        std::cout << "DEBUG: Created entry block " << entryBlock << " for function " << mangledName << std::endl;
+        TSC_LOG_DEBUG("Created entry block" + entryBlock + " for function " + mangledName , "CodeGen");
         builder_->SetInsertPoint(entryBlock);
         
         // Save current function context
         codeGenContext_->enterFunction(function);
         codeGenContext_->enterScope();
-        std::cout << "DEBUG: Entered scope for monomorphized method: " << mangledName << std::endl;
+        TSC_LOG_DEBUG("Entered scope for monomorphized method:" + mangledName , "CodeGen");
         
         // Set up parameters
-        std::cout << "DEBUG: Setting up parameters for method: " << mangledName << std::endl;
-        std::cout << "DEBUG: Method is static: " << (method.isStatic() ? "YES" : "NO") << std::endl;
-        std::cout << "DEBUG: Number of parameters: " << method.getParameters().size() << std::endl;
-        std::cout << "DEBUG: Function has " << function->arg_size() << " arguments" << std::endl;
+        TSC_LOG_DEBUG("Setting up parameters for method:" + mangledName , "CodeGen");
+        TSC_LOG_DEBUG("Method is static:" + (method.isStatic() ? "YES" : "NO") , "CodeGen");
+        TSC_LOG_DEBUG("Number of parameters:" + method.getParameters().size() , "CodeGen");
+        TSC_LOG_DEBUG("Function has" + function->arg_size() + " arguments" , "CodeGen");
         
         auto paramIt = function->arg_begin();
         if (!method.isStatic()) {
             // Skip 'this' parameter for now
-            std::cout << "DEBUG: Skipping 'this' parameter" << std::endl;
+            TSC_LOG_DEBUG("Skipping 'this' parameter" , "CodeGen");
             ++paramIt;
         }
         
         for (size_t i = 0; i < method.getParameters().size(); ++i, ++paramIt) {
             const auto& param = method.getParameters()[i];
-            std::cout << "DEBUG: Setting up parameter: " << param.name << std::endl;
+            TSC_LOG_DEBUG("Setting up parameter:" + param.name , "CodeGen");
             llvm::Type* paramType = paramTypes[method.isStatic() ? i : i + 1];
             llvm::Value* paramStorage = allocateVariable(param.name, paramType, method.getLocation());
             builder_->CreateStore(&*paramIt, paramStorage);
-            std::cout << "DEBUG: Parameter " << param.name << " set up successfully" << std::endl;
+            TSC_LOG_DEBUG("Parameter" + param.name + " set up successfully" , "CodeGen");
             
             // Verify the parameter is stored in the symbol table
             llvm::Value* storedValue = codeGenContext_->getSymbolValue(param.name);
-            std::cout << "DEBUG: Parameter " << param.name << " stored in symbol table: " << (storedValue ? "YES" : "NO") << std::endl;
+            TSC_LOG_DEBUG("Parameter" + param.name + " stored in symbol table: " + (storedValue ? "YES" : "NO") , "CodeGen");
         }
         
         // Generate method body
-        std::cout << "DEBUG: Generating method body for: " << mangledName << std::endl;
+        TSC_LOG_DEBUG("Generating method body for:" + mangledName , "CodeGen");
         
         // Generate the method body for all methods including constructors
         method.getBody()->accept(*this);
-        std::cout << "DEBUG: Method body generation completed for: " << mangledName << std::endl;
+        TSC_LOG_DEBUG("Method body generation completed for:" + mangledName , "CodeGen");
         
         // Check if the current block has a terminator
         llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
         if (currentBlock) {
-            std::cout << "DEBUG: Current block has terminator: " << (currentBlock->getTerminator() ? "YES" : "NO") << std::endl;
+            TSC_LOG_DEBUG("Current block has terminator:" + (currentBlock->getTerminator() ? "YES" : "NO") , "CodeGen");
         } else {
-            std::cout << "DEBUG: No current block after method body generation" << std::endl;
+            TSC_LOG_DEBUG("No current block after method body generation" , "CodeGen");
         }
         
         // Ensure all basic blocks in the function have terminators
-        std::cout << "DEBUG: Checking all basic blocks in function " << mangledName << std::endl;
+        TSC_LOG_DEBUG("Checking all basic blocks in function" + mangledName , "CodeGen");
         for (auto& block : *function) {
-            std::cout << "DEBUG: Block " << &block << " name: " << block.getName().str() << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+            TSC_LOG_DEBUG("Block" + &block + " name: " + block.getName().str() + " has terminator: " + (block.getTerminator() ? "YES" : "NO") , "CodeGen");
             if (block.getTerminator()) {
-                std::cout << "DEBUG: Block " << &block << " terminator type: " << block.getTerminator()->getOpcodeName() << std::endl;
+                TSC_LOG_DEBUG("Block" + &block + " terminator type: " + block.getTerminator()->getOpcodeName() , "CodeGen");
             }
             if (!block.getTerminator()) {
-                std::cout << "DEBUG: Adding terminator to block " << &block << " (name: " << block.getName().str() << ")" << std::endl;
+                TSC_LOG_DEBUG("Adding terminator to block" + &block + " (name: " + block.getName().str() + ")" , "CodeGen");
                 builder_->SetInsertPoint(&block);
                 if (returnType->isVoidTy()) {
                     builder_->CreateRetVoid();
@@ -5034,14 +5021,14 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
                     llvm::Value* defaultValue = createDefaultValue(returnType);
                     builder_->CreateRet(defaultValue);
                 }
-                std::cout << "DEBUG: Added terminator to block " << &block << std::endl;
+                TSC_LOG_DEBUG("Added terminator to block" + &block , "CodeGen");
             }
         }
         
         // Double-check all blocks have terminators
-        std::cout << "DEBUG: Double-checking all basic blocks in function " << mangledName << std::endl;
+        TSC_LOG_DEBUG("Double-checking all basic blocks in function" + mangledName , "CodeGen");
         for (auto& block : *function) {
-            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+            TSC_LOG_DEBUG("Block" + &block + " has terminator: " + (block.getTerminator() ? "YES" : "NO") , "CodeGen");
             if (!block.getTerminator()) {
                 std::cout << "ERROR: Block " << &block << " still has no terminator after fix!" << std::endl;
             }
@@ -5049,30 +5036,30 @@ void LLVMCodeGen::generateMonomorphizedMethod(const MethodDeclaration& method, c
         
         // Ensure function has a return
         llvm::BasicBlock* insertBlock = builder_->GetInsertBlock();
-        std::cout << "DEBUG: Insert block before return check: " << (insertBlock ? "present" : "null") << std::endl;
+        TSC_LOG_DEBUG("Insert block before return check:" + (insertBlock ? "present" : "null") , "CodeGen");
         if (insertBlock) {
-            std::cout << "DEBUG: Insert block has terminator: " << (insertBlock->getTerminator() ? "YES" : "NO") << std::endl;
+            TSC_LOG_DEBUG("Insert block has terminator:" + (insertBlock->getTerminator() ? "YES" : "NO") , "CodeGen");
         }
         
         if (!insertBlock || !insertBlock->getTerminator()) {
-            std::cout << "DEBUG: Adding return statement to method: " << mangledName << std::endl;
+            TSC_LOG_DEBUG("Adding return statement to method:" + mangledName , "CodeGen");
             if (returnType->isVoidTy()) {
                 builder_->CreateRetVoid();
-                std::cout << "DEBUG: Added void return" << std::endl;
+                TSC_LOG_DEBUG("Added void return" , "CodeGen");
                 
                 // Check the block after adding the return
                 llvm::BasicBlock* blockAfterReturn = builder_->GetInsertBlock();
-                std::cout << "DEBUG: Block after return: " << (blockAfterReturn ? "present" : "null") << std::endl;
+                TSC_LOG_DEBUG("Block after return:" + (blockAfterReturn ? "present" : "null") , "CodeGen");
                 if (blockAfterReturn) {
-                    std::cout << "DEBUG: Block after return has terminator: " << (blockAfterReturn->getTerminator() ? "YES" : "NO") << std::endl;
+                    TSC_LOG_DEBUG("Block after return has terminator:" + (blockAfterReturn->getTerminator() ? "YES" : "NO") , "CodeGen");
                 }
             } else {
                 llvm::Value* defaultValue = createDefaultValue(returnType);
                 builder_->CreateRet(defaultValue);
-                std::cout << "DEBUG: Added default return" << std::endl;
+                TSC_LOG_DEBUG("Added default return" , "CodeGen");
             }
         } else {
-            std::cout << "DEBUG: Method already has terminator: " << mangledName << std::endl;
+            TSC_LOG_DEBUG("Method already has terminator:" + mangledName , "CodeGen");
         }
         
         // Restore previous function context
@@ -5484,9 +5471,9 @@ llvm::Function* LLVMCodeGen::generateFunctionDeclaration(const FunctionDeclarati
         functionType, llvm::Function::InternalLinkage, funcDecl.getName(), module_.get());
     
     // Debug: Check basic blocks immediately after function creation
-    std::cout << "DEBUG: Basic blocks after function creation:" << std::endl;
+    TSC_LOG_DEBUG("Basic blocks after function creation:" , "CodeGen");
     for (auto& block : *function) {
-        std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+        TSC_LOG_DEBUG("Block" + &block + " has terminator: " + (block.getTerminator() ? "YES" : "NO") , "CodeGen");
     }
     
     // Set parameter names
@@ -5516,16 +5503,13 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
         // Instead of just navigating to the function scope, we need to navigate to the
         // complete scope hierarchy that includes all child scopes where variables might be added
         symbolTable_->navigateToScope(functionScope);
-        std::cout << "DEBUG: LLVMCodeGen navigated to function scope: " << funcDecl.getName() 
-                  << " at address: " << functionScope << std::endl;
+        TSC_LOG_DEBUG("LLVMCodeGen navigated to function scope:" + funcDecl.getName() + " at address: " + functionScope , "CodeGen");
         
         // Debug: Check if the current scope is correct after navigation
-        std::cout << "DEBUG: Current scope after navigation: " << symbolTable_->getCurrentScope() 
-                  << " (type: " << static_cast<int>(symbolTable_->getCurrentScope()->getType()) 
-                  << ", name: " << symbolTable_->getCurrentScope()->getName() << ")" << std::endl;
+        TSC_LOG_DEBUG("Current scope after navigation:"  + std::to_string(symbolTable_->getCurrentScope()) " (type: " + static_cast<int>(symbolTable_->getCurrentScope()->getType()) + ", name: " + symbolTable_->getCurrentScope()->getName() + ")" , "CodeGen");
         
     // Debug: Print scope hierarchy for this function
-    std::cout << "DEBUG: Scope hierarchy for function " << funcDecl.getName() << ":" << std::endl;
+    TSC_LOG_DEBUG("Scope hierarchy for function" + funcDecl.getName() + ":" , "CodeGen");
     Scope* current = functionScope;
     int level = 0;
     while (current) {
@@ -5537,9 +5521,9 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     
     // Debug: Check if this is the main function and print all symbols in the scope
     if (funcDecl.getName() == "main") {
-        std::cout << "DEBUG: Main function scope - checking for symbols..." << std::endl;
+        TSC_LOG_DEBUG("Main function scope - checking for symbols..." , "CodeGen");
         // This is a temporary debug - we need to implement a way to list all symbols in a scope
-        std::cout << "DEBUG: Main function scope address: " << functionScope << std::endl;
+        TSC_LOG_DEBUG("Main function scope address:" + functionScope , "CodeGen");
     }
         
         // CRITICAL FIX: The issue is that variables are added to child scopes (block scopes)
@@ -5553,13 +5537,11 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
         // variables that were added to block scopes.
         Scope* deepestScope = findDeepestChildScope(functionScope);
         if (deepestScope && deepestScope != functionScope) {
-            std::cout << "DEBUG: Navigating to deepest child scope: " << deepestScope 
-                      << " (type: " << static_cast<int>(deepestScope->getType()) << ")" << std::endl;
+            TSC_LOG_DEBUG("Navigating to deepest child scope:" + deepestScope + " (type: " + static_cast<int>(deepestScope->getType()) + ")" , "CodeGen");
             symbolTable_->navigateToScope(deepestScope);
         }
     } else {
-        std::cout << "DEBUG: LLVMCodeGen could not find function scope: " << funcDecl.getName() 
-                  << ", using current scope: " << symbolTable_->getCurrentScope() << std::endl;
+        TSC_LOG_DEBUG("LLVMCodeGen could not find function scope:" + funcDecl.getName() + ", using current scope: " + symbolTable_->getCurrentScope() , "CodeGen");
     }
     
     // Handle closure environment parameter if this is a closure
@@ -5586,7 +5568,7 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
         // Determine the correct type to load based on the symbol's type
         llvm::Type* loadType = mapTypeScriptTypeToLLVM(*symbol->getType());
         llvm::Value* capturedValue = builder_->CreateLoad(loadType, fieldPtr);
-        std::cout << "DEBUG: FIXED ACCESS - Loading " << symbol->getName() << " from closure environment with correct type" << std::endl;
+        TSC_LOG_DEBUG("FIXED ACCESS - Loading" + symbol->getName() + " from closure environment with correct type" , "CodeGen");
                 
                 // Store in symbol table for access during function body generation
                 codeGenContext_->setSymbolValue("__closure_env_" + symbol->getName(), capturedValue);
@@ -5607,41 +5589,41 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     
     // Generate function body
     if (funcDecl.getBody()) {
-        std::cout << "DEBUG: Processing function body in generateFunctionBody" << std::endl;
+        TSC_LOG_DEBUG("Processing function body in generateFunctionBody" , "CodeGen");
         
         // Debug: Check basic blocks before function body processing
-        std::cout << "DEBUG: Basic blocks before function body processing:" << std::endl;
+        TSC_LOG_DEBUG("Basic blocks before function body processing:" , "CodeGen");
         for (auto& block : *function) {
-            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+            TSC_LOG_DEBUG("Block" + &block + " has terminator: " + (block.getTerminator() ? "YES" : "NO") , "CodeGen");
         }
         
         funcDecl.getBody()->accept(*this);
-        std::cout << "DEBUG: Finished processing function body in generateFunctionBody" << std::endl;
+        TSC_LOG_DEBUG("Finished processing function body in generateFunctionBody" , "CodeGen");
         
         // Debug: Check basic blocks after function body processing
-        std::cout << "DEBUG: Basic blocks after function body processing:" << std::endl;
+        TSC_LOG_DEBUG("Basic blocks after function body processing:" , "CodeGen");
         for (auto& block : *function) {
-            std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+            TSC_LOG_DEBUG("Block" + &block + " has terminator: " + (block.getTerminator() ? "YES" : "NO") , "CodeGen");
         }
         
         // Debug: Check if we have a terminator after function body processing
-        std::cout << "DEBUG: Checking terminator after function body processing" << std::endl;
+        TSC_LOG_DEBUG("Checking terminator after function body processing" , "CodeGen");
         llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
-        std::cout << "DEBUG: Current block: " << currentBlock << std::endl;
+        TSC_LOG_DEBUG("Current block:" + currentBlock , "CodeGen");
         if (currentBlock) {
-            std::cout << "DEBUG: Current block has terminator: " << (currentBlock->getTerminator() ? "YES" : "NO") << std::endl;
+            TSC_LOG_DEBUG("Current block has terminator:" + (currentBlock->getTerminator() ? "YES" : "NO") , "CodeGen");
             if (currentBlock->getTerminator()) {
-                std::cout << "DEBUG: Function already has terminator after body processing" << std::endl;
+                TSC_LOG_DEBUG("Function already has terminator after body processing" , "CodeGen");
             } else {
-                std::cout << "DEBUG: Function does NOT have terminator after body processing" << std::endl;
+                TSC_LOG_DEBUG("Function does NOT have terminator after body processing" , "CodeGen");
             }
         } else {
-            std::cout << "DEBUG: Current block is null!" << std::endl;
+            TSC_LOG_DEBUG("Current block is null!" , "CodeGen");
         }
     }
     
     // Add return if not present
-    std::cout << "DEBUG: About to check for terminator in generateFunctionBody" << std::endl;
+    TSC_LOG_DEBUG("About to check for terminator in generateFunctionBody" , "CodeGen");
     if (!builder_->GetInsertBlock()->getTerminator()) {
         // Generate cleanup for ARC-managed objects before adding return statement
         codeGenContext_->generateScopeCleanup(this);
@@ -5649,47 +5631,47 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
         // Add cleanup for malloc'd objects before return
         // TODO: Implement proper tracking of malloc'd objects for cleanup
         // For now, this is a simplified approach that doesn't track individual allocations
-        std::cout << "DEBUG: No terminator found, adding return statement" << std::endl;
+        TSC_LOG_DEBUG("No terminator found, adding return statement" , "CodeGen");
         llvm::Type* returnType = function->getReturnType();
         if (returnType->isVoidTy()) {
-            std::cout << "DEBUG: About to call CreateRetVoid" << std::endl;
+            TSC_LOG_DEBUG("About to call CreateRetVoid" , "CodeGen");
             builder_->CreateRetVoid();
-            std::cout << "DEBUG: CreateRetVoid called successfully" << std::endl;
+            TSC_LOG_DEBUG("CreateRetVoid called successfully" , "CodeGen");
             
             // Check if the terminator was actually added
             llvm::BasicBlock* currentBlock = builder_->GetInsertBlock();
-            std::cout << "DEBUG: Current block after CreateRetVoid: " << currentBlock << std::endl;
+            TSC_LOG_DEBUG("Current block after CreateRetVoid:" + currentBlock , "CodeGen");
             if (currentBlock && currentBlock->getTerminator()) {
-                std::cout << "DEBUG: Terminator successfully added to block " << currentBlock << std::endl;
+                TSC_LOG_DEBUG("Terminator successfully added to block" + currentBlock , "CodeGen");
             } else {
-                std::cout << "DEBUG: ERROR - Terminator was NOT added to block " << currentBlock << "!" << std::endl;
+                TSC_LOG_DEBUG("ERROR - Terminator was NOT added to block" + currentBlock + "!" , "CodeGen");
             }
         } else {
             // Return a default value of the appropriate type
             // For functions without explicit return statements, return null/undefined
             llvm::Value* defaultValue = createDefaultValue(returnType);
             builder_->CreateRet(defaultValue);
-            std::cout << "DEBUG: Added default return" << std::endl;
+            TSC_LOG_DEBUG("Added default return" , "CodeGen");
         }
     } else {
-        std::cout << "DEBUG: Function already has terminator" << std::endl;
+        TSC_LOG_DEBUG("Function already has terminator" , "CodeGen");
         // The ReturnStatement visitor should handle type conversion correctly
         // No need for special main function handling here
     }
     
     // Debug: Check all basic blocks before ensuring terminators
-    std::cout << "DEBUG: Checking all basic blocks in function " << function->getName().str() << std::endl;
+    TSC_LOG_DEBUG("Checking all basic blocks in function" + function->getName().str() , "CodeGen");
     for (auto& block : *function) {
-        std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+        TSC_LOG_DEBUG("Block" + &block + " has terminator: " + (block.getTerminator() ? "YES" : "NO") , "CodeGen");
     }
     
     // Ensure all basic blocks have terminators (handle unreachable blocks)
     ensureBlockTerminators(function);
     
     // Debug: Check all basic blocks after ensuring terminators
-    std::cout << "DEBUG: Checking all basic blocks after ensuring terminators" << std::endl;
+    TSC_LOG_DEBUG("Checking all basic blocks after ensuring terminators" , "CodeGen");
     for (auto& block : *function) {
-        std::cout << "DEBUG: Block " << &block << " has terminator: " << (block.getTerminator() ? "YES" : "NO") << std::endl;
+        TSC_LOG_DEBUG("Block" + &block + " has terminator: " + (block.getTerminator() ? "YES" : "NO") , "CodeGen");
     }
     
     // Exit function context
@@ -5698,8 +5680,7 @@ void LLVMCodeGen::generateFunctionBody(llvm::Function* function, const FunctionD
     
     // Restore the previous scope
     symbolTable_->popScope();
-    std::cout << "DEBUG: LLVMCodeGen finished processing function: " << funcDecl.getName() 
-              << " with current scope: " << symbolTable_->getCurrentScope() << std::endl;
+    TSC_LOG_DEBUG("LLVMCodeGen finished processing function:" + funcDecl.getName() + " with current scope: " + symbolTable_->getCurrentScope() , "CodeGen");
 }
 
 bool LLVMCodeGen::hasReturnStatements(const FunctionDeclaration& funcDecl) {
@@ -6040,11 +6021,11 @@ llvm::Value* LLVMCodeGen::allocateVariable(const String& name, llvm::Type* type,
 }
 
 llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation& location) {
-    std::cout << "DEBUG: loadVariable called for: " << name << std::endl;
+    TSC_LOG_DEBUG("loadVariable called for:" + name , "CodeGen");
     llvm::Value* storage = codeGenContext_->getSymbolValue(name);
-    std::cout << "DEBUG: loadVariable found storage for " << name << ": " << (storage ? "YES" : "NO") << std::endl;
+    TSC_LOG_DEBUG("loadVariable found storage for" + name + ": " + (storage ? "YES" : "NO") , "CodeGen");
     if (storage) {
-        std::cout << "DEBUG: Storage type for " << name << ": " << storage->getType()->getTypeID() << std::endl;
+        TSC_LOG_DEBUG("Storage type for" + name + ": " + storage->getType()->getTypeID() , "CodeGen");
     }
     if (!storage) {
         return nullptr;
@@ -6057,19 +6038,19 @@ llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation&
         llvm::Type* elementType = getAnyType(); // Default fallback
         
         // Check if this is an external symbol (like Infinity, NaN)
-        std::cout << "DEBUG: Checking if storage is GlobalVariable for " << name << std::endl;
-        std::cout << "DEBUG: Storage value: " << storage << std::endl;
+        TSC_LOG_DEBUG("Checking if storage is GlobalVariable for" + name , "CodeGen");
+        TSC_LOG_DEBUG("Storage value:" + storage , "CodeGen");
         if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(storage)) {
-            std::cout << "DEBUG: Found global variable " << name << " with linkage: " << globalVar->getLinkage() << std::endl;
+            TSC_LOG_DEBUG("Found global variable" + name + " with linkage: " + globalVar->getLinkage() , "CodeGen");
             if (globalVar->getLinkage() == llvm::GlobalValue::ExternalLinkage) {
                 // This is an external symbol - load it directly
-                std::cout << "DEBUG: Loading external symbol " << name << " in function context" << std::endl;
+                TSC_LOG_DEBUG("Loading external symbol" + name + " in function context" , "CodeGen");
                 elementType = globalVar->getValueType();
                 return builder_->CreateLoad(elementType, storage, name + "_val");
             }
         } else {
-            std::cout << "DEBUG: Storage is not a GlobalVariable for " << name << std::endl;
-            std::cout << "DEBUG: Storage type name: " << storage->getType()->getTypeID() << std::endl;
+            TSC_LOG_DEBUG("Storage is not a GlobalVariable for" + name , "CodeGen");
+            TSC_LOG_DEBUG("Storage type name:" + storage->getType()->getTypeID() , "CodeGen");
         }
         
         // Try to get the correct element type from the alloca instruction
@@ -6080,23 +6061,23 @@ llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation&
         return builder_->CreateLoad(elementType, storage, name + "_val");
     } else {
         // We're at global scope - can only reference constants
-        std::cout << "DEBUG: Global scope - checking storage for " << name << std::endl;
-        std::cout << "DEBUG: Storage value: " << storage << std::endl;
+        TSC_LOG_DEBUG("Global scope - checking storage for" + name , "CodeGen");
+        TSC_LOG_DEBUG("Storage value:" + storage , "CodeGen");
         if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(storage)) {
-            std::cout << "DEBUG: Found global variable " << name << " with linkage: " << globalVar->getLinkage() << std::endl;
+            TSC_LOG_DEBUG("Found global variable" + name + " with linkage: " + globalVar->getLinkage() , "CodeGen");
             if (globalVar->hasInitializer()) {
                 return globalVar->getInitializer();
             }
             // For global variables without initializers (like those initialized with malloc),
             // return the global variable pointer itself instead of trying to load from it
-            std::cout << "DEBUG: Global variable " << name << " has no initializer, returning global variable pointer" << std::endl;
+            TSC_LOG_DEBUG("Global variable" + name + " has no initializer, returning global variable pointer" , "CodeGen");
             return globalVar;
             // Check if this is an external symbol (like Infinity, NaN)
             // Check by name since linkage might not be set correctly
             if (name == "Infinity" || name == "NaN") {
                 // For external symbols in global scope, return a special constant
                 // that will be replaced with actual loads in the main function
-                std::cout << "DEBUG: Creating special constant for external symbol: " << name << std::endl;
+                TSC_LOG_DEBUG("Creating special constant for external symbol:" + name , "CodeGen");
                 if (name == "Infinity") {
                     return llvm::ConstantFP::get(getNumberType(), std::numeric_limits<double>::infinity());
                 } else if (name == "NaN") {
@@ -6104,8 +6085,8 @@ llvm::Value* LLVMCodeGen::loadVariable(const String& name, const SourceLocation&
                 }
             }
         } else {
-            std::cout << "DEBUG: Storage is not a GlobalVariable for " << name << " in global scope" << std::endl;
-            std::cout << "DEBUG: Storage type name: " << storage->getType()->getTypeID() << std::endl;
+            TSC_LOG_DEBUG("Storage is not a GlobalVariable for" + name + " in global scope" , "CodeGen");
+            TSC_LOG_DEBUG("Storage type name:" + storage->getType()->getTypeID() , "CodeGen");
         }
         // Can't load non-constant values at global scope
         reportError("Cannot reference non-constant values in global initializers", location);
@@ -6147,7 +6128,7 @@ void LLVMCodeGen::declareBuiltinGlobals() {
         nullptr, // initializer (will be provided by runtime.c)
         "Infinity"
     );
-    std::cout << "DEBUG: Created Infinity global variable with linkage: " << infinityVar->getLinkage() << std::endl;
+    TSC_LOG_DEBUG("Created Infinity global variable with linkage:" + infinityVar->getLinkage() , "CodeGen");
     codeGenContext_->setSymbolValue("Infinity", infinityVar);
     
     // Declare NaN as an external global variable
@@ -6255,7 +6236,7 @@ void LLVMCodeGen::optimizeModule() {
 
 void LLVMCodeGen::runARCOptimizations() {
     // ARC optimization passes
-    std::cout << "DEBUG: Running ARC optimizations" << std::endl;
+    TSC_LOG_DEBUG("Running ARC optimizations" , "CodeGen");
     
     // For now, this is a placeholder implementation
     // In a full implementation, this would:
@@ -6273,7 +6254,7 @@ void LLVMCodeGen::runARCOptimizations() {
     //                         PM.add(createARCWeakOptPass());
     //                     });
     
-    std::cout << "DEBUG: ARC optimizations completed" << std::endl;
+    TSC_LOG_DEBUG("ARC optimizations completed" , "CodeGen");
 }
 
 // Target setup implementation
@@ -6384,7 +6365,7 @@ void LLVMCodeGen::visit(MethodDeclaration& node) {
         }
     }
     
-    std::cout << "DEBUG: Generating method: " << functionName << std::endl;
+    TSC_LOG_DEBUG("Generating method:" + functionName , "CodeGen");
     
     llvm::Function* function = llvm::Function::Create(
         functionType, llvm::Function::ExternalLinkage, functionName, module_.get()
@@ -6432,7 +6413,7 @@ void LLVMCodeGen::visit(MethodDeclaration& node) {
 }
 
 void LLVMCodeGen::visit(DestructorDeclaration& node) {
-    std::cout << "DEBUG: Generating destructor for class: " << node.getClassName() << std::endl;
+    TSC_LOG_DEBUG("Generating destructor for class:" + node.getClassName() , "CodeGen");
     
     // Generate LLVM function for the destructor
     std::vector<llvm::Type*> paramTypes;
@@ -6449,7 +6430,7 @@ void LLVMCodeGen::visit(DestructorDeclaration& node) {
     // Create function with mangled name
     String functionName = "~" + node.getClassName();
     
-    std::cout << "DEBUG: Generating destructor function: " << functionName << std::endl;
+    TSC_LOG_DEBUG("Generating destructor function:" + functionName , "CodeGen");
     
     llvm::Function* function = llvm::Function::Create(
         functionType, llvm::Function::ExternalLinkage, functionName, module_.get()
@@ -6466,8 +6447,7 @@ void LLVMCodeGen::visit(DestructorDeclaration& node) {
         // Ensure proper stack alignment for x86-64 calling convention
         // Allocate a 16-byte aligned stack frame to prevent stack corruption
         llvm::Value* alignedFrame = builder_->CreateAlloca(llvm::Type::getInt8Ty(*context_), 
-                                                          llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 16), 
-                                                          "aligned_frame");
+                                                          llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 16), "aligned_frame");
         // Touch the frame to prevent optimization
         builder_->CreateStore(llvm::ConstantInt::get(llvm::Type::getInt8Ty(*context_), 0), alignedFrame);
         
@@ -6486,7 +6466,7 @@ void LLVMCodeGen::visit(DestructorDeclaration& node) {
         codeGenContext_->exitFunction();
     }
     
-    std::cout << "DEBUG: Destructor function generated successfully" << std::endl;
+    TSC_LOG_DEBUG("Destructor function generated successfully" , "CodeGen");
     setCurrentValue(function);
 }
 
@@ -6504,7 +6484,7 @@ void LLVMCodeGen::visit(ClassDeclaration& node) {
         // They will be generated during monomorphization when the class is instantiated
         // with specific type arguments
         
-        std::cout << "DEBUG: Skipping method generation for generic class: " << node.getName() << std::endl;
+        TSC_LOG_DEBUG("Skipping method generation for generic class:" + node.getName() , "CodeGen");
         
         // For generic classes, we don't set a current value
         // The actual type will be created during instantiation
@@ -6539,10 +6519,10 @@ void LLVMCodeGen::visit(ClassDeclaration& node) {
     
     // Generate destructor if present
     if (node.getDestructor()) {
-        std::cout << "DEBUG: Generating destructor for class: " << node.getName() << std::endl;
+        TSC_LOG_DEBUG("Generating destructor for class:" + node.getName() , "CodeGen");
         node.getDestructor()->accept(*this);
     } else {
-        std::cout << "DEBUG: No destructor found for class: " << node.getName() << std::endl;
+        TSC_LOG_DEBUG("No destructor found for class:" + node.getName() , "CodeGen");
     }
     
     // Store class type information (simplified)
@@ -6639,13 +6619,13 @@ void LLVMCodeGen::visit(TypeAliasDeclaration& node) {
 void LLVMCodeGen::visit(ImportDeclaration& node) {
     // Import declarations are handled during module resolution
     // No runtime code generation needed for imports
-    std::cout << "DEBUG: Processing import declaration: " << node.getModuleSpecifier() << std::endl;
+    TSC_LOG_DEBUG("Processing import declaration:" + node.getModuleSpecifier() , "CodeGen");
 }
 
 void LLVMCodeGen::visit(ExportDeclaration& node) {
     // Export declarations are handled during module resolution
     // No runtime code generation needed for exports
-    std::cout << "DEBUG: Processing export declaration: " << node.getModuleSpecifier() << std::endl;
+    TSC_LOG_DEBUG("Processing export declaration:" + node.getModuleSpecifier() , "CodeGen");
 }
 
 // Memory management functions
@@ -6810,12 +6790,12 @@ String LLVMCodeGen::generateClosureTypeKey(const std::vector<Symbol*>& capturedV
 llvm::StructType* LLVMCodeGen::createClosureStructType(const std::vector<Symbol*>& capturedVariables) {
     // Generate cache key for this closure type
     String cacheKey = generateClosureTypeKey(capturedVariables);
-    std::cout << "DEBUG: createClosureStructType cache key: " << cacheKey << std::endl;
+    TSC_LOG_DEBUG("createClosureStructType cache key:" + cacheKey , "CodeGen");
     
     // Check if we already have this closure type
     auto it = closureTypeCache_.find(cacheKey);
     if (it != closureTypeCache_.end()) {
-        std::cout << "DEBUG: Found cached closure type for key: " << cacheKey << std::endl;
+        TSC_LOG_DEBUG("Found cached closure type for key:" + cacheKey , "CodeGen");
         return it->second;
     }
     
@@ -6842,7 +6822,7 @@ llvm::StructType* LLVMCodeGen::createClosureStructType(const std::vector<Symbol*
     
     // Cache the type for future use
     closureTypeCache_[cacheKey] = closureType;
-    std::cout << "DEBUG: Created new closure type for key: " << cacheKey << std::endl;
+    TSC_LOG_DEBUG("Created new closure type for key:" + cacheKey , "CodeGen");
     
     return closureType;
 }
@@ -6906,13 +6886,13 @@ llvm::Value* LLVMCodeGen::createClosureEnvironment(const std::vector<Symbol*>& c
     // Allocate memory
     llvm::Value* closurePtr = builder_->CreateCall(mallocFunc, {structSize});
     closurePtr = builder_->CreateBitCast(closurePtr, llvm::PointerType::getUnqual(closureType));
-    std::cout << "DEBUG: Allocated closure environment with malloc, size: " << module_->getDataLayout().getTypeAllocSize(closureType) << " bytes" << std::endl;
+    TSC_LOG_DEBUG("Allocated closure environment with malloc, size:" + module_->getDataLayout().getTypeAllocSize(closureType) + " bytes" , "CodeGen");
     
     // Store captured variables in the closure
     for (size_t i = 0; i < capturedVariables.size(); ++i) {
         const auto& symbol = capturedVariables[i];
         if (!symbol) {
-            std::cout << "DEBUG: Warning: null symbol in captured variables at index " << i << std::endl;
+            TSC_LOG_DEBUG("Warning: null symbol in captured variables at index" + i , "CodeGen");
             continue;
         }
         llvm::Value* varValue = codeGenContext_->getSymbolValue(symbol->getName());
@@ -6931,14 +6911,14 @@ llvm::Value* LLVMCodeGen::createClosureEnvironment(const std::vector<Symbol*>& c
                 // Load the actual value instead of storing the pointer
                 // Determine the correct type to load based on the symbol's type
                 llvm::Type* loadType = mapTypeScriptTypeToLLVM(*symbol->getType());
-                std::cout << "DEBUG: FIXED CODE PATH - Loading " << symbol->getName() << " with correct type instead of getAnyType()" << std::endl;
-                std::cout << "DEBUG: Symbol type kind: " << static_cast<int>(symbol->getType()->getKind()) << std::endl;
-                std::cout << "DEBUG: LLVM type: " << (loadType ? "valid" : "null") << std::endl;
+                TSC_LOG_DEBUG("FIXED CODE PATH - Loading" + symbol->getName() + " with correct type instead of getAnyType()" , "CodeGen");
+                TSC_LOG_DEBUG("Symbol type kind:" + static_cast<int>(symbol->getType()->getKind()) , "CodeGen");
+                TSC_LOG_DEBUG("LLVM type:" + (loadType ? "valid" : "null") , "CodeGen");
                 actualValue = builder_->CreateLoad(loadType, varValue, symbol->getName() + "_value");
-                std::cout << "DEBUG: Loaded value of captured variable " << symbol->getName() << " from stack" << std::endl;
+                TSC_LOG_DEBUG("Loaded value of captured variable" + symbol->getName() + " from stack" , "CodeGen");
             }
             builder_->CreateStore(actualValue, fieldPtr);
-            std::cout << "DEBUG: Stored captured variable " << symbol->getName() << " value in closure environment" << std::endl;
+            TSC_LOG_DEBUG("Stored captured variable" + symbol->getName() + " value in closure environment" , "CodeGen");
         }
     }
     
@@ -7048,7 +7028,7 @@ void LLVMCodeGen::generateNestedFunction(const FunctionDeclaration& node) {
                 // Determine the correct type to load based on the symbol's type
                 llvm::Type* loadType = mapTypeScriptTypeToLLVM(*symbol->getType());
                 llvm::Value* capturedValue = builder_->CreateLoad(loadType, fieldPtr);
-                std::cout << "DEBUG: FIXED ACCESS - Loading " << symbol->getName() << " from closure environment with correct type" << std::endl;
+                TSC_LOG_DEBUG("FIXED ACCESS - Loading" + symbol->getName() + " from closure environment with correct type" , "CodeGen");
                 
                 // Store in symbol table for the function body
                 codeGenContext_->setSymbolValue("__closure_env_" + symbol->getName(), capturedValue);
@@ -7377,7 +7357,7 @@ void LLVMCodeGen::FunctionContext::cleanup() {
 
 // Generic method lookup implementation
 llvm::Function* LLVMCodeGen::genericMethodLookup(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location) {
-    std::cout << "DEBUG: genericMethodLookup called for method: " << methodName << " on type: " << objectType->toString() << std::endl;
+    TSC_LOG_DEBUG("genericMethodLookup called for method:" + methodName + " on type: " + objectType->toString() , "CodeGen");
     
     // Handle built-in methods that are available on all types
     if (methodName == "toString") {
@@ -7398,7 +7378,7 @@ llvm::Function* LLVMCodeGen::genericMethodLookup(const String& methodName, share
         auto typeParamType = std::static_pointer_cast<TypeParameterType>(objectType);
         if (typeParamType->getConstraint()) {
             auto constraintType = typeParamType->getConstraint();
-            std::cout << "DEBUG: Type parameter has constraint: " << constraintType->toString() << std::endl;
+            TSC_LOG_DEBUG("Type parameter has constraint:" + constraintType->toString() , "CodeGen");
             
             // Handle methods based on constraint type
             if (constraintType->getKind() == TypeKind::Number) {
@@ -7421,17 +7401,17 @@ llvm::Function* LLVMCodeGen::genericMethodLookup(const String& methodName, share
     }
     
     // If no specific method found, return null
-    std::cout << "DEBUG: No method found for: " << methodName << " on type: " << objectType->toString() << std::endl;
+    TSC_LOG_DEBUG("No method found for:" + methodName + " on type: " + objectType->toString() , "CodeGen");
     return nullptr;
 }
 
 llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location) {
-    std::cout << "DEBUG: createBuiltinMethodFunction called for: " << methodName << " on type: " << objectType->toString() << std::endl;
+    TSC_LOG_DEBUG("createBuiltinMethodFunction called for:" + methodName + " on type: " + objectType->toString() , "CodeGen");
     
     // Check if function already exists
     llvm::Function* existingFunc = module_->getFunction(methodName);
     if (existingFunc) {
-        std::cout << "DEBUG: Found existing function: " << methodName << std::endl;
+        TSC_LOG_DEBUG("Found existing function:" + methodName , "CodeGen");
         return existingFunc;
     }
     
@@ -7447,7 +7427,7 @@ llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodNam
         auto func = llvm::Function::Create(
             funcType, llvm::Function::ExternalLinkage, "number_to_string", module_.get()
         );
-        std::cout << "DEBUG: Created number_to_string function with parameter type: double" << std::endl;
+        TSC_LOG_DEBUG("Created number_to_string function with parameter type: double" , "CodeGen");
         return func;
     } else if (methodName == "valueOf") {
         // valueOf() -> any (returns the object itself)
@@ -7459,7 +7439,7 @@ llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodNam
         auto func = llvm::Function::Create(
             funcType, llvm::Function::ExternalLinkage, "valueOf", module_.get()
         );
-        std::cout << "DEBUG: Created valueOf function" << std::endl;
+        TSC_LOG_DEBUG("Created valueOf function" , "CodeGen");
         return func;
     } else if (methodName == "arrayLength") {
         // arrayLength(array) -> number
@@ -7471,7 +7451,7 @@ llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodNam
         auto func = llvm::Function::Create(
             funcType, llvm::Function::ExternalLinkage, "arrayLength", module_.get()
         );
-        std::cout << "DEBUG: Created arrayLength function" << std::endl;
+        TSC_LOG_DEBUG("Created arrayLength function" , "CodeGen");
         return func;
     } else if (methodName == "stringToString") {
         // stringToString(string) -> string (identity function)
@@ -7483,7 +7463,7 @@ llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodNam
         auto func = llvm::Function::Create(
             funcType, llvm::Function::ExternalLinkage, "stringToString", module_.get()
         );
-        std::cout << "DEBUG: Created stringToString function" << std::endl;
+        TSC_LOG_DEBUG("Created stringToString function" , "CodeGen");
         return func;
     } else if (methodName == "arrayToString") {
         // arrayToString(array) -> string
@@ -7495,7 +7475,7 @@ llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodNam
         auto func = llvm::Function::Create(
             funcType, llvm::Function::ExternalLinkage, "arrayToString", module_.get()
         );
-        std::cout << "DEBUG: Created arrayToString function" << std::endl;
+        TSC_LOG_DEBUG("Created arrayToString function" , "CodeGen");
         return func;
     } else if (methodName == "push") {
         // push(array, item) -> void
@@ -7507,7 +7487,7 @@ llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodNam
         auto func = llvm::Function::Create(
             funcType, llvm::Function::ExternalLinkage, "arrayPush", module_.get()
         );
-        std::cout << "DEBUG: Created arrayPush function" << std::endl;
+        TSC_LOG_DEBUG("Created arrayPush function" , "CodeGen");
         return func;
     } else if (methodName == "pop") {
         // pop(array) -> any
@@ -7519,11 +7499,11 @@ llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodNam
         auto func = llvm::Function::Create(
             funcType, llvm::Function::ExternalLinkage, "arrayPop", module_.get()
         );
-        std::cout << "DEBUG: Created arrayPop function" << std::endl;
+        TSC_LOG_DEBUG("Created arrayPop function" , "CodeGen");
         return func;
     }
     
-    std::cout << "DEBUG: Unknown method name: " << methodName << std::endl;
+    TSC_LOG_DEBUG("Unknown method name:" + methodName , "CodeGen");
     return nullptr;
 }
 
@@ -7593,7 +7573,7 @@ void LLVMCodeGen::visit(DestructuringPattern& node) {
 }
 
 void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
-    std::cout << "DEBUG: ArrayDestructuringPattern visitor called with " << node.getElements().size() << " elements" << std::endl;
+    TSC_LOG_DEBUG("ArrayDestructuringPattern visitor called with" + node.getElements().size() + " elements" , "CodeGen");
     
     // Get the source array value from the current context
     // This should have been set by the DestructuringAssignment
@@ -7612,7 +7592,7 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
         
         if (auto identifierPattern = dynamic_cast<IdentifierPattern*>(element.get())) {
             // Simple identifier pattern: let [a, b] = array; or let [a = default] = array;
-            std::cout << "DEBUG: Processing identifier pattern: " << identifierPattern->getName();
+            TSC_LOG_DEBUG("Processing identifier pattern:" + identifierPattern->getName(), "CodeGen");
             if (identifierPattern->hasDefaultValue()) {
                 std::cout << " (with default value)";
             }
@@ -7673,7 +7653,7 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
                                 // Select between element value and default value
                                 finalValue = builder_->CreateSelect(indexLessThanLength, elementValue, defaultValue, "selected_value_" + std::to_string(i));
                                 
-                                std::cout << "DEBUG: Generated default value logic for " << identifierPattern->getName() << std::endl;
+                                TSC_LOG_DEBUG("Generated default value logic for" + identifierPattern->getName() , "CodeGen");
                             }
                             
                             // Create the variable storage first
@@ -7682,7 +7662,7 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
                             // Store the final value in the variable
                             builder_->CreateStore(finalValue, variableStorage);
                             
-                            std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                            TSC_LOG_DEBUG("Stored element" + i + " in variable " + identifierPattern->getName() , "CodeGen");
                             continue; // Successfully processed this element
                         }
                     }
@@ -7714,7 +7694,7 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
                         // For legacy arrays, we'll use the element value (no bounds checking for now)
                         finalValue = elementValue;
                         
-                        std::cout << "DEBUG: Generated default value logic for legacy array " << identifierPattern->getName() << std::endl;
+                        TSC_LOG_DEBUG("Generated default value logic for legacy array" + identifierPattern->getName() , "CodeGen");
                     }
                     
                     // Create the variable storage first
@@ -7723,7 +7703,7 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
                     // Store the final value in the variable
                     builder_->CreateStore(finalValue, variableStorage);
                     
-                    std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                    TSC_LOG_DEBUG("Stored element" + i + " in variable " + identifierPattern->getName() , "CodeGen");
                     continue; // Successfully processed this element
                 }
             } else {
@@ -7765,7 +7745,7 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
                             // Select between element value and default value
                             finalValue = builder_->CreateSelect(indexLessThanSize, elementValue, defaultValue, "selected_value_" + std::to_string(i));
                             
-                            std::cout << "DEBUG: Generated default value logic for global array " << identifierPattern->getName() << std::endl;
+                            TSC_LOG_DEBUG("Generated default value logic for global array" + identifierPattern->getName() , "CodeGen");
                         } else {
                             // Fallback: use element value
                             finalValue = elementValue;
@@ -7778,7 +7758,7 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
                     // Store the final value in the variable
                     builder_->CreateStore(finalValue, variableStorage);
                     
-                    std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                    TSC_LOG_DEBUG("Stored element" + i + " in variable " + identifierPattern->getName() , "CodeGen");
                     continue; // Successfully processed this element
                 } else {
                     // Non-global array - use pointer arithmetic
@@ -7807,7 +7787,7 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
                         // For pointer arrays, we'll use the element value (no bounds checking for now)
                         finalValue = elementValue;
                         
-                        std::cout << "DEBUG: Generated default value logic for pointer array " << identifierPattern->getName() << std::endl;
+                        TSC_LOG_DEBUG("Generated default value logic for pointer array" + identifierPattern->getName() , "CodeGen");
                     }
                     
                     // Create the variable storage first
@@ -7817,7 +7797,7 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
                     builder_->CreateStore(finalValue, variableStorage);
                 }
                 
-                std::cout << "DEBUG: Stored element " << i << " in variable " << identifierPattern->getName() << std::endl;
+                TSC_LOG_DEBUG("Stored element" + i + " in variable " + identifierPattern->getName() , "CodeGen");
                 continue; // Successfully processed this element
             }
             
@@ -7826,17 +7806,17 @@ void LLVMCodeGen::visit(ArrayDestructuringPattern& node) {
             return;
         } else {
             // Handle other pattern types (nested patterns, etc.)
-            std::cout << "DEBUG: Processing complex pattern at index " << i << std::endl;
+            TSC_LOG_DEBUG("Processing complex pattern at index" + i , "CodeGen");
             // TODO: Implement nested destructuring patterns
             reportError("Complex destructuring patterns not yet implemented", node.getLocation());
         }
     }
     
-    std::cout << "DEBUG: ArrayDestructuringPattern completed" << std::endl;
+    TSC_LOG_DEBUG("ArrayDestructuringPattern completed" , "CodeGen");
 }
 
 void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
-    std::cout << "DEBUG: ObjectDestructuringPattern visitor called with " << node.getProperties().size() << " properties" << std::endl;
+    TSC_LOG_DEBUG("ObjectDestructuringPattern visitor called with" + node.getProperties().size() + " properties" , "CodeGen");
     
     llvm::Value* sourceObject = getCurrentValue();
     
@@ -7851,7 +7831,7 @@ void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
     for (size_t i = 0; i < properties.size(); i++) {
         const auto& property = properties[i];
         
-        std::cout << "DEBUG: Processing object property: " << property.getKey() << std::endl;
+        TSC_LOG_DEBUG("Processing object property:" + property.getKey() , "CodeGen");
         
         // Get the object type to determine field access
         llvm::Type* objectType = nullptr;
@@ -7877,7 +7857,7 @@ void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
             } else {
                 // Property doesn't exist in the object - use default value if available
                 if (property.hasDefaultValue()) {
-                    std::cout << "DEBUG: Property " << property.getKey() << " not found, using default value" << std::endl;
+                    TSC_LOG_DEBUG("Property" + property.getKey() + " not found, using default value" , "CodeGen");
                     
                     // Generate default value
                     llvm::Value* defaultValue = nullptr;
@@ -7897,7 +7877,7 @@ void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
                         // Store the default value in the variable
                         builder_->CreateStore(defaultValue, variableStorage);
                         
-                        std::cout << "DEBUG: Stored default value for property " << property.getKey() << " in variable " << variableName << std::endl;
+                        TSC_LOG_DEBUG("Stored default value for property" + property.getKey() + " in variable " + variableName , "CodeGen");
                         continue; // Skip the rest of the processing for this property
                     } else {
                         reportError("Complex object destructuring patterns not yet implemented", node.getLocation());
@@ -7939,7 +7919,7 @@ void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
             // TODO: Add proper property existence checking
             finalValue = fieldValue;
             
-            std::cout << "DEBUG: Generated default value logic for object property " << property.getKey() << std::endl;
+            TSC_LOG_DEBUG("Generated default value logic for object property" + property.getKey() , "CodeGen");
         }
         
         // Handle the destructuring pattern (could be renaming)
@@ -7953,18 +7933,18 @@ void LLVMCodeGen::visit(ObjectDestructuringPattern& node) {
             // Store the final value in the variable
             builder_->CreateStore(finalValue, variableStorage);
             
-            std::cout << "DEBUG: Stored object property " << property.getKey() << " in variable " << variableName << std::endl;
+            TSC_LOG_DEBUG("Stored object property" + property.getKey() + " in variable " + variableName , "CodeGen");
         } else {
-            std::cout << "DEBUG: Processing complex object pattern for property " << property.getKey() << std::endl;
+            TSC_LOG_DEBUG("Processing complex object pattern for property" + property.getKey() , "CodeGen");
             reportError("Complex object destructuring patterns not yet implemented", node.getLocation());
         }
     }
     
-    std::cout << "DEBUG: ObjectDestructuringPattern completed" << std::endl;
+    TSC_LOG_DEBUG("ObjectDestructuringPattern completed" , "CodeGen");
 }
 
 void LLVMCodeGen::visit(IdentifierPattern& node) {
-    std::cout << "DEBUG: IdentifierPattern visitor called for: " << node.getName() << std::endl;
+    TSC_LOG_DEBUG("IdentifierPattern visitor called for:" + node.getName() , "CodeGen");
     
     // For identifier patterns, we need to create a variable storage
     // This is typically called from within a destructuring pattern context
@@ -7983,11 +7963,11 @@ void LLVMCodeGen::visit(IdentifierPattern& node) {
     // Store the value in the variable
     builder_->CreateStore(value, variableStorage);
     
-    std::cout << "DEBUG: Stored value in variable: " << node.getName() << std::endl;
+    TSC_LOG_DEBUG("Stored value in variable:" + node.getName() , "CodeGen");
 }
 
 void LLVMCodeGen::visit(DestructuringAssignment& node) {
-    std::cout << "DEBUG: DestructuringAssignment visitor called" << std::endl;
+    TSC_LOG_DEBUG("DestructuringAssignment visitor called" , "CodeGen");
     
     // Generate the right-hand side value (the source)
     node.getValue()->accept(*this);
@@ -8001,7 +7981,7 @@ void LLVMCodeGen::visit(DestructuringAssignment& node) {
     // Handle the destructuring pattern
     node.getPattern()->accept(*this);
     
-    std::cout << "DEBUG: DestructuringAssignment completed" << std::endl;
+    TSC_LOG_DEBUG("DestructuringAssignment completed" , "CodeGen");
 }
 
 void LLVMCodeGen::visit(OptionalPropertyAccess& node) {
@@ -8020,7 +8000,7 @@ void LLVMCodeGen::visit(OptionalCallExpr& node) {
 }
 
 void LLVMCodeGen::visit(SpreadElement& node) {
-    std::cout << "DEBUG: SpreadElement visitor called" << std::endl;
+    TSC_LOG_DEBUG("SpreadElement visitor called" , "CodeGen");
     
     // Generate the expression being spread
     node.getExpression()->accept(*this);
@@ -8031,7 +8011,7 @@ void LLVMCodeGen::visit(SpreadElement& node) {
         return;
     }
     
-    std::cout << "DEBUG: SpreadElement - spreadValue type: " << spreadValue->getType()->getTypeID() << std::endl;
+    TSC_LOG_DEBUG("SpreadElement - spreadValue type:" + spreadValue->getType()->getTypeID() , "CodeGen");
     
     // For now, we'll implement a simplified version that works with arrays
     // In a full implementation, we'd need to handle both arrays and objects
@@ -8042,9 +8022,9 @@ void LLVMCodeGen::visit(SpreadElement& node) {
     
     if (auto* allocaInst = llvm::dyn_cast<llvm::AllocaInst>(spreadValue)) {
         spreadType = allocaInst->getAllocatedType();
-        std::cout << "DEBUG: SpreadElement - spreadValue is AllocaInst" << std::endl;
+        TSC_LOG_DEBUG("SpreadElement - spreadValue is AllocaInst" , "CodeGen");
     } else if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(spreadValue)) {
-        std::cout << "DEBUG: SpreadElement - spreadValue is GlobalVariable: " << globalVar->getName().str() << std::endl;
+        TSC_LOG_DEBUG("SpreadElement - spreadValue is GlobalVariable:" + globalVar->getName().str() , "CodeGen");
         
         // Check if this global variable points to another global variable (struct)
         if (globalVar->hasInitializer()) {
@@ -8053,7 +8033,7 @@ void LLVMCodeGen::visit(SpreadElement& node) {
                 // This is a pointer to a global variable (struct)
                 spreadType = targetGlobalVar->getValueType();
                 spreadPtr = targetGlobalVar; // Use the actual struct, not the pointer
-                std::cout << "DEBUG: SpreadElement - GlobalVariable points to struct: " << targetGlobalVar->getName().str() << std::endl;
+                TSC_LOG_DEBUG("SpreadElement - GlobalVariable points to struct:" + targetGlobalVar->getName().str() , "CodeGen");
                 
                 // For object literal implementation, return the dereferenced struct
                 setCurrentValue(targetGlobalVar);
@@ -8062,7 +8042,7 @@ void LLVMCodeGen::visit(SpreadElement& node) {
                 // This is a direct struct global variable
                 spreadType = globalVar->getValueType();
                 spreadPtr = globalVar;
-                std::cout << "DEBUG: SpreadElement - GlobalVariable is direct struct" << std::endl;
+                TSC_LOG_DEBUG("SpreadElement - GlobalVariable is direct struct" , "CodeGen");
                 
                 // For object literal implementation, return the struct directly
                 setCurrentValue(globalVar);
@@ -8072,7 +8052,7 @@ void LLVMCodeGen::visit(SpreadElement& node) {
             // No initializer, treat as direct struct
             spreadType = globalVar->getValueType();
             spreadPtr = globalVar;
-            std::cout << "DEBUG: SpreadElement - GlobalVariable has no initializer, treating as direct struct" << std::endl;
+            TSC_LOG_DEBUG("SpreadElement - GlobalVariable has no initializer, treating as direct struct" , "CodeGen");
             
             // For object literal implementation, return the struct directly
             setCurrentValue(globalVar);
@@ -8080,41 +8060,41 @@ void LLVMCodeGen::visit(SpreadElement& node) {
         }
     } else if (spreadValue->getType()->isPointerTy()) {
         // Handle pointer to struct/array
-        std::cout << "DEBUG: SpreadElement - spreadValue is a pointer, type ID: " << spreadValue->getType()->getTypeID() << std::endl;
+        TSC_LOG_DEBUG("SpreadElement - spreadValue is a pointer, type ID:" + spreadValue->getType()->getTypeID() , "CodeGen");
         if (spreadValue->getType()->getTypeID() == llvm::Type::TypedPointerTyID) {
             // It's a TypedPointerType
             auto* typedPtrType = llvm::cast<llvm::TypedPointerType>(spreadValue->getType());
             spreadType = typedPtrType->getElementType();
             spreadPtr = spreadValue; // Use the pointer directly
-            std::cout << "DEBUG: SpreadElement - TypedPointerType, element type: " << spreadType->getTypeID() << std::endl;
+            TSC_LOG_DEBUG("SpreadElement - TypedPointerType, element type:" + spreadType->getTypeID() , "CodeGen");
         } else {
             // It's a regular PointerType - in LLVM 20, we can't get element type directly
             // But we can try to infer the type by looking at the global variable it points to
-            std::cout << "DEBUG: SpreadElement - regular PointerType, trying to infer type from global variable" << std::endl;
+            TSC_LOG_DEBUG("SpreadElement - regular PointerType, trying to infer type from global variable" , "CodeGen");
             
             // Check if this is a global variable that points to a struct
             if (auto* globalVar = llvm::dyn_cast<llvm::GlobalVariable>(spreadValue)) {
-                std::cout << "DEBUG: SpreadElement - found global variable: " << globalVar->getName().str() << std::endl;
+                TSC_LOG_DEBUG("SpreadElement - found global variable:" + globalVar->getName().str() , "CodeGen");
                 if (globalVar->hasInitializer()) {
                     llvm::Constant* initializer = globalVar->getInitializer();
-                    std::cout << "DEBUG: SpreadElement - initializer type: " << initializer->getType()->getTypeID() << std::endl;
+                    TSC_LOG_DEBUG("SpreadElement - initializer type:" + initializer->getType()->getTypeID() , "CodeGen");
                     if (auto* globalVarPtr = llvm::dyn_cast<llvm::GlobalVariable>(initializer)) {
                         // This is a pointer to a global variable
                         spreadType = globalVarPtr->getValueType();
                         spreadPtr = globalVarPtr; // Use the actual struct, not the pointer
-                        std::cout << "DEBUG: SpreadElement - inferred struct type from global variable: " << spreadType->getTypeID() << std::endl;
+                        TSC_LOG_DEBUG("SpreadElement - inferred struct type from global variable:" + spreadType->getTypeID() , "CodeGen");
                     } else {
-                        std::cout << "DEBUG: SpreadElement - initializer is not a global variable" << std::endl;
+                        TSC_LOG_DEBUG("SpreadElement - initializer is not a global variable" , "CodeGen");
                     }
                 } else {
-                    std::cout << "DEBUG: SpreadElement - global variable has no initializer" << std::endl;
+                    TSC_LOG_DEBUG("SpreadElement - global variable has no initializer" , "CodeGen");
                 }
             } else {
-                std::cout << "DEBUG: SpreadElement - spreadValue is not a global variable" << std::endl;
+                TSC_LOG_DEBUG("SpreadElement - spreadValue is not a global variable" , "CodeGen");
             }
             
             if (!spreadType) {
-                std::cout << "DEBUG: SpreadElement - could not infer type, returning null" << std::endl;
+                TSC_LOG_DEBUG("SpreadElement - could not infer type, returning null" , "CodeGen");
                 setCurrentValue(createNullValue(getAnyType()));
                 return;
             }
@@ -8130,7 +8110,7 @@ void LLVMCodeGen::visit(SpreadElement& node) {
                 llvm::Type* elementType = dataArrayType->getElementType();
                 size_t arraySize = dataArrayType->getNumElements();
                 
-                std::cout << "DEBUG: Spreading array with " << arraySize << " elements of type " << elementType->getTypeID() << std::endl;
+                TSC_LOG_DEBUG("Spreading array with" + arraySize + " elements of type " + elementType->getTypeID() , "CodeGen");
                 
                 // Create a new array with the same structure
                 llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
@@ -8225,7 +8205,7 @@ void LLVMCodeGen::visit(SpreadElement& node) {
             }
         } else {
             // This is an object struct (not an array)
-            std::cout << "DEBUG: Spreading object with " << structType->getNumElements() << " fields" << std::endl;
+            TSC_LOG_DEBUG("Spreading object with" + structType->getNumElements() + " fields" , "CodeGen");
             
             // For object spread, we'll create a new struct with the same fields
             llvm::Function* currentFunc = codeGenContext_->getCurrentFunction();
@@ -8312,19 +8292,19 @@ bool LLVMCodeGen::isARCManagedType(shared_ptr<Type> type) const {
 }
 
 void LLVMCodeGen::generateAutomaticCleanup(const String& className) {
-    std::cout << "DEBUG: Generating automatic cleanup for class: " << className << std::endl;
+    TSC_LOG_DEBUG("Generating automatic cleanup for class:" + className , "CodeGen");
     
     // Look up the class symbol to get its properties
     Symbol* classSymbol = symbolTable_->lookupSymbol(className);
     if (!classSymbol) {
-        std::cout << "DEBUG: Class symbol not found for: " << className << std::endl;
+        TSC_LOG_DEBUG("Class symbol not found for:" + className , "CodeGen");
         return;
     }
     
     // Get the class declaration from the symbol
     ClassDeclaration* classDecl = dynamic_cast<ClassDeclaration*>(classSymbol->getDeclaration());
     if (!classDecl) {
-        std::cout << "DEBUG: Class declaration not found for: " << className << std::endl;
+        TSC_LOG_DEBUG("Class declaration not found for:" + className , "CodeGen");
         return;
     }
     
@@ -8334,7 +8314,7 @@ void LLVMCodeGen::generateAutomaticCleanup(const String& className) {
         shared_ptr<Type> propType = prop->getType();
         
         if (isARCManagedType(propType)) {
-            std::cout << "DEBUG: Generating cleanup for ARC-managed property: " << prop->getName() << std::endl;
+            TSC_LOG_DEBUG("Generating cleanup for ARC-managed property:" + prop->getName() , "CodeGen");
             
             // Generate ARC release call for the property
             // In a full implementation, we would:
@@ -8348,7 +8328,7 @@ void LLVMCodeGen::generateAutomaticCleanup(const String& className) {
         }
     }
     
-    std::cout << "DEBUG: Automatic cleanup generation completed for: " << className << std::endl;
+    TSC_LOG_DEBUG("Automatic cleanup generation completed for:" + className , "CodeGen");
 }
 
 // Switch context management

@@ -239,7 +239,7 @@ String AddTypeMismatchRule::apply(const String& code, const SourceLocation& loca
         String value = match[2].str();
         
         // Change number to string
-        String newValue = "\"" + value + "\"";
+        String newValue = "\value + "\"";
         result = std::regex_replace(result, assignmentPattern, varName + " = " + newValue);
     }
     

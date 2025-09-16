@@ -20,7 +20,7 @@ void StringLiteral::accept(ASTVisitor& visitor) {
 }
 
 String StringLiteral::toString() const {
-    return "\"" + value_ + "\"";
+    return "\value_ + "\"";
 }
 
 // TemplateLiteral implementation

@@ -1,5 +1,6 @@
 #include "tsc/semantic/SymbolTable.h"
 #include "tsc/semantic/TypeSystem.h"
+#include "tsc/utils/Logger.h"
 #include <iostream>
 #include <sstream>
 #include <set>
@@ -62,22 +63,22 @@ bool Scope::addSymbol(unique_ptr<Symbol> symbol) {
 }
 
 Symbol* Scope::lookupSymbol(const String& name) const {
-    std::cout << "DEBUG: Scope::lookupSymbol searching for '" << name << "' in scope " << this << " (type: " << static_cast<int>(type_) << ")" << std::endl;
+    TSC_LOG_DEBUG("Scope::lookupSymbol searching for '" + name + "' in scope (type: " + std::to_string(static_cast<int>(type_)) + ")", "Semantic");
     
     // Look in current scope first
     auto it = symbols_.find(name);
     if (it != symbols_.end()) {
-        std::cout << "DEBUG: Found symbol '" << name << "' in scope " << this << std::endl;
+        TSC_LOG_DEBUG("Found symbol '" + name + "' in scope", "Semantic");
         return it->second.get();
     }
     
     // Look in parent scopes
     if (parent_) {
-        std::cout << "DEBUG: Symbol not found in scope " << this << ", searching parent scope " << parent_ << std::endl;
+        TSC_LOG_DEBUG("Symbol not found in scope, searching parent scope", "Semantic");
         return parent_->lookupSymbol(name);
     }
     
-    std::cout << "DEBUG: Symbol '" << name << "' not found in any scope" << std::endl;
+    TSC_LOG_DEBUG("Symbol '" + name + "' not found in any scope", "Semantic");
     return nullptr;
 }
 
@@ -191,25 +192,25 @@ bool SymbolTable::addSymbol(const String& name, SymbolKind kind, shared_ptr<Type
 }
 
 Symbol* SymbolTable::lookupSymbol(const String& name) const {
-    std::cout << "DEBUG: SymbolTable::lookupSymbol searching for '" << name << "' starting from scope " << currentScope_ << std::endl;
+    TSC_LOG_DEBUG("SymbolTable::lookupSymbol searching for '" + name + "' starting from current scope", "Semantic");
     
     // First try the normal lookup (current scope and parents)
     Symbol* symbol = currentScope_->lookupSymbol(name);
     if (symbol) {
-        std::cout << "DEBUG: Found '" << name << "' in parent hierarchy" << std::endl;
+        TSC_LOG_DEBUG("Found '" + name + "' in parent hierarchy", "Semantic");
         return symbol;
     }
     
-    std::cout << "DEBUG: Not found in parent hierarchy, searching child scopes..." << std::endl;
+    TSC_LOG_DEBUG("Not found in parent hierarchy, searching child scopes...", "Semantic");
     
     // If not found, also search in child scopes
     Symbol* childSymbol = currentScope_->lookupSymbolInChildren(name);
     if (childSymbol) {
-        std::cout << "DEBUG: Found '" << name << "' in child scopes" << std::endl;
+        TSC_LOG_DEBUG("Found '" + name + "' in child scopes", "Semantic");
         return childSymbol;
     }
     
-    std::cout << "DEBUG: '" << name << "' not found in any scope (parent or child)" << std::endl;
+    TSC_LOG_DEBUG("'" + name + "' not found in any scope (parent or child)", "Semantic");
     return nullptr;
 }
 
@@ -346,8 +347,7 @@ bool SymbolTable::navigateToScope(Scope* scope) {
     // Navigate to the new scope
     currentScope_ = scope;
     
-    std::cout << "DEBUG: Navigated to scope " << scope << " (type: " << static_cast<int>(scope->getType()) 
-              << ", name: " << scope->getName() << ")" << std::endl;
+    TSC_LOG_DEBUG("Navigated to scope (type: " + std::to_string(static_cast<int>(scope->getType())) + ", name: " + scope->getName() + ")", "Semantic");
     
     return true;
 }
@@ -364,9 +364,7 @@ void SymbolTable::popScope() {
         currentScope_ = scopeStack_.back();
         scopeStack_.pop_back();
         
-        std::cout << "DEBUG: Popped scope, current scope: " << currentScope_ 
-                  << " (type: " << static_cast<int>(currentScope_->getType()) 
-                  << ", name: " << currentScope_->getName() << ")" << std::endl;
+        TSC_LOG_DEBUG("Popped scope, current scope (type: " + std::to_string(static_cast<int>(currentScope_->getType())) + ", name: " + currentScope_->getName() + ")", "Semantic");
     }
 }
 

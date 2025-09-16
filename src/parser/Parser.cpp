@@ -3,11 +3,11 @@
 #include "tsc/utils/DiagnosticEngine.h"
 #include "tsc/utils/EnhancedDiagnosticEngine.h"
 #include "tsc/utils/ASTAllocator.h"
+#include "tsc/utils/Logger.h"
 #include "tsc/lexer/Lexer.h"
 #include "tsc/semantic/TypeSystem.h"
 #include "tsc/AST.h"
 #include <unordered_map>
-#include <iostream>
 
 namespace tsc {
 
@@ -45,7 +45,7 @@ Parser::Parser(utils::EnhancedDiagnosticEngine& enhancedDiagnostics, const TypeS
 Parser::~Parser() = default;
 
 unique_ptr<Module> Parser::parse(const std::vector<Token>& tokens, const String& filename) {
-    std::cout << "DEBUG: Parser::parse() called with " << tokens.size() << " tokens for file: " << filename << std::endl;
+    TSC_LOG_DEBUG("Parser::parse() called with " + std::to_string(tokens.size()) + " tokens for file: " + filename, "Parser");
     // Create a token stream from the vector
     auto tokenStream = make_unique<VectorTokenStream>(tokens);
     return parse(std::move(tokenStream), filename);
@@ -64,21 +64,21 @@ unique_ptr<Module> Parser::parse(unique_ptr<TokenStream> tokenStream, const Stri
 }
 
 unique_ptr<Module> Parser::parseModule() {
-    std::cout << "DEBUG: Parser::parseModule() called" << std::endl;
+    TSC_LOG_DEBUG("Parser::parseModule() called", "Parser");
     std::vector<unique_ptr<Statement>> statements;
     
-    std::cout << "DEBUG: Starting parseModule loop, isAtEnd(): " << isAtEnd() << std::endl;
+    TSC_LOG_DEBUG("Starting parseModule loop, isAtEnd(): " + std::to_string(isAtEnd()), "Parser");
     while (!isAtEnd()) {
-        std::cout << "DEBUG: parseModule loop iteration, calling parseStatement()" << std::endl;
+        TSC_LOG_DEBUG("parseModule loop iteration, calling parseStatement()", "Parser");
         try {
             if (auto stmt = parseStatement()) {
-                std::cout << "DEBUG: parseStatement returned a statement" << std::endl;
+                TSC_LOG_DEBUG("parseStatement returned a statement", "Parser");
                 statements.push_back(std::move(stmt));
             } else {
-                std::cout << "DEBUG: parseStatement returned null" << std::endl;
+                TSC_LOG_DEBUG("parseStatement returned null", "Parser");
             }
         } catch (const CompilerError&) {
-            std::cout << "DEBUG: parseStatement threw CompilerError" << std::endl;
+            TSC_LOG_DEBUG("parseStatement threw CompilerError", "Parser");
             synchronize();
         }
     }
@@ -87,7 +87,7 @@ unique_ptr<Module> Parser::parseModule() {
 }
 
 unique_ptr<Statement> Parser::parseStatement() {
-    std::cout << "DEBUG: parseStatement() called" << std::endl;
+    TSC_LOG_DEBUG("parseStatement() called", "Parser");
     
     // Handle import declarations
     if (match(TokenType::Import)) {
@@ -189,7 +189,7 @@ unique_ptr<Statement> Parser::parseStatement() {
 }
 
 unique_ptr<Statement> Parser::parseVariableStatement() {
-    std::cout << "DEBUG: parseVariableStatement called, current token: " << peek().toString() << std::endl;
+    TSC_LOG_DEBUG("parseVariableStatement called, current token: " + peek().toString(), "Parser");
     // Check if this is a destructuring assignment: let [a, b] = array;
     if (check(TokenType::LeftBracket) || check(TokenType::LeftBrace)) {
         return parseDestructuringVariableStatement();
@@ -291,8 +291,7 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 setContext(ParsingContext::Type);
                 constraint = parseUnionType();
                 if (!constraint) {
-                    errorReporter_->reportExpectedToken(getCurrentLocation(), "constraint type", "'extends'", 
-                                                       "Add a type constraint after 'extends'");
+                    errorReporter_->reportExpectedToken(getCurrentLocation(), "constraint type", "'extends'", "Add a type constraint after 'extends'");
                     constraint = typeSystem_.getErrorType();
                 }
                 setContext(oldContext);
@@ -320,8 +319,7 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
         
         baseClass = parseUnionType();
         if (!baseClass) {
-            errorReporter_->reportExpectedToken(getCurrentLocation(), "base class type", "'extends'", 
-                                               "Add a base class type after 'extends'");
+            errorReporter_->reportExpectedToken(getCurrentLocation(), "base class type", "'extends'", "Add a base class type after 'extends'");
             baseClass = typeSystem_.getErrorType();
         }
         
@@ -395,14 +393,14 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
             
             if (memberName == "constructor" || memberToken.getType() == TokenType::Constructor) {
                 // Parse constructor
-                std::cout << "DEBUG: Parser found constructor method" << std::endl;
+                TSC_LOG_DEBUG("Parser found constructor method", "Parser");
                 consume(TokenType::LeftParen, "Expected '(' after constructor");
                 auto parameters = parseMethodParameterList();
                 consume(TokenType::RightParen, "Expected ')' after constructor parameters");
-                std::cout << "DEBUG: Parser parsed constructor with " << parameters.size() << " parameters" << std::endl;
+                TSC_LOG_DEBUG("Parser parsed constructor with " + std::to_string(parameters.size()) + " parameters", "Parser");
                 
                 auto body = parseFunctionBody();
-                std::cout << "DEBUG: Parser parsed constructor body" << std::endl;
+                TSC_LOG_DEBUG("Parser parsed constructor body", "Parser");
                 
                 constructor = make_unique<MethodDeclaration>(
                     "constructor", std::move(parameters), typeSystem_.getVoidType(),
@@ -410,7 +408,7 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 );
             } else if (check(TokenType::LeftParen)) {
                 // Method declaration with parameters
-                std::cout << "DEBUG: Parser found method declaration: " << memberName << std::endl;
+                TSC_LOG_DEBUG("Parser found method declaration: " + memberName, "Parser");
                 std::vector<MethodDeclaration::Parameter> parameters;
                 
                 consume(TokenType::LeftParen, "Expected '(' after method name");
@@ -469,7 +467,7 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 }
             } else {
                 // Property declaration without type annotation
-                std::cout << "DEBUG: Parser processing property without type: " << memberName << std::endl;
+                TSC_LOG_DEBUG("Parser processing property without type: " + memberName, "Parser");
                 
                 unique_ptr<Expression> initializer = nullptr;
                 if (match(TokenType::Equal)) {
@@ -487,8 +485,7 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                 ));
             }
         } else {
-            errorReporter_->reportInvalidDeclaration(getCurrentLocation(), 
-                                                    "Expected class member (method, property, constructor, or destructor)");
+            errorReporter_->reportInvalidDeclaration(getCurrentLocation(), "Expected class member (method, property, constructor, or destructor)");
             synchronize();
         }
     }
@@ -816,7 +813,7 @@ ExportClause Parser::parseExportClause() {
     // Parse the declaration and create a default export
     if (check(TokenType::Function)) {
         // Export function declaration
-        std::cout << "DEBUG: Parsing export function declaration" << std::endl;
+        TSC_LOG_DEBUG("Parsing export function declaration", "Parser");
         auto functionDecl = parseFunctionDeclaration();
         return ExportClause(ExportClause::Default, {}, std::move(functionDecl));
     } else if (check(TokenType::Class)) {
@@ -1113,8 +1110,7 @@ unique_ptr<CaseClause> Parser::parseCaseClause() {
         // Default case (test remains null)
         consume(TokenType::Colon, "Expected ':' after 'default'");
     } else {
-        errorReporter_->reportExpectedToken(getCurrentLocation(), "'case' or 'default'", "switch case", 
-                                           "Add 'case value:' or 'default:'");
+        errorReporter_->reportExpectedToken(getCurrentLocation(), "'case' or 'default'", "switch case", "Add 'case value:' or 'default:'");
         return nullptr;
     }
     
@@ -1521,7 +1517,7 @@ unique_ptr<Expression> Parser::parsePrimaryExpression() {
     }
     
     // Template literals support
-    std::cout << "DEBUG: Current token type: " << static_cast<int>(peek().getType()) << std::endl;
+    TSC_LOG_DEBUG("Current token type: " + std::to_string(static_cast<int>(peek().getType())), "Parser");
     if (check(TokenType::NoSubstitutionTemplate) || check(TokenType::TemplateHead)) {
         return parseTemplateLiteral();
     }
@@ -1684,12 +1680,12 @@ unique_ptr<Expression> Parser::parseNewExpression() {
     // Parse optional type arguments (e.g., "<number>", "<string, boolean>")
     std::vector<shared_ptr<Type>> typeArguments;
     if (check(TokenType::Less)) {
-        std::cout << "DEBUG: Parser found type arguments in NewExpression" << std::endl;
+        TSC_LOG_DEBUG("Parser found type arguments in NewExpression", "Parser");
         // Use the existing type argument parsing infrastructure
         typeArguments = parseTypeArgumentList();
-        std::cout << "DEBUG: Parsed " << typeArguments.size() << " type arguments" << std::endl;
+        TSC_LOG_DEBUG("Parsed " + std::to_string(typeArguments.size()) + " type arguments", "Parser");
     } else {
-        std::cout << "DEBUG: Parser did not find type arguments in NewExpression" << std::endl;
+        TSC_LOG_DEBUG("Parser did not find type arguments in NewExpression", "Parser");
     }
     
     // Parse arguments if present

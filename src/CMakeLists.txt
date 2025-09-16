@@ -5,6 +5,7 @@ add_library(tsc_lib STATIC
     utils/EnhancedDiagnosticEngine.cpp
     utils/EnhancedErrorReporting.cpp
     utils/ASTPrinter.cpp
+    utils/Logger.cpp
     
     # Lexer
     lexer/Lexer.cpp
@@ -26,6 +27,11 @@ add_library(tsc_lib STATIC
     
     # Code Generation
     codegen/LLVMCodeGen.cpp
+    codegen/LLVMTypeGen.cpp
+    codegen/LLVMExpressionGen.cpp
+    codegen/LLVMStatementGen.cpp
+    codegen/LLVMMemoryGen.cpp
+    codegen/LLVMARCGen.cpp
     
     # AST implementation
     AST.cpp
