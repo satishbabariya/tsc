@@ -63,6 +63,7 @@ void RuntimeFunctionRegistry::initializeStandardFunctions() {
     registerConsoleFunctions();
     registerMathFunctions();
     registerStringFunctions();
+    registerTypeConversionFunctions();
 }
 
 void RuntimeFunctionRegistry::registerConsoleFunctions() {
@@ -110,6 +111,15 @@ void RuntimeFunctionRegistry::registerStringFunctions() {
         "String_length",
         llvm::Type::getInt32Ty(*context_),
         {llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0)}
+    ));
+}
+
+void RuntimeFunctionRegistry::registerTypeConversionFunctions() {
+    // _toBool(double value) -> int
+    registerFunction(RuntimeFunctionSignature(
+        "_toBool",
+        llvm::Type::getInt32Ty(*context_),
+        {llvm::Type::getDoubleTy(*context_)}
     ));
 }
 

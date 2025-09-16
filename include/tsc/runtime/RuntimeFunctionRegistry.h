@@ -85,6 +85,11 @@ private:
      * Register string functions
      */
     void registerStringFunctions();
+    
+    /**
+     * Register type conversion functions
+     */
+    void registerTypeConversionFunctions();
 };
 
 } // namespace runtime

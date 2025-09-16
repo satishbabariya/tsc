@@ -166,3 +166,8 @@ void console_log_string(char* value) {
     }
     printf("%s\n", value);
 }
+
+// Convert number to boolean (0.0 is false, everything else is true)
+int _toBool(double value) {
+    return (value != 0.0) ? 1 : 0;
+}
