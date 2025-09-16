@@ -591,6 +591,7 @@ public:
     // Generic method lookup for constrained types
     llvm::Function* genericMethodLookup(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location);
     llvm::Function* createBuiltinMethodFunction(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location);
+    llvm::Function* createConsoleLogFunction(const SourceLocation& location);
     
     // Value operations
     llvm::Value* createNumberLiteral(double value);

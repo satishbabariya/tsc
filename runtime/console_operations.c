@@ -138,3 +138,17 @@ void _print(void* first_arg, ...) {
     va_end(args); // Clean up the variable argument list
     putchar('\n'); // Add newline at the end, as per original behavior
 }
+
+// Console.log implementation for TSC
+void console_log(void* value) {
+    if (!value) {
+        printf("undefined\n");
+        return;
+    }
+    
+    // For now, handle basic types
+    // In a full implementation, we'd need to check the type and convert appropriately
+    // For numbers, we can cast to double and print
+    double* num_ptr = (double*)value;
+    printf("%f\n", *num_ptr);
+}

@@ -27,6 +27,9 @@ void __clear_exception(void);
 // Internal print function
 void _print(void* first_arg, ...);
 
+// Console operations
+void console_log(void* value);
+
 // Memory operations are handled by ARC runtime functions
 // See arc/arc_runtime.h for __tsc_alloc, __tsc_retain, __tsc_release, etc.
 

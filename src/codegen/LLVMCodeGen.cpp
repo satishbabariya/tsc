@@ -1445,8 +1445,14 @@ void LLVMCodeGen::visit(CallExpression& node) {
             // Prepare arguments for the method call
             std::vector<llvm::Value*> args;
             
-            // Add 'this' pointer as first argument (object instance)
-            args.push_back(objectInstance);
+            // Special handling for console.log - don't pass the console object as first argument
+            if (function && function->getName().str() == "console_log") {
+                std::cout << "DEBUG: CallExpression - Special handling for console.log" << std::endl;
+                // For console.log, we don't pass the console object, just the arguments
+            } else {
+                // Add 'this' pointer as first argument (object instance)
+                args.push_back(objectInstance);
+            }
             
             // Add method arguments
             for (const auto& arg : node.getArguments()) {
@@ -1493,6 +1499,22 @@ void LLVMCodeGen::visit(CallExpression& node) {
                         // Convert double to string using number_to_string
                         llvm::Function* numberToStringFunc = createBuiltinMethodFunction("toString", std::make_shared<PrimitiveType>(TypeKind::Number), node.getLocation());
                         argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "converted_arg");
+                    }
+                    
+                    // Special handling for console.log calls - convert arguments to void* pointers
+                    if (function && function->getName().str() == "console_log") {
+                        std::cout << "DEBUG: CallExpression - Converting argument for console.log" << std::endl;
+                        // For console.log, we need to pass the argument as a void* pointer
+                        if (argValue->getType() == getNumberType()) {
+                            // For numbers, we need to pass a pointer to the value
+                            // Create a temporary variable to store the value
+                            llvm::Value* tempVar = builder_->CreateAlloca(getNumberType(), nullptr, "temp_arg");
+                            builder_->CreateStore(argValue, tempVar);
+                            argValue = builder_->CreateBitCast(tempVar, llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0));
+                        } else if (argValue->getType()->isPointerTy()) {
+                            // For pointers, just cast to void*
+                            argValue = builder_->CreateBitCast(argValue, llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0));
+                        }
                     }
                     
                     // Special handling for _print calls - convert non-string pointer arguments to strings
@@ -7386,6 +7408,13 @@ llvm::Function* LLVMCodeGen::genericMethodLookup(const String& methodName, share
         return createBuiltinMethodFunction("valueOf", objectType, location);
     }
     
+    // Handle console.log specifically
+    if (methodName == "log") {
+        // Check if this is being called on a console object
+        // For now, we'll create a console_log function that takes any value
+        return createConsoleLogFunction(location);
+    }
+    
     // Handle array properties (not methods)
     if (methodName == "length") {
         // For generic types that might be arrays, we need to handle length as a property
@@ -7423,6 +7452,27 @@ llvm::Function* LLVMCodeGen::genericMethodLookup(const String& methodName, share
     // If no specific method found, return null
     std::cout << "DEBUG: No method found for: " << methodName << " on type: " << objectType->toString() << std::endl;
     return nullptr;
+}
+
+llvm::Function* LLVMCodeGen::createConsoleLogFunction(const SourceLocation& location) {
+    std::cout << "DEBUG: createConsoleLogFunction called" << std::endl;
+    
+    // Check if console_log function already exists
+    llvm::Function* existingFunc = module_->getFunction("console_log");
+    if (existingFunc) {
+        return existingFunc;
+    }
+    
+    // Create console_log function signature: void console_log(void* value)
+    llvm::Type* voidType = llvm::Type::getVoidTy(*context_);
+    llvm::Type* voidPtrType = llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    std::vector<llvm::Type*> paramTypes = {voidPtrType};
+    
+    llvm::FunctionType* funcType = llvm::FunctionType::get(voidType, paramTypes, false);
+    llvm::Function* func = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, "console_log", module_.get());
+    
+    std::cout << "DEBUG: Created console_log function" << std::endl;
+    return func;
 }
 
 llvm::Function* LLVMCodeGen::createBuiltinMethodFunction(const String& methodName, shared_ptr<Type> objectType, const SourceLocation& location) {
