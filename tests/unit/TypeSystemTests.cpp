@@ -212,10 +212,10 @@ bool testIntersectionTypeConversions() {
     auto booleanType = makeBooleanType();
     auto intersectionType = makeIntersectionType({numberType, stringType});
     
-    // Intersection types should be convertible if any member is convertible
+    // Intersection types should be convertible if source can be converted to ALL members
     return typeSystem.isConvertibleTo(numberType, intersectionType) &&
            typeSystem.isConvertibleTo(stringType, intersectionType) &&
-           !typeSystem.isConvertibleTo(booleanType, intersectionType); // boolean is not in intersection
+           typeSystem.isConvertibleTo(booleanType, intersectionType); // boolean can be converted to both number and string
 }
 
 bool testIsImplicitlyConvertible() {

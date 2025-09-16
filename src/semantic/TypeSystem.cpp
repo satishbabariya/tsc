@@ -710,8 +710,33 @@ bool TypeSystem::isExplicitlyConvertible(shared_ptr<Type> from, shared_ptr<Type>
         return true;
     }
     
-    ConversionKind kind = getConversionKind(from, to);
-    return kind == ConversionKind::Explicit || kind == ConversionKind::Implicit || kind == ConversionKind::Identity;
+    // Same type - explicit conversion
+    if (from->isEquivalentTo(*to)) {
+        return true;
+    }
+    
+    // All implicit conversions are also explicit conversions
+    // Check primitive type conversions
+    if ((from->getKind() == TypeKind::Number && to->getKind() == TypeKind::String) ||
+        (from->getKind() == TypeKind::String && to->getKind() == TypeKind::Number) ||
+        (from->getKind() == TypeKind::Boolean && to->getKind() == TypeKind::Number) ||
+        (from->getKind() == TypeKind::Number && to->getKind() == TypeKind::Boolean) ||
+        (from->getKind() == TypeKind::String && to->getKind() == TypeKind::Boolean) ||
+        (from->getKind() == TypeKind::Boolean && to->getKind() == TypeKind::String)) {
+        return true;
+    }
+    
+    // Object type conversions
+    if (to->getKind() == TypeKind::Object) {
+        return true; // any type can be converted to object
+    }
+    
+    // Array conversions
+    if (from->getKind() == TypeKind::Array && to->getKind() == TypeKind::Object) {
+        return true; // array to object
+    }
+    
+    return false;
 }
 
 ConversionKind TypeSystem::getConversionKind(shared_ptr<Type> from, shared_ptr<Type> to) const {
@@ -774,14 +799,26 @@ ConversionKind TypeSystem::getConversionKind(shared_ptr<Type> from, shared_ptr<T
     if (to->getKind() == TypeKind::Union) {
         auto unionType = static_cast<UnionType*>(to.get());
         for (const auto& memberType : unionType->getTypes()) {
-            // Check if source type can be converted to member type (avoid isEquivalentTo for now)
-            if ((from->isAny() || memberType->isAny()) ||
-                (from->getKind() == TypeKind::Number && memberType->getKind() == TypeKind::String) ||
-                (from->getKind() == TypeKind::String && memberType->getKind() == TypeKind::Number) ||
-                (from->getKind() == TypeKind::Boolean && memberType->getKind() == TypeKind::Number) ||
-                (from->getKind() == TypeKind::Number && memberType->getKind() == TypeKind::Boolean) ||
-                (from->getKind() == TypeKind::String && memberType->getKind() == TypeKind::Boolean) ||
-                (from->getKind() == TypeKind::Boolean && memberType->getKind() == TypeKind::String)) {
+            // Check if source type is exactly the same as member type or can be converted to it
+            if (from->isAny() || memberType->isAny() || 
+                from->getKind() == memberType->getKind()) {
+                return ConversionKind::Implicit;
+            }
+        }
+    }
+    
+    // Converting FROM union type
+    if (from->getKind() == TypeKind::Union) {
+        auto unionType = static_cast<UnionType*>(from.get());
+        for (const auto& memberType : unionType->getTypes()) {
+            // Check if member type can be converted to target type (avoid isEquivalentTo for now)
+            if ((memberType->isAny() || to->isAny()) ||
+                (memberType->getKind() == TypeKind::Number && to->getKind() == TypeKind::String) ||
+                (memberType->getKind() == TypeKind::String && to->getKind() == TypeKind::Number) ||
+                (memberType->getKind() == TypeKind::Boolean && to->getKind() == TypeKind::Number) ||
+                (memberType->getKind() == TypeKind::Number && to->getKind() == TypeKind::Boolean) ||
+                (memberType->getKind() == TypeKind::String && to->getKind() == TypeKind::Boolean) ||
+                (memberType->getKind() == TypeKind::Boolean && to->getKind() == TypeKind::String)) {
                 return ConversionKind::Implicit;
             }
         }
@@ -801,6 +838,30 @@ ConversionKind TypeSystem::getConversionKind(shared_ptr<Type> from, shared_ptr<T
                 (memberType->getKind() == TypeKind::Boolean && to->getKind() == TypeKind::String)) {
                 return ConversionKind::Implicit;
             }
+        }
+    }
+    
+    // Converting TO intersection type
+    if (to->getKind() == TypeKind::Intersection) {
+        auto intersectionType = static_cast<IntersectionType*>(to.get());
+        // For intersection types, source must be convertible to ALL members
+        bool canConvertToAll = true;
+        for (const auto& memberType : intersectionType->getTypes()) {
+            // Check if source type can be converted to this member type
+            if (!(from->isAny() || memberType->isAny() || 
+                  from->getKind() == memberType->getKind() ||
+                  (from->getKind() == TypeKind::Number && memberType->getKind() == TypeKind::String) ||
+                  (from->getKind() == TypeKind::String && memberType->getKind() == TypeKind::Number) ||
+                  (from->getKind() == TypeKind::Boolean && memberType->getKind() == TypeKind::Number) ||
+                  (from->getKind() == TypeKind::Number && memberType->getKind() == TypeKind::Boolean) ||
+                  (from->getKind() == TypeKind::String && memberType->getKind() == TypeKind::Boolean) ||
+                  (from->getKind() == TypeKind::Boolean && memberType->getKind() == TypeKind::String))) {
+                canConvertToAll = false;
+                break;
+            }
+        }
+        if (canConvertToAll) {
+            return ConversionKind::Implicit;
         }
     }
     
