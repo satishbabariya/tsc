@@ -336,9 +336,29 @@ void *__tsc_weak_load(void *weak_ref) {
 void __tsc_weak_store(void *weak_ref, void *obj) {
     if (!weak_ref) return;
 
-    // Implement proper weak reference table updates
     ARC_ObjectHeader *header = (ARC_ObjectHeader *) ((char *) weak_ref - sizeof(ARC_ObjectHeader));
-    
+
+    // Check if there's an existing target in the weak reference table
+    void *old_target = NULL;
+    size_t bucket = weak_ref_hash(weak_ref);
+    WeakRefEntry *entry = g_weak_ref_table.buckets ? g_weak_ref_table.buckets[bucket] : NULL;
+    while (entry != NULL) {
+        if (entry->weak_ref == weak_ref) {
+            old_target = entry->target_obj;
+            break;
+        }
+        entry = entry->next;
+    }
+
+    // If there's an existing target, clean it up
+    if (old_target) {
+        ARC_ObjectHeader *old_target_header = (ARC_ObjectHeader *) ((char *) old_target - sizeof(ARC_ObjectHeader));
+        if (atomic_load(&old_target_header->weak_count) > 0) {
+            atomic_fetch_sub(&old_target_header->weak_count, 1);
+        }
+        remove_weak_reference_table(weak_ref);
+    }
+
     if (obj) {
         // Store a new weak reference to the object
         ARC_ObjectHeader *obj_header = (ARC_ObjectHeader *) ((char *) obj - sizeof(ARC_ObjectHeader));
@@ -346,15 +366,14 @@ void __tsc_weak_store(void *weak_ref, void *obj) {
         // Increment the weak reference count for the target object
         atomic_fetch_add(&obj_header->weak_count, 1);
         
-        // Update the weak reference to point to the new object
-        // This involves updating the weak reference table
+        // Update the weak reference table
         update_weak_reference_table(weak_ref, obj);
         
         // Increment weak count for the weak reference itself
         atomic_fetch_add(&header->weak_count, 1);
     } else {
         // Clearing the weak reference
-        if (header->weak_count > 0) {
+        if (atomic_load(&header->weak_count) > 0) {
             atomic_fetch_sub(&header->weak_count, 1);
         }
     }

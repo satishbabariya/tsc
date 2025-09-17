@@ -374,6 +374,19 @@ add_library(tsc_runtime STATIC
     runtime/arc/smart_pointers.c
 )
 
+# Create ARC weak store test executable
+add_executable(test_arc_weak_store
+    tests/runtime/arc/test_arc_weak_store.c
+)
+
+target_link_libraries(test_arc_weak_store
+    tsc_runtime
+    pthread
+)
+
+# Add test to CTest
+add_test(NAME arc_weak_store_test COMMAND test_arc_weak_store)
+
 # Create main executable
 add_executable(tsc
     src/main.cpp
