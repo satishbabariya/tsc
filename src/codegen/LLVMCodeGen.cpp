@@ -2089,7 +2089,19 @@ namespace tsc {
         llvm::FunctionType *funcType = function->getFunctionType();
 
         // If this is a method call from PropertyAccess, prepend the object as first argument
+        // Skip object prepending for console.log since it's a special built-in function
         if (auto propertyAccess = dynamic_cast<PropertyAccess *>(node.getCallee())) {
+            // Check if this is console.log - if so, skip object prepending
+            if (propertyAccess->getProperty() == "log") {
+                if (auto identifier = dynamic_cast<Identifier *>(propertyAccess->getObject())) {
+                    if (identifier->getName() == "console") {
+                        std::cout << "DEBUG: Skipping object prepending for console.log" << std::endl;
+                        // Skip to regular argument processing for console.log
+                        goto regular_argument_processing;
+                    }
+                }
+            }
+            
             // We already generated the object instance above, now we need to get it again
             propertyAccess->getObject()->accept(static_cast<ASTVisitor &>(*this));
             llvm::Value *objectInstance = getCurrentValue();
@@ -2146,6 +2158,7 @@ namespace tsc {
             goto generate_call;
         }
 
+        regular_argument_processing:
         for (size_t i = 0; i < node.getArguments().size(); ++i) {
             // Special handling for arrayPush calls - pass storage location instead of loaded value
             if (function && function->getName().str().find("arrayPush") != std::string::npos) {
@@ -2189,16 +2202,24 @@ namespace tsc {
                 return;
             }
 
-            // Convert argument type to match expected parameter type if needed
-            // For method calls, the parameter index is offset by 1 due to the prepended object
-            size_t paramIndex = i;
-            if (auto propertyAccess = dynamic_cast<PropertyAccess *>(node.getCallee())) {
-                paramIndex = i + 1; // Skip the first parameter (the object)
-            }
-
-            if (paramIndex < funcType->getNumParams()) {
-                llvm::Type *expectedType = funcType->getParamType(paramIndex);
+            // Special handling for console.log - convert all arguments to the expected type
+            if (function && function->getName().str() == "console_log") {
+                llvm::Type *expectedType = funcType->getParamType(0); // console_log takes one parameter
                 argValue = convertValueToType(argValue, expectedType);
+                std::cout << "DEBUG: CallExpression - Converted argument for console_log from " << 
+                        argValue->getType()->getTypeID() << " to " << expectedType->getTypeID() << std::endl;
+            } else {
+                // Convert argument type to match expected parameter type if needed
+                // For method calls, the parameter index is offset by 1 due to the prepended object
+                size_t paramIndex = i;
+                if (auto propertyAccess = dynamic_cast<PropertyAccess *>(node.getCallee())) {
+                    paramIndex = i + 1; // Skip the first parameter (the object)
+                }
+
+                if (paramIndex < funcType->getNumParams()) {
+                    llvm::Type *expectedType = funcType->getParamType(paramIndex);
+                    argValue = convertValueToType(argValue, expectedType);
+                }
             }
 
             args.push_back(argValue);
@@ -2983,16 +3004,23 @@ namespace tsc {
             // Check if this is console.log by looking at the object
             if (auto identifier = dynamic_cast<Identifier *>(node.getObject())) {
                 if (identifier->getName() == "console") {
-                    std::cout << "DEBUG: PropertyAccess - Found console.log, creating console_log function" << std::endl;
-                    // Create the console_log function
-                    auto funcType = llvm::FunctionType::get(
-                        getVoidType(), // Return type: void
-                        {getAnyType()}, // Parameter: any type (the argument to log)
-                        false
-                    );
-                    auto func = llvm::Function::Create(
-                        funcType, llvm::Function::ExternalLinkage, "console_log", module_.get()
-                    );
+                    std::cout << "DEBUG: PropertyAccess - Found console.log, looking for existing console_log function" << std::endl;
+                    // Check if console_log function already exists
+                    auto func = module_->getFunction("console_log");
+                    if (!func) {
+                        std::cout << "DEBUG: PropertyAccess - Creating new console_log function" << std::endl;
+                        // Create the console_log function
+                        auto funcType = llvm::FunctionType::get(
+                            getVoidType(), // Return type: void
+                            {getAnyType()}, // Parameter: any type (the argument to log)
+                            false
+                        );
+                        func = llvm::Function::Create(
+                            funcType, llvm::Function::ExternalLinkage, "console_log", module_.get()
+                        );
+                    } else {
+                        std::cout << "DEBUG: PropertyAccess - Reusing existing console_log function" << std::endl;
+                    }
                     setCurrentValue(func);
                     return;
                 }
@@ -8725,15 +8753,21 @@ namespace tsc {
             return func;
         } else if (methodName == "log") {
             // console.log(arg) -> void
-            auto funcType = llvm::FunctionType::get(
-                getVoidType(), // Return type: void
-                {getAnyType()}, // Parameter: any type (the argument to log)
-                false
-            );
-            auto func = llvm::Function::Create(
-                funcType, llvm::Function::ExternalLinkage, "console_log", module_.get()
-            );
-            std::cout << "DEBUG: Created console_log function" << std::endl;
+            // Check if console_log function already exists
+            auto func = module_->getFunction("console_log");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {getAnyType()}, // Parameter: any type (the argument to log)
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "console_log", module_.get()
+                );
+                std::cout << "DEBUG: Created console_log function" << std::endl;
+            } else {
+                std::cout << "DEBUG: Reusing existing console_log function" << std::endl;
+            }
             return func;
         }
 
