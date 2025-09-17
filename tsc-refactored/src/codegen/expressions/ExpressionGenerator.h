@@ -81,6 +81,7 @@ public:
     
     // Additional helper methods
     llvm::Value* generateBitwiseOp(BinaryExpression::Operator op, llvm::Value* left, llvm::Value* right);
+    llvm::Value* convertStringToBoolean(llvm::Value* stringValue);
 
 private:
     LLVMCodeGen* codeGen_;

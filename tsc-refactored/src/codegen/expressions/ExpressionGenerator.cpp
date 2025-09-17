@@ -624,9 +624,14 @@ llvm::Value* ExpressionGenerator::convertToBoolean(llvm::Value* value) {
         llvm::Value* zero = llvm::ConstantInt::get(valueType, 0);
         return builder->CreateICmpNE(value, zero, "to_bool");
     } else if (valueType->isPointerTy()) {
-        // Convert pointer to boolean: compare with null
-        llvm::Value* nullPtr = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(valueType));
-        return builder->CreateICmpNE(value, nullPtr, "to_bool");
+        // Check if this is a string type
+        if (codeGen_->getTypeGenerator()->isStringType(valueType)) {
+            return convertStringToBoolean(value);
+        } else {
+            // Convert other pointer types to boolean: compare with null
+            llvm::Value* nullPtr = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(valueType));
+            return builder->CreateICmpNE(value, nullPtr, "to_bool");
+        }
     } else {
         // For other types, assume they can be converted to boolean
         // This is a simplified implementation
@@ -769,6 +774,50 @@ llvm::Value* ExpressionGenerator::generateArithmeticOp(BinaryExpression::Operato
     }
     
     return result;
+}
+
+llvm::Value* ExpressionGenerator::convertStringToBoolean(llvm::Value* stringValue) {
+    llvm::IRBuilder<>* builder = codeGen_->getBuilder();
+    llvm::Function* currentFunc = codeGen_->getCodeGenContext()->getCurrentFunction();
+    
+    if (!currentFunc) {
+        codeGen_->reportError("String to boolean conversion outside function context", SourceLocation());
+        return createBooleanLiteral(false);
+    }
+    
+    // For C-style strings (i8*), we need to check if the string is empty
+    // Empty string ("") should be false, non-empty strings should be true
+    
+    // First check if the string pointer is null
+    llvm::Value* nullPtr = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(stringValue->getType()));
+    llvm::Value* isNull = builder->CreateICmpEQ(stringValue, nullPtr, "is_null");
+    
+    // Create basic blocks for the conversion logic
+    llvm::BasicBlock* nullBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "string_null", currentFunc);
+    llvm::BasicBlock* checkEmptyBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "string_check_empty", currentFunc);
+    llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "string_merge", currentFunc);
+    
+    // Branch based on null check
+    builder->CreateCondBr(isNull, nullBlock, checkEmptyBlock);
+    
+    // Handle null string: return false
+    builder->SetInsertPoint(nullBlock);
+    builder->CreateBr(mergeBlock);
+    
+    // Check if string is empty: load first character and compare with null terminator
+    builder->SetInsertPoint(checkEmptyBlock);
+    llvm::Value* firstChar = builder->CreateLoad(llvm::Type::getInt8Ty(*codeGen_->getLLVMContext()), stringValue, "first_char");
+    llvm::Value* nullChar = llvm::ConstantInt::get(llvm::Type::getInt8Ty(*codeGen_->getLLVMContext()), 0);
+    llvm::Value* isEmpty = builder->CreateICmpEQ(firstChar, nullChar, "is_empty");
+    builder->CreateBr(mergeBlock);
+    
+    // Merge: create PHI node
+    builder->SetInsertPoint(mergeBlock);
+    llvm::PHINode* phi = builder->CreatePHI(codeGen_->getTypeGenerator()->getBooleanType(), 2, "string_to_bool");
+    phi->addIncoming(createBooleanLiteral(false), nullBlock);  // null string is false
+    phi->addIncoming(builder->CreateNot(isEmpty, "not_empty"), checkEmptyBlock);  // empty string is false, non-empty is true
+    
+    return phi;
 }
 
 } // namespace codegen
