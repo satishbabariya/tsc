@@ -75,11 +75,135 @@ void StatementGenerator::generateReturnStatement(const ReturnStatement& node) {
 }
 
 void StatementGenerator::generateIfStatement(const IfStatement& node) {
-    // TODO: Implement if statement generation
+    llvm::Function *currentFunc = codeGen_->getCodeGenContext()->getCurrentFunction();
+    if (!currentFunc) {
+        codeGen_->reportError("If statement outside function", node.getLocation());
+        return;
+    }
+
+    // Generate condition
+    llvm::Value *conditionValue = codeGen_->generateExpression(*node.getCondition());
+
+    if (!conditionValue) {
+        codeGen_->reportError("Failed to generate condition", node.getLocation());
+        return;
+    }
+
+    // Convert condition to boolean (simplified for now)
+    if (conditionValue->getType()->isDoubleTy()) {
+        // Compare double to 0.0
+        llvm::Value *zero = llvm::ConstantFP::get(llvm::Type::getDoubleTy(*codeGen_->getLLVMContext()), 0.0);
+        conditionValue = codeGen_->getBuilder()->CreateFCmpONE(conditionValue, zero, "tobool");
+    } else if (conditionValue->getType()->isIntegerTy(1)) {
+        // Already boolean
+    } else {
+        // For other types, just use as-is (this is a simplification)
+        // TODO: Add proper type conversion
+    }
+
+    // Create basic blocks
+    llvm::BasicBlock *thenBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "if.then", currentFunc);
+    llvm::BasicBlock *elseBlock = node.hasElse()
+                                      ? llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "if.else", currentFunc)
+                                      : nullptr;
+    llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "if.end", currentFunc);
+
+    // Create conditional branch
+    if (node.hasElse()) {
+        codeGen_->getBuilder()->CreateCondBr(conditionValue, thenBlock, elseBlock);
+    } else {
+        codeGen_->getBuilder()->CreateCondBr(conditionValue, thenBlock, endBlock);
+    }
+
+    // Generate then block
+    codeGen_->getBuilder()->SetInsertPoint(thenBlock);
+    generateStatement(*node.getThenStatement());
+
+    // Check if then block has terminator after generating its content
+    llvm::BasicBlock *currentThenBlock = codeGen_->getBuilder()->GetInsertBlock();
+    bool thenHasTerminator = currentThenBlock && currentThenBlock->getTerminator() != nullptr;
+
+    // Generate cleanup for ARC-managed objects if the block doesn't have a terminator
+    if (!thenHasTerminator && currentThenBlock) {
+        // Generate cleanup before adding the branch
+        codeGen_->getCodeGenContext()->generateScopeCleanup(codeGen_);
+        codeGen_->getBuilder()->CreateBr(endBlock);
+    }
+
+    // Generate else block if present
+    bool elseHasTerminator = false;
+    if (node.hasElse()) {
+        codeGen_->getBuilder()->SetInsertPoint(elseBlock);
+        generateStatement(*node.getElseStatement());
+
+        // Check if else block has terminator after generating its content
+        llvm::BasicBlock *currentElseBlock = codeGen_->getBuilder()->GetInsertBlock();
+        elseHasTerminator = currentElseBlock && currentElseBlock->getTerminator() != nullptr;
+        if (!elseHasTerminator && currentElseBlock) {
+            // Generate cleanup before adding the branch
+            codeGen_->getCodeGenContext()->generateScopeCleanup(codeGen_);
+            codeGen_->getBuilder()->CreateBr(endBlock);
+        }
+    }
+
+    // Handle end block
+    bool bothBranchesTerminate = thenHasTerminator && (!node.hasElse() || elseHasTerminator);
+
+    if (!bothBranchesTerminate) {
+        // At least one branch doesn't terminate - continue with end block
+        codeGen_->getBuilder()->SetInsertPoint(endBlock);
+    }
+    // For unreachable blocks, the general terminator placement will handle it
 }
 
 void StatementGenerator::generateWhileStatement(const WhileStatement& node) {
-    // TODO: Implement while statement generation
+    llvm::Function *currentFunc = codeGen_->getCodeGenContext()->getCurrentFunction();
+    if (!currentFunc) {
+        codeGen_->reportError("While statement outside function", node.getLocation());
+        return;
+    }
+
+    // Create basic blocks
+    llvm::BasicBlock *conditionBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "while.cond", currentFunc);
+    llvm::BasicBlock *bodyBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "while.body", currentFunc);
+    llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "while.end", currentFunc);
+
+    // Jump to condition block
+    codeGen_->getBuilder()->CreateBr(conditionBlock);
+
+    // Generate condition
+    codeGen_->getBuilder()->SetInsertPoint(conditionBlock);
+    llvm::Value *conditionValue = codeGen_->generateExpression(*node.getCondition());
+
+    if (!conditionValue) {
+        codeGen_->reportError("Failed to generate while condition", node.getCondition()->getLocation());
+        return;
+    }
+
+    // Convert condition to boolean (simplified for now)
+    if (conditionValue->getType()->isDoubleTy()) {
+        // Compare double to 0.0
+        llvm::Value *zero = llvm::ConstantFP::get(llvm::Type::getDoubleTy(*codeGen_->getLLVMContext()), 0.0);
+        conditionValue = codeGen_->getBuilder()->CreateFCmpONE(conditionValue, zero, "tobool");
+    } else if (conditionValue->getType()->isIntegerTy(1)) {
+        // Already boolean
+    } else {
+        // For other types, just use as-is (this is a simplification)
+        // TODO: Add proper type conversion
+    }
+
+    // Create conditional branch
+    codeGen_->getBuilder()->CreateCondBr(conditionValue, bodyBlock, endBlock);
+
+    // Generate body
+    codeGen_->getBuilder()->SetInsertPoint(bodyBlock);
+    generateStatement(*node.getBody());
+    if (!codeGen_->getBuilder()->GetInsertBlock()->getTerminator()) {
+        codeGen_->getBuilder()->CreateBr(conditionBlock);
+    }
+
+    // Continue with end block
+    codeGen_->getBuilder()->SetInsertPoint(endBlock);
 }
 
 void StatementGenerator::generateDoWhileStatement(const DoWhileStatement& node) {

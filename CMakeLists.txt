@@ -374,6 +374,24 @@ add_executable(ASTModularIntegrationTest
     ${TSC_SOURCES}
 )
 
+# Add StatementGenerator unit tests
+add_executable(StatementGeneratorUnitTests
+    tests/unit/StatementGeneratorUnitTests.cpp
+    ${TSC_SOURCES}
+)
+
+# Add StatementGenerator integration tests
+add_executable(StatementGeneratorIntegrationTests
+    tests/integration/StatementGeneratorIntegrationTests.cpp
+    ${TSC_SOURCES}
+)
+
+# Add CodeGen verification tests
+add_executable(CodeGenVerificationTests
+    tests/integration/CodeGenVerificationTests.cpp
+    ${TSC_SOURCES}
+)
+
 # Set test properties
 set_target_properties(SemanticAnalysisModularIntegrationTest PROPERTIES
     CXX_STANDARD 17
@@ -390,10 +408,28 @@ set_target_properties(ASTModularIntegrationTest PROPERTIES
     CXX_STANDARD_REQUIRED ON
 )
 
+set_target_properties(StatementGeneratorUnitTests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+set_target_properties(StatementGeneratorIntegrationTests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+set_target_properties(CodeGenVerificationTests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
 # Add tests to CTest
 add_test(NAME SemanticAnalysisModularIntegrationTest COMMAND SemanticAnalysisModularIntegrationTest)
 add_test(NAME SemanticAnalysisUnitTests COMMAND SemanticAnalysisUnitTests)
 add_test(NAME ASTModularIntegrationTest COMMAND ASTModularIntegrationTest)
+add_test(NAME StatementGeneratorUnitTests COMMAND StatementGeneratorUnitTests)
+add_test(NAME StatementGeneratorIntegrationTests COMMAND StatementGeneratorIntegrationTests)
+add_test(NAME CodeGenVerificationTests COMMAND CodeGenVerificationTests)
 
 # Create runtime library
 add_library(tsc_runtime STATIC
