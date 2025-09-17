@@ -88,7 +88,7 @@ public:
     void detectResourceLeaks(const ClassDeclaration& classDecl);
     void analyzeResourceOwnership(const ClassDeclaration& classDecl);
     void validateDestructorSafety(const DestructorDeclaration& destructor);
-    bool analyzeDestructorCleanup(const FunctionDeclaration* destructor, const String& propertyName);
+    bool analyzeDestructorCleanup(const DestructorDeclaration* destructor, const String& propertyName);
     
     // Visitor interface implementation
     void visit(NumericLiteral& node) override;

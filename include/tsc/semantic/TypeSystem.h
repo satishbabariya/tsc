@@ -178,6 +178,10 @@ public:
         shared_ptr<Type> type;
         bool optional = false;
         bool rest = false;
+        
+        Parameter() = default;
+        Parameter(const String& n, shared_ptr<Type> t, bool opt = false, bool r = false)
+            : name(n), type(t), optional(opt), rest(r) {}
     };
     
     FunctionType(std::vector<Parameter> parameters, shared_ptr<Type> returnType)
@@ -204,6 +208,10 @@ public:
         shared_ptr<Type> type;
         bool optional = false;
         bool readonly = false;
+        
+        Property() = default;
+        Property(const String& n, shared_ptr<Type> t, bool opt = false, bool ro = false)
+            : name(n), type(t), optional(opt), readonly(ro) {}
     };
     
     explicit ObjectType(std::vector<Property> properties = {})

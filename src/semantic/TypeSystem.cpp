@@ -553,7 +553,7 @@ namespace tsc {
             operatorType == UnaryExpression::Operator::PostIncrement ||
             operatorType == UnaryExpression::Operator::PreDecrement ||
             operatorType == UnaryExpression::Operator::PostDecrement) {
-            return operandType.shared_from_this();
+            return std::shared_ptr<Type>(const_cast<Type*>(&operandType), [](Type*){});
         }
 
         // Bitwise operations
@@ -562,7 +562,7 @@ namespace tsc {
         }
 
         // Other operations (Delete, Void, Await) - simplified handling
-        return operandType.shared_from_this();
+        return std::shared_ptr<Type>(const_cast<Type*>(&operandType), [](Type*){});
     }
 
     String TypeSystem::typeToString(const Type &type) const {
