@@ -65,6 +65,9 @@ private:
     void checkTypeAnnotation(shared_ptr<Type> annotation, shared_ptr<Type> inferred);
     void reportTypeError(const String& message, const SourceLocation& location);
     void reportTypeWarning(const String& message, const SourceLocation& location);
+    
+    // Assignment checking
+    void checkAssignment(const Expression& left, const Expression& right, const SourceLocation& location);
 };
 
 } // namespace semantic

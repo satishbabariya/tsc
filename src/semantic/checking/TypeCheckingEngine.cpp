@@ -154,5 +154,68 @@ void TypeCheckingEngine::reportTypeWarning(const String& message, const SourceLo
     context_.reportWarning(message, location);
 }
 
+void TypeCheckingEngine::checkAssignment(const Expression& left, const Expression& right, const SourceLocation& location) {
+    auto leftType = checkExpression(const_cast<Expression&>(left));
+    auto rightType = checkExpression(const_cast<Expression&>(right));
+
+    // Special handling for array literal assignments
+    if (auto arrayLiteral = dynamic_cast<const ArrayLiteral*>(&right)) {
+        if (leftType->getKind() == TypeKind::Array && rightType->getKind() == TypeKind::Array) {
+            auto leftArrayType = static_cast<const ArrayType*>(leftType.get());
+            auto rightArrayType = static_cast<const ArrayType*>(rightType.get());
+
+            // If the right side is an empty array (any[]), and the left side is a generic array (T[]),
+            // allow the assignment since empty arrays can be assigned to any array type
+            if (arrayLiteral->getElements().empty() &&
+                rightArrayType->getElementType()->getKind() == TypeKind::Any &&
+                (leftArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::Unresolved)) {
+                // This is a valid assignment: [] can be assigned to T[]
+                return;
+            }
+
+            // If both sides are generic arrays with the same generic type parameter,
+            // allow the assignment even if they're different instances
+            if ((leftArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                 leftArrayType->getElementType()->getKind() == TypeKind::Unresolved) &&
+                (rightArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                 rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                 rightArrayType->getElementType()->getKind() == TypeKind::Unresolved)) {
+                // For TypeParameter types, we can directly compare the toString() values
+                if (leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter &&
+                    rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter) {
+                    if (leftArrayType->getElementType()->toString() == rightArrayType->getElementType()->toString()) {
+                        // This is a valid assignment: T[] can be assigned to T[]
+                        return;
+                    }
+                }
+                // Handle mixed Generic, TypeParameter, and Unresolved types
+                if ((leftArrayType->getElementType()->getKind() == TypeKind::Generic &&
+                     (rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter ||
+                      rightArrayType->getElementType()->getKind() == TypeKind::Unresolved)) ||
+                    (leftArrayType->getElementType()->getKind() == TypeKind::TypeParameter &&
+                     (rightArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                      rightArrayType->getElementType()->getKind() == TypeKind::Unresolved)) ||
+                    (leftArrayType->getElementType()->getKind() == TypeKind::Unresolved &&
+                     (rightArrayType->getElementType()->getKind() == TypeKind::Generic ||
+                      rightArrayType->getElementType()->getKind() == TypeKind::TypeParameter))) {
+                    // This is a valid assignment: mixed generic types can be assigned
+                    return;
+                }
+            }
+        }
+    }
+
+    // General type compatibility check
+    if (!isAssignable(rightType, leftType)) {
+        reportTypeError(
+            "Type mismatch: cannot assign " + rightType->toString() + " to " + leftType->toString(),
+            location
+        );
+    }
+}
+
 } // namespace semantic
 } // namespace tsc
