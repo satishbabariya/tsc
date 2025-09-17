@@ -51,17 +51,24 @@ add_library(tsc_lib STATIC
         codegen/ObjectFileGenerator.cpp
         codegen/ExecutableLinker.cpp
         
-        # Refactored Code Generation Modules
-        codegen/LLVMCodeGenRefactored.cpp
-        codegen/context/CodeGenContext.cpp
-        codegen/types/TypeGenerator.cpp
-        codegen/expressions/ExpressionGenerator.cpp
-        codegen/statements/StatementGenerator.cpp
-        codegen/functions/FunctionGenerator.cpp
-        codegen/classes/ClassGenerator.cpp
-        codegen/builtins/BuiltinGenerator.cpp
-        codegen/optimization/OptimizationEngine.cpp
-        codegen/memory/MemoryManager.cpp
+            # Refactored Code Generation Modules
+            codegen/LLVMCodeGenRefactored.cpp
+            codegen/context/CodeGenContext.cpp
+            codegen/types/TypeGenerator.cpp
+            codegen/expressions/ExpressionGenerator.cpp
+            codegen/statements/StatementGenerator.cpp
+            codegen/functions/FunctionGenerator.cpp
+            codegen/classes/ClassGenerator.cpp
+            codegen/builtins/BuiltinGenerator.cpp
+            codegen/optimization/OptimizationEngine.cpp
+            codegen/memory/MemoryManager.cpp
+
+            # Refactored AST Modules
+            ast/ASTRefactored.cpp
+            ast/core/ASTCore.cpp
+            ast/expressions/ExpressionNodes.cpp
+            ast/statements/StatementNodes.cpp
+            ast/declarations/DeclarationNodes.cpp
 
         # AST implementation
         AST.cpp

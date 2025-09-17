@@ -368,6 +368,12 @@ add_executable(SemanticAnalysisUnitTests
     ${TSC_SOURCES}
 )
 
+# Add AST modular integration tests
+add_executable(ASTModularIntegrationTest
+    tests/integration/ASTModularIntegrationTest.cpp
+    ${TSC_SOURCES}
+)
+
 # Set test properties
 set_target_properties(SemanticAnalysisModularIntegrationTest PROPERTIES
     CXX_STANDARD 17
@@ -379,9 +385,15 @@ set_target_properties(SemanticAnalysisUnitTests PROPERTIES
     CXX_STANDARD_REQUIRED ON
 )
 
+set_target_properties(ASTModularIntegrationTest PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
 # Add tests to CTest
 add_test(NAME SemanticAnalysisModularIntegrationTest COMMAND SemanticAnalysisModularIntegrationTest)
 add_test(NAME SemanticAnalysisUnitTests COMMAND SemanticAnalysisUnitTests)
+add_test(NAME ASTModularIntegrationTest COMMAND ASTModularIntegrationTest)
 
 # Create runtime library
 add_library(tsc_runtime STATIC
