@@ -1451,12 +1451,7 @@ namespace tsc {
 
                 // Parse type arguments if present
                 if (match(TokenType::Less)) {
-                    if (!check(TokenType::Greater)) {
-                        do {
-                            typeArguments.push_back(parseTypeAnnotation());
-                        } while (match(TokenType::Comma));
-                    }
-                    consume(TokenType::Greater, "Expected '>' after type arguments");
+                    typeArguments = parseTypeArgumentList();
                 }
 
                 // Now parse the function call
