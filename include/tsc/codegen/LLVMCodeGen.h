@@ -28,6 +28,34 @@
 // Advanced optimization includes - will be added later
 // #include "llvm/Passes/PassBuilder.h"
 // #include "llvm/Passes/StandardInstrumentations.h"
+
+// Forward declaration for generic instantiation
+struct GenericInstantiation {
+    std::unordered_map<tsc::String, std::shared_ptr<tsc::Type>> typeArguments;
+    tsc::String methodKey;
+    
+    GenericInstantiation(const std::unordered_map<tsc::String, std::shared_ptr<tsc::Type>>& args, const tsc::String& key)
+        : typeArguments(args), methodKey(key) {}
+    
+    // Helper methods
+    std::shared_ptr<tsc::Type> getTypeArgument(const tsc::String& name) const {
+        auto it = typeArguments.find(name);
+        return (it != typeArguments.end()) ? it->second : nullptr;
+    }
+    
+    const std::unordered_map<tsc::String, std::shared_ptr<tsc::Type>>& getTypeArguments() const {
+        return typeArguments;
+    }
+    
+    tsc::String getTypeArgumentsString() const {
+        tsc::String result;
+        for (const auto& pair : typeArguments) {
+            if (!result.empty()) result += "_";
+            result += pair.first;
+        }
+        return result;
+    }
+};
 // #include "llvm/Analysis/TargetTransformInfo.h"
 // #include "llvm/Transforms/Scalar.h"
 // #include "llvm/Transforms/Utils.h"
@@ -582,6 +610,15 @@ public:
     
     // Type conversion
     llvm::Type* convertTypeToLLVM(shared_ptr<Type> type);
+    
+    // Expression type analysis
+    shared_ptr<Type> getExpressionType(const Expression& expr);
+    
+    // Array operations
+    llvm::Value* generateArrayLength(llvm::Value* arrayValue);
+    
+    // String conversion
+    llvm::Value* convertCharToString(llvm::Value* charValue);
     
     // Performance optimization: struct type caching
     llvm::StructType* getOrCreateStructType(const std::vector<llvm::Type*>& fieldTypes);

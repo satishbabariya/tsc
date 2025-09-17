@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "arc/arc_runtime.h"
+#include "runtime.h"
 
 // Helper function to safely handle string arguments with ARC
 static void safe_print_string(char *str) {
@@ -142,4 +143,27 @@ void _print(void *first_arg, ...) {
 
     va_end(args); // Clean up the variable argument list
     putchar('\n'); // Add newline at the end, as per original behavior
+}
+
+// Console.log function - simplified version that takes a single argument
+// This function converts the argument to string and prints it
+void console_log(void *arg) {
+    if (!arg) {
+        printf("undefined\n");
+        return;
+    }
+    
+    // For now, we'll use a simple approach - convert the argument to string
+    // In a full implementation, we'd need to handle different types properly
+    char *str = object_to_string(arg);
+    if (str) {
+        safe_print_string(str);
+        putchar('\n');
+        // Release the string if it's ARC-managed
+        if (__tsc_is_arc_object(str)) {
+            __tsc_release(str);
+        }
+    } else {
+        printf("(null)\n");
+    }
 }

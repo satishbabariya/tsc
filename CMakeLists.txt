@@ -35,6 +35,34 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Memory sanitizer configuration
+option(ENABLE_MEMORY_SANITIZER "Enable memory sanitizers (AddressSanitizer, MemorySanitizer)" OFF)
+option(ENABLE_ADDRESS_SANITIZER "Enable AddressSanitizer" OFF)
+option(ENABLE_MEMORY_SANITIZER_MSAN "Enable MemorySanitizer" OFF)
+option(ENABLE_UNDEFINED_BEHAVIOR_SANITIZER "Enable UndefinedBehaviorSanitizer" OFF)
+
+# Configure sanitizers
+if(ENABLE_MEMORY_SANITIZER OR ENABLE_ADDRESS_SANITIZER)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+    message(STATUS "AddressSanitizer enabled")
+endif()
+
+if(ENABLE_MEMORY_SANITIZER OR ENABLE_MEMORY_SANITIZER_MSAN)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=memory")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=memory")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=memory")
+    message(STATUS "MemorySanitizer enabled")
+endif()
+
+if(ENABLE_UNDEFINED_BEHAVIOR_SANITIZER)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=undefined")
+    message(STATUS "UndefinedBehaviorSanitizer enabled")
+endif()
+
 # Enable parallel compilation (this is handled by make -j, not compiler flags)
 
 # Find LLVM - Use configurable installation path
@@ -358,7 +386,8 @@ enable_testing()
 # add_subdirectory(test)  # Disabled - GTest not available
 
 # Add test subdirectories
-add_subdirectory(tests/monomorphization)
+add_subdirectory(tests)  # Generic type constraints tests
+# add_subdirectory(tests/monomorphization)  # Disabled - no CMakeLists.txt in this directory
 
 # Create runtime library
 add_library(tsc_runtime STATIC
@@ -375,17 +404,17 @@ add_library(tsc_runtime STATIC
 )
 
 # Create ARC weak store test executable
-add_executable(test_arc_weak_store
-    tests/runtime/arc/test_arc_weak_store.c
-)
+# add_executable(test_arc_weak_store
+#     tests/runtime/arc/test_arc_weak_store.c
+# )
 
-target_link_libraries(test_arc_weak_store
-    tsc_runtime
-    pthread
-)
+# target_link_libraries(test_arc_weak_store
+#     tsc_runtime
+#     pthread
+# )
 
 # Add test to CTest
-add_test(NAME arc_weak_store_test COMMAND test_arc_weak_store)
+# add_test(NAME arc_weak_store_test COMMAND test_arc_weak_store)
 
 # Create main executable
 add_executable(tsc

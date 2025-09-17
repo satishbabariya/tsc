@@ -1,0 +1,330 @@
+Detected host target triple: x86_64-pc-linux-gnu
+Initializing LLVM targets...
+Successfully initialized all LLVM targets
+Discovering available targets from LLVM...
+Discovered target: xtensa
+Discovered target: m68k
+Discovered target: xcore
+Discovered target: x86-64
+Discovered target: x86
+Discovered target: wasm64
+Discovered target: wasm32
+Discovered target: ve
+Discovered target: systemz
+Discovered target: spirv
+Discovered target: spirv64
+Discovered target: spirv32
+Discovered target: sparcel
+Discovered target: sparcv9
+Discovered target: sparc
+Discovered target: riscv64
+Discovered target: riscv32
+Discovered target: ppc64le
+Discovered target: ppc64
+Discovered target: ppc32le
+Discovered target: ppc32
+Discovered target: nvptx64
+Discovered target: nvptx
+Discovered target: msp430
+Discovered target: mips64el
+Discovered target: mips64
+Discovered target: mipsel
+Discovered target: mips
+Discovered target: loongarch64
+Discovered target: loongarch32
+Discovered target: lanai
+Discovered target: hexagon
+Discovered target: bpfeb
+Discovered target: bpfel
+Discovered target: bpf
+Discovered target: avr
+Discovered target: thumbeb
+Discovered target: thumb
+Discovered target: armeb
+Discovered target: arm
+Discovered target: amdgcn
+Discovered target: r600
+Discovered target: aarch64_32
+Discovered target: aarch64_be
+Discovered target: aarch64
+Discovered target: arm64_32
+Discovered target: arm64
+Target registry initialized successfully with 47 targets
+Supported targets: 47/47
+DEBUG: Created ModuleSymbolManager
+DEBUG: SemanticAnalyzer created SymbolTable at address: 0x5606c089da60
+DEBUG: Created Infinity global variable with linkage: 0
+[0] Starting lexical analysis
+[1] Starting syntax analysis
+DEBUG: Parser::parse() called with 815 tokens for file: /workspace/tests/system/generic_constraints/edge_cases.ts
+DEBUG: Parser::parseModule() called
+DEBUG: Starting parseModule loop, isAtEnd(): 0
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement threw CompilerError
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(emptyString)
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(unicodeString)
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(largeNumber)
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(zeroNumber)
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(negativeNumber)
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(optionalItem)
+DEBUG: Current token type: 91
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(stringArray)
+DEBUG: Current token type: 95
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(stringFunction)
+DEBUG: Current token type: 70
+DEBUG: parseStatement threw CompilerError
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(unionItem)
+DEBUG: Current token type: 91
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(recursiveItem)
+DEBUG: Current token type: 91
+DEBUG: Current token type: 95
+DEBUG: Current token type: 91
+DEBUG: Current token type: 91
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(methodItem)
+DEBUG: Current token type: 91
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(emptyResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(unicodeResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(largeResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(zeroResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(negativeResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(optionalResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(arrayResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(functionResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(functionOutput)
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(unionResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(recursiveResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(methodResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(validResult)
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(edgeResult)
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 6
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement

@@ -21,26 +21,25 @@ namespace tsc {
         
         void visit(AssignmentExpression& expr) override {
             // Check for assignments like: this.property = null
-            if (auto memberAccess = dynamic_cast<MemberAccessExpression*>(expr.getLeft())) {
+            if (auto memberAccess = dynamic_cast<PropertyAccess*>(expr.getLeft())) {
                 if (memberAccess->getObject()->toString() == "this" && 
                     memberAccess->getProperty() == propertyName_) {
                     // Check if it's being set to null or undefined
                     if (auto nullLiteral = dynamic_cast<NullLiteral*>(expr.getRight())) {
-                        propertyCleanedUp_ = true;
-                    } else if (auto undefinedLiteral = dynamic_cast<UndefinedLiteral*>(expr.getRight())) {
                         propertyCleanedUp_ = true;
                     }
                 }
             }
             
             // Visit children
-            ASTVisitor::visit(expr);
+            expr.getLeft()->accept(*this);
+            expr.getRight()->accept(*this);
         }
         
         void visit(ExpressionStatement& stmt) override {
             // Check for direct cleanup calls like: this.property.reset()
             if (auto callExpr = dynamic_cast<CallExpression*>(stmt.getExpression())) {
-                if (auto memberAccess = dynamic_cast<MemberAccessExpression*>(callExpr->getCallee())) {
+                if (auto memberAccess = dynamic_cast<PropertyAccess*>(callExpr->getCallee())) {
                     if (memberAccess->getObject()->toString() == "this" && 
                         memberAccess->getProperty() == propertyName_) {
                         String methodName = callExpr->getArguments().empty() ? "" : 
@@ -53,7 +52,7 @@ namespace tsc {
             }
             
             // Visit children
-            ASTVisitor::visit(stmt);
+            stmt.getExpression()->accept(*this);
         }
         
         void visit(BlockStatement& stmt) override {
@@ -62,6 +61,64 @@ namespace tsc {
                 statement->accept(*this);
             }
         }
+        
+        // Implement all required virtual methods with empty implementations
+        void visit(NumericLiteral& node) override {}
+        void visit(StringLiteral& node) override {}
+        void visit(TemplateLiteral& node) override {}
+        void visit(BooleanLiteral& node) override {}
+        void visit(NullLiteral& node) override {}
+        void visit(Identifier& node) override {}
+        void visit(ThisExpression& node) override {}
+        void visit(SuperExpression& node) override {}
+        void visit(NewExpression& node) override {}
+        void visit(BinaryExpression& node) override {}
+        void visit(UnaryExpression& node) override {}
+        void visit(IndexExpression& node) override {}
+        void visit(ConditionalExpression& node) override {}
+        void visit(CallExpression& node) override {}
+        void visit(ArrayLiteral& node) override {}
+        void visit(ObjectLiteral& node) override {}
+        void visit(PropertyAccess& node) override {}
+        void visit(ArrowFunction& node) override {}
+        void visit(FunctionExpression& node) override {}
+        void visit(MoveExpression& node) override {}
+        void visit(OptionalPropertyAccess& node) override {}
+        void visit(OptionalIndexAccess& node) override {}
+        void visit(OptionalCallExpr& node) override {}
+        void visit(SpreadElement& node) override {}
+        void visit(DestructuringPattern& node) override {}
+        void visit(ArrayDestructuringPattern& node) override {}
+        void visit(ObjectDestructuringPattern& node) override {}
+        void visit(IdentifierPattern& node) override {}
+        void visit(DestructuringAssignment& node) override {}
+        void visit(ReturnStatement& node) override {}
+        void visit(IfStatement& node) override {}
+        void visit(WhileStatement& node) override {}
+        void visit(DoWhileStatement& node) override {}
+        void visit(ForStatement& node) override {}
+        void visit(ForOfStatement& node) override {}
+        void visit(SwitchStatement& node) override {}
+        void visit(CaseClause& node) override {}
+        void visit(BreakStatement& node) override {}
+        void visit(ContinueStatement& node) override {}
+        void visit(TryStatement& node) override {}
+        void visit(CatchClause& node) override {}
+        void visit(ThrowStatement& node) override {}
+        void visit(VariableDeclaration& node) override {}
+        void visit(FunctionDeclaration& node) override {}
+        void visit(TypeParameter& node) override {}
+        void visit(PropertyDeclaration& node) override {}
+        void visit(MethodDeclaration& node) override {}
+        void visit(DestructorDeclaration& node) override {}
+        void visit(ClassDeclaration& node) override {}
+        void visit(InterfaceDeclaration& node) override {}
+        void visit(EnumMember& node) override {}
+        void visit(EnumDeclaration& node) override {}
+        void visit(TypeAliasDeclaration& node) override {}
+        void visit(Module& node) override {}
+        void visit(ImportDeclaration& node) override {}
+        void visit(ExportDeclaration& node) override {}
     };
     SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine &diagnostics)
         : diagnostics_(diagnostics) {
@@ -1419,9 +1476,32 @@ namespace tsc {
             typeParam->accept(*this);
         }
 
+        // Update function signature in symbol table with resolved parameter types
+        auto functionType = std::static_pointer_cast<FunctionType>(existingSymbol->getType());
+        if (functionType) {
+            std::vector<FunctionType::Parameter> resolvedParamTypes;
+            for (const auto &param: node.getParameters()) {
+                FunctionType::Parameter funcParam;
+                funcParam.name = param.name;
+                funcParam.type = param.type ? resolveType(param.type) : typeSystem_->getAnyType();
+                funcParam.optional = param.optional;
+                funcParam.rest = param.rest;
+                resolvedParamTypes.push_back(funcParam);
+            }
+            
+            // Create new function type with resolved parameter types
+            auto resolvedFunctionType = typeSystem_->createFunctionType(std::move(resolvedParamTypes), functionType->getReturnType());
+            existingSymbol->setType(resolvedFunctionType);
+        }
+
         // Add parameters to function scope
         for (const auto &param: node.getParameters()) {
+            std::cout << "DEBUG: Processing parameter '" << param.name << "' with type: " << (param.type ? param.type->toString() : "null") << std::endl;
+            if (param.type) {
+                std::cout << "DEBUG: Parameter type kind before resolve: " << static_cast<int>(param.type->getKind()) << std::endl;
+            }
             auto paramType = param.type ? resolveType(param.type) : typeSystem_->getAnyType();
+            std::cout << "DEBUG: Parameter type kind after resolve: " << static_cast<int>(paramType->getKind()) << std::endl;
             symbolTable_->addSymbol(param.name, SymbolKind::Parameter, paramType,
                                     node.getLocation());
         }
@@ -2617,7 +2697,10 @@ namespace tsc {
             }
             
             // Check for constant expressions (computed values)
-            if (!isValidEnumValue && valueType->isConstant()) {
+            if (!isValidEnumValue && (valueType->getKind() == TypeKind::Literal || 
+                valueType->getKind() == TypeKind::StringLiteral || 
+                valueType->getKind() == TypeKind::NumericLiteral || 
+                valueType->getKind() == TypeKind::BooleanLiteral)) {
                 isValidEnumValue = true;
             }
             
@@ -2635,7 +2718,10 @@ namespace tsc {
                         if (!memberType->isEquivalentTo(*typeSystem_->getNumberType()) &&
                             !memberType->isEquivalentTo(*typeSystem_->getStringType()) &&
                             memberType->getKind() != TypeKind::Literal &&
-                            !memberType->isConstant()) {
+                            !(memberType->getKind() == TypeKind::Literal || 
+                              memberType->getKind() == TypeKind::StringLiteral || 
+                              memberType->getKind() == TypeKind::NumericLiteral || 
+                              memberType->getKind() == TypeKind::BooleanLiteral)) {
                             isValidEnumValue = false;
                             break;
                         }
@@ -2969,6 +3055,7 @@ namespace tsc {
         }
         if (symbol && (symbol->getKind() == SymbolKind::Type || symbol->getKind() == SymbolKind::Class)) {
             auto resolvedType = symbol->getType();
+            std::cout << "DEBUG: resolveType returning resolved type: " << resolvedType->toString() << " (kind: " << static_cast<int>(resolvedType->getKind()) << ")" << std::endl;
 
             // Always ensure ClassType has correct declaration pointer
             if (resolvedType->getKind() == TypeKind::Class) {
@@ -3300,7 +3387,11 @@ namespace tsc {
             auto argType = getExpressionType(*arguments[i]);
             auto paramType = parameters[i].type;
 
+            std::cout << "DEBUG: Checking argument " << i << ": " << argType->toString() << " vs parameter: " << paramType->toString() << std::endl;
+            std::cout << "DEBUG: Argument type kind: " << static_cast<int>(argType->getKind()) << ", Parameter type kind: " << static_cast<int>(paramType->getKind()) << std::endl;
+            
             if (!isValidAssignment(*argType, *paramType)) {
+                std::cout << "DEBUG: Assignment failed for " << argType->toString() << " to " << paramType->toString() << std::endl;
                 reportTypeError(paramType->toString(), argType->toString(), arguments[i]->getLocation());
                 return false;
             }
@@ -3721,7 +3812,7 @@ namespace tsc {
         std::cout << "✅ Resource cleanup suggestions completed" << std::endl;
     }
 
-    bool SemanticAnalyzer::analyzeDestructorCleanup(const FunctionDeclaration* destructor, const String& propertyName) {
+    bool SemanticAnalyzer::analyzeDestructorCleanup(const DestructorDeclaration* destructor, const String& propertyName) {
         if (!destructor || !destructor->getBody()) {
             return false;
         }

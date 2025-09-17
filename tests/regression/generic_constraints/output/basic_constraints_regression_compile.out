@@ -1,0 +1,1547 @@
+Detected host target triple: x86_64-pc-linux-gnu
+Initializing LLVM targets...
+Successfully initialized all LLVM targets
+Discovering available targets from LLVM...
+Discovered target: xtensa
+Discovered target: m68k
+Discovered target: xcore
+Discovered target: x86-64
+Discovered target: x86
+Discovered target: wasm64
+Discovered target: wasm32
+Discovered target: ve
+Discovered target: systemz
+Discovered target: spirv
+Discovered target: spirv64
+Discovered target: spirv32
+Discovered target: sparcel
+Discovered target: sparcv9
+Discovered target: sparc
+Discovered target: riscv64
+Discovered target: riscv32
+Discovered target: ppc64le
+Discovered target: ppc64
+Discovered target: ppc32le
+Discovered target: ppc32
+Discovered target: nvptx64
+Discovered target: nvptx
+Discovered target: msp430
+Discovered target: mips64el
+Discovered target: mips64
+Discovered target: mipsel
+Discovered target: mips
+Discovered target: loongarch64
+Discovered target: loongarch32
+Discovered target: lanai
+Discovered target: hexagon
+Discovered target: bpfeb
+Discovered target: bpfel
+Discovered target: bpf
+Discovered target: avr
+Discovered target: thumbeb
+Discovered target: thumb
+Discovered target: armeb
+Discovered target: arm
+Discovered target: amdgcn
+Discovered target: r600
+Discovered target: aarch64_32
+Discovered target: aarch64_be
+Discovered target: aarch64
+Discovered target: arm64_32
+Discovered target: arm64
+Target registry initialized successfully with 47 targets
+Supported targets: 47/47
+DEBUG: Created ModuleSymbolManager
+DEBUG: SemanticAnalyzer created SymbolTable at address: 0x55ed34d55ad0
+DEBUG: Created Infinity global variable with linkage: 0
+[0] Starting lexical analysis
+[1] Starting syntax analysis
+DEBUG: Parser::parse() called with 322 tokens for file: /workspace/tests/regression/generic_constraints/basic_constraints_regression.ts
+DEBUG: Parser::parseModule() called
+DEBUG: Starting parseModule loop, isAtEnd(): 0
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 46
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 46
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 46
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(strResult)
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(numResult)
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(boolResult)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 46
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(multiResult)
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(nestedResult)
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(lengthResult)
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(strValid)
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(numValid)
+DEBUG: Current token type: 1
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(boolValid)
+DEBUG: Current token type: 1
+DEBUG: Current token type: 46
+DEBUG: parseStatement() called
+DEBUG: parseVariableStatement called, current token: Identifier(allTestsPassed)
+DEBUG: Current token type: 46
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+DEBUG: parseModule loop iteration, calling parseStatement()
+DEBUG: parseStatement() called
+DEBUG: Current token type: 1
+DEBUG: parseStatement returned a statement
+[2] Starting semantic analysis
+DEBUG: *** ANALYZE METHOD CALLED *** for module
+DEBUG: *** CALLING performSymbolResolution ***
+DEBUG: *** performSymbolResolution CALLED ***
+DEBUG: collectFunctionDeclarations found 12 statements
+DEBUG: Processing statement type: N3tsc19FunctionDeclarationE
+DEBUG: Found function declaration: processString
+DEBUG: Processing statement type: N3tsc19FunctionDeclarationE
+DEBUG: Found function declaration: processNumber
+DEBUG: Processing statement type: N3tsc19FunctionDeclarationE
+DEBUG: Found function declaration: processBoolean
+DEBUG: Processing statement type: N3tsc19FunctionDeclarationE
+DEBUG: Found function declaration: processMultiple
+DEBUG: Processing statement type: N3tsc19FunctionDeclarationE
+DEBUG: Found function declaration: validateString
+DEBUG: Processing statement type: N3tsc19FunctionDeclarationE
+DEBUG: Found function declaration: validateNumber
+DEBUG: Processing statement type: N3tsc19FunctionDeclarationE
+DEBUG: Found function declaration: validateBoolean
+DEBUG: Processing statement type: N3tsc19FunctionDeclarationE
+DEBUG: Found function declaration: processNested
+DEBUG: Processing statement type: N3tsc19FunctionDeclarationE
+DEBUG: Found function declaration: getLength
+DEBUG: Processing statement type: N3tsc19FunctionDeclarationE
+DEBUG: Found function declaration: testBasicConstraintsRegression
+DEBUG: Processing statement type: N3tsc19FunctionDeclarationE
+DEBUG: Found function declaration: main
+DEBUG: Processing statement type: N3tsc19ExpressionStatementE
+DEBUG: *** CALLING module.accept(*this) ***
+DEBUG: SymbolTable::lookupSymbol searching for 'processString' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processString' in scope 0x55ed34c760b0
+DEBUG: Found 'processString' in parent hierarchy
+DEBUG: declareSymbol called for: T (kind: 10)
+DEBUG: Symbol successfully declared: T
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35014fd0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35014fd0 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35014fd0
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Processing parameter 'value' with type: T
+DEBUG: Parameter type kind before resolve: 12
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35014fd0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35014fd0 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35014fd0
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Parameter type kind after resolve: 23
+DEBUG: SymbolTable::lookupSymbol searching for 'value' starting from scope 0x55ed350153d0
+DEBUG: Scope::lookupSymbol searching for 'value' in scope 0x55ed350153d0 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed350153d0, searching parent scope 0x55ed35014fd0
+DEBUG: Scope::lookupSymbol searching for 'value' in scope 0x55ed35014fd0 (type: 2)
+DEBUG: Found symbol 'value' in scope 0x55ed35014fd0
+DEBUG: Found 'value' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed350153d0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed350153d0 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed350153d0, searching parent scope 0x55ed35014fd0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35014fd0 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35014fd0
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: SymbolTable::lookupSymbol searching for 'processNumber' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processNumber' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processNumber' in scope 0x55ed34c760b0
+DEBUG: Found 'processNumber' in parent hierarchy
+DEBUG: declareSymbol called for: T (kind: 10)
+DEBUG: Symbol successfully declared: T
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35015590
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35015590 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35015590
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Processing parameter 'value' with type: T
+DEBUG: Parameter type kind before resolve: 12
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35015590
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35015590 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35015590
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Parameter type kind after resolve: 23
+DEBUG: SymbolTable::lookupSymbol searching for 'value' starting from scope 0x55ed35015950
+DEBUG: Scope::lookupSymbol searching for 'value' in scope 0x55ed35015950 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35015950, searching parent scope 0x55ed35015590
+DEBUG: Scope::lookupSymbol searching for 'value' in scope 0x55ed35015590 (type: 2)
+DEBUG: Found symbol 'value' in scope 0x55ed35015590
+DEBUG: Found 'value' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35015950
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35015950 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35015950, searching parent scope 0x55ed35015590
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35015590 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35015590
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: SymbolTable::lookupSymbol searching for 'processBoolean' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processBoolean' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processBoolean' in scope 0x55ed34c760b0
+DEBUG: Found 'processBoolean' in parent hierarchy
+DEBUG: declareSymbol called for: T (kind: 10)
+DEBUG: Symbol successfully declared: T
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35015a30
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35015a30 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35015a30
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Processing parameter 'value' with type: T
+DEBUG: Parameter type kind before resolve: 12
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35015a30
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35015a30 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35015a30
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Parameter type kind after resolve: 23
+DEBUG: SymbolTable::lookupSymbol searching for 'value' starting from scope 0x55ed35015e00
+DEBUG: Scope::lookupSymbol searching for 'value' in scope 0x55ed35015e00 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35015e00, searching parent scope 0x55ed35015a30
+DEBUG: Scope::lookupSymbol searching for 'value' in scope 0x55ed35015a30 (type: 2)
+DEBUG: Found symbol 'value' in scope 0x55ed35015a30
+DEBUG: Found 'value' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35015e00
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35015e00 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35015e00, searching parent scope 0x55ed35015a30
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35015a30 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35015a30
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: SymbolTable::lookupSymbol searching for 'processMultiple' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processMultiple' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processMultiple' in scope 0x55ed34c760b0
+DEBUG: Found 'processMultiple' in parent hierarchy
+DEBUG: declareSymbol called for: T (kind: 10)
+DEBUG: Symbol successfully declared: T
+DEBUG: declareSymbol called for: U (kind: 10)
+DEBUG: Symbol successfully declared: U
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35015ee0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35015ee0 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35015ee0
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: SymbolTable::lookupSymbol searching for 'U' starting from scope 0x55ed35015ee0
+DEBUG: Scope::lookupSymbol searching for 'U' in scope 0x55ed35015ee0 (type: 2)
+DEBUG: Found symbol 'U' in scope 0x55ed35015ee0
+DEBUG: Found 'U' in parent hierarchy
+DEBUG: resolveType looking up 'U': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: U
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: U (kind: 23)
+DEBUG: Processing parameter 'str' with type: T
+DEBUG: Parameter type kind before resolve: 12
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35015ee0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35015ee0 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35015ee0
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Parameter type kind after resolve: 23
+DEBUG: Processing parameter 'num' with type: U
+DEBUG: Parameter type kind before resolve: 12
+DEBUG: SymbolTable::lookupSymbol searching for 'U' starting from scope 0x55ed35015ee0
+DEBUG: Scope::lookupSymbol searching for 'U' in scope 0x55ed35015ee0 (type: 2)
+DEBUG: Found symbol 'U' in scope 0x55ed35015ee0
+DEBUG: Found 'U' in parent hierarchy
+DEBUG: resolveType looking up 'U': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: U
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: U (kind: 23)
+DEBUG: Parameter type kind after resolve: 23
+DEBUG: SymbolTable::lookupSymbol searching for 'str' starting from scope 0x55ed35016560
+DEBUG: Scope::lookupSymbol searching for 'str' in scope 0x55ed35016560 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35016560, searching parent scope 0x55ed35015ee0
+DEBUG: Scope::lookupSymbol searching for 'str' in scope 0x55ed35015ee0 (type: 2)
+DEBUG: Found symbol 'str' in scope 0x55ed35015ee0
+DEBUG: Found 'str' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'validateString' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateString' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateString' in scope 0x55ed34c760b0
+DEBUG: Found 'validateString' in parent hierarchy
+DEBUG: declareSymbol called for: T (kind: 10)
+DEBUG: Symbol successfully declared: T
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed350166c0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed350166c0 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed350166c0
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Processing parameter 'value' with type: T
+DEBUG: Parameter type kind before resolve: 12
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed350166c0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed350166c0 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed350166c0
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Parameter type kind after resolve: 23
+DEBUG: SymbolTable::lookupSymbol searching for 'validateNumber' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateNumber' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateNumber' in scope 0x55ed34c760b0
+DEBUG: Found 'validateNumber' in parent hierarchy
+DEBUG: declareSymbol called for: T (kind: 10)
+DEBUG: Symbol successfully declared: T
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35016b20
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35016b20 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35016b20
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Processing parameter 'value' with type: T
+DEBUG: Parameter type kind before resolve: 12
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35016b20
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35016b20 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35016b20
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Parameter type kind after resolve: 23
+DEBUG: SymbolTable::lookupSymbol searching for 'validateBoolean' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateBoolean' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateBoolean' in scope 0x55ed34c760b0
+DEBUG: Found 'validateBoolean' in parent hierarchy
+DEBUG: declareSymbol called for: T (kind: 10)
+DEBUG: Symbol successfully declared: T
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35016fa0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35016fa0 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35016fa0
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Processing parameter 'value' with type: T
+DEBUG: Parameter type kind before resolve: 12
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35016fa0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35016fa0 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35016fa0
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Parameter type kind after resolve: 23
+DEBUG: SymbolTable::lookupSymbol searching for 'processNested' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processNested' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processNested' in scope 0x55ed34c760b0
+DEBUG: Found 'processNested' in parent hierarchy
+DEBUG: declareSymbol called for: T (kind: 10)
+DEBUG: Symbol successfully declared: T
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35017420
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35017420 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35017420
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Processing parameter 'value' with type: T
+DEBUG: Parameter type kind before resolve: 12
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed35017420
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35017420 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35017420
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Parameter type kind after resolve: 23
+DEBUG: SymbolTable::lookupSymbol searching for 'processString' starting from scope 0x55ed350177c0
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed350177c0 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed350177c0, searching parent scope 0x55ed35017420
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed35017420 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35017420, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processString' in scope 0x55ed34c760b0
+DEBUG: Found 'processString' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'value' starting from scope 0x55ed350177c0
+DEBUG: Scope::lookupSymbol searching for 'value' in scope 0x55ed350177c0 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed350177c0, searching parent scope 0x55ed35017420
+DEBUG: Scope::lookupSymbol searching for 'value' in scope 0x55ed35017420 (type: 2)
+DEBUG: Found symbol 'value' in scope 0x55ed35017420
+DEBUG: Found 'value' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'processString' starting from scope 0x55ed350177c0
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed350177c0 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed350177c0, searching parent scope 0x55ed35017420
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed35017420 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35017420, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processString' in scope 0x55ed34c760b0
+DEBUG: Found 'processString' in parent hierarchy
+DEBUG: Checking argument 0: T vs parameter: T
+DEBUG: Argument type kind: 23, Parameter type kind: 23
+DEBUG: SymbolTable::lookupSymbol searching for 'processString' starting from scope 0x55ed350177c0
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed350177c0 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed350177c0, searching parent scope 0x55ed35017420
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed35017420 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35017420, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processString' in scope 0x55ed34c760b0
+DEBUG: Found 'processString' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed350177c0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed350177c0 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed350177c0, searching parent scope 0x55ed35017420
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed35017420 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed35017420
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: SymbolTable::lookupSymbol searching for 'getLength' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'getLength' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'getLength' in scope 0x55ed34c760b0
+DEBUG: Found 'getLength' in parent hierarchy
+DEBUG: declareSymbol called for: T (kind: 10)
+DEBUG: Symbol successfully declared: T
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed350179b0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed350179b0 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed350179b0
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Processing parameter 'value' with type: T
+DEBUG: Parameter type kind before resolve: 12
+DEBUG: SymbolTable::lookupSymbol searching for 'T' starting from scope 0x55ed350179b0
+DEBUG: Scope::lookupSymbol searching for 'T' in scope 0x55ed350179b0 (type: 2)
+DEBUG: Found symbol 'T' in scope 0x55ed350179b0
+DEBUG: Found 'T' in parent hierarchy
+DEBUG: resolveType looking up 'T': found
+DEBUG: Symbol kind: 10
+DEBUG: Symbol type: T
+DEBUG: Symbol type kind: 23
+DEBUG: resolveType returning resolved type: T (kind: 23)
+DEBUG: Parameter type kind after resolve: 23
+DEBUG: SymbolTable::lookupSymbol searching for 'value' starting from scope 0x55ed35017f40
+DEBUG: Scope::lookupSymbol searching for 'value' in scope 0x55ed35017f40 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35017f40, searching parent scope 0x55ed350179b0
+DEBUG: Scope::lookupSymbol searching for 'value' in scope 0x55ed350179b0 (type: 2)
+DEBUG: Found symbol 'value' in scope 0x55ed350179b0
+DEBUG: Found 'value' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'testBasicConstraintsRegression' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'testBasicConstraintsRegression' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'testBasicConstraintsRegression' in scope 0x55ed34c760b0
+DEBUG: Found 'testBasicConstraintsRegression' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'processString' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processString' in scope 0x55ed34c760b0
+DEBUG: Found 'processString' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'processString' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processString' in scope 0x55ed34c760b0
+DEBUG: Found 'processString' in parent hierarchy
+DEBUG: Checking argument 0: string vs parameter: T
+DEBUG: Argument type kind: 1, Parameter type kind: 23
+DEBUG: Checking if string is assignable to type parameter T
+DEBUG: Type parameter has constraint: string
+DEBUG: string is assignable to constraint string: YES
+DEBUG: SymbolTable::lookupSymbol searching for 'processString' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processString' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processString' in scope 0x55ed34c760b0
+DEBUG: Found 'processString' in parent hierarchy
+DEBUG: Adding variable strResult with type: T
+DEBUG: Current scope when adding variable: 0x55ed35018230
+DEBUG: Scope hierarchy when adding variable strResult:
+  Level 0: 0x55ed35018230 (type: 3, name: )
+  Level 1: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+  Level 2: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: SymbolTable::lookupSymbol searching for 'processNumber' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processNumber' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processNumber' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processNumber' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processNumber' in scope 0x55ed34c760b0
+DEBUG: Found 'processNumber' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'processNumber' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processNumber' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processNumber' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processNumber' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processNumber' in scope 0x55ed34c760b0
+DEBUG: Found 'processNumber' in parent hierarchy
+DEBUG: Checking argument 0: number vs parameter: T
+DEBUG: Argument type kind: 0, Parameter type kind: 23
+DEBUG: Checking if number is assignable to type parameter T
+DEBUG: Type parameter has constraint: number
+DEBUG: number is assignable to constraint number: YES
+DEBUG: SymbolTable::lookupSymbol searching for 'processNumber' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processNumber' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processNumber' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processNumber' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processNumber' in scope 0x55ed34c760b0
+DEBUG: Found 'processNumber' in parent hierarchy
+DEBUG: Adding variable numResult with type: T
+DEBUG: Current scope when adding variable: 0x55ed35018230
+DEBUG: Scope hierarchy when adding variable numResult:
+  Level 0: 0x55ed35018230 (type: 3, name: )
+  Level 1: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+  Level 2: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: SymbolTable::lookupSymbol searching for 'processBoolean' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processBoolean' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processBoolean' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processBoolean' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processBoolean' in scope 0x55ed34c760b0
+DEBUG: Found 'processBoolean' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'processBoolean' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processBoolean' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processBoolean' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processBoolean' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processBoolean' in scope 0x55ed34c760b0
+DEBUG: Found 'processBoolean' in parent hierarchy
+DEBUG: Checking argument 0: boolean vs parameter: T
+DEBUG: Argument type kind: 2, Parameter type kind: 23
+DEBUG: Checking if boolean is assignable to type parameter T
+DEBUG: Type parameter has constraint: boolean
+DEBUG: boolean is assignable to constraint boolean: YES
+DEBUG: SymbolTable::lookupSymbol searching for 'processBoolean' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processBoolean' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processBoolean' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processBoolean' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processBoolean' in scope 0x55ed34c760b0
+DEBUG: Found 'processBoolean' in parent hierarchy
+DEBUG: Adding variable boolResult with type: T
+DEBUG: Current scope when adding variable: 0x55ed35018230
+DEBUG: Scope hierarchy when adding variable boolResult:
+  Level 0: 0x55ed35018230 (type: 3, name: )
+  Level 1: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+  Level 2: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: SymbolTable::lookupSymbol searching for 'processMultiple' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processMultiple' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processMultiple' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processMultiple' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processMultiple' in scope 0x55ed34c760b0
+DEBUG: Found 'processMultiple' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'processMultiple' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processMultiple' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processMultiple' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processMultiple' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processMultiple' in scope 0x55ed34c760b0
+DEBUG: Found 'processMultiple' in parent hierarchy
+DEBUG: Checking argument 0: string vs parameter: T
+DEBUG: Argument type kind: 1, Parameter type kind: 23
+DEBUG: Checking if string is assignable to type parameter T
+DEBUG: Type parameter has constraint: string
+DEBUG: string is assignable to constraint string: YES
+DEBUG: Checking argument 1: number vs parameter: U
+DEBUG: Argument type kind: 0, Parameter type kind: 23
+DEBUG: Checking if number is assignable to type parameter U
+DEBUG: Type parameter has constraint: number
+DEBUG: number is assignable to constraint number: YES
+DEBUG: SymbolTable::lookupSymbol searching for 'processMultiple' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processMultiple' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processMultiple' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processMultiple' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processMultiple' in scope 0x55ed34c760b0
+DEBUG: Found 'processMultiple' in parent hierarchy
+DEBUG: Adding variable multiResult with type: string
+DEBUG: Current scope when adding variable: 0x55ed35018230
+DEBUG: Scope hierarchy when adding variable multiResult:
+  Level 0: 0x55ed35018230 (type: 3, name: )
+  Level 1: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+  Level 2: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: SymbolTable::lookupSymbol searching for 'processNested' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processNested' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processNested' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processNested' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processNested' in scope 0x55ed34c760b0
+DEBUG: Found 'processNested' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'processNested' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processNested' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processNested' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processNested' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processNested' in scope 0x55ed34c760b0
+DEBUG: Found 'processNested' in parent hierarchy
+DEBUG: Checking argument 0: string vs parameter: T
+DEBUG: Argument type kind: 1, Parameter type kind: 23
+DEBUG: Checking if string is assignable to type parameter T
+DEBUG: Type parameter has constraint: string
+DEBUG: string is assignable to constraint string: YES
+DEBUG: SymbolTable::lookupSymbol searching for 'processNested' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'processNested' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'processNested' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'processNested' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'processNested' in scope 0x55ed34c760b0
+DEBUG: Found 'processNested' in parent hierarchy
+DEBUG: Adding variable nestedResult with type: T
+DEBUG: Current scope when adding variable: 0x55ed35018230
+DEBUG: Scope hierarchy when adding variable nestedResult:
+  Level 0: 0x55ed35018230 (type: 3, name: )
+  Level 1: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+  Level 2: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: SymbolTable::lookupSymbol searching for 'getLength' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'getLength' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'getLength' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'getLength' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'getLength' in scope 0x55ed34c760b0
+DEBUG: Found 'getLength' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'getLength' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'getLength' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'getLength' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'getLength' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'getLength' in scope 0x55ed34c760b0
+DEBUG: Found 'getLength' in parent hierarchy
+DEBUG: Checking argument 0: string vs parameter: T
+DEBUG: Argument type kind: 1, Parameter type kind: 23
+DEBUG: Checking if string is assignable to type parameter T
+DEBUG: Type parameter has constraint: string
+DEBUG: string is assignable to constraint string: YES
+DEBUG: SymbolTable::lookupSymbol searching for 'getLength' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'getLength' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'getLength' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'getLength' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'getLength' in scope 0x55ed34c760b0
+DEBUG: Found 'getLength' in parent hierarchy
+DEBUG: Adding variable lengthResult with type: number
+DEBUG: Current scope when adding variable: 0x55ed35018230
+DEBUG: Scope hierarchy when adding variable lengthResult:
+  Level 0: 0x55ed35018230 (type: 3, name: )
+  Level 1: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+  Level 2: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: SymbolTable::lookupSymbol searching for 'validateString' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'validateString' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'validateString' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateString' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateString' in scope 0x55ed34c760b0
+DEBUG: Found 'validateString' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'validateString' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'validateString' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'validateString' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateString' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateString' in scope 0x55ed34c760b0
+DEBUG: Found 'validateString' in parent hierarchy
+DEBUG: Checking argument 0: string vs parameter: T
+DEBUG: Argument type kind: 1, Parameter type kind: 23
+DEBUG: Checking if string is assignable to type parameter T
+DEBUG: Type parameter has constraint: string
+DEBUG: string is assignable to constraint string: YES
+DEBUG: SymbolTable::lookupSymbol searching for 'validateString' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'validateString' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'validateString' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateString' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateString' in scope 0x55ed34c760b0
+DEBUG: Found 'validateString' in parent hierarchy
+DEBUG: Adding variable strValid with type: boolean
+DEBUG: Current scope when adding variable: 0x55ed35018230
+DEBUG: Scope hierarchy when adding variable strValid:
+  Level 0: 0x55ed35018230 (type: 3, name: )
+  Level 1: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+  Level 2: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: SymbolTable::lookupSymbol searching for 'validateNumber' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'validateNumber' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'validateNumber' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateNumber' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateNumber' in scope 0x55ed34c760b0
+DEBUG: Found 'validateNumber' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'validateNumber' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'validateNumber' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'validateNumber' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateNumber' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateNumber' in scope 0x55ed34c760b0
+DEBUG: Found 'validateNumber' in parent hierarchy
+DEBUG: Checking argument 0: number vs parameter: T
+DEBUG: Argument type kind: 0, Parameter type kind: 23
+DEBUG: Checking if number is assignable to type parameter T
+DEBUG: Type parameter has constraint: number
+DEBUG: number is assignable to constraint number: YES
+DEBUG: SymbolTable::lookupSymbol searching for 'validateNumber' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'validateNumber' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'validateNumber' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateNumber' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateNumber' in scope 0x55ed34c760b0
+DEBUG: Found 'validateNumber' in parent hierarchy
+DEBUG: Adding variable numValid with type: boolean
+DEBUG: Current scope when adding variable: 0x55ed35018230
+DEBUG: Scope hierarchy when adding variable numValid:
+  Level 0: 0x55ed35018230 (type: 3, name: )
+  Level 1: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+  Level 2: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: SymbolTable::lookupSymbol searching for 'validateBoolean' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'validateBoolean' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'validateBoolean' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateBoolean' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateBoolean' in scope 0x55ed34c760b0
+DEBUG: Found 'validateBoolean' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'validateBoolean' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'validateBoolean' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'validateBoolean' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateBoolean' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateBoolean' in scope 0x55ed34c760b0
+DEBUG: Found 'validateBoolean' in parent hierarchy
+DEBUG: Checking argument 0: boolean vs parameter: T
+DEBUG: Argument type kind: 2, Parameter type kind: 23
+DEBUG: Checking if boolean is assignable to type parameter T
+DEBUG: Type parameter has constraint: boolean
+DEBUG: boolean is assignable to constraint boolean: YES
+DEBUG: SymbolTable::lookupSymbol searching for 'validateBoolean' starting from scope 0x55ed35018230
+DEBUG: Scope::lookupSymbol searching for 'validateBoolean' in scope 0x55ed35018230 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed35018230, searching parent scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'validateBoolean' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'validateBoolean' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'validateBoolean' in scope 0x55ed34c760b0
+DEBUG: Found 'validateBoolean' in parent hierarchy
+DEBUG: Adding variable boolValid with type: boolean
+DEBUG: Current scope when adding variable: 0x55ed35018230
+DEBUG: Scope hierarchy when adding variable boolValid:
+  Level 0: 0x55ed35018230 (type: 3, name: )
+  Level 1: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+  Level 2: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Adding variable allTestsPassed with type: boolean
+DEBUG: Current scope when adding variable: 0x55ed35018230
+DEBUG: Scope hierarchy when adding variable allTestsPassed:
+  Level 0: 0x55ed35018230 (type: 3, name: )
+  Level 1: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+  Level 2: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: SymbolTable::lookupSymbol searching for 'main' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'main' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'main' in scope 0x55ed34c760b0
+DEBUG: Found 'main' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'testBasicConstraintsRegression' starting from scope 0x55ed350194f0
+DEBUG: Scope::lookupSymbol searching for 'testBasicConstraintsRegression' in scope 0x55ed350194f0 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed350194f0, searching parent scope 0x55ed35019460
+DEBUG: Scope::lookupSymbol searching for 'testBasicConstraintsRegression' in scope 0x55ed35019460 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35019460, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'testBasicConstraintsRegression' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'testBasicConstraintsRegression' in scope 0x55ed34c760b0
+DEBUG: Found 'testBasicConstraintsRegression' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'testBasicConstraintsRegression' starting from scope 0x55ed350194f0
+DEBUG: Scope::lookupSymbol searching for 'testBasicConstraintsRegression' in scope 0x55ed350194f0 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed350194f0, searching parent scope 0x55ed35019460
+DEBUG: Scope::lookupSymbol searching for 'testBasicConstraintsRegression' in scope 0x55ed35019460 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35019460, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'testBasicConstraintsRegression' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'testBasicConstraintsRegression' in scope 0x55ed34c760b0
+DEBUG: Found 'testBasicConstraintsRegression' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'testBasicConstraintsRegression' starting from scope 0x55ed350194f0
+DEBUG: Scope::lookupSymbol searching for 'testBasicConstraintsRegression' in scope 0x55ed350194f0 (type: 3)
+DEBUG: Symbol not found in scope 0x55ed350194f0, searching parent scope 0x55ed35019460
+DEBUG: Scope::lookupSymbol searching for 'testBasicConstraintsRegression' in scope 0x55ed35019460 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35019460, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'testBasicConstraintsRegression' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'testBasicConstraintsRegression' in scope 0x55ed34c760b0
+DEBUG: Found 'testBasicConstraintsRegression' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'main' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'main' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'main' in scope 0x55ed34c760b0
+DEBUG: Found 'main' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'main' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'main' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'main' in scope 0x55ed34c760b0
+DEBUG: Found 'main' in parent hierarchy
+DEBUG: SymbolTable::lookupSymbol searching for 'main' starting from scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'main' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Found symbol 'main' in scope 0x55ed34c760b0
+DEBUG: Found 'main' in parent hierarchy
+DEBUG: *** module.accept(*this) COMPLETED ***
+[3] Starting code generation
+DEBUG: LLVMCodeGen received SymbolTable at address: 0x55ed34d55ad0
+DEBUG: Module statement type: N3tsc19FunctionDeclarationE
+DEBUG: Adding FunctionDeclaration to functionDecls
+DEBUG: Module statement type: N3tsc19FunctionDeclarationE
+DEBUG: Adding FunctionDeclaration to functionDecls
+DEBUG: Module statement type: N3tsc19FunctionDeclarationE
+DEBUG: Adding FunctionDeclaration to functionDecls
+DEBUG: Module statement type: N3tsc19FunctionDeclarationE
+DEBUG: Adding FunctionDeclaration to functionDecls
+DEBUG: Module statement type: N3tsc19FunctionDeclarationE
+DEBUG: Adding FunctionDeclaration to functionDecls
+DEBUG: Module statement type: N3tsc19FunctionDeclarationE
+DEBUG: Adding FunctionDeclaration to functionDecls
+DEBUG: Module statement type: N3tsc19FunctionDeclarationE
+DEBUG: Adding FunctionDeclaration to functionDecls
+DEBUG: Module statement type: N3tsc19FunctionDeclarationE
+DEBUG: Adding FunctionDeclaration to functionDecls
+DEBUG: Module statement type: N3tsc19FunctionDeclarationE
+DEBUG: Adding FunctionDeclaration to functionDecls
+DEBUG: Module statement type: N3tsc19FunctionDeclarationE
+DEBUG: Adding FunctionDeclaration to functionDecls
+DEBUG: Module statement type: N3tsc19FunctionDeclarationE
+DEBUG: Adding FunctionDeclaration to functionDecls
+DEBUG: Module statement type: N3tsc19ExpressionStatementE
+DEBUG: Adding statement to moduleStatements
+DEBUG: Processing 0 class declarations
+DEBUG: Processing function declaration: processString
+DEBUG: Current function context: null
+DEBUG: Basic blocks after function creation:
+DEBUG: Navigated to scope 0x55ed35014fd0 (type: 2, name: processString)
+DEBUG: LLVMCodeGen navigated to function scope: processString at address: 0x55ed35014fd0
+DEBUG: Current scope after navigation: 0x55ed35014fd0 (type: 2, name: processString)
+DEBUG: Scope hierarchy for function processString:
+  Level 0: 0x55ed35014fd0 (type: 2, name: processString)
+  Level 1: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Processing function body in generateFunctionBody
+DEBUG: Basic blocks before function body processing:
+DEBUG: Block 0x55ed3501a7d0 has terminator: NO
+DEBUG: LLVMCodeGen processing block with current scope: 0x55ed35014fd0
+DEBUG: Identifier visitor called for: value
+DEBUG: loadVariable called for: value
+DEBUG: loadVariable found storage for value: YES
+DEBUG: Storage type for value: 14
+DEBUG: Checking if storage is GlobalVariable for value
+DEBUG: Storage value: 0x55ed3501a8f0
+DEBUG: Storage is not a GlobalVariable for value
+DEBUG: Storage type name: 14
+DEBUG: LLVMCodeGen finished processing block with current scope: 0x55ed35014fd0
+DEBUG: Finished processing function body in generateFunctionBody
+DEBUG: Basic blocks after function body processing:
+DEBUG: Block 0x55ed3501a7d0 has terminator: YES
+DEBUG: Checking terminator after function body processing
+DEBUG: Current block: 0x55ed3501a7d0
+DEBUG: Current block has terminator: YES
+DEBUG: Function already has terminator after body processing
+DEBUG: About to check for terminator in generateFunctionBody
+DEBUG: Function already has terminator
+DEBUG: Checking all basic blocks in function processString
+DEBUG: Block 0x55ed3501a7d0 has terminator: YES
+DEBUG: Checking all basic blocks after ensuring terminators
+DEBUG: Block 0x55ed3501a7d0 has terminator: YES
+DEBUG: Popped scope, current scope: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: LLVMCodeGen finished processing function: processString with current scope: 0x55ed34c760b0
+DEBUG: Processing function declaration: processNumber
+DEBUG: Current function context: null
+DEBUG: Basic blocks after function creation:
+DEBUG: Navigated to scope 0x55ed35015590 (type: 2, name: processNumber)
+DEBUG: LLVMCodeGen navigated to function scope: processNumber at address: 0x55ed35015590
+DEBUG: Current scope after navigation: 0x55ed35015590 (type: 2, name: processNumber)
+DEBUG: Scope hierarchy for function processNumber:
+  Level 0: 0x55ed35015590 (type: 2, name: processNumber)
+  Level 1: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Processing function body in generateFunctionBody
+DEBUG: Basic blocks before function body processing:
+DEBUG: Block 0x55ed3501aaa0 has terminator: NO
+DEBUG: LLVMCodeGen processing block with current scope: 0x55ed35015590
+DEBUG: Identifier visitor called for: value
+DEBUG: loadVariable called for: value
+DEBUG: loadVariable found storage for value: YES
+DEBUG: Storage type for value: 14
+DEBUG: Checking if storage is GlobalVariable for value
+DEBUG: Storage value: 0x55ed3501c3e0
+DEBUG: Storage is not a GlobalVariable for value
+DEBUG: Storage type name: 14
+DEBUG: LLVMCodeGen finished processing block with current scope: 0x55ed35015590
+DEBUG: Finished processing function body in generateFunctionBody
+DEBUG: Basic blocks after function body processing:
+DEBUG: Block 0x55ed3501aaa0 has terminator: YES
+DEBUG: Checking terminator after function body processing
+DEBUG: Current block: 0x55ed3501aaa0
+DEBUG: Current block has terminator: YES
+DEBUG: Function already has terminator after body processing
+DEBUG: About to check for terminator in generateFunctionBody
+DEBUG: Function already has terminator
+DEBUG: Checking all basic blocks in function processNumber
+DEBUG: Block 0x55ed3501aaa0 has terminator: YES
+DEBUG: Checking all basic blocks after ensuring terminators
+DEBUG: Block 0x55ed3501aaa0 has terminator: YES
+DEBUG: Popped scope, current scope: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: LLVMCodeGen finished processing function: processNumber with current scope: 0x55ed34c760b0
+DEBUG: Processing function declaration: processBoolean
+DEBUG: Current function context: null
+DEBUG: Basic blocks after function creation:
+DEBUG: Navigated to scope 0x55ed35015a30 (type: 2, name: processBoolean)
+DEBUG: LLVMCodeGen navigated to function scope: processBoolean at address: 0x55ed35015a30
+DEBUG: Current scope after navigation: 0x55ed35015a30 (type: 2, name: processBoolean)
+DEBUG: Scope hierarchy for function processBoolean:
+  Level 0: 0x55ed35015a30 (type: 2, name: processBoolean)
+  Level 1: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Processing function body in generateFunctionBody
+DEBUG: Basic blocks before function body processing:
+DEBUG: Block 0x55ed3501c500 has terminator: NO
+DEBUG: LLVMCodeGen processing block with current scope: 0x55ed35015a30
+DEBUG: Identifier visitor called for: value
+DEBUG: loadVariable called for: value
+DEBUG: loadVariable found storage for value: YES
+DEBUG: Storage type for value: 14
+DEBUG: Checking if storage is GlobalVariable for value
+DEBUG: Storage value: 0x55ed3501c8e0
+DEBUG: Storage is not a GlobalVariable for value
+DEBUG: Storage type name: 14
+DEBUG: LLVMCodeGen finished processing block with current scope: 0x55ed35015a30
+DEBUG: Finished processing function body in generateFunctionBody
+DEBUG: Basic blocks after function body processing:
+DEBUG: Block 0x55ed3501c500 has terminator: YES
+DEBUG: Checking terminator after function body processing
+DEBUG: Current block: 0x55ed3501c500
+DEBUG: Current block has terminator: YES
+DEBUG: Function already has terminator after body processing
+DEBUG: About to check for terminator in generateFunctionBody
+DEBUG: Function already has terminator
+DEBUG: Checking all basic blocks in function processBoolean
+DEBUG: Block 0x55ed3501c500 has terminator: YES
+DEBUG: Checking all basic blocks after ensuring terminators
+DEBUG: Block 0x55ed3501c500 has terminator: YES
+DEBUG: Popped scope, current scope: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: LLVMCodeGen finished processing function: processBoolean with current scope: 0x55ed34c760b0
+DEBUG: Processing function declaration: processMultiple
+DEBUG: Current function context: null
+DEBUG: getStringType() returning type: 14
+DEBUG: Basic blocks after function creation:
+DEBUG: Navigated to scope 0x55ed35015ee0 (type: 2, name: processMultiple)
+DEBUG: LLVMCodeGen navigated to function scope: processMultiple at address: 0x55ed35015ee0
+DEBUG: Current scope after navigation: 0x55ed35015ee0 (type: 2, name: processMultiple)
+DEBUG: Scope hierarchy for function processMultiple:
+  Level 0: 0x55ed35015ee0 (type: 2, name: processMultiple)
+  Level 1: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Processing function body in generateFunctionBody
+DEBUG: Basic blocks before function body processing:
+DEBUG: Block 0x55ed3501cda0 has terminator: NO
+DEBUG: LLVMCodeGen processing block with current scope: 0x55ed35015ee0
+DEBUG: Identifier visitor called for: str
+DEBUG: loadVariable called for: str
+DEBUG: loadVariable found storage for str: YES
+DEBUG: Storage type for str: 14
+DEBUG: Checking if storage is GlobalVariable for str
+DEBUG: Storage value: 0x55ed3501ce40
+DEBUG: Storage is not a GlobalVariable for str
+DEBUG: Storage type name: 14
+DEBUG: getStringType() returning type: 14
+DEBUG: getStringType() returning type: 14
+DEBUG: getStringType() returning type: 14
+DEBUG: getStringType() returning type: 14
+DEBUG: getStringType() returning type: 14
+DEBUG: getStringType() returning type: 14
+DEBUG: getStringType() returning type: 14
+DEBUG: LLVMCodeGen finished processing block with current scope: 0x55ed35015ee0
+DEBUG: Finished processing function body in generateFunctionBody
+DEBUG: Basic blocks after function body processing:
+DEBUG: Block 0x55ed3501cda0 has terminator: YES
+DEBUG: Checking terminator after function body processing
+DEBUG: Current block: 0x55ed3501cda0
+DEBUG: Current block has terminator: YES
+DEBUG: Function already has terminator after body processing
+DEBUG: About to check for terminator in generateFunctionBody
+DEBUG: Function already has terminator
+DEBUG: Checking all basic blocks in function processMultiple
+DEBUG: Block 0x55ed3501cda0 has terminator: YES
+DEBUG: Checking all basic blocks after ensuring terminators
+DEBUG: Block 0x55ed3501cda0 has terminator: YES
+DEBUG: Popped scope, current scope: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: LLVMCodeGen finished processing function: processMultiple with current scope: 0x55ed34c760b0
+DEBUG: Processing function declaration: validateString
+DEBUG: Current function context: null
+DEBUG: Basic blocks after function creation:
+DEBUG: Navigated to scope 0x55ed350166c0 (type: 2, name: validateString)
+DEBUG: LLVMCodeGen navigated to function scope: validateString at address: 0x55ed350166c0
+DEBUG: Current scope after navigation: 0x55ed350166c0 (type: 2, name: validateString)
+DEBUG: Scope hierarchy for function validateString:
+  Level 0: 0x55ed350166c0 (type: 2, name: validateString)
+  Level 1: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Processing function body in generateFunctionBody
+DEBUG: Basic blocks before function body processing:
+DEBUG: Block 0x55ed3501d0f0 has terminator: NO
+DEBUG: LLVMCodeGen processing block with current scope: 0x55ed350166c0
+DEBUG: LLVMCodeGen finished processing block with current scope: 0x55ed350166c0
+DEBUG: Finished processing function body in generateFunctionBody
+DEBUG: Basic blocks after function body processing:
+DEBUG: Block 0x55ed3501d0f0 has terminator: YES
+DEBUG: Checking terminator after function body processing
+DEBUG: Current block: 0x55ed3501d0f0
+DEBUG: Current block has terminator: YES
+DEBUG: Function already has terminator after body processing
+DEBUG: About to check for terminator in generateFunctionBody
+DEBUG: Function already has terminator
+DEBUG: Checking all basic blocks in function validateString
+DEBUG: Block 0x55ed3501d0f0 has terminator: YES
+DEBUG: Checking all basic blocks after ensuring terminators
+DEBUG: Block 0x55ed3501d0f0 has terminator: YES
+DEBUG: Popped scope, current scope: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: LLVMCodeGen finished processing function: validateString with current scope: 0x55ed34c760b0
+DEBUG: Processing function declaration: validateNumber
+DEBUG: Current function context: null
+DEBUG: Basic blocks after function creation:
+DEBUG: Navigated to scope 0x55ed35016b20 (type: 2, name: validateNumber)
+DEBUG: LLVMCodeGen navigated to function scope: validateNumber at address: 0x55ed35016b20
+DEBUG: Current scope after navigation: 0x55ed35016b20 (type: 2, name: validateNumber)
+DEBUG: Scope hierarchy for function validateNumber:
+  Level 0: 0x55ed35016b20 (type: 2, name: validateNumber)
+  Level 1: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Processing function body in generateFunctionBody
+DEBUG: Basic blocks before function body processing:
+DEBUG: Block 0x55ed3501e270 has terminator: NO
+DEBUG: LLVMCodeGen processing block with current scope: 0x55ed35016b20
+DEBUG: LLVMCodeGen finished processing block with current scope: 0x55ed35016b20
+DEBUG: Finished processing function body in generateFunctionBody
+DEBUG: Basic blocks after function body processing:
+DEBUG: Block 0x55ed3501e270 has terminator: YES
+DEBUG: Checking terminator after function body processing
+DEBUG: Current block: 0x55ed3501e270
+DEBUG: Current block has terminator: YES
+DEBUG: Function already has terminator after body processing
+DEBUG: About to check for terminator in generateFunctionBody
+DEBUG: Function already has terminator
+DEBUG: Checking all basic blocks in function validateNumber
+DEBUG: Block 0x55ed3501e270 has terminator: YES
+DEBUG: Checking all basic blocks after ensuring terminators
+DEBUG: Block 0x55ed3501e270 has terminator: YES
+DEBUG: Popped scope, current scope: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: LLVMCodeGen finished processing function: validateNumber with current scope: 0x55ed34c760b0
+DEBUG: Processing function declaration: validateBoolean
+DEBUG: Current function context: null
+DEBUG: Basic blocks after function creation:
+DEBUG: Navigated to scope 0x55ed35016fa0 (type: 2, name: validateBoolean)
+DEBUG: LLVMCodeGen navigated to function scope: validateBoolean at address: 0x55ed35016fa0
+DEBUG: Current scope after navigation: 0x55ed35016fa0 (type: 2, name: validateBoolean)
+DEBUG: Scope hierarchy for function validateBoolean:
+  Level 0: 0x55ed35016fa0 (type: 2, name: validateBoolean)
+  Level 1: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Processing function body in generateFunctionBody
+DEBUG: Basic blocks before function body processing:
+DEBUG: Block 0x55ed3501e6d0 has terminator: NO
+DEBUG: LLVMCodeGen processing block with current scope: 0x55ed35016fa0
+DEBUG: LLVMCodeGen finished processing block with current scope: 0x55ed35016fa0
+DEBUG: Finished processing function body in generateFunctionBody
+DEBUG: Basic blocks after function body processing:
+DEBUG: Block 0x55ed3501e6d0 has terminator: YES
+DEBUG: Checking terminator after function body processing
+DEBUG: Current block: 0x55ed3501e6d0
+DEBUG: Current block has terminator: YES
+DEBUG: Function already has terminator after body processing
+DEBUG: About to check for terminator in generateFunctionBody
+DEBUG: Function already has terminator
+DEBUG: Checking all basic blocks in function validateBoolean
+DEBUG: Block 0x55ed3501e6d0 has terminator: YES
+DEBUG: Checking all basic blocks after ensuring terminators
+DEBUG: Block 0x55ed3501e6d0 has terminator: YES
+DEBUG: Popped scope, current scope: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: LLVMCodeGen finished processing function: validateBoolean with current scope: 0x55ed34c760b0
+DEBUG: Processing function declaration: processNested
+DEBUG: Current function context: null
+DEBUG: Basic blocks after function creation:
+DEBUG: Navigated to scope 0x55ed35017420 (type: 2, name: processNested)
+DEBUG: LLVMCodeGen navigated to function scope: processNested at address: 0x55ed35017420
+DEBUG: Current scope after navigation: 0x55ed35017420 (type: 2, name: processNested)
+DEBUG: Scope hierarchy for function processNested:
+  Level 0: 0x55ed35017420 (type: 2, name: processNested)
+  Level 1: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Processing function body in generateFunctionBody
+DEBUG: Basic blocks before function body processing:
+DEBUG: Block 0x55ed3501eb30 has terminator: NO
+DEBUG: LLVMCodeGen processing block with current scope: 0x55ed35017420
+DEBUG: CallExpression visitor called
+DEBUG: Identifier visitor called for: processString
+DEBUG: Identifier visitor called for: value
+DEBUG: loadVariable called for: value
+DEBUG: loadVariable found storage for value: YES
+DEBUG: Storage type for value: 14
+DEBUG: Checking if storage is GlobalVariable for value
+DEBUG: Storage value: 0x55ed3501ebd0
+DEBUG: Storage is not a GlobalVariable for value
+DEBUG: Storage type name: 14
+DEBUG: Created non-void function call to processString
+DEBUG: Function call generated in block: entry
+DEBUG: LLVMCodeGen finished processing block with current scope: 0x55ed35017420
+DEBUG: Finished processing function body in generateFunctionBody
+DEBUG: Basic blocks after function body processing:
+DEBUG: Block 0x55ed3501eb30 has terminator: YES
+DEBUG: Checking terminator after function body processing
+DEBUG: Current block: 0x55ed3501eb30
+DEBUG: Current block has terminator: YES
+DEBUG: Function already has terminator after body processing
+DEBUG: About to check for terminator in generateFunctionBody
+DEBUG: Function already has terminator
+DEBUG: Checking all basic blocks in function processNested
+DEBUG: Block 0x55ed3501eb30 has terminator: YES
+DEBUG: Checking all basic blocks after ensuring terminators
+DEBUG: Block 0x55ed3501eb30 has terminator: YES
+DEBUG: Popped scope, current scope: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: LLVMCodeGen finished processing function: processNested with current scope: 0x55ed34c760b0
+DEBUG: Processing function declaration: getLength
+DEBUG: Current function context: null
+DEBUG: Basic blocks after function creation:
+DEBUG: Navigated to scope 0x55ed350179b0 (type: 2, name: getLength)
+DEBUG: LLVMCodeGen navigated to function scope: getLength at address: 0x55ed350179b0
+DEBUG: Current scope after navigation: 0x55ed350179b0 (type: 2, name: getLength)
+DEBUG: Scope hierarchy for function getLength:
+  Level 0: 0x55ed350179b0 (type: 2, name: getLength)
+  Level 1: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Processing function body in generateFunctionBody
+DEBUG: Basic blocks before function body processing:
+DEBUG: Block 0x55ed3501ed00 has terminator: NO
+DEBUG: LLVMCodeGen processing block with current scope: 0x55ed350179b0
+DEBUG: PropertyAccess visitor called for property: length
+DEBUG: PropertyAccess - object type: present
+DEBUG: PropertyAccess - object class: N3tsc10IdentifierE
+DEBUG: Identifier visitor called for: value
+DEBUG: loadVariable called for: value
+DEBUG: loadVariable found storage for value: YES
+DEBUG: Storage type for value: 14
+DEBUG: Checking if storage is GlobalVariable for value
+DEBUG: Storage value: 0x55ed3501f8e0
+DEBUG: Storage is not a GlobalVariable for value
+DEBUG: Storage type name: 14
+DEBUG: SymbolTable::lookupSymbol searching for 'value' starting from scope 0x55ed350179b0
+DEBUG: Scope::lookupSymbol searching for 'value' in scope 0x55ed350179b0 (type: 2)
+DEBUG: Found symbol 'value' in scope 0x55ed350179b0
+DEBUG: Found 'value' in parent hierarchy
+DEBUG: PropertyAccess - symbol lookup for 'value': found
+DEBUG: PropertyAccess - symbol type: T
+DEBUG: PropertyAccess - symbol type kind: 23
+DEBUG: PropertyAccess - Found array type, accessing length field
+DEBUG: PropertyAccess - arrayValue: valid
+DEBUG: PropertyAccess - arrayValue type: 0x55ed34fe9400
+DEBUG: PropertyAccess - Creating GEP for length field with struct type
+DEBUG: PropertyAccess - arrayStructType: 0x55ed34fe94f0
+DEBUG: PropertyAccess - arrayValue: 0x55ed3501fa90
+DEBUG: PropertyAccess - lengthPtr created: 0x55ed3501fd70
+DEBUG: PropertyAccess - lengthPtr type: 0x55ed34fe9400
+DEBUG: PropertyAccess - Loading length value
+DEBUG: PropertyAccess - arrayLength loaded: 0x55ed3501fe20
+DEBUG: PropertyAccess - arrayLength type: 0x55ed34fe0350
+DEBUG: PropertyAccess - Converting length to double
+DEBUG: PropertyAccess - lengthAsDouble created: 0x55ed3501fed0
+DEBUG: PropertyAccess - lengthAsDouble type: 0x55ed34fe0260
+DEBUG: PropertyAccess - Setting current value and returning
+DEBUG: LLVMCodeGen finished processing block with current scope: 0x55ed350179b0
+DEBUG: Finished processing function body in generateFunctionBody
+DEBUG: Basic blocks after function body processing:
+DEBUG: Block 0x55ed3501ed00 has terminator: YES
+DEBUG: Checking terminator after function body processing
+DEBUG: Current block: 0x55ed3501ed00
+DEBUG: Current block has terminator: YES
+DEBUG: Function already has terminator after body processing
+DEBUG: About to check for terminator in generateFunctionBody
+DEBUG: Function already has terminator
+DEBUG: Checking all basic blocks in function getLength
+DEBUG: Block 0x55ed3501ed00 has terminator: YES
+DEBUG: Checking all basic blocks after ensuring terminators
+DEBUG: Block 0x55ed3501ed00 has terminator: YES
+DEBUG: Popped scope, current scope: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: LLVMCodeGen finished processing function: getLength with current scope: 0x55ed34c760b0
+DEBUG: Processing function declaration: testBasicConstraintsRegression
+DEBUG: Current function context: null
+DEBUG: Basic blocks after function creation:
+DEBUG: Navigated to scope 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+DEBUG: LLVMCodeGen navigated to function scope: testBasicConstraintsRegression at address: 0x55ed35018170
+DEBUG: Current scope after navigation: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+DEBUG: Scope hierarchy for function testBasicConstraintsRegression:
+  Level 0: 0x55ed35018170 (type: 2, name: testBasicConstraintsRegression)
+  Level 1: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Processing function body in generateFunctionBody
+DEBUG: Basic blocks before function body processing:
+DEBUG: Block 0x55ed3501fa10 has terminator: NO
+DEBUG: LLVMCodeGen processing block with current scope: 0x55ed35018170
+DEBUG: VariableDeclaration visitor called for variable: strResult
+DEBUG: SymbolTable::lookupSymbol searching for 'strResult' starting from scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'strResult' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'strResult' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Symbol 'strResult' not found in any scope
+DEBUG: Not found in parent hierarchy, searching child scopes...
+DEBUG: Found 'strResult' in child scopes
+DEBUG: Variable strResult using symbol table type: T
+DEBUG: CallExpression visitor called
+DEBUG: Identifier visitor called for: processString
+DEBUG: getStringType() returning type: 14
+DEBUG: Created non-void function call to processString
+DEBUG: Function call generated in block: entry
+DEBUG: Variable strResult allocated storage: YES
+DEBUG: Variable strResult initValue: YES storage: YES
+DEBUG: Variable strResult currentFunc: testBasicConstraintsRegression
+DEBUG: Storing as local variable: strResult
+DEBUG: VariableDeclaration visitor called for variable: numResult
+DEBUG: SymbolTable::lookupSymbol searching for 'numResult' starting from scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'numResult' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'numResult' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Symbol 'numResult' not found in any scope
+DEBUG: Not found in parent hierarchy, searching child scopes...
+DEBUG: Found 'numResult' in child scopes
+DEBUG: Variable numResult using symbol table type: T
+DEBUG: CallExpression visitor called
+DEBUG: Identifier visitor called for: processNumber
+DEBUG: Created non-void function call to processNumber
+DEBUG: Function call generated in block: entry
+DEBUG: Variable numResult allocated storage: YES
+DEBUG: Variable numResult initValue: YES storage: YES
+DEBUG: Variable numResult currentFunc: testBasicConstraintsRegression
+DEBUG: Storing as local variable: numResult
+DEBUG: VariableDeclaration visitor called for variable: boolResult
+DEBUG: SymbolTable::lookupSymbol searching for 'boolResult' starting from scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'boolResult' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'boolResult' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Symbol 'boolResult' not found in any scope
+DEBUG: Not found in parent hierarchy, searching child scopes...
+DEBUG: Found 'boolResult' in child scopes
+DEBUG: Variable boolResult using symbol table type: T
+DEBUG: CallExpression visitor called
+DEBUG: Identifier visitor called for: processBoolean
+DEBUG: Created non-void function call to processBoolean
+DEBUG: Function call generated in block: entry
+DEBUG: Variable boolResult allocated storage: YES
+DEBUG: Variable boolResult initValue: YES storage: YES
+DEBUG: Variable boolResult currentFunc: testBasicConstraintsRegression
+DEBUG: Storing as local variable: boolResult
+DEBUG: VariableDeclaration visitor called for variable: multiResult
+DEBUG: SymbolTable::lookupSymbol searching for 'multiResult' starting from scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'multiResult' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'multiResult' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Symbol 'multiResult' not found in any scope
+DEBUG: Not found in parent hierarchy, searching child scopes...
+DEBUG: Found 'multiResult' in child scopes
+DEBUG: getStringType() returning type: 14
+DEBUG: Variable multiResult using symbol table type: string
+DEBUG: CallExpression visitor called
+DEBUG: Identifier visitor called for: processMultiple
+DEBUG: getStringType() returning type: 14
+DEBUG: Created non-void function call to processMultiple
+DEBUG: Function call generated in block: entry
+DEBUG: Variable multiResult allocated storage: YES
+DEBUG: Variable multiResult initValue: YES storage: YES
+DEBUG: Variable multiResult currentFunc: testBasicConstraintsRegression
+DEBUG: Storing as local variable: multiResult
+DEBUG: VariableDeclaration visitor called for variable: nestedResult
+DEBUG: SymbolTable::lookupSymbol searching for 'nestedResult' starting from scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'nestedResult' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'nestedResult' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Symbol 'nestedResult' not found in any scope
+DEBUG: Not found in parent hierarchy, searching child scopes...
+DEBUG: Found 'nestedResult' in child scopes
+DEBUG: Variable nestedResult using symbol table type: T
+DEBUG: CallExpression visitor called
+DEBUG: Identifier visitor called for: processNested
+DEBUG: getStringType() returning type: 14
+DEBUG: Created non-void function call to processNested
+DEBUG: Function call generated in block: entry
+DEBUG: Variable nestedResult allocated storage: YES
+DEBUG: Variable nestedResult initValue: YES storage: YES
+DEBUG: Variable nestedResult currentFunc: testBasicConstraintsRegression
+DEBUG: Storing as local variable: nestedResult
+DEBUG: VariableDeclaration visitor called for variable: lengthResult
+DEBUG: SymbolTable::lookupSymbol searching for 'lengthResult' starting from scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'lengthResult' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'lengthResult' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Symbol 'lengthResult' not found in any scope
+DEBUG: Not found in parent hierarchy, searching child scopes...
+DEBUG: Found 'lengthResult' in child scopes
+DEBUG: Variable lengthResult using symbol table type: number
+DEBUG: CallExpression visitor called
+DEBUG: Identifier visitor called for: getLength
+DEBUG: getStringType() returning type: 14
+DEBUG: Created non-void function call to getLength
+DEBUG: Function call generated in block: entry
+DEBUG: Variable lengthResult allocated storage: YES
+DEBUG: Variable lengthResult initValue: YES storage: YES
+DEBUG: Variable lengthResult currentFunc: testBasicConstraintsRegression
+DEBUG: Storing as local variable: lengthResult
+DEBUG: VariableDeclaration visitor called for variable: strValid
+DEBUG: SymbolTable::lookupSymbol searching for 'strValid' starting from scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'strValid' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'strValid' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Symbol 'strValid' not found in any scope
+DEBUG: Not found in parent hierarchy, searching child scopes...
+DEBUG: Found 'strValid' in child scopes
+DEBUG: Variable strValid using symbol table type: boolean
+DEBUG: CallExpression visitor called
+DEBUG: Identifier visitor called for: validateString
+DEBUG: getStringType() returning type: 14
+DEBUG: Created non-void function call to validateString
+DEBUG: Function call generated in block: entry
+DEBUG: Variable strValid allocated storage: YES
+DEBUG: Variable strValid initValue: YES storage: YES
+DEBUG: Variable strValid currentFunc: testBasicConstraintsRegression
+DEBUG: Storing as local variable: strValid
+DEBUG: VariableDeclaration visitor called for variable: numValid
+DEBUG: SymbolTable::lookupSymbol searching for 'numValid' starting from scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'numValid' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'numValid' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Symbol 'numValid' not found in any scope
+DEBUG: Not found in parent hierarchy, searching child scopes...
+DEBUG: Found 'numValid' in child scopes
+DEBUG: Variable numValid using symbol table type: boolean
+DEBUG: CallExpression visitor called
+DEBUG: Identifier visitor called for: validateNumber
+DEBUG: Created non-void function call to validateNumber
+DEBUG: Function call generated in block: entry
+DEBUG: Variable numValid allocated storage: YES
+DEBUG: Variable numValid initValue: YES storage: YES
+DEBUG: Variable numValid currentFunc: testBasicConstraintsRegression
+DEBUG: Storing as local variable: numValid
+DEBUG: VariableDeclaration visitor called for variable: boolValid
+DEBUG: SymbolTable::lookupSymbol searching for 'boolValid' starting from scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'boolValid' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'boolValid' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Symbol 'boolValid' not found in any scope
+DEBUG: Not found in parent hierarchy, searching child scopes...
+DEBUG: Found 'boolValid' in child scopes
+DEBUG: Variable boolValid using symbol table type: boolean
+DEBUG: CallExpression visitor called
+DEBUG: Identifier visitor called for: validateBoolean
+DEBUG: Created non-void function call to validateBoolean
+DEBUG: Function call generated in block: entry
+DEBUG: Variable boolValid allocated storage: YES
+DEBUG: Variable boolValid initValue: YES storage: YES
+DEBUG: Variable boolValid currentFunc: testBasicConstraintsRegression
+DEBUG: Storing as local variable: boolValid
+DEBUG: VariableDeclaration visitor called for variable: allTestsPassed
+DEBUG: SymbolTable::lookupSymbol searching for 'allTestsPassed' starting from scope 0x55ed35018170
+DEBUG: Scope::lookupSymbol searching for 'allTestsPassed' in scope 0x55ed35018170 (type: 2)
+DEBUG: Symbol not found in scope 0x55ed35018170, searching parent scope 0x55ed34c760b0
+DEBUG: Scope::lookupSymbol searching for 'allTestsPassed' in scope 0x55ed34c760b0 (type: 0)
+DEBUG: Symbol 'allTestsPassed' not found in any scope
+DEBUG: Not found in parent hierarchy, searching child scopes...
+DEBUG: Found 'allTestsPassed' in child scopes
+DEBUG: Variable allTestsPassed using symbol table type: boolean
+DEBUG: Variable allTestsPassed allocated storage: YES
+DEBUG: Variable allTestsPassed initValue: YES storage: YES
+DEBUG: Variable allTestsPassed currentFunc: testBasicConstraintsRegression
+DEBUG: Storing as local variable: allTestsPassed
+DEBUG: LLVMCodeGen finished processing block with current scope: 0x55ed35018170
+DEBUG: Finished processing function body in generateFunctionBody
+DEBUG: Basic blocks after function body processing:
+DEBUG: Block 0x55ed3501fa10 has terminator: NO
+DEBUG: Checking terminator after function body processing
+DEBUG: Current block: 0x55ed3501fa10
+DEBUG: Current block has terminator: NO
+DEBUG: Function does NOT have terminator after body processing
+DEBUG: About to check for terminator in generateFunctionBody
+DEBUG: No terminator found, adding return statement
+DEBUG: About to call CreateRetVoid
+DEBUG: CreateRetVoid called successfully
+DEBUG: Current block after CreateRetVoid: 0x55ed3501fa10
+DEBUG: Terminator successfully added to block 0x55ed3501fa10
+DEBUG: Checking all basic blocks in function testBasicConstraintsRegression
+DEBUG: Block 0x55ed3501fa10 has terminator: YES
+DEBUG: Checking all basic blocks after ensuring terminators
+DEBUG: Block 0x55ed3501fa10 has terminator: YES
+DEBUG: Popped scope, current scope: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: LLVMCodeGen finished processing function: testBasicConstraintsRegression with current scope: 0x55ed34c760b0
+DEBUG: Processing function declaration: main
+DEBUG: Current function context: null
+DEBUG: Basic blocks after function creation:
+DEBUG: Navigated to scope 0x55ed35019460 (type: 2, name: main)
+DEBUG: LLVMCodeGen navigated to function scope: main at address: 0x55ed35019460
+DEBUG: Current scope after navigation: 0x55ed35019460 (type: 2, name: main)
+DEBUG: Scope hierarchy for function main:
+  Level 0: 0x55ed35019460 (type: 2, name: main)
+  Level 1: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: Main function scope - checking for symbols...
+DEBUG: Main function scope address: 0x55ed35019460
+DEBUG: Processing function body in generateFunctionBody
+DEBUG: Basic blocks before function body processing:
+DEBUG: Block 0x55ed35020370 has terminator: NO
+DEBUG: LLVMCodeGen processing block with current scope: 0x55ed35019460
+DEBUG: ExpressionStatement visitor called
+DEBUG: CallExpression visitor called
+DEBUG: Identifier visitor called for: testBasicConstraintsRegression
+DEBUG: Created void function call to testBasicConstraintsRegression
+DEBUG: Function call generated in block: entry
+DEBUG: LLVMCodeGen finished processing block with current scope: 0x55ed35019460
+DEBUG: Finished processing function body in generateFunctionBody
+DEBUG: Basic blocks after function body processing:
+DEBUG: Block 0x55ed35020370 has terminator: NO
+DEBUG: Checking terminator after function body processing
+DEBUG: Current block: 0x55ed35020370
+DEBUG: Current block has terminator: NO
+DEBUG: Function does NOT have terminator after body processing
+DEBUG: About to check for terminator in generateFunctionBody
+DEBUG: No terminator found, adding return statement
+DEBUG: Added default return
+DEBUG: Checking all basic blocks in function main
+DEBUG: Block 0x55ed35020370 has terminator: YES
+DEBUG: Checking all basic blocks after ensuring terminators
+DEBUG: Block 0x55ed35020370 has terminator: YES
+DEBUG: Popped scope, current scope: 0x55ed34c760b0 (type: 0, name: global)
+DEBUG: LLVMCodeGen finished processing function: main with current scope: 0x55ed34c760b0
+DEBUG: Checking main function generation: moduleStatements=1, mainExists=true, generateMainFunction=true
+DEBUG: Starting LLVM IR verification...
+DEBUG: Module has 12 functions
+DEBUG: Verification result: FAILED
+WARNING: LLVM IR verification failed, but continuing...
+WARNING: This may be due to unused external function declarations
+DEBUG: Attempting to create IR file...
+DEBUG: IR file created successfully, printing module...
+DEBUG: LLVM IR dumped to generated_ir.ll

@@ -7,6 +7,12 @@
 #include <stdint.h>
 #include <time.h>
 
+// Forward declarations
+static size_t weak_ref_hash(void *weak_ref);
+static void update_weak_reference_table(void *weak_ref, void *target_obj);
+static void remove_weak_reference_table(void *weak_ref);
+static void cleanup_weak_references_for_object(void *obj);
+
 // Global memory statistics
 static ARC_MemoryStats g_memory_stats = {0};
 
