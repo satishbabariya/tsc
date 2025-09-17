@@ -357,6 +357,9 @@ add_subdirectory(src)
 enable_testing()
 # add_subdirectory(test)  # Disabled - GTest not available
 
+# Add test subdirectories
+add_subdirectory(tests/monomorphization)
+
 # Create runtime library
 add_library(tsc_runtime STATIC
     runtime/string_operations.c
@@ -387,17 +390,9 @@ install(TARGETS tsc
     RUNTIME DESTINATION bin
 )
 
-# Add custom target for running monomorphization tests
-add_custom_target(test_monomorphization
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/monomorphization/run_monomorphization_tests.ts
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Running monomorphization tests"
-    VERBATIM
-)
-
 # Add custom target for running all tests
 add_custom_target(test_all
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/monomorphization/run_monomorphization_tests.ts --verbose
+    COMMAND npx ts-node ${CMAKE_CURRENT_SOURCE_DIR}/tests/monomorphization/run_monomorphization_tests.ts --verbose
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Running all monomorphization tests with verbose output"
     VERBATIM
