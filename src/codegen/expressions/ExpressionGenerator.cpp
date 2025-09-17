@@ -17,8 +17,69 @@ llvm::Value* ExpressionGenerator::generateStringLiteral(const StringLiteral& nod
 }
 
 llvm::Value* ExpressionGenerator::generateTemplateLiteral(const TemplateLiteral& node) {
-    // TODO: Implement template literal generation
-    return createStringLiteral("");
+    std::cout << "DEBUG: TemplateLiteral visitor called" << std::endl;
+    // Build the template literal by concatenating all parts
+    llvm::Value *result = nullptr;
+
+    for (const auto &element: node.getElements()) {
+        llvm::Value *elementValue = nullptr;
+
+        if (element.isExpression()) {
+            // Generate code for the expression
+            std::cout << "DEBUG: Processing template expression" << std::endl;
+            if (element.getExpression()) {
+                elementValue = codeGen_->generateExpression(*element.getExpression());
+                std::cout << "DEBUG: Template expression result type: " << (elementValue
+                                                                                ? elementValue->getType()->getTypeID()
+                                                                                : -1) << std::endl;
+
+                // Convert expression results to string representation
+                std::cout << "DEBUG: Converting template expression to string, type: " << elementValue->getType()->
+                        getTypeID() << std::endl;
+                if (elementValue->getType()->isDoubleTy()) {
+                    // Convert number to string using runtime function
+                    std::cout << "DEBUG: Converting double to string" << std::endl;
+                    llvm::Function *numberToStringFunc = codeGen_->getOrCreateNumberToStringFunction();
+                    std::cout << "DEBUG: numberToStringFunc type: " << numberToStringFunc->getReturnType()->getTypeID()
+                            << std::endl;
+                    elementValue = codeGen_->getBuilder()->CreateCall(numberToStringFunc, {elementValue}, "number_to_string");
+                    std::cout << "DEBUG: After CreateCall, elementValue type: " << elementValue->getType()->getTypeID()
+                            << std::endl;
+                } else if (elementValue->getType()->isIntegerTy(1)) {
+                    // Convert boolean to string using runtime function
+                    std::cout << "DEBUG: Converting boolean to string" << std::endl;
+                    llvm::Function *booleanToStringFunc = codeGen_->getOrCreateBooleanToStringFunction();
+                    elementValue = codeGen_->getBuilder()->CreateCall(booleanToStringFunc, {elementValue}, "boolean_to_string");
+                } else if (elementValue->getType() != codeGen_->getTypeGenerator()->getStringType()) {
+                    // For other types, convert to string representation using runtime function
+                    std::cout << "DEBUG: Converting other type to string" << std::endl;
+                    llvm::Function *objectToStringFunc = codeGen_->getOrCreateObjectToStringFunction();
+                    elementValue = codeGen_->getBuilder()->CreateCall(objectToStringFunc, {elementValue}, "object_to_string");
+                }
+                std::cout << "DEBUG: After conversion, type: " << elementValue->getType()->getTypeID() << std::endl;
+            }
+        } else {
+            // Text element
+            elementValue = createStringLiteral(element.getText());
+        }
+
+        // Concatenate with previous result
+        if (result == nullptr) {
+            result = elementValue;
+        } else {
+            llvm::Function *concatFunc = codeGen_->getOrCreateStringConcatFunction();
+            result = codeGen_->getBuilder()->CreateCall(concatFunc, {result, elementValue}, "template_concat");
+        }
+    }
+
+    // If no elements, return empty string
+    if (result == nullptr) {
+        result = createStringLiteral("");
+    }
+
+    std::cout << "DEBUG: TemplateLiteral result type: " << (result ? result->getType()->getTypeID() : -1) <<
+            std::endl;
+    return result;
 }
 
 llvm::Value* ExpressionGenerator::generateBooleanLiteral(const BooleanLiteral& node) {
@@ -30,8 +91,48 @@ llvm::Value* ExpressionGenerator::generateNullLiteral(const NullLiteral& node) {
 }
 
 llvm::Value* ExpressionGenerator::generateIdentifier(const Identifier& node) {
-    // TODO: Implement identifier generation
-    return nullptr;
+    std::cout << "DEBUG: Identifier visitor called for: " << node.getName() << std::endl;
+
+    // First, check if this identifier refers to a function
+    llvm::Function *function = codeGen_->getModule()->getFunction(node.getName());
+    if (function) {
+        // This is a function identifier - return the function as a value
+        // In LLVM, functions can be treated as values (function pointers)
+        return function;
+    }
+
+    // Check if this is a captured variable in a closure
+    llvm::Value *capturedValue = codeGen_->getCodeGenContext()->getSymbolValue("__closure_env_" + node.getName());
+    if (capturedValue) {
+        // Use the captured value directly (it's already loaded from the closure environment)
+        std::cout << "DEBUG: Using captured variable " << node.getName() << " from closure environment" <<
+                std::endl;
+        return capturedValue;
+    }
+
+    // Check if this is a built-in object like console
+    if (node.getName() == "console") {
+        // Return a placeholder value for console object
+        // The actual methods will be handled in PropertyAccess
+        return createNullValue(codeGen_->getTypeGenerator()->getAnyType());
+    }
+
+    // First, try to load as a regular variable from code generation context
+    llvm::Value *value = codeGen_->loadVariable(node.getName(), node.getLocation());
+    if (value) {
+        return value;
+    }
+
+    // Special handling for built-in functions like _print
+    if (node.getName() == "_print") {
+        std::cout << "DEBUG: Identifier - Found _print, creating function" << std::endl;
+        llvm::Function *printFunc = codeGen_->getOrCreatePrintFunction();
+        return printFunc;
+    }
+
+    // If not found anywhere, report error
+    codeGen_->reportError("Undefined variable: " + node.getName(), node.getLocation());
+    return createNullValue(codeGen_->getTypeGenerator()->getAnyType());
 }
 
 llvm::Value* ExpressionGenerator::generateThisExpression(const ThisExpression& node) {
@@ -80,13 +181,31 @@ llvm::Value* ExpressionGenerator::generateNewExpression(const NewExpression& nod
 }
 
 llvm::Value* ExpressionGenerator::generateBinaryExpression(const BinaryExpression& node) {
-    // TODO: Implement binary expression generation
-    return nullptr;
+    // Generate left and right operands
+    llvm::Value *left = codeGen_->generateExpression(*node.getLeft());
+    llvm::Value *right = codeGen_->generateExpression(*node.getRight());
+
+    if (!left || !right) {
+        return createNullValue(codeGen_->getTypeGenerator()->getAnyType());
+    }
+
+    // Generate binary operation
+    llvm::Value *result = generateBinaryOp(node.getOperator(), left, right,
+                                          left->getType(), right->getType());
+    return result;
 }
 
 llvm::Value* ExpressionGenerator::generateUnaryExpression(const UnaryExpression& node) {
-    // TODO: Implement unary expression generation
-    return nullptr;
+    // Generate operand
+    llvm::Value *operand = codeGen_->generateExpression(*node.getOperand());
+
+    if (!operand) {
+        return createNullValue(codeGen_->getTypeGenerator()->getAnyType());
+    }
+
+    // Generate unary operation
+    llvm::Value *result = generateUnaryOp(static_cast<int>(node.getOperator()), operand, operand->getType());
+    return result;
 }
 
 llvm::Value* ExpressionGenerator::generateAssignmentExpression(const AssignmentExpression& node) {

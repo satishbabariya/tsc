@@ -9,15 +9,69 @@ StatementGenerator::StatementGenerator(LLVMCodeGen* codeGen)
 }
 
 void StatementGenerator::generateExpressionStatement(const ExpressionStatement& node) {
-    // TODO: Implement expression statement generation
+    std::cout << "DEBUG: ExpressionStatement visitor called" << std::endl;
+    codeGen_->generateExpression(*node.getExpression());
+    // Expression statement doesn't return a value
 }
 
 void StatementGenerator::generateBlockStatement(const BlockStatement& node) {
-    // TODO: Implement block statement generation
+    codeGen_->getCodeGenContext()->enterScope();
+
+    // Note: We don't create new scopes in LLVMCodeGen - we reuse existing ones from semantic analysis
+    std::cout << "DEBUG: LLVMCodeGen processing block with current scope: " << codeGen_->getSymbolTable()->getCurrentScope() <<
+            std::endl;
+
+    for (const auto &stmt: node.getStatements()) {
+        // Skip processing if the current block already has a terminator
+        // This prevents double processing of statements that appear in both
+        // control flow statements (like if/while) and their parent block
+        llvm::BasicBlock *currentBlock = codeGen_->getBuilder()->GetInsertBlock();
+        if (currentBlock && currentBlock->getTerminator()) {
+            continue;
+        }
+
+        codeGen_->generateStatement(*stmt);
+        if (codeGen_->hasErrors()) break;
+    }
+
+    // Note: We don't exit scopes in LLVMCodeGen - we leave the SymbolTable as-is
+    std::cout << "DEBUG: LLVMCodeGen finished processing block with current scope: " << codeGen_->getSymbolTable()->
+            getCurrentScope() << std::endl;
+
+    codeGen_->getCodeGenContext()->exitScope();
 }
 
 void StatementGenerator::generateReturnStatement(const ReturnStatement& node) {
-    // TODO: Implement return statement generation
+    llvm::Function *currentFunc = codeGen_->getCodeGenContext()->getCurrentFunction();
+    if (!currentFunc) {
+        codeGen_->reportError("Return statement outside function", node.getLocation());
+        return;
+    }
+
+    // Generate cleanup for ARC-managed objects before return
+    codeGen_->getCodeGenContext()->generateScopeCleanup(codeGen_);
+
+    if (node.hasValue()) {
+        // Generate code for return value
+        llvm::Value *returnValue = codeGen_->generateExpression(*node.getValue());
+
+        if (returnValue) {
+            // Convert to appropriate return type if needed
+            llvm::Type *returnType = currentFunc->getReturnType();
+
+            if (returnValue->getType() != returnType) {
+                // Perform type conversion
+                returnValue = codeGen_->convertValueToType(returnValue, returnType);
+            }
+            codeGen_->getBuilder()->CreateRet(returnValue);
+        } else {
+            codeGen_->reportError("Failed to generate return value", node.getLocation());
+            codeGen_->getBuilder()->CreateRetVoid();
+        }
+    } else {
+        // Return void
+        codeGen_->getBuilder()->CreateRetVoid();
+    }
 }
 
 void StatementGenerator::generateIfStatement(const IfStatement& node) {
