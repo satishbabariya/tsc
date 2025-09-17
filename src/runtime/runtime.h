@@ -11,6 +11,7 @@ char* string_concat(char* str1, char* str2);
 char* number_to_string(double value);
 char* boolean_to_string(bool value);
 char* object_to_string(void* obj);
+char* stringToString(char* str);
 
 // Array operations
 int array_length(void* array_ptr);
@@ -26,6 +27,9 @@ void __clear_exception(void);
 
 // Internal print function
 void _print(void* first_arg, ...);
+
+// Console operations
+void console_log(void* arg);
 
 // Memory operations are handled by ARC runtime functions
 // See arc/arc_runtime.h for __tsc_alloc, __tsc_retain, __tsc_release, etc.

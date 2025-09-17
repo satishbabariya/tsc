@@ -130,6 +130,34 @@ char *number_to_string_9(double value) {
     return number_to_string(value);
 }
 
+// String toString function (identity function)
+char *stringToString(char *str) {
+    if (!str) {
+        char *result = (char *) __tsc_alloc(5, NULL, NULL); // "null"
+        if (!result) {
+            fprintf(stderr, "Memory allocation failed in stringToString\n");
+            exit(1);
+        }
+        strcpy(result, "null");
+        return result;
+    }
+    
+    // For ARC-managed strings, retain and return
+    if (__tsc_is_arc_object(str)) {
+        return (char *) __tsc_retain(str);
+    } else {
+        // For regular strings, create a copy
+        size_t len = strlen(str) + 1;
+        char *result = (char *) __tsc_alloc(len, NULL, NULL);
+        if (!result) {
+            fprintf(stderr, "Memory allocation failed in stringToString\n");
+            exit(1);
+        }
+        strcpy(result, str);
+        return result;
+    }
+}
+
 // Wrapper functions for mangled names with dots
 // These create symbols with the names that the linker expects
 #ifdef __APPLE__

@@ -1434,6 +1434,33 @@ namespace tsc {
             String methodName = propertyAccess->getProperty();
             auto objectType = getExpressionType(*propertyAccess->getObject());
             
+            // Special handling for console.log
+            if (methodName == "log") {
+                if (auto identifier = dynamic_cast<Identifier *>(propertyAccess->getObject())) {
+                    if (identifier->getName() == "console") {
+                        std::cout << "DEBUG: CallExpression - Found console.log, looking for existing console_log function" << std::endl;
+                        // Check if console_log function already exists
+                        function = module_->getFunction("console_log");
+                        if (!function) {
+                            std::cout << "DEBUG: Creating new console_log function" << std::endl;
+                            // Create the console_log function
+                            auto funcType = llvm::FunctionType::get(
+                                getVoidType(), // Return type: void
+                                {getAnyType()}, // Parameter: any type (the argument to log)
+                                false
+                            );
+                            function = llvm::Function::Create(
+                                funcType, llvm::Function::ExternalLinkage, "console_log", module_.get()
+                            );
+                        } else {
+                            std::cout << "DEBUG: Reusing existing console_log function" << std::endl;
+                        }
+                        // Skip the normal method lookup since we found console.log
+                        goto skip_method_lookup;
+                    }
+                }
+            }
+            
             if (objectType && objectType->getKind() == TypeKind::Class) {
                 auto classType = std::static_pointer_cast<ClassType>(objectType);
                 auto classDecl = classType->getDeclaration();
@@ -1451,6 +1478,7 @@ namespace tsc {
                 }
             }
             
+            skip_method_lookup:
             if (!function) {
                 reportError("Method '" + methodName + "' not found in object type", node.getLocation());
                 setCurrentValue(createNullValue(getAnyType()));
@@ -2948,6 +2976,27 @@ namespace tsc {
             reportError("Failed to generate object for property access", node.getLocation());
             setCurrentValue(createNullValue(getAnyType()));
             return;
+        }
+
+        // Special handling for console.log
+        if (propertyName == "log") {
+            // Check if this is console.log by looking at the object
+            if (auto identifier = dynamic_cast<Identifier *>(node.getObject())) {
+                if (identifier->getName() == "console") {
+                    std::cout << "DEBUG: PropertyAccess - Found console.log, creating console_log function" << std::endl;
+                    // Create the console_log function
+                    auto funcType = llvm::FunctionType::get(
+                        getVoidType(), // Return type: void
+                        {getAnyType()}, // Parameter: any type (the argument to log)
+                        false
+                    );
+                    auto func = llvm::Function::Create(
+                        funcType, llvm::Function::ExternalLinkage, "console_log", module_.get()
+                    );
+                    setCurrentValue(func);
+                    return;
+                }
+            }
         }
 
 
@@ -8566,6 +8615,42 @@ namespace tsc {
             );
             std::cout << "DEBUG: Created number_to_string function with parameter type: double" << std::endl;
             return func;
+        } else if (methodName == "stringToString") {
+            // For toString on strings, use the runtime function stringToString (identity function)
+            auto funcType = llvm::FunctionType::get(
+                getStringType(), // Return type: char* (string)
+                {getStringType()}, // Parameter: char* (string)
+                false
+            );
+            auto func = llvm::Function::Create(
+                funcType, llvm::Function::ExternalLinkage, "stringToString", module_.get()
+            );
+            std::cout << "DEBUG: Created stringToString function" << std::endl;
+            return func;
+        } else if (methodName == "booleanToString") {
+            // For toString on booleans, use the runtime function boolean_to_string
+            auto funcType = llvm::FunctionType::get(
+                getStringType(), // Return type: char* (string)
+                {getBooleanType()}, // Parameter: bool (boolean)
+                false
+            );
+            auto func = llvm::Function::Create(
+                funcType, llvm::Function::ExternalLinkage, "boolean_to_string", module_.get()
+            );
+            std::cout << "DEBUG: Created boolean_to_string function" << std::endl;
+            return func;
+        } else if (methodName == "objectToString") {
+            // For toString on objects, use the runtime function object_to_string
+            auto funcType = llvm::FunctionType::get(
+                getStringType(), // Return type: char* (string)
+                {getAnyType()}, // Parameter: any type (object)
+                false
+            );
+            auto func = llvm::Function::Create(
+                funcType, llvm::Function::ExternalLinkage, "object_to_string", module_.get()
+            );
+            std::cout << "DEBUG: Created object_to_string function" << std::endl;
+            return func;
         } else if (methodName == "valueOf") {
             // valueOf() -> any (returns the object itself)
             auto funcType = llvm::FunctionType::get(
@@ -8637,6 +8722,18 @@ namespace tsc {
                 funcType, llvm::Function::ExternalLinkage, "arrayPop", module_.get()
             );
             std::cout << "DEBUG: Created arrayPop function" << std::endl;
+            return func;
+        } else if (methodName == "log") {
+            // console.log(arg) -> void
+            auto funcType = llvm::FunctionType::get(
+                getVoidType(), // Return type: void
+                {getAnyType()}, // Parameter: any type (the argument to log)
+                false
+            );
+            auto func = llvm::Function::Create(
+                funcType, llvm::Function::ExternalLinkage, "console_log", module_.get()
+            );
+            std::cout << "DEBUG: Created console_log function" << std::endl;
             return func;
         }
 
