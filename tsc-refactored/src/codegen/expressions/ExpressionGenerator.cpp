@@ -297,8 +297,44 @@ llvm::Value* ExpressionGenerator::convertValue(llvm::Value* value, llvm::Type* f
 
 llvm::Value* ExpressionGenerator::generateBinaryOp(BinaryExpression::Operator op, llvm::Value* left, 
                                                   llvm::Value* right, llvm::Type* leftType, llvm::Type* rightType) {
-    // TODO: Implement binary operation generation
-    return nullptr;
+    switch (op) {
+        // Arithmetic operations
+        case BinaryExpression::Operator::Plus:
+        case BinaryExpression::Operator::Minus:
+        case BinaryExpression::Operator::Multiply:
+        case BinaryExpression::Operator::Divide:
+        case BinaryExpression::Operator::Modulo:
+        case BinaryExpression::Operator::Exponentiation:
+            return generateArithmeticOp(op, left, right);
+            
+        // Comparison operations
+        case BinaryExpression::Operator::Equal:
+        case BinaryExpression::Operator::NotEqual:
+        case BinaryExpression::Operator::Less:
+        case BinaryExpression::Operator::Greater:
+        case BinaryExpression::Operator::LessEqual:
+        case BinaryExpression::Operator::GreaterEqual:
+            return generateComparisonOp(op, left, right);
+            
+        // Logical operations
+        case BinaryExpression::Operator::LogicalAnd:
+        case BinaryExpression::Operator::LogicalOr:
+        case BinaryExpression::Operator::NullishCoalescing:
+            return generateLogicalOp(op, left, right);
+            
+        // Bitwise operations
+        case BinaryExpression::Operator::BitwiseAnd:
+        case BinaryExpression::Operator::BitwiseOr:
+        case BinaryExpression::Operator::BitwiseXor:
+        case BinaryExpression::Operator::LeftShift:
+        case BinaryExpression::Operator::RightShift:
+        case BinaryExpression::Operator::UnsignedRightShift:
+            return generateBitwiseOp(op, left, right);
+            
+        default:
+            codeGen_->reportError("Unsupported binary operator", SourceLocation());
+            return createNullValue(codeGen_->getTypeGenerator()->getAnyType());
+    }
 }
 
 llvm::Value* ExpressionGenerator::generateArithmeticOp(BinaryExpression::Operator op, llvm::Value* left, llvm::Value* right) {
@@ -307,13 +343,215 @@ llvm::Value* ExpressionGenerator::generateArithmeticOp(BinaryExpression::Operato
 }
 
 llvm::Value* ExpressionGenerator::generateComparisonOp(BinaryExpression::Operator op, llvm::Value* left, llvm::Value* right) {
-    // TODO: Implement comparison operation generation
-    return nullptr;
+    llvm::IRBuilder<>* builder = codeGen_->getBuilder();
+    llvm::Type* booleanType = codeGen_->getTypeGenerator()->getBooleanType();
+    
+    // Ensure both operands are of compatible types for comparison
+    llvm::Type* leftType = left->getType();
+    llvm::Type* rightType = right->getType();
+    
+    // Convert operands to compatible types if necessary
+    if (leftType != rightType) {
+        if (codeGen_->getTypeGenerator()->isNumericType(leftType) && 
+            codeGen_->getTypeGenerator()->isNumericType(rightType)) {
+            // Both are numeric - convert to the same type
+            if (leftType->isDoubleTy() || rightType->isDoubleTy()) {
+                if (!leftType->isDoubleTy()) {
+                    left = builder->CreateSIToFP(left, llvm::Type::getDoubleTy(*codeGen_->getLLVMContext()), "to_double");
+                }
+                if (!rightType->isDoubleTy()) {
+                    right = builder->CreateSIToFP(right, llvm::Type::getDoubleTy(*codeGen_->getLLVMContext()), "to_double");
+                }
+            }
+        } else if (leftType->isPointerTy() && rightType->isPointerTy()) {
+            // Both are pointers - compare as pointers
+        } else {
+            // For other type combinations, convert to any type and compare
+            llvm::Type* anyType = codeGen_->getTypeGenerator()->getAnyType();
+            left = codeGen_->getTypeGenerator()->convertValue(left, leftType, anyType);
+            right = codeGen_->getTypeGenerator()->convertValue(right, rightType, anyType);
+        }
+    }
+    
+    llvm::Value* result = nullptr;
+    
+    switch (op) {
+        case BinaryExpression::Operator::Equal:
+            if (left->getType()->isFloatingPointTy()) {
+                result = builder->CreateFCmpOEQ(left, right, "eq");
+            } else if (left->getType()->isIntegerTy()) {
+                result = builder->CreateICmpEQ(left, right, "eq");
+            } else if (left->getType()->isPointerTy()) {
+                result = builder->CreateICmpEQ(left, right, "eq");
+            } else {
+                // For other types, use pointer comparison
+                result = builder->CreateICmpEQ(left, right, "eq");
+            }
+            break;
+            
+        case BinaryExpression::Operator::NotEqual:
+            if (left->getType()->isFloatingPointTy()) {
+                result = builder->CreateFCmpONE(left, right, "ne");
+            } else if (left->getType()->isIntegerTy()) {
+                result = builder->CreateICmpNE(left, right, "ne");
+            } else if (left->getType()->isPointerTy()) {
+                result = builder->CreateICmpNE(left, right, "ne");
+            } else {
+                result = builder->CreateICmpNE(left, right, "ne");
+            }
+            break;
+            
+        case BinaryExpression::Operator::Less:
+            if (left->getType()->isFloatingPointTy()) {
+                result = builder->CreateFCmpOLT(left, right, "lt");
+            } else if (left->getType()->isIntegerTy()) {
+                result = builder->CreateICmpSLT(left, right, "lt");
+            } else {
+                codeGen_->reportError("Cannot compare non-numeric types with <", SourceLocation());
+                return createNullValue(booleanType);
+            }
+            break;
+            
+        case BinaryExpression::Operator::Greater:
+            if (left->getType()->isFloatingPointTy()) {
+                result = builder->CreateFCmpOGT(left, right, "gt");
+            } else if (left->getType()->isIntegerTy()) {
+                result = builder->CreateICmpSGT(left, right, "gt");
+            } else {
+                codeGen_->reportError("Cannot compare non-numeric types with >", SourceLocation());
+                return createNullValue(booleanType);
+            }
+            break;
+            
+        case BinaryExpression::Operator::LessEqual:
+            if (left->getType()->isFloatingPointTy()) {
+                result = builder->CreateFCmpOLE(left, right, "le");
+            } else if (left->getType()->isIntegerTy()) {
+                result = builder->CreateICmpSLE(left, right, "le");
+            } else {
+                codeGen_->reportError("Cannot compare non-numeric types with <=", SourceLocation());
+                return createNullValue(booleanType);
+            }
+            break;
+            
+        case BinaryExpression::Operator::GreaterEqual:
+            if (left->getType()->isFloatingPointTy()) {
+                result = builder->CreateFCmpOGE(left, right, "ge");
+            } else if (left->getType()->isIntegerTy()) {
+                result = builder->CreateICmpSGE(left, right, "ge");
+            } else {
+                codeGen_->reportError("Cannot compare non-numeric types with >=", SourceLocation());
+                return createNullValue(booleanType);
+            }
+            break;
+            
+        default:
+            codeGen_->reportError("Unsupported comparison operator", SourceLocation());
+            return createNullValue(booleanType);
+    }
+    
+    return result;
 }
 
 llvm::Value* ExpressionGenerator::generateLogicalOp(BinaryExpression::Operator op, llvm::Value* left, llvm::Value* right) {
-    // TODO: Implement logical operation generation
-    return nullptr;
+    llvm::IRBuilder<>* builder = codeGen_->getBuilder();
+    llvm::Function* currentFunc = codeGen_->getCodeGenContext()->getCurrentFunction();
+    
+    if (!currentFunc) {
+        codeGen_->reportError("Logical operation outside function context", SourceLocation());
+        return createNullValue(codeGen_->getTypeGenerator()->getBooleanType());
+    }
+    
+    llvm::Type* booleanType = codeGen_->getTypeGenerator()->getBooleanType();
+    
+    // Convert operands to boolean if they aren't already
+    llvm::Value* leftBool = convertToBoolean(left);
+    llvm::Value* rightBool = convertToBoolean(right);
+    
+    switch (op) {
+        case BinaryExpression::Operator::LogicalAnd: {
+            // Short-circuit AND: if left is false, return false; otherwise return right
+            llvm::BasicBlock* shortCircuitBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "and.short", currentFunc);
+            llvm::BasicBlock* evaluateRightBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "and.right", currentFunc);
+            llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "and.merge", currentFunc);
+            
+            // Branch based on left operand
+            builder->CreateCondBr(leftBool, evaluateRightBlock, shortCircuitBlock);
+            
+            // Short-circuit: left is false, return false
+            builder->SetInsertPoint(shortCircuitBlock);
+            builder->CreateBr(mergeBlock);
+            
+            // Evaluate right operand
+            builder->SetInsertPoint(evaluateRightBlock);
+            builder->CreateBr(mergeBlock);
+            
+            // Merge: create PHI node
+            builder->SetInsertPoint(mergeBlock);
+            llvm::PHINode* phi = builder->CreatePHI(booleanType, 2, "and.result");
+            phi->addIncoming(createBooleanLiteral(false), shortCircuitBlock);
+            phi->addIncoming(rightBool, evaluateRightBlock);
+            
+            return phi;
+        }
+        
+        case BinaryExpression::Operator::LogicalOr: {
+            // Short-circuit OR: if left is true, return true; otherwise return right
+            llvm::BasicBlock* shortCircuitBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "or.short", currentFunc);
+            llvm::BasicBlock* evaluateRightBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "or.right", currentFunc);
+            llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "or.merge", currentFunc);
+            
+            // Branch based on left operand
+            builder->CreateCondBr(leftBool, shortCircuitBlock, evaluateRightBlock);
+            
+            // Short-circuit: left is true, return true
+            builder->SetInsertPoint(shortCircuitBlock);
+            builder->CreateBr(mergeBlock);
+            
+            // Evaluate right operand
+            builder->SetInsertPoint(evaluateRightBlock);
+            builder->CreateBr(mergeBlock);
+            
+            // Merge: create PHI node
+            builder->SetInsertPoint(mergeBlock);
+            llvm::PHINode* phi = builder->CreatePHI(booleanType, 2, "or.result");
+            phi->addIncoming(createBooleanLiteral(true), shortCircuitBlock);
+            phi->addIncoming(rightBool, evaluateRightBlock);
+            
+            return phi;
+        }
+        
+        case BinaryExpression::Operator::NullishCoalescing: {
+            // Nullish coalescing: if left is null or undefined, return right; otherwise return left
+            llvm::BasicBlock* useRightBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "nullish.right", currentFunc);
+            llvm::BasicBlock* useLeftBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "nullish.left", currentFunc);
+            llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(*codeGen_->getLLVMContext(), "nullish.merge", currentFunc);
+            
+            // Check if left is null or undefined
+            llvm::Value* isNull = builder->CreateICmpEQ(left, llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(left->getType())), "is_null");
+            builder->CreateCondBr(isNull, useRightBlock, useLeftBlock);
+            
+            // Use right operand
+            builder->SetInsertPoint(useRightBlock);
+            builder->CreateBr(mergeBlock);
+            
+            // Use left operand
+            builder->SetInsertPoint(useLeftBlock);
+            builder->CreateBr(mergeBlock);
+            
+            // Merge: create PHI node
+            builder->SetInsertPoint(mergeBlock);
+            llvm::PHINode* phi = builder->CreatePHI(left->getType(), 2, "nullish.result");
+            phi->addIncoming(right, useRightBlock);
+            phi->addIncoming(left, useLeftBlock);
+            
+            return phi;
+        }
+        
+        default:
+            codeGen_->reportError("Unsupported logical operator", SourceLocation());
+            return createNullValue(booleanType);
+    }
 }
 
 llvm::Value* ExpressionGenerator::generateStringConcat(llvm::Value* left, llvm::Value* right) {
@@ -322,8 +560,215 @@ llvm::Value* ExpressionGenerator::generateStringConcat(llvm::Value* left, llvm::
 }
 
 llvm::Value* ExpressionGenerator::generateUnaryOp(int op, llvm::Value* operand, llvm::Type* operandType) {
-    // TODO: Implement unary operation generation
-    return nullptr;
+    llvm::IRBuilder<>* builder = codeGen_->getBuilder();
+    
+    switch (static_cast<UnaryExpression::Operator>(op)) {
+        case UnaryExpression::Operator::UnaryPlus:
+            // Unary plus: convert to number if not already
+            if (operandType->isFloatingPointTy()) {
+                return operand; // Already a number
+            } else if (operandType->isIntegerTy()) {
+                return builder->CreateSIToFP(operand, llvm::Type::getDoubleTy(*codeGen_->getLLVMContext()), "to_double");
+            } else {
+                // For other types, convert to any type and then to number
+                llvm::Type* anyType = codeGen_->getTypeGenerator()->getAnyType();
+                llvm::Value* anyValue = codeGen_->getTypeGenerator()->convertValue(operand, operandType, anyType);
+                // TODO: Add runtime conversion from any to number
+                return anyValue;
+            }
+            
+        case UnaryExpression::Operator::UnaryMinus:
+            // Unary minus: negate the value
+            if (operandType->isFloatingPointTy()) {
+                return builder->CreateFNeg(operand, "neg");
+            } else if (operandType->isIntegerTy()) {
+                return builder->CreateNeg(operand, "neg");
+            } else {
+                codeGen_->reportError("Cannot apply unary minus to non-numeric type", SourceLocation());
+                return createNullValue(codeGen_->getTypeGenerator()->getNumberType());
+            }
+            
+        case UnaryExpression::Operator::LogicalNot:
+            // Logical NOT: invert boolean value
+            llvm::Value* boolValue = convertToBoolean(operand);
+            return builder->CreateNot(boolValue, "not");
+            
+        case UnaryExpression::Operator::BitwiseNot:
+            // Bitwise NOT: invert all bits
+            if (operandType->isIntegerTy()) {
+                return builder->CreateNot(operand, "bitwise_not");
+            } else {
+                codeGen_->reportError("Cannot apply bitwise NOT to non-integer type", SourceLocation());
+                return createNullValue(operandType);
+            }
+            
+        default:
+            codeGen_->reportError("Unsupported unary operator", SourceLocation());
+            return createNullValue(operandType);
+    }
+}
+
+llvm::Value* ExpressionGenerator::convertToBoolean(llvm::Value* value) {
+    llvm::IRBuilder<>* builder = codeGen_->getBuilder();
+    llvm::Type* valueType = value->getType();
+    
+    if (valueType->isIntegerTy(1)) {
+        // Already a boolean
+        return value;
+    } else if (valueType->isFloatingPointTy()) {
+        // Convert floating point to boolean: compare with 0.0
+        llvm::Value* zero = llvm::ConstantFP::get(valueType, 0.0);
+        return builder->CreateFCmpONE(value, zero, "to_bool");
+    } else if (valueType->isIntegerTy()) {
+        // Convert integer to boolean: compare with 0
+        llvm::Value* zero = llvm::ConstantInt::get(valueType, 0);
+        return builder->CreateICmpNE(value, zero, "to_bool");
+    } else if (valueType->isPointerTy()) {
+        // Convert pointer to boolean: compare with null
+        llvm::Value* nullPtr = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(valueType));
+        return builder->CreateICmpNE(value, nullPtr, "to_bool");
+    } else {
+        // For other types, assume they can be converted to boolean
+        // This is a simplified implementation
+        return builder->CreateICmpNE(value, llvm::ConstantInt::get(valueType, 0), "to_bool");
+    }
+}
+
+llvm::Value* ExpressionGenerator::generateBitwiseOp(BinaryExpression::Operator op, llvm::Value* left, llvm::Value* right) {
+    llvm::IRBuilder<>* builder = codeGen_->getBuilder();
+    
+    // Ensure both operands are integers
+    llvm::Type* leftType = left->getType();
+    llvm::Type* rightType = right->getType();
+    
+    if (!leftType->isIntegerTy() || !rightType->isIntegerTy()) {
+        codeGen_->reportError("Bitwise operations require integer operands", SourceLocation());
+        return createNullValue(codeGen_->getTypeGenerator()->getNumberType());
+    }
+    
+    // Convert to same type if necessary
+    if (leftType != rightType) {
+        if (leftType->getIntegerBitWidth() < rightType->getIntegerBitWidth()) {
+            left = builder->CreateSExt(left, rightType, "extend");
+        } else if (rightType->getIntegerBitWidth() < leftType->getIntegerBitWidth()) {
+            right = builder->CreateSExt(right, leftType, "extend");
+        }
+    }
+    
+    llvm::Value* result = nullptr;
+    
+    switch (op) {
+        case BinaryExpression::Operator::BitwiseAnd:
+            result = builder->CreateAnd(left, right, "and");
+            break;
+            
+        case BinaryExpression::Operator::BitwiseOr:
+            result = builder->CreateOr(left, right, "or");
+            break;
+            
+        case BinaryExpression::Operator::BitwiseXor:
+            result = builder->CreateXor(left, right, "xor");
+            break;
+            
+        case BinaryExpression::Operator::LeftShift:
+            result = builder->CreateShl(left, right, "shl");
+            break;
+            
+        case BinaryExpression::Operator::RightShift:
+            result = builder->CreateAShr(left, right, "shr");
+            break;
+            
+        case BinaryExpression::Operator::UnsignedRightShift:
+            result = builder->CreateLShr(left, right, "lshr");
+            break;
+            
+        default:
+            codeGen_->reportError("Unsupported bitwise operator", SourceLocation());
+            return createNullValue(leftType);
+    }
+    
+    return result;
+}
+
+llvm::Value* ExpressionGenerator::generateArithmeticOp(BinaryExpression::Operator op, llvm::Value* left, llvm::Value* right) {
+    llvm::IRBuilder<>* builder = codeGen_->getBuilder();
+    
+    // Ensure both operands are numeric
+    llvm::Type* leftType = left->getType();
+    llvm::Type* rightType = right->getType();
+    
+    if (!codeGen_->getTypeGenerator()->isNumericType(leftType) || 
+        !codeGen_->getTypeGenerator()->isNumericType(rightType)) {
+        codeGen_->reportError("Arithmetic operations require numeric operands", SourceLocation());
+        return createNullValue(codeGen_->getTypeGenerator()->getNumberType());
+    }
+    
+    // Convert to same type if necessary
+    if (leftType != rightType) {
+        if (leftType->isDoubleTy() || rightType->isDoubleTy()) {
+            if (!leftType->isDoubleTy()) {
+                left = builder->CreateSIToFP(left, llvm::Type::getDoubleTy(*codeGen_->getLLVMContext()), "to_double");
+            }
+            if (!rightType->isDoubleTy()) {
+                right = builder->CreateSIToFP(right, llvm::Type::getDoubleTy(*codeGen_->getLLVMContext()), "to_double");
+            }
+        }
+    }
+    
+    llvm::Value* result = nullptr;
+    
+    switch (op) {
+        case BinaryExpression::Operator::Plus:
+            if (left->getType()->isFloatingPointTy()) {
+                result = builder->CreateFAdd(left, right, "add");
+            } else {
+                result = builder->CreateAdd(left, right, "add");
+            }
+            break;
+            
+        case BinaryExpression::Operator::Minus:
+            if (left->getType()->isFloatingPointTy()) {
+                result = builder->CreateFSub(left, right, "sub");
+            } else {
+                result = builder->CreateSub(left, right, "sub");
+            }
+            break;
+            
+        case BinaryExpression::Operator::Multiply:
+            if (left->getType()->isFloatingPointTy()) {
+                result = builder->CreateFMul(left, right, "mul");
+            } else {
+                result = builder->CreateMul(left, right, "mul");
+            }
+            break;
+            
+        case BinaryExpression::Operator::Divide:
+            if (left->getType()->isFloatingPointTy()) {
+                result = builder->CreateFDiv(left, right, "div");
+            } else {
+                result = builder->CreateSDiv(left, right, "div");
+            }
+            break;
+            
+        case BinaryExpression::Operator::Modulo:
+            if (left->getType()->isFloatingPointTy()) {
+                result = builder->CreateFRem(left, right, "mod");
+            } else {
+                result = builder->CreateSRem(left, right, "mod");
+            }
+            break;
+            
+        case BinaryExpression::Operator::Exponentiation:
+            // Exponentiation is more complex - would need runtime function
+            codeGen_->reportError("Exponentiation not yet implemented", SourceLocation());
+            return createNullValue(left->getType());
+            
+        default:
+            codeGen_->reportError("Unsupported arithmetic operator", SourceLocation());
+            return createNullValue(left->getType());
+    }
+    
+    return result;
 }
 
 } // namespace codegen

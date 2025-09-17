@@ -78,6 +78,9 @@ public:
     
     // Unary operations
     llvm::Value* generateUnaryOp(int op, llvm::Value* operand, llvm::Type* operandType);
+    
+    // Additional helper methods
+    llvm::Value* generateBitwiseOp(BinaryExpression::Operator op, llvm::Value* left, llvm::Value* right);
 
 private:
     LLVMCodeGen* codeGen_;
