@@ -10,7 +10,26 @@ namespace tsc {
     // Type base class implementation
     bool Type::isAssignableTo(const Type &other) const {
         // Default implementation: types are assignable if they're equivalent
-        return isEquivalentTo(other) || other.isAny() || isAny();
+        if (isEquivalentTo(other) || other.isAny() || isAny()) {
+            return true;
+        }
+        
+        // Special case: if the other type is a type parameter, check if this type satisfies its constraint
+        if (other.getKind() == TypeKind::TypeParameter) {
+            auto typeParam = static_cast<const TypeParameterType*>(&other);
+            std::cout << "DEBUG: Checking if " << toString() << " is assignable to type parameter " << typeParam->getName() << std::endl;
+            if (typeParam->getConstraint()) {
+                std::cout << "DEBUG: Type parameter has constraint: " << typeParam->getConstraint()->toString() << std::endl;
+                // This type is assignable to the type parameter if it satisfies the constraint
+                bool result = isAssignableTo(*typeParam->getConstraint());
+                std::cout << "DEBUG: " << toString() << " is assignable to constraint " << typeParam->getConstraint()->toString() << ": " << (result ? "YES" : "NO") << std::endl;
+                return result;
+            } else {
+                std::cout << "DEBUG: Type parameter has no constraint" << std::endl;
+            }
+        }
+        
+        return false;
     }
 
     bool Type::isEquivalentTo(const Type &other) const {
@@ -669,9 +688,10 @@ namespace tsc {
     }
 
     bool TypeParameterType::isAssignableTo(const Type &other) const {
-        // If there's a constraint, the type parameter is assignable to the constraint
+        // If there's a constraint, check if the other type is assignable to the constraint
+        // This means the type parameter can be assigned to any type that satisfies its constraint
         if (constraint_) {
-            return constraint_->isAssignableTo(other);
+            return other.isAssignableTo(*constraint_);
         }
 
         // If no constraint, use default behavior (equivalent types)

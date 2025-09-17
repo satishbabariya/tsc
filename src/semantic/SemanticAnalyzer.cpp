@@ -1476,9 +1476,32 @@ namespace tsc {
             typeParam->accept(*this);
         }
 
+        // Update function signature in symbol table with resolved parameter types
+        auto functionType = std::static_pointer_cast<FunctionType>(existingSymbol->getType());
+        if (functionType) {
+            std::vector<FunctionType::Parameter> resolvedParamTypes;
+            for (const auto &param: node.getParameters()) {
+                FunctionType::Parameter funcParam;
+                funcParam.name = param.name;
+                funcParam.type = param.type ? resolveType(param.type) : typeSystem_->getAnyType();
+                funcParam.optional = param.optional;
+                funcParam.rest = param.rest;
+                resolvedParamTypes.push_back(funcParam);
+            }
+            
+            // Create new function type with resolved parameter types
+            auto resolvedFunctionType = typeSystem_->createFunctionType(std::move(resolvedParamTypes), functionType->getReturnType());
+            existingSymbol->setType(resolvedFunctionType);
+        }
+
         // Add parameters to function scope
         for (const auto &param: node.getParameters()) {
+            std::cout << "DEBUG: Processing parameter '" << param.name << "' with type: " << (param.type ? param.type->toString() : "null") << std::endl;
+            if (param.type) {
+                std::cout << "DEBUG: Parameter type kind before resolve: " << static_cast<int>(param.type->getKind()) << std::endl;
+            }
             auto paramType = param.type ? resolveType(param.type) : typeSystem_->getAnyType();
+            std::cout << "DEBUG: Parameter type kind after resolve: " << static_cast<int>(paramType->getKind()) << std::endl;
             symbolTable_->addSymbol(param.name, SymbolKind::Parameter, paramType,
                                     node.getLocation());
         }
@@ -3032,6 +3055,7 @@ namespace tsc {
         }
         if (symbol && (symbol->getKind() == SymbolKind::Type || symbol->getKind() == SymbolKind::Class)) {
             auto resolvedType = symbol->getType();
+            std::cout << "DEBUG: resolveType returning resolved type: " << resolvedType->toString() << " (kind: " << static_cast<int>(resolvedType->getKind()) << ")" << std::endl;
 
             // Always ensure ClassType has correct declaration pointer
             if (resolvedType->getKind() == TypeKind::Class) {
@@ -3363,7 +3387,11 @@ namespace tsc {
             auto argType = getExpressionType(*arguments[i]);
             auto paramType = parameters[i].type;
 
+            std::cout << "DEBUG: Checking argument " << i << ": " << argType->toString() << " vs parameter: " << paramType->toString() << std::endl;
+            std::cout << "DEBUG: Argument type kind: " << static_cast<int>(argType->getKind()) << ", Parameter type kind: " << static_cast<int>(paramType->getKind()) << std::endl;
+            
             if (!isValidAssignment(*argType, *paramType)) {
+                std::cout << "DEBUG: Assignment failed for " << argType->toString() << " to " << paramType->toString() << std::endl;
                 reportTypeError(paramType->toString(), argType->toString(), arguments[i]->getLocation());
                 return false;
             }
