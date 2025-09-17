@@ -792,7 +792,19 @@ namespace tsc {
         if (isAbstract_) oss << "abstract ";
         if (isAsync_) oss << "async ";
 
-        oss << name_ << "(";
+        oss << name_;
+        
+        // Add type parameters if any
+        if (!typeParameters_.empty()) {
+            oss << "<";
+            for (size_t i = 0; i < typeParameters_.size(); ++i) {
+                if (i > 0) oss << ", ";
+                oss << typeParameters_[i]->toString();
+            }
+            oss << ">";
+        }
+        
+        oss << "(";
         for (size_t i = 0; i < parameters_.size(); ++i) {
             if (i > 0) oss << ", ";
             oss << parameters_[i].name;

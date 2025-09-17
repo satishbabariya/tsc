@@ -1341,6 +1341,7 @@ public:
     };
     
     MethodDeclaration(const String& name,
+                     std::vector<unique_ptr<TypeParameter>> typeParameters,
                      std::vector<Parameter> parameters,
                      shared_ptr<Type> returnType,
                      unique_ptr<BlockStatement> body,
@@ -1350,7 +1351,7 @@ public:
                      bool isProtected = false,
                      bool isAbstract = false,
                      bool isAsync = false)
-        : name_(name), parameters_(std::move(parameters)),
+        : name_(name), typeParameters_(std::move(typeParameters)), parameters_(std::move(parameters)),
           returnType_(returnType), body_(std::move(body)),
           location_(loc), isStatic_(isStatic), isPrivate_(isPrivate),
           isProtected_(isProtected), isAbstract_(isAbstract), isAsync_(isAsync) {}
@@ -1360,6 +1361,7 @@ public:
     String getName() const override { return name_; }
     String toString() const override;
     
+    const std::vector<unique_ptr<TypeParameter>>& getTypeParameters() const { return typeParameters_; }
     const std::vector<Parameter>& getParameters() const { return parameters_; }
     shared_ptr<Type> getReturnType() const { return returnType_; }
     BlockStatement* getBody() const { return body_.get(); }
@@ -1368,9 +1370,11 @@ public:
     bool isProtected() const { return isProtected_; }
     bool isAbstract() const { return isAbstract_; }
     bool isAsync() const { return isAsync_; }
+    bool isGeneric() const { return !typeParameters_.empty(); }
 
 private:
     String name_;
+    std::vector<unique_ptr<TypeParameter>> typeParameters_;
     std::vector<Parameter> parameters_;
     shared_ptr<Type> returnType_;
     unique_ptr<BlockStatement> body_;

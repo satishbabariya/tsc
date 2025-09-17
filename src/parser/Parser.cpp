@@ -409,7 +409,7 @@ namespace tsc {
                     std::cout << "DEBUG: Parser parsed constructor body" << std::endl;
 
                     constructor = make_unique<MethodDeclaration>(
-                        "constructor", std::move(parameters), typeSystem_.getVoidType(),
+                        "constructor", std::vector<unique_ptr<TypeParameter>>{}, std::move(parameters), typeSystem_.getVoidType(),
                         std::move(body), getCurrentLocation(), isStatic, isPrivate, isProtected, isAbstract
                     );
                 } else if (check(TokenType::LeftParen)) {
@@ -433,7 +433,7 @@ namespace tsc {
                     auto body = parseFunctionBody();
 
                     methods.push_back(make_unique<MethodDeclaration>(
-                        memberName, std::move(parameters), returnType, std::move(body),
+                        memberName, std::vector<unique_ptr<TypeParameter>>{}, std::move(parameters), returnType, std::move(body),
                         memberToken.getLocation(), isStatic, isPrivate, isProtected, isAbstract
                     ));
                 } else if (check(TokenType::Colon)) {
@@ -450,7 +450,7 @@ namespace tsc {
                         auto body = parseFunctionBody();
 
                         methods.push_back(make_unique<MethodDeclaration>(
-                            memberName, std::move(parameters), returnType, std::move(body),
+                            memberName, std::vector<unique_ptr<TypeParameter>>{}, std::move(parameters), returnType, std::move(body),
                             memberToken.getLocation(), isStatic, isPrivate, isProtected, isAbstract
                         ));
                     } else {
@@ -591,7 +591,7 @@ namespace tsc {
 
                 // Interface methods have no body (nullptr)
                 methods.push_back(make_unique<MethodDeclaration>(
-                    memberName, std::move(parameters), returnType, nullptr,
+                    memberName, std::vector<unique_ptr<TypeParameter>>{}, std::move(parameters), returnType, nullptr,
                     memberToken.getLocation(), false, false, false, false
                 ));
             } else {

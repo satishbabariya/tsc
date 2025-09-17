@@ -7371,24 +7371,14 @@ namespace tsc {
 
     void LLVMCodeGen::visit(MethodDeclaration &node) {
         // Check if this method belongs to a generic class and implement monomorphization
-        bool isGenericMethod = false; // MethodDeclaration doesn't have type parameters yet
+        bool isGenericMethod = node.isGeneric();
         
         if (isGenericMethod) {
             // For generic methods, we need to generate monomorphized versions
-            // First, check if we have any instantiations for this method
-            String methodKey = generateMethodKey(node);
-            auto instantiations = getGenericInstantiations(methodKey);
-            
-            if (instantiations.empty()) {
-                // No instantiations yet - generate a generic template
-                generateGenericMethodTemplate(node);
-            } else {
-                // Generate monomorphized versions for each instantiation
-                for (const auto& instantiation : instantiations) {
-                    generateMonomorphizedMethod(node, instantiation);
-                }
-            }
-            return;
+            // TODO: Implement generic method template generation and monomorphization
+            // For now, treat generic methods as regular methods
+            std::cout << "DEBUG: Generic method " << node.getName() << " found with " 
+                      << node.getTypeParameters().size() << " type parameters" << std::endl;
         }
 
         // Generate LLVM function for non-generic method
@@ -9888,10 +9878,9 @@ namespace tsc {
         key << method.getName();
         
         // Add type parameter names to the key
-        // MethodDeclaration doesn't have type parameters yet
-        // for (const auto& typeParam : method.getTypeParameters()) {
-        //     key << "_" << typeParam->getName();
-        // }
+        for (const auto& typeParam : method.getTypeParameters()) {
+            key << "_" << typeParam->getName();
+        }
         
         return key.str();
     }
