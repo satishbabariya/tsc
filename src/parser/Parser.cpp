@@ -412,9 +412,20 @@ namespace tsc {
                         "constructor", std::vector<unique_ptr<TypeParameter>>{}, std::move(parameters), typeSystem_.getVoidType(),
                         std::move(body), getCurrentLocation(), isStatic, isPrivate, isProtected, isAbstract
                     );
-                } else if (check(TokenType::LeftParen)) {
-                    // Method declaration with parameters
+                } else if (check(TokenType::LeftParen) || check(TokenType::Less)) {
+                    // Method declaration with parameters (possibly with type parameters)
                     std::cout << "DEBUG: Parser found method declaration: " << memberName << std::endl;
+                    
+                    // Parse optional type parameters
+                    std::vector<unique_ptr<TypeParameter>> typeParameters;
+                    if (check(TokenType::Less)) {
+                        // Set type context for type parameter parsing to handle union types correctly
+                        ParsingContext oldContext = currentContext_;
+                        setContext(ParsingContext::Type);
+                        typeParameters = parseTypeParameterList();
+                        setContext(oldContext);
+                    }
+                    
                     std::vector<MethodDeclaration::Parameter> parameters;
 
                     consume(TokenType::LeftParen, "Expected '(' after method name");
@@ -433,7 +444,7 @@ namespace tsc {
                     auto body = parseFunctionBody();
 
                     methods.push_back(make_unique<MethodDeclaration>(
-                        memberName, std::vector<unique_ptr<TypeParameter>>{}, std::move(parameters), returnType, std::move(body),
+                        memberName, std::move(typeParameters), std::move(parameters), returnType, std::move(body),
                         memberToken.getLocation(), isStatic, isPrivate, isProtected, isAbstract
                     ));
                 } else if (check(TokenType::Colon)) {
@@ -571,8 +582,19 @@ namespace tsc {
             Token memberToken = consume(TokenType::Identifier, "Expected interface member");
             String memberName = memberToken.getStringValue();
 
-            if (check(TokenType::LeftParen)) {
-                // Method signature
+            if (check(TokenType::LeftParen) || check(TokenType::Less)) {
+                // Method signature (possibly with type parameters)
+                
+                // Parse optional type parameters
+                std::vector<unique_ptr<TypeParameter>> typeParameters;
+                if (check(TokenType::Less)) {
+                    // Set type context for type parameter parsing to handle union types correctly
+                    ParsingContext oldContext = currentContext_;
+                    setContext(ParsingContext::Type);
+                    typeParameters = parseTypeParameterList();
+                    setContext(oldContext);
+                }
+                
                 consume(TokenType::LeftParen, "Expected '(' after method name");
                 auto parameters = parseMethodParameterList();
                 consume(TokenType::RightParen, "Expected ')' after method parameters");
@@ -591,7 +613,7 @@ namespace tsc {
 
                 // Interface methods have no body (nullptr)
                 methods.push_back(make_unique<MethodDeclaration>(
-                    memberName, std::vector<unique_ptr<TypeParameter>>{}, std::move(parameters), returnType, nullptr,
+                    memberName, std::move(typeParameters), std::move(parameters), returnType, nullptr,
                     memberToken.getLocation(), false, false, false, false
                 ));
             } else {
