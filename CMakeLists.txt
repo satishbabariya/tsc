@@ -355,7 +355,33 @@ add_subdirectory(src)
 
 # Enable testing
 enable_testing()
-# add_subdirectory(test)  # Disabled - GTest not available
+
+# Add semantic analysis integration tests
+add_executable(SemanticAnalysisModularIntegrationTest
+    tests/integration/SemanticAnalysisModularIntegrationTest.cpp
+    ${TSC_SOURCES}
+)
+
+# Add semantic analysis unit tests
+add_executable(SemanticAnalysisUnitTests
+    tests/unit/SemanticAnalysisUnitTests.cpp
+    ${TSC_SOURCES}
+)
+
+# Set test properties
+set_target_properties(SemanticAnalysisModularIntegrationTest PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+set_target_properties(SemanticAnalysisUnitTests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+# Add tests to CTest
+add_test(NAME SemanticAnalysisModularIntegrationTest COMMAND SemanticAnalysisModularIntegrationTest)
+add_test(NAME SemanticAnalysisUnitTests COMMAND SemanticAnalysisUnitTests)
 
 # Create runtime library
 add_library(tsc_runtime STATIC
