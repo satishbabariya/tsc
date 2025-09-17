@@ -1997,10 +1997,14 @@ namespace tsc {
     }
 
     Token Parser::peekAhead(size_t offset) const {
+        // The parser's current position is at lookaheadCache_.currentIndex_
+        // We need to cache tokens starting from this position
         while (lookaheadCache_.tokens_.size() <= offset) {
             if (tokens_->isAtEnd()) break;
+            // Calculate the offset from the token stream's current position
+            size_t streamOffset = lookaheadCache_.currentIndex_ + lookaheadCache_.tokens_.size();
             lookaheadCache_.tokens_.push_back(
-                tokens_->peekAhead(lookaheadCache_.tokens_.size())
+                tokens_->peekAhead(streamOffset)
             );
         }
         if (offset < lookaheadCache_.tokens_.size()) {
@@ -2010,7 +2014,13 @@ namespace tsc {
     }
 
     bool Parser::hasAhead(size_t offset) const {
-        return !tokens_->isAtEnd() || offset < lookaheadCache_.tokens_.size();
+        // Check if we have enough tokens cached
+        if (offset < lookaheadCache_.tokens_.size()) {
+            return true;
+        }
+        // Check if the token stream has more tokens at the required offset
+        size_t streamOffset = lookaheadCache_.currentIndex_ + offset;
+        return !tokens_->isAtEnd() && streamOffset < 1000; // Conservative check
     }
 
     SourceLocation Parser::getCurrentLocation() const {
@@ -2657,33 +2667,22 @@ namespace tsc {
         }
 
         // In expression context, use sophisticated lookahead
-        bool result = analyzeTypeArgumentPattern();
-        std::cout << "DEBUG: isTypeArgumentList() called, result: " << result << std::endl;
-        return result;
+        return analyzeTypeArgumentPattern();
     }
 
     bool Parser::analyzeTypeArgumentPattern() const {
         // Simplified approach: For now, assume any < followed by an identifier is a type argument
         // This is a conservative approach that should work for basic cases
         
-        std::cout << "DEBUG: analyzeTypeArgumentPattern: Current token: " << peek().toString() << std::endl;
-        
+        // Bypass the broken lookahead cache and directly use the token stream
         // We're currently at the < token, so look ahead 1 position for the identifier
-        if (!hasAhead(1)) {
-            std::cout << "DEBUG: analyzeTypeArgumentPattern: No token ahead at offset 1" << std::endl;
-            return false;
-        }
-        
-        Token nextToken = peekAhead(1);
-        std::cout << "DEBUG: analyzeTypeArgumentPattern: Next token: " << nextToken.toString() << std::endl;
+        Token nextToken = tokens_->peekAhead(1);
         
         // Check if the next token is an identifier (type name)
         if (nextToken.getType() != TokenType::Identifier) {
-            std::cout << "DEBUG: analyzeTypeArgumentPattern: Next token is not an identifier" << std::endl;
             return false;
         }
         
-        std::cout << "DEBUG: analyzeTypeArgumentPattern: Found identifier, returning true" << std::endl;
         // For now, assume this is a type argument list
         // A more sophisticated implementation would check for > or , after the identifier
         return true;
