@@ -1451,7 +1451,7 @@ namespace tsc {
                 std::vector<shared_ptr<Type> > typeArguments;
 
                 // Parse type arguments if present
-                if (match(TokenType::Less)) {
+                if (check(TokenType::Less)) {
                     typeArguments = parseTypeArgumentList();
                 }
 
