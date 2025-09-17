@@ -7,6 +7,62 @@
 #include <fstream>
 
 namespace tsc {
+    // Helper class to analyze destructor cleanup operations
+    class DestructorCleanupAnalyzer : public ASTVisitor {
+    private:
+        String propertyName_;
+        bool propertyCleanedUp_;
+        
+    public:
+        DestructorCleanupAnalyzer(const String& propertyName) 
+            : propertyName_(propertyName), propertyCleanedUp_(false) {}
+        
+        bool isPropertyCleanedUp() const { return propertyCleanedUp_; }
+        
+        void visit(AssignmentExpression& expr) override {
+            // Check for assignments like: this.property = null
+            if (auto memberAccess = dynamic_cast<MemberAccessExpression*>(expr.getLeft())) {
+                if (memberAccess->getObject()->toString() == "this" && 
+                    memberAccess->getProperty() == propertyName_) {
+                    // Check if it's being set to null or undefined
+                    if (auto nullLiteral = dynamic_cast<NullLiteral*>(expr.getRight())) {
+                        propertyCleanedUp_ = true;
+                    } else if (auto undefinedLiteral = dynamic_cast<UndefinedLiteral*>(expr.getRight())) {
+                        propertyCleanedUp_ = true;
+                    }
+                }
+            }
+            
+            // Visit children
+            ASTVisitor::visit(expr);
+        }
+        
+        void visit(ExpressionStatement& stmt) override {
+            // Check for direct cleanup calls like: this.property.reset()
+            if (auto callExpr = dynamic_cast<CallExpression*>(stmt.getExpression())) {
+                if (auto memberAccess = dynamic_cast<MemberAccessExpression*>(callExpr->getCallee())) {
+                    if (memberAccess->getObject()->toString() == "this" && 
+                        memberAccess->getProperty() == propertyName_) {
+                        String methodName = callExpr->getArguments().empty() ? "" : 
+                                           callExpr->getArguments()[0]->toString();
+                        if (methodName == "reset" || methodName == "clear" || methodName == "dispose") {
+                            propertyCleanedUp_ = true;
+                        }
+                    }
+                }
+            }
+            
+            // Visit children
+            ASTVisitor::visit(stmt);
+        }
+        
+        void visit(BlockStatement& stmt) override {
+            // Visit all statements in the block
+            for (const auto& statement : stmt.getStatements()) {
+                statement->accept(*this);
+            }
+        }
+    };
     SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine &diagnostics)
         : diagnostics_(diagnostics) {
         symbolTable_ = make_unique<SymbolTable>();
@@ -631,9 +687,26 @@ namespace tsc {
                     break;
                 }
                 case TypeKind::Tuple: {
-                    // Tuple indexing returns union of element types
-                    // For now, return any - in a full implementation we'd check the index value
-                    resultType = typeSystem_->getAnyType();
+                    // Tuple indexing - check the actual index value to determine element type
+                    auto tupleType = dynamic_cast<TupleType*>(objectType.get());
+                    if (tupleType) {
+                        // Try to evaluate the index expression to get a constant value
+                        if (auto indexLiteral = dynamic_cast<NumericLiteral*>(node.getIndex())) {
+                            int index = static_cast<int>(indexLiteral->getValue());
+                            if (index >= 0 && index < tupleType->getElementTypes().size()) {
+                                resultType = tupleType->getElementTypes()[index];
+                            } else {
+                                reportError("Tuple index " + std::to_string(index) + " is out of bounds",
+                                          node.getIndex()->getLocation());
+                                resultType = typeSystem_->getErrorType();
+                            }
+                        } else {
+                            // Non-constant index - return union of all element types
+                            resultType = typeSystem_->createUnionType(tupleType->getElementTypes());
+                        }
+                    } else {
+                        resultType = typeSystem_->getAnyType();
+                    }
                     break;
                 }
                 default: {
@@ -2394,11 +2467,53 @@ namespace tsc {
                 auto constraintType = typeParam->getConstraint();
                 std::cout << "DEBUG: Constraint type: " << constraintType->toString() << std::endl;
 
-                // For now, we validate that the constraint is a valid type
-                // In a full implementation, we'd check that the constraint is a valid base type
+                // Validate that the constraint is a valid base type
                 if (constraintType->isError()) {
                     reportError("Invalid constraint type for type parameter '" + typeParam->getName() + "'",
                                 typeParam->getLocation());
+                } else {
+                    // Check if the constraint type is a valid base type (class, interface, or object type)
+                    bool isValidBaseType = false;
+                    switch (constraintType->getKind()) {
+                        case TypeKind::Class:
+                        case TypeKind::Interface:
+                        case TypeKind::Object:
+                            isValidBaseType = true;
+                            break;
+                        case TypeKind::TypeParameter: {
+                            // For type parameters, check if they have valid constraints
+                            auto typeParamType = dynamic_cast<TypeParameterType*>(constraintType.get());
+                            if (typeParamType && typeParamType->getConstraint()) {
+                                isValidBaseType = true; // Recursive validation would be done elsewhere
+                            }
+                            break;
+                        }
+                        case TypeKind::Union: {
+                            // For union types, all members must be valid base types
+                            auto unionType = dynamic_cast<UnionType*>(constraintType.get());
+                            if (unionType) {
+                                isValidBaseType = true;
+                                for (const auto& memberType : unionType->getTypes()) {
+                                    if (memberType->getKind() != TypeKind::Class && 
+                                        memberType->getKind() != TypeKind::Interface &&
+                                        memberType->getKind() != TypeKind::Object) {
+                                        isValidBaseType = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                        default:
+                            isValidBaseType = false;
+                            break;
+                    }
+                    
+                    if (!isValidBaseType) {
+                        reportError("Type parameter constraint must be a class, interface, or object type, got: " + 
+                                   constraintType->toString(),
+                                   typeParam->getLocation());
+                    }
                 }
             }
 
@@ -2473,11 +2588,64 @@ namespace tsc {
             // Get the type of the value expression
             auto valueType = getExpressionType(*node.getValue());
 
-            // For now, we'll accept number and string types for enum values
-            // In a full implementation, we'd do more sophisticated type checking
-            if (!valueType->isEquivalentTo(*typeSystem_->getNumberType()) &&
-                !valueType->isEquivalentTo(*typeSystem_->getStringType())) {
-                reportError("Enum member value must be a number or string", node.getLocation());
+            // Sophisticated enum value type checking
+            bool isValidEnumValue = false;
+            
+            // Check for literal types (numbers, strings, booleans)
+            if (valueType->getKind() == TypeKind::Literal) {
+                auto literalType = dynamic_cast<LiteralType*>(valueType.get());
+                if (literalType) {
+                    switch (literalType->getKind()) {
+                        case TypeKind::Literal:
+                            // Check if it's a numeric or string literal
+                            if (literalType->getValue().find_first_not_of("0123456789.-") == std::string::npos ||
+                                literalType->getValue().front() == '"' || literalType->getValue().front() == '\'') {
+                                isValidEnumValue = true;
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+            
+            // Check for primitive types (number, string)
+            if (!isValidEnumValue && 
+                (valueType->isEquivalentTo(*typeSystem_->getNumberType()) ||
+                 valueType->isEquivalentTo(*typeSystem_->getStringType()))) {
+                isValidEnumValue = true;
+            }
+            
+            // Check for constant expressions (computed values)
+            if (!isValidEnumValue && valueType->isConstant()) {
+                isValidEnumValue = true;
+            }
+            
+            // Check for references to other enum members
+            if (!isValidEnumValue && valueType->getKind() == TypeKind::Enum) {
+                isValidEnumValue = true;
+            }
+            
+            // Check for union types where all members are valid enum values
+            if (!isValidEnumValue && valueType->getKind() == TypeKind::Union) {
+                auto unionType = dynamic_cast<UnionType*>(valueType.get());
+                if (unionType) {
+                    isValidEnumValue = true;
+                    for (const auto& memberType : unionType->getTypes()) {
+                        if (!memberType->isEquivalentTo(*typeSystem_->getNumberType()) &&
+                            !memberType->isEquivalentTo(*typeSystem_->getStringType()) &&
+                            memberType->getKind() != TypeKind::Literal &&
+                            !memberType->isConstant()) {
+                            isValidEnumValue = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (!isValidEnumValue) {
+                reportError("Enum member value must be a number, string, literal, constant expression, or reference to another enum member, got: " + 
+                           valueType->toString(), node.getLocation());
             }
         }
 
@@ -3274,18 +3442,36 @@ namespace tsc {
 
     bool SemanticAnalyzer::checkCircularInterfaceInheritance(shared_ptr<Type> interfaceType,
                                                              const SourceLocation &location) {
-        // Simple circular inheritance check - in a full implementation, this would
-        // maintain a stack of interfaces being processed
-        static std::unordered_set<std::string> processingInterfaces;
-
+        // Proper circular inheritance check using a stack-based approach
+        static std::vector<std::string> inheritanceStack;
+        
         auto interfaceName = interfaceType->toString();
-        if (processingInterfaces.find(interfaceName) != processingInterfaces.end()) {
-            reportError("Circular interface inheritance detected: " + interfaceName, location);
-            return false;
+        
+        // Check if this interface is already in the current inheritance chain
+        for (const auto& stackInterface : inheritanceStack) {
+            if (stackInterface == interfaceName) {
+                // Found a cycle - construct the cycle path for error reporting
+                std::string cyclePath = interfaceName;
+                bool foundStart = false;
+                for (auto it = inheritanceStack.rbegin(); it != inheritanceStack.rend(); ++it) {
+                    if (*it == interfaceName) {
+                        foundStart = true;
+                        continue;
+                    }
+                    if (foundStart) {
+                        cyclePath = *it + " -> " + cyclePath;
+                    }
+                }
+                cyclePath = cyclePath + " -> " + interfaceName; // Complete the cycle
+                
+                reportError("Circular interface inheritance detected: " + cyclePath, location);
+                return false;
+            }
         }
-
-        processingInterfaces.insert(interfaceName);
-
+        
+        // Add current interface to the stack
+        inheritanceStack.push_back(interfaceName);
+        
         // Check extended interfaces recursively
         auto interfaceSymbol = symbolTable_->lookupSymbol(interfaceName);
         if (interfaceSymbol) {
@@ -3295,15 +3481,17 @@ namespace tsc {
                 if (interfaceDecl) {
                     for (const auto &extended: interfaceDecl->getExtends()) {
                         if (!checkCircularInterfaceInheritance(extended, location)) {
-                            processingInterfaces.erase(interfaceName);
+                            // Remove from stack before returning false
+                            inheritanceStack.pop_back();
                             return false;
                         }
                     }
                 }
             }
         }
-
-        processingInterfaces.erase(interfaceName);
+        
+        // Remove current interface from the stack
+        inheritanceStack.pop_back();
         return true;
     }
 
@@ -3515,10 +3703,14 @@ namespace tsc {
 
                 // Check if destructor handles this property
                 if (classDecl.getDestructor()) {
-                    // In a full implementation, we'd analyze the destructor body
-                    // to see if it properly cleans up this property
-                    std::cout << "     ✓ Destructor exists - ensure it cleans up '" << prop->getName() << "'" <<
-                            std::endl;
+                    // Analyze the destructor body to see if it properly cleans up this property
+                    bool propertyCleanedUp = analyzeDestructorCleanup(classDecl.getDestructor(), prop->getName());
+                    if (propertyCleanedUp) {
+                        std::cout << "     ✓ Destructor properly cleans up '" << prop->getName() << "'" << std::endl;
+                    } else {
+                        reportWarning("ARC-managed property '" + prop->getName() + "' is not cleaned up in destructor",
+                                      prop->getLocation());
+                    }
                 } else {
                     reportWarning("ARC-managed property '" + prop->getName() + "' should be cleaned up in destructor",
                                   prop->getLocation());
@@ -3527,6 +3719,18 @@ namespace tsc {
         }
 
         std::cout << "✅ Resource cleanup suggestions completed" << std::endl;
+    }
+
+    bool SemanticAnalyzer::analyzeDestructorCleanup(const FunctionDeclaration* destructor, const String& propertyName) {
+        if (!destructor || !destructor->getBody()) {
+            return false;
+        }
+        
+        // Analyze the destructor body for cleanup operations
+        DestructorCleanupAnalyzer analyzer(propertyName);
+        destructor->getBody()->accept(analyzer);
+        
+        return analyzer.isPropertyCleanedUp();
     }
 
     void SemanticAnalyzer::detectResourceLeaks(const ClassDeclaration &classDecl) {

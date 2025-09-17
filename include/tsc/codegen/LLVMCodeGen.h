@@ -694,10 +694,22 @@ public:
     // Error handling
     void reportError(const String& message, const SourceLocation& location);
     void reportWarning(const String& message, const SourceLocation& location);
+    
+    // Monomorphization methods
+    String generateMethodKey(const MethodDeclaration& method);
+    std::vector<GenericInstantiation> getGenericInstantiations(const String& methodKey);
+    void generateGenericMethodTemplate(const MethodDeclaration& method);
+    void generateMonomorphizedMethod(const MethodDeclaration& method, const GenericInstantiation& instantiation);
+    void generateSpecializedMethodBody(const MethodDeclaration& method, llvm::Function* func, const GenericInstantiation& instantiation);
+    shared_ptr<Type> instantiateGenericType(shared_ptr<Type> genericType, const std::unordered_map<String, shared_ptr<Type>>& typeArgs);
 
 private:
     unique_ptr<EnhancedErrorReporting> errorReporter_;
     unique_ptr<llvm::LLVMContext> llvmContext_;
+    
+    // Monomorphization storage
+    std::unordered_map<String, llvm::Function*> genericTemplates_;
+    std::unordered_map<String, llvm::Function*> specializedMethods_;
 };
 
 // Code generation result

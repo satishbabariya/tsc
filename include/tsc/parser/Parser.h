@@ -198,6 +198,15 @@ private:
     void setContext(ParsingContext context);
     ParsingContext getCurrentContext() const;
     
+    // Type parsing methods
+    shared_ptr<Type> parseTypeAnnotation();
+    shared_ptr<Type> parseUnionType();
+    shared_ptr<Type> parseIntersectionType();
+    shared_ptr<Type> parseObjectType();
+    shared_ptr<Type> parseObjectTypeLiteral();
+    shared_ptr<Type> parsePrimaryType();
+    shared_ptr<Type> parseFunctionType();
+    
     // Current parsing context
     SourceLocation getCurrentLocation() const;
 };

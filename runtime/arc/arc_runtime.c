@@ -24,6 +24,21 @@ typedef struct MemoryPool {
 
 static MemoryPool g_memory_pool = {0};
 
+// Weak reference table for tracking weak references
+typedef struct WeakRefEntry {
+    void *weak_ref;
+    void *target_obj;
+    struct WeakRefEntry *next;
+} WeakRefEntry;
+
+typedef struct WeakRefTable {
+    WeakRefEntry **buckets;
+    size_t bucket_count;
+    size_t entry_count;
+} WeakRefTable;
+
+static WeakRefTable g_weak_ref_table = {0};
+
 // Performance optimization flags
 static bool g_arc_optimizations_enabled = true;
 static bool g_cycle_detection_enabled = true;
@@ -262,6 +277,9 @@ void __tsc_dealloc(void *obj) {
     printf("DEBUG: __tsc_dealloc(%p) (header at %p)\n", obj, header);
 #endif
 
+    // Clean up weak references before deallocating
+    cleanup_weak_references_for_object(obj);
+
     // Try to deallocate from memory pool first
     deallocate_from_pool(header);
 
@@ -290,33 +308,74 @@ void __tsc_dealloc(void *obj) {
 void *__tsc_weak_load(void *weak_ref) {
     if (!weak_ref) return NULL;
 
-    // For now, implement simple weak references
-    // In a full implementation, this would check if the object is still alive
+    // Implement proper object lifecycle checking
     ARC_ObjectHeader *header = (ARC_ObjectHeader *) ((char *) weak_ref - sizeof(ARC_ObjectHeader));
-
-    if (atomic_load(&header->ref_count) > 0) {
-        return __tsc_retain(weak_ref);
+    
+    // Check if the object is still alive by examining the reference count
+    int32_t ref_count = atomic_load(&header->ref_count);
+    
+    if (ref_count > 0) {
+        // Object is still alive - increment reference count and return strong reference
+        atomic_fetch_add(&header->ref_count, 1);
+        return weak_ref;
+    } else {
+        // Object has been deallocated - check if it's in the process of being deallocated
+        int32_t weak_count = atomic_load(&header->weak_count);
+        
+        if (weak_count > 0) {
+            // Object is being deallocated but weak references still exist
+            // This is a race condition - return NULL to indicate object is no longer available
+            return NULL;
+        } else {
+            // Object has been fully deallocated
+            return NULL;
+        }
     }
-
-    return NULL;
 }
 
 void __tsc_weak_store(void *weak_ref, void *obj) {
     if (!weak_ref) return;
 
-    // Check if there's an existing target object for this weak reference
-    void *old_target = __tsc_weak_ref_get_target(weak_ref);
-    
-    if (old_target) {
-        // Unregister the old weak reference from the table
-        // This will automatically decrement the weak count
-        __tsc_unregister_weak_ref(weak_ref);
+    ARC_ObjectHeader *header = (ARC_ObjectHeader *) ((char *) weak_ref - sizeof(ARC_ObjectHeader));
+
+    // Check if there's an existing target in the weak reference table
+    void *old_target = NULL;
+    size_t bucket = weak_ref_hash(weak_ref);
+    WeakRefEntry *entry = g_weak_ref_table.buckets ? g_weak_ref_table.buckets[bucket] : NULL;
+    while (entry != NULL) {
+        if (entry->weak_ref == weak_ref) {
+            old_target = entry->target_obj;
+            break;
+        }
+        entry = entry->next;
     }
-    
+
+    // If there's an existing target, clean it up
+    if (old_target) {
+        ARC_ObjectHeader *old_target_header = (ARC_ObjectHeader *) ((char *) old_target - sizeof(ARC_ObjectHeader));
+        if (atomic_load(&old_target_header->weak_count) > 0) {
+            atomic_fetch_sub(&old_target_header->weak_count, 1);
+        }
+        remove_weak_reference_table(weak_ref);
+    }
+
     if (obj) {
-        // Register the new weak reference in the table
-        // This will automatically increment the weak count
-        __tsc_register_weak_ref(weak_ref, obj);
+        // Store a new weak reference to the object
+        ARC_ObjectHeader *obj_header = (ARC_ObjectHeader *) ((char *) obj - sizeof(ARC_ObjectHeader));
+        
+        // Increment the weak reference count for the target object
+        atomic_fetch_add(&obj_header->weak_count, 1);
+        
+        // Update the weak reference table
+        update_weak_reference_table(weak_ref, obj);
+        
+        // Increment weak count for the weak reference itself
+        atomic_fetch_add(&header->weak_count, 1);
+    } else {
+        // Clearing the weak reference
+        if (atomic_load(&header->weak_count) > 0) {
+            atomic_fetch_sub(&header->weak_count, 1);
+        }
     }
 }
 
@@ -530,6 +589,82 @@ void __tsc_enable_cycle_detection(bool enable) {
 #ifdef TSC_ARC_DEBUG
     printf("DEBUG: Cycle detection %s\n", enable ? "enabled" : "disabled");
 #endif
+}
+
+// Weak reference table management
+static void init_weak_ref_table(void) {
+    if (g_weak_ref_table.buckets == NULL) {
+        g_weak_ref_table.bucket_count = 1024; // Start with 1024 buckets
+        g_weak_ref_table.buckets = calloc(g_weak_ref_table.bucket_count, sizeof(WeakRefEntry*));
+        g_weak_ref_table.entry_count = 0;
+    }
+}
+
+static size_t weak_ref_hash(void *weak_ref) {
+    return ((uintptr_t)weak_ref) % g_weak_ref_table.bucket_count;
+}
+
+static void update_weak_reference_table(void *weak_ref, void *target_obj) {
+    init_weak_ref_table();
+    
+    size_t bucket = weak_ref_hash(weak_ref);
+    WeakRefEntry *entry = g_weak_ref_table.buckets[bucket];
+    
+    // Look for existing entry
+    while (entry != NULL) {
+        if (entry->weak_ref == weak_ref) {
+            // Update existing entry
+            entry->target_obj = target_obj;
+            return;
+        }
+        entry = entry->next;
+    }
+    
+    // Create new entry
+    WeakRefEntry *new_entry = malloc(sizeof(WeakRefEntry));
+    new_entry->weak_ref = weak_ref;
+    new_entry->target_obj = target_obj;
+    new_entry->next = g_weak_ref_table.buckets[bucket];
+    g_weak_ref_table.buckets[bucket] = new_entry;
+    g_weak_ref_table.entry_count++;
+}
+
+static void remove_weak_reference_table(void *weak_ref) {
+    if (g_weak_ref_table.buckets == NULL) return;
+    
+    size_t bucket = weak_ref_hash(weak_ref);
+    WeakRefEntry **entry_ptr = &g_weak_ref_table.buckets[bucket];
+    
+    while (*entry_ptr != NULL) {
+        if ((*entry_ptr)->weak_ref == weak_ref) {
+            WeakRefEntry *to_remove = *entry_ptr;
+            *entry_ptr = to_remove->next;
+            free(to_remove);
+            g_weak_ref_table.entry_count--;
+            return;
+        }
+        entry_ptr = &(*entry_ptr)->next;
+    }
+}
+
+static void cleanup_weak_references_for_object(void *obj) {
+    if (g_weak_ref_table.buckets == NULL) return;
+    
+    // Iterate through all buckets and remove references to the deallocated object
+    for (size_t i = 0; i < g_weak_ref_table.bucket_count; i++) {
+        WeakRefEntry **entry_ptr = &g_weak_ref_table.buckets[i];
+        
+        while (*entry_ptr != NULL) {
+            if ((*entry_ptr)->target_obj == obj) {
+                WeakRefEntry *to_remove = *entry_ptr;
+                *entry_ptr = to_remove->next;
+                free(to_remove);
+                g_weak_ref_table.entry_count--;
+            } else {
+                entry_ptr = &(*entry_ptr)->next;
+            }
+        }
+    }
 }
 
 void __tsc_enable_memory_pooling(bool enable) {
