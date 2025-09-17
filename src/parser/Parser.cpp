@@ -2671,15 +2671,22 @@ namespace tsc {
     }
 
     bool Parser::analyzeTypeArgumentPattern() const {
-        // Simplified approach: For now, assume any < followed by an identifier is a type argument
+        // Simplified approach: For now, assume any < followed by an identifier or type keyword is a type argument
         // This is a conservative approach that should work for basic cases
         
         // Bypass the broken lookahead cache and directly use the token stream
         // We're currently at the < token, so look ahead 1 position for the identifier
         Token nextToken = tokens_->peekAhead(1);
         
-        // Check if the next token is an identifier (type name)
-        if (nextToken.getType() != TokenType::Identifier) {
+        // Check if the next token is an identifier or type keyword (type name)
+        TokenType tokenType = nextToken.getType();
+        if (tokenType != TokenType::Identifier && 
+            tokenType != TokenType::String && 
+            tokenType != TokenType::Number && 
+            tokenType != TokenType::Boolean && 
+            tokenType != TokenType::Any && 
+            tokenType != TokenType::Unknown && 
+            tokenType != TokenType::Object) {
             return false;
         }
         
