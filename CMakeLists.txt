@@ -362,16 +362,16 @@ add_subdirectory(tests/monomorphization)
 
 # Create runtime library
 add_library(tsc_runtime STATIC
-    runtime/string_operations.c
-    runtime/array_operations.c
-    runtime/exception_handling.c
-    runtime/console_operations.c
-    runtime/memory_operations.c
-    runtime/global_constants.c
-    runtime/arc/arc_runtime.c
-    runtime/arc/weak_references.c
-    runtime/arc/cycle_detection.c
-    runtime/arc/smart_pointers.c
+    src/runtime/string_operations.c
+    src/runtime/array_operations.c
+    src/runtime/exception_handling.c
+    src/runtime/console_operations.c
+    src/runtime/memory_operations.c
+    src/runtime/global_constants.c
+    src/runtime/arc/arc_runtime.c
+    src/runtime/arc/weak_references.c
+    src/runtime/arc/cycle_detection.c
+    src/runtime/arc/smart_pointers.c
 )
 
 # Create ARC weak store test executable
