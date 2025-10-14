@@ -386,7 +386,7 @@ enable_testing()
 # add_subdirectory(test)  # Disabled - GTest not available
 
 # Add test subdirectories
-add_subdirectory(tests)  # Generic type constraints tests
+# add_subdirectory(tests)  # Disabled - no CMakeLists.txt in this directory
 # add_subdirectory(tests/monomorphization)  # Disabled - no CMakeLists.txt in this directory
 
 # Create runtime library
@@ -425,6 +425,8 @@ target_link_libraries(tsc
     tsc_lib
     tsc_runtime
     ${llvm_libs}
+    m
+    pthread
 )
 
 # Install targets

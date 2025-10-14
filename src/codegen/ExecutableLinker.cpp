@@ -11,8 +11,8 @@ namespace tsc {
     ExecutableLinker::ExecutableLinker(DiagnosticEngine &diagnostics)
         : diagnostics_(diagnostics) {
         // Set default system libraries based on common platforms
-        // On macOS, we don't need explicit -lc and -lm as they're linked automatically
-        systemLibraries_ = {};
+        // On Linux, we need explicit -lc and -lm
+        systemLibraries_ = {"-lc", "-lm", "-lpthread"};
     }
 
     ExecutableLinker::~ExecutableLinker() = default;
@@ -184,7 +184,10 @@ namespace tsc {
             std::ifstream file(path);
             if (file.good()) {
                 file.close();
+                std::cout << "DEBUG: Found runtime library at: " << path << std::endl;
                 return path;
+            } else {
+                std::cout << "DEBUG: Runtime library not found at: " << path << std::endl;
             }
         }
 
