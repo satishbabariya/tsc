@@ -4079,16 +4079,32 @@ namespace tsc {
                 return;
             }
 
-            // Convert condition to boolean (simplified for now)
+            // Convert condition to boolean
             if (conditionValue->getType()->isDoubleTy()) {
                 // Compare double to 0.0
                 llvm::Value *zero = llvm::ConstantFP::get(llvm::Type::getDoubleTy(*context_), 0.0);
                 conditionValue = builder_->CreateFCmpONE(conditionValue, zero, "tobool");
             } else if (conditionValue->getType()->isIntegerTy(1)) {
                 // Already boolean
+            } else if (conditionValue->getType()->isIntegerTy(32)) {
+                // Compare integer to 0
+                llvm::Value *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0);
+                conditionValue = builder_->CreateICmpNE(conditionValue, zero, "tobool");
+            } else if (conditionValue->getType()->isPointerTy()) {
+                // For pointer types (like strings), check if not null
+                llvm::Value *nullPtr = llvm::ConstantPointerNull::get(static_cast<llvm::PointerType*>(conditionValue->getType()));
+                conditionValue = builder_->CreateICmpNE(conditionValue, nullPtr, "tobool");
             } else {
-                // For other types, just use as-is (this is a simplification)
-                // TODO: Add proper type conversion
+                // For other types, convert to boolean by checking if not zero
+                // This is a fallback for any other numeric types
+                if (conditionValue->getType()->isIntegerTy()) {
+                    llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
+                    conditionValue = builder_->CreateICmpNE(conditionValue, zero, "tobool");
+                } else {
+                    // If we can't convert, report an error
+                    reportError("Cannot convert condition to boolean", node.getCondition()->getLocation());
+                    return;
+                }
             }
 
             // Create conditional branch
