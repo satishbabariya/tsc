@@ -2226,6 +2226,10 @@ namespace tsc {
                 if (argValue) {
                     std::cout << "DEBUG: CallExpression - After conversion, argValue type: " << argValue->getType()->getTypeID() << std::endl;
                     std::cout << "DEBUG: CallExpression - After conversion, argValue is null: " << (llvm::isa<llvm::ConstantPointerNull>(argValue) ? "YES" : "NO") << std::endl;
+                    std::cout << "DEBUG: CallExpression - After conversion, argValue is constant: " << (llvm::isa<llvm::Constant>(argValue) ? "YES" : "NO") << std::endl;
+                    if (llvm::isa<llvm::Constant>(argValue)) {
+                        std::cout << "DEBUG: CallExpression - After conversion, argValue is inttoptr: " << (llvm::isa<llvm::ConstantExpr>(argValue) ? "YES" : "NO") << std::endl;
+                    }
                 }
                 std::cout << "DEBUG: CallExpression - Converted argument for console_log from " << 
                         argValue->getType()->getTypeID() << " to " << expectedType->getTypeID() << std::endl;
@@ -5766,6 +5770,7 @@ namespace tsc {
 
     llvm::Value *LLVMCodeGen::convertValueToType(llvm::Value *value, llvm::Type *targetType) {
         if (!value || !targetType) {
+            std::cout << "DEBUG: convertValueToType - null value or targetType" << std::endl;
             return value;
         }
 
@@ -5796,7 +5801,15 @@ namespace tsc {
             return builder_->CreateFPToSI(value, targetType);
         } else if (targetType->isPointerTy()) {
             // Convert to any type (pointer)
-            if (sourceType->isIntegerTy()) {
+            if (sourceType->isIntegerTy(1)) {
+                // Convert boolean to pointer - extend to i64 first, then cast to pointer
+                // For boolean false (0), use 1 instead to avoid LLVM optimizing to null
+                llvm::Value *extended = builder_->CreateZExt(value, llvm::Type::getInt64Ty(*context_));
+                // If the boolean is false (0), add 1 to make it non-zero
+                llvm::Value *one = llvm::ConstantInt::get(llvm::Type::getInt64Ty(*context_), 1);
+                llvm::Value *adjusted = builder_->CreateAdd(extended, one, "bool_adjust");
+                return builder_->CreateIntToPtr(adjusted, targetType);
+            } else if (sourceType->isIntegerTy()) {
                 return builder_->CreateIntToPtr(value, targetType);
             } else if (sourceType->isDoubleTy()) {
                 return builder_->CreateIntToPtr(
