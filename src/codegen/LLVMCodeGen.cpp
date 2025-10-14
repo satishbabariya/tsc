@@ -4085,18 +4085,27 @@ namespace tsc {
                 llvm::Value *zero = llvm::ConstantFP::get(llvm::Type::getDoubleTy(*context_), 0.0);
                 conditionValue = builder_->CreateFCmpONE(conditionValue, zero, "tobool");
             } else if (conditionValue->getType()->isIntegerTy(1)) {
-                // Already boolean
+                // Already boolean - no conversion needed
             } else if (conditionValue->getType()->isIntegerTy(32)) {
                 // Compare integer to 0
                 llvm::Value *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0);
                 conditionValue = builder_->CreateICmpNE(conditionValue, zero, "tobool");
             } else if (conditionValue->getType()->isPointerTy()) {
-                // For pointer types (like strings), check if not null
+                // For pointer types (like strings), check if string is not empty
+                // First check if pointer is not null (safety check)
                 llvm::Value *nullPtr = llvm::ConstantPointerNull::get(static_cast<llvm::PointerType*>(conditionValue->getType()));
-                conditionValue = builder_->CreateICmpNE(conditionValue, nullPtr, "tobool");
+                llvm::Value *notNull = builder_->CreateICmpNE(conditionValue, nullPtr, "not_null");
+                
+                // For strings, we need to check if the first character is not null terminator
+                // Load the first character and compare it to '\0'
+                llvm::Value *firstChar = builder_->CreateLoad(llvm::Type::getInt8Ty(*context_), conditionValue, "first_char");
+                llvm::Value *nullChar = llvm::ConstantInt::get(llvm::Type::getInt8Ty(*context_), 0);
+                llvm::Value *notEmpty = builder_->CreateICmpNE(firstChar, nullChar, "not_empty");
+                
+                // String is truthy if it's not null AND not empty
+                conditionValue = builder_->CreateAnd(notNull, notEmpty, "string_tobool");
             } else {
-                // For other types, convert to boolean by checking if not zero
-                // This is a fallback for any other numeric types
+                // For other integer types, convert to boolean by checking if not zero
                 if (conditionValue->getType()->isIntegerTy()) {
                     llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
                     conditionValue = builder_->CreateICmpNE(conditionValue, zero, "tobool");
