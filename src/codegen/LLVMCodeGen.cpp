@@ -4351,49 +4351,9 @@ namespace tsc {
             builder_->SetInsertPoint(caseBlock);
             caseClause->accept(*this);
 
-            // If no terminator was added (no break/return), implement fallthrough
+            // If no terminator was added (no break/return), add break to end
             if (!builder_->GetInsertBlock()->getTerminator()) {
-                // Check if this case has a break statement
-                bool hasBreak = false;
-                for (const auto &stmt: caseClause->getStatements()) {
-                    if (dynamic_cast<BreakStatement *>(stmt.get())) {
-                        hasBreak = true;
-                        break;
-                    }
-                }
-
-                if (hasBreak) {
-                    // Break statement should jump to switch end
-                    builder_->CreateBr(endBlock);
-                } else {
-                    // No break, fall through to next case
-                    if (i + 1 < node.getCases().size()) {
-                        // Find the next case block
-                        const auto &nextCase = node.getCases()[i + 1];
-                        llvm::BasicBlock *nextCaseBlock;
-
-                        if (nextCase->isDefault()) {
-                            nextCaseBlock = defaultBlock;
-                        } else {
-                            // Find the corresponding case block for the next case
-                            auto it = std::find_if(caseBlocks.begin(), caseBlocks.end(),
-                                                   [i](const auto &pair) {
-                                                       return pair.second->getName().contains(std::to_string(i + 1));
-                                                   });
-                            if (it != caseBlocks.end()) {
-                                nextCaseBlock = it->second;
-                            } else {
-                                // Fallback to end block if next case block not found
-                                nextCaseBlock = endBlock;
-                            }
-                        }
-
-                        builder_->CreateBr(nextCaseBlock);
-                    } else {
-                        // Last case, fall through to end
-                        builder_->CreateBr(endBlock);
-                    }
-                }
+                builder_->CreateBr(endBlock);
             }
         }
 
