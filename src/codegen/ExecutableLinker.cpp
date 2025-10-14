@@ -25,11 +25,14 @@ namespace tsc {
         }
 
         // Try LLVM lld first, then fall back to system linker
+        std::cout << "DEBUG: Attempting LLD linking first..." << std::endl;
         if (linkWithLLD(objectFiles, outputFile, targetTriple)) {
+            std::cout << "DEBUG: LLD linking succeeded" << std::endl;
             return true;
         }
 
         // Fall back to system linker
+        std::cout << "DEBUG: LLD not available, falling back to system linker" << std::endl;
         return linkWithSystemLinker(objectFiles, outputFile, targetTriple);
     }
 
@@ -87,6 +90,11 @@ namespace tsc {
             for (const auto &lib: systemLibraries_) {
                 command << " " << lib;
             }
+            
+            // Add PIE-related flags for Linux
+            if (triple.isOSLinux()) {
+                command << " -no-pie"; // Disable PIE to avoid relocation issues
+            }
 
             // Add output file
             command << " -o " << outputFile;
@@ -110,7 +118,7 @@ namespace tsc {
             if (triple.isOSDarwin()) {
                 linker = "clang"; // Use clang as linker on macOS for better compatibility
             } else if (triple.isOSLinux()) {
-                linker = "ld";
+                linker = "gcc"; // Use gcc as linker on Linux for proper C runtime initialization
             } else if (triple.isOSWindows()) {
                 linker = "link";
             } else {
@@ -120,6 +128,7 @@ namespace tsc {
             // Build linker command
             std::stringstream command;
             command << linker;
+            std::cout << "DEBUG: Using system linker: " << linker << std::endl;
 
             // Add target-specific flags
             if (triple.isOSDarwin()) {
@@ -146,6 +155,11 @@ namespace tsc {
             // Add system libraries
             for (const auto &lib: systemLibraries_) {
                 command << " " << lib;
+            }
+            
+            // Add PIE-related flags for Linux
+            if (triple.isOSLinux()) {
+                command << " -no-pie"; // Disable PIE to avoid relocation issues
             }
 
             // Add output file

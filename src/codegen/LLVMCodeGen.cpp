@@ -193,6 +193,10 @@ namespace tsc {
         // Create LLVM context and module
         context_ = std::make_unique<llvm::LLVMContext>();
         module_ = std::make_unique<llvm::Module>("tsc_module", *context_);
+        
+        // Set PIE flag for position-independent executables
+        module_->setPICLevel(llvm::PICLevel::Level::SmallPIC);
+        
         builder_ = std::make_unique<llvm::IRBuilder<> >(*context_);
 
         // Create code generation context
@@ -2057,6 +2061,10 @@ namespace tsc {
                         // Normal argument processing for non-arrayPush calls
                         arg->accept(static_cast<ASTVisitor &>(*this));
                         llvm::Value *argValue = getCurrentValue();
+                        std::cout << "DEBUG: Generated argument value: " << (argValue ? "valid" : "null") << std::endl;
+                        if (argValue) {
+                            std::cout << "DEBUG: Argument value type: " << argValue->getType()->getTypeID() << std::endl;
+                        }
                         if (!argValue) {
                             reportError("Failed to generate argument for method call", node.getLocation());
                             setCurrentValue(createNullValue(getAnyType()));
@@ -2159,7 +2167,9 @@ namespace tsc {
         }
 
         regular_argument_processing:
+        std::cout << "DEBUG: Processing " << node.getArguments().size() << " arguments for function call" << std::endl;
         for (size_t i = 0; i < node.getArguments().size(); ++i) {
+            std::cout << "DEBUG: Processing argument " << i << " of type " << typeid(*node.getArguments()[i].get()).name() << std::endl;
             // Special handling for arrayPush calls - pass storage location instead of loaded value
             if (function && function->getName().str().find("arrayPush") != std::string::npos) {
                 // For arrayPush calls, we need to pass the storage location of the argument
