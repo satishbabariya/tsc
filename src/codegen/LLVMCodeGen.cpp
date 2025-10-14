@@ -4831,7 +4831,9 @@ namespace tsc {
 
             llvm::BasicBlock *entry = llvm::BasicBlock::Create(*context_, "entry", mainFunc);
             builder_->SetInsertPoint(entry);
-
+            
+            // Enter the main function context
+            codeGenContext_->enterFunction(mainFunc);
 
             // Separate variable declarations from other statements for proper ordering
             std::vector<Statement *> variableDecls;
@@ -5241,6 +5243,11 @@ namespace tsc {
 
             // Return 0 from main
             builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
+        }
+        
+        // Exit the main function context
+        if (mainFunc) {
+            codeGenContext_->exitFunction();
         }
 
         // Verify LLVM IR before dumping
