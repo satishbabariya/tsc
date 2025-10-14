@@ -4062,6 +4062,9 @@ namespace tsc {
         llvm::BasicBlock *incrementBlock = llvm::BasicBlock::Create(*context_, "for.inc", currentFunc);
         llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*context_, "for.end", currentFunc);
 
+        // Enter loop context for break/continue support
+        codeGenContext_->enterLoop(incrementBlock, endBlock);
+
         // Jump to condition block
         builder_->CreateBr(conditionBlock);
 
@@ -4108,6 +4111,9 @@ namespace tsc {
             node.getIncrement()->accept(*this);
         }
         builder_->CreateBr(conditionBlock);
+
+        // Exit loop context
+        codeGenContext_->exitLoop();
 
         // Continue with end block
         builder_->SetInsertPoint(endBlock);
