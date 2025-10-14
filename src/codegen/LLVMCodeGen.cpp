@@ -6978,12 +6978,26 @@ namespace tsc {
                 std::cout << "DEBUG: Found global variable " << name << " with linkage: " << globalVar->getLinkage() <<
                         std::endl;
                 if (globalVar->hasInitializer()) {
-                    return globalVar->getInitializer();
+                    // Check if the initializer is a constant (not null)
+                    llvm::Constant *init = globalVar->getInitializer();
+                    if (!llvm::isa<llvm::ConstantPointerNull>(init)) {
+                        // Check if this is a zero initializer (like 0.0 for double)
+                        if (auto *fpInit = llvm::dyn_cast<llvm::ConstantFP>(init)) {
+                            if (fpInit->isZero()) {
+                                // This is a zero initializer, load the current value instead
+                                std::cout << "DEBUG: Global variable " << name <<
+                                        " has zero initializer, loading current value" << std::endl;
+                                return builder_->CreateLoad(globalVar->getValueType(), globalVar, name + "_val");
+                            }
+                        }
+                        // This is a real constant initializer, return it
+                        return init;
+                    }
                 }
-                // For global variables without initializers (like those initialized with malloc),
+                // For global variables without initializers or with null initializers,
                 // load the current value from the global variable
                 std::cout << "DEBUG: Global variable " << name <<
-                        " has no initializer, loading current value" << std::endl;
+                        " has no constant initializer, loading current value" << std::endl;
                 return builder_->CreateLoad(globalVar->getValueType(), globalVar, name + "_val");
                 // Check if this is an external symbol (like Infinity, NaN)
                 // Check by name since linkage might not be set correctly
