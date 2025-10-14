@@ -2064,6 +2064,7 @@ namespace tsc {
                         std::cout << "DEBUG: Generated argument value: " << (argValue ? "valid" : "null") << std::endl;
                         if (argValue) {
                             std::cout << "DEBUG: Argument value type: " << argValue->getType()->getTypeID() << std::endl;
+                            std::cout << "DEBUG: Argument value is null: " << (llvm::isa<llvm::ConstantPointerNull>(argValue) ? "YES" : "NO") << std::endl;
                         }
                         if (!argValue) {
                             reportError("Failed to generate argument for method call", node.getLocation());
@@ -2215,7 +2216,17 @@ namespace tsc {
             // Special handling for console.log - convert all arguments to the expected type
             if (function && function->getName().str() == "console_log") {
                 llvm::Type *expectedType = funcType->getParamType(0); // console_log takes one parameter
+                std::cout << "DEBUG: CallExpression - Before conversion, argValue is: " << (argValue ? "valid" : "null") << std::endl;
+                if (argValue) {
+                    std::cout << "DEBUG: CallExpression - Before conversion, argValue type: " << argValue->getType()->getTypeID() << std::endl;
+                    std::cout << "DEBUG: CallExpression - Before conversion, argValue is null: " << (llvm::isa<llvm::ConstantPointerNull>(argValue) ? "YES" : "NO") << std::endl;
+                }
                 argValue = convertValueToType(argValue, expectedType);
+                std::cout << "DEBUG: CallExpression - After conversion, argValue is: " << (argValue ? "valid" : "null") << std::endl;
+                if (argValue) {
+                    std::cout << "DEBUG: CallExpression - After conversion, argValue type: " << argValue->getType()->getTypeID() << std::endl;
+                    std::cout << "DEBUG: CallExpression - After conversion, argValue is null: " << (llvm::isa<llvm::ConstantPointerNull>(argValue) ? "YES" : "NO") << std::endl;
+                }
                 std::cout << "DEBUG: CallExpression - Converted argument for console_log from " << 
                         argValue->getType()->getTypeID() << " to " << expectedType->getTypeID() << std::endl;
             } else {
@@ -4818,11 +4829,22 @@ namespace tsc {
             builder_->SetInsertPoint(entry);
 
 
-            // Generate module-level statements within main function
-            std::cout << "DEBUG: Processing " << moduleStatements.size() << " module-level statements in main function"
-                    << std::endl;
+            // Separate variable declarations from other statements for proper ordering
+            std::vector<Statement *> variableDecls;
+            std::vector<Statement *> otherStatements;
+            
             for (const auto &stmt: moduleStatements) {
-                std::cout << "DEBUG: Processing module-level statement in main function" << std::endl;
+                if (dynamic_cast<const VariableDeclaration *>(stmt)) {
+                    variableDecls.push_back(stmt);
+                } else {
+                    otherStatements.push_back(stmt);
+                }
+            }
+            
+            // Process variable declarations first
+            std::cout << "DEBUG: Processing " << variableDecls.size() << " variable declarations first" << std::endl;
+            for (const auto &stmt: variableDecls) {
+                std::cout << "DEBUG: Processing variable declaration in main function" << std::endl;
 
                 // Check if current block already has a terminator
                 if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
@@ -4840,12 +4862,14 @@ namespace tsc {
                     break;
                 }
             }
-
-            // Process deferred global variable initializations AFTER module statements
+            
+            // Process deferred global variable initializations immediately after variable declarations
             std::cout << "DEBUG: Processing " << deferredGlobalInitializations_.size() <<
-                    " deferred global initializations" << std::endl;
+                    " deferred global initializations after variable declarations" << std::endl;
             for (const auto &[globalVar, initValue]: deferredGlobalInitializations_) {
                 std::cout << "DEBUG: Storing to global variable: " << globalVar->getName().str() << std::endl;
+                std::cout << "DEBUG: Init value type: " << initValue->getType()->getTypeID() << std::endl;
+                std::cout << "DEBUG: Init value is null: " << (llvm::isa<llvm::ConstantPointerNull>(initValue) ? "YES" : "NO") << std::endl;
 
                 // Check if this is a deferred external symbol
                 llvm::Value *actualValue = initValue;
@@ -4867,6 +4891,29 @@ namespace tsc {
             }
             deferredGlobalInitializations_.clear();
             deferredExternalSymbols_.clear();
+            
+            // Process other statements after variable declarations
+            std::cout << "DEBUG: Processing " << otherStatements.size() << " other statements after variable declarations"
+                    << std::endl;
+            for (const auto &stmt: otherStatements) {
+                std::cout << "DEBUG: Processing other statement in main function" << std::endl;
+
+                // Check if current block already has a terminator
+                if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
+                    std::cout << "DEBUG: Current block already has terminator, skipping remaining statements" <<
+                            std::endl;
+                    break;
+                }
+
+                stmt->accept(*this);
+                if (hasErrors()) break;
+
+                // Check if the statement generated a terminator
+                if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
+                    std::cout << "DEBUG: Statement generated terminator, stopping processing" << std::endl;
+                    break;
+                }
+            }
 
             // Process deferred constructor calls AFTER global variables are initialized
             std::cout << "DEBUG: Processing " << deferredConstructorCalls_.size() << " deferred constructor calls" <<
@@ -6934,10 +6981,10 @@ namespace tsc {
                     return globalVar->getInitializer();
                 }
                 // For global variables without initializers (like those initialized with malloc),
-                // return the global variable pointer itself instead of trying to load from it
+                // load the current value from the global variable
                 std::cout << "DEBUG: Global variable " << name <<
-                        " has no initializer, returning global variable pointer" << std::endl;
-                return globalVar;
+                        " has no initializer, loading current value" << std::endl;
+                return builder_->CreateLoad(globalVar->getValueType(), globalVar, name + "_val");
                 // Check if this is an external symbol (like Infinity, NaN)
                 // Check by name since linkage might not be set correctly
                 if (name == "Infinity" || name == "NaN") {
