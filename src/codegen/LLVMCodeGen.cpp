@@ -4250,6 +4250,10 @@ namespace tsc {
             return;
         }
 
+        // Generate unique prefix for this switch statement
+        size_t currentSwitchId = switchCounter_++;
+        String switchPrefix = "switch" + std::to_string(currentSwitchId);
+
         // Generate discriminant
         node.getDiscriminant()->accept(*this);
         llvm::Value *discriminantValue = getCurrentValue();
@@ -4277,8 +4281,8 @@ namespace tsc {
             return;
         }
 
-        // Create basic blocks
-        llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*context_, "switch.end", currentFunc);
+        // Create basic blocks with unique names
+        llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*context_, (switchPrefix + ".end").c_str(), currentFunc);
         llvm::BasicBlock *defaultBlock = endBlock; // Default to end block if no default case
 
         // Enter switch context for break statement handling
@@ -4291,10 +4295,10 @@ namespace tsc {
             const auto &caseClause = node.getCases()[i];
 
             if (caseClause->isDefault()) {
-                defaultBlock = llvm::BasicBlock::Create(*context_, "switch.default", currentFunc);
+                defaultBlock = llvm::BasicBlock::Create(*context_, (switchPrefix + ".default").c_str(), currentFunc);
             } else {
                 llvm::BasicBlock *caseBlock = llvm::BasicBlock::Create(*context_,
-                                                                       "switch.case" + std::to_string(i), currentFunc);
+                                                                       (switchPrefix + ".case" + std::to_string(i)).c_str(), currentFunc);
 
                 // Handle different constant types
                 if (auto numLit = dynamic_cast<NumericLiteral *>(caseClause->getTest())) {
@@ -4336,10 +4340,11 @@ namespace tsc {
             if (caseClause->isDefault()) {
                 caseBlock = defaultBlock;
             } else {
-                // Find the corresponding case block
+                // Find the corresponding case block by matching the exact name
+                String expectedName = switchPrefix + ".case" + std::to_string(i);
                 auto it = std::find_if(caseBlocks.begin(), caseBlocks.end(),
-                                       [i](const auto &pair) {
-                                           return pair.second->getName().contains(std::to_string(i));
+                                       [&expectedName](const auto &pair) {
+                                           return pair.second->getName() == expectedName;
                                        });
                 if (it != caseBlocks.end()) {
                     caseBlock = it->second;

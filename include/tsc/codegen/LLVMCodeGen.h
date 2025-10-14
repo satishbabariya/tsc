@@ -568,6 +568,9 @@ private:
     // Deferred global variable initializations (for non-constant values)
     std::vector<std::pair<llvm::GlobalVariable*, llvm::Value*>> deferredGlobalInitializations_;
     
+    // Switch statement counter for unique basic block naming
+    size_t switchCounter_ = 0;
+    
     // Deferred constructor calls (for global objects that need constructor initialization)
     struct DeferredConstructorCall {
         llvm::GlobalVariable* globalVar;
