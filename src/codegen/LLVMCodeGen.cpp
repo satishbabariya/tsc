@@ -3942,6 +3942,9 @@ namespace tsc {
         llvm::BasicBlock *bodyBlock = llvm::BasicBlock::Create(*context_, "while.body", currentFunc);
         llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*context_, "while.end", currentFunc);
 
+        // Enter loop context for break/continue support
+        codeGenContext_->enterLoop(conditionBlock, endBlock);
+
         // Jump to condition block
         builder_->CreateBr(conditionBlock);
 
@@ -3976,6 +3979,9 @@ namespace tsc {
         if (!builder_->GetInsertBlock()->getTerminator()) {
             builder_->CreateBr(conditionBlock);
         }
+
+        // Exit loop context
+        codeGenContext_->exitLoop();
 
         // Continue with end block
         builder_->SetInsertPoint(endBlock);
