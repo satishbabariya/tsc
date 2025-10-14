@@ -1507,11 +1507,7 @@ namespace tsc {
             return;
         } else if (auto propertyAccess = dynamic_cast<PropertyAccess *>(node.getCallee())) {
             // Handle property access calls like obj.method() or _print()
-            // First, process the property access to get the callee value
-            propertyAccess->accept(*this);
-            llvm::Value *calleeValue = getCurrentValue();
-
-            // Check if the property access returned a function
+            // The PropertyAccess was already processed above, so just use the calleeValue
             if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
                 function = llvm::cast<llvm::Function>(calleeValue);
                 std::cout << "DEBUG: CallExpression - Found function from PropertyAccess: " << function->getName().str()
