@@ -5489,6 +5489,35 @@ namespace tsc {
         return llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
     }
 
+    llvm::Type *LLVMCodeGen::inferReturnTypeFromStatements(const FunctionDeclaration &funcDecl) {
+        std::cout << "DEBUG: inferReturnTypeFromStatements called for function: " << funcDecl.getName() << std::endl;
+        
+        // Analyze the function body to determine the actual return type
+        // This is a simplified implementation that looks at return statements
+        
+        // First, check if there are any return statements with values
+        if (!hasReturnStatementsWithValues(funcDecl)) {
+            std::cout << "DEBUG: No return statements with values, returning void" << std::endl;
+            return getVoidType();
+        }
+        
+        std::cout << "DEBUG: Found return statements with values, inferring return type" << std::endl;
+        
+        // For now, we'll use a simple heuristic:
+        // - If the function has a single return statement with a numeric literal, return double
+        // - If the function has a single return statement with a string literal, return string
+        // - If the function has a single return statement with a boolean literal, return boolean
+        // - Otherwise, default to double (most common case)
+        
+        // This is a simplified approach - in a full implementation, we'd analyze all return statements
+        // and ensure they're all compatible types
+        
+        // For now, assume numeric return type (double) as it's the most common case
+        // This can be enhanced later to do more sophisticated type analysis
+        std::cout << "DEBUG: Returning number type (double)" << std::endl;
+        return getNumberType();
+    }
+
     llvm::Type *LLVMCodeGen::convertFunctionTypeToLLVM(const FunctionType &functionType) {
         // Convert parameter types
         std::vector<llvm::Type *> paramTypes;
