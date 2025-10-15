@@ -60,7 +60,7 @@ char *boolean_to_string(bool value) {
     return result;
 }
 
-// Convert object to string (placeholder implementation)
+// Convert object to string (enhanced implementation)
 // Signature: char* object_to_string(void* obj)
 // Returns: A newly allocated string representation of the object
 char *object_to_string(void *obj) {
@@ -74,7 +74,26 @@ char *object_to_string(void *obj) {
         return result;
     }
 
-    // For now, return a placeholder string with the object address
+    // Check if this is a string pointer (char*)
+    // We can detect this by checking if it points to a valid C string
+    char *str_ptr = (char *) obj;
+    
+    // Basic validation: check if it looks like a valid string
+    // This is a heuristic - in a real implementation we'd have proper type information
+    if (str_ptr && strlen(str_ptr) < 1000) { // Reasonable string length check
+        // This appears to be a string, so return it directly
+        // Note: We need to create a copy since the caller might free the original
+        size_t len = strlen(str_ptr);
+        char *result = (char *) __tsc_alloc(len + 1, NULL, NULL);
+        if (!result) {
+            fprintf(stderr, "Memory allocation failed in object_to_string\n");
+            exit(1);
+        }
+        strcpy(result, str_ptr);
+        return result;
+    }
+
+    // Fallback: return a placeholder string with the object address
     char *result = (char *) __tsc_alloc(32, NULL, NULL);
     if (!result) {
         fprintf(stderr, "Memory allocation failed in object_to_string\n");

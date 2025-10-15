@@ -1110,18 +1110,17 @@ namespace tsc {
             indexValue = builder_->CreateFPToSI(indexValue, llvm::Type::getInt32Ty(*context_), "index_i32");
         }
         
-        // Load the actual array struct from the pointer
+        // Use the array pointer directly for GEP operations
         // In LLVM 20, pointers are opaque, so we need to determine the type from context
         // For now, assume it's a pointer to our array struct type
         llvm::Type *arrayType = llvm::StructType::get(*context_, {
             llvm::Type::getInt32Ty(*context_), // length field
             llvm::ArrayType::get(getNumberType(), 3) // data field with 3 elements
         });
-        llvm::Value *arrayValue = builder_->CreateLoad(arrayType, arrayPtr, "array_value");
         
-        // Get array length for bounds checking
+        // Get array length for bounds checking using the pointer directly
         llvm::Value *lengthPtr = builder_->CreateGEP(
-            llvm::Type::getInt32Ty(*context_), arrayValue, 
+            arrayType, arrayPtr,
             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), "length_ptr");
         llvm::Value *length = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "length");
         
@@ -1144,19 +1143,16 @@ namespace tsc {
         // Assign block
         builder_->SetInsertPoint(assignBlock);
         
-        // Determine element type from the array value
+        // Determine element type from the array type
         llvm::Type *elementType = getNumberType(); // Default to number type
-        
-        // Try to get the array type from the alloca instruction
-        if (auto *allocaInst = llvm::dyn_cast<llvm::AllocaInst>(arrayValue)) {
-            arrayType = allocaInst->getAllocatedType();
-            if (auto *structType = llvm::dyn_cast<llvm::StructType>(arrayType)) {
-                // This is our array structure: { i32 length, [size x elementType] data }
-                if (structType->getNumElements() == 2) {
-                    auto *dataArrayType = llvm::dyn_cast<llvm::ArrayType>(structType->getElementType(1));
-                    if (dataArrayType) {
-                        elementType = dataArrayType->getElementType();
-                    }
+
+        // Try to get the element type from the array type
+        if (auto *structType = llvm::dyn_cast<llvm::StructType>(arrayType)) {
+            // This is our array structure: { i32 length, [size x elementType] data }
+            if (structType->getNumElements() == 2) {
+                auto *dataArrayType = llvm::dyn_cast<llvm::ArrayType>(structType->getElementType(1));
+                if (dataArrayType) {
+                    elementType = dataArrayType->getElementType();
                 }
             }
         }
@@ -1167,8 +1163,8 @@ namespace tsc {
             llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1), // Data field
             indexValue // Element index
         };
-        
-        llvm::Value *elementPtr = builder_->CreateGEP(arrayType, arrayValue, indices, "element_ptr");
+
+        llvm::Value *elementPtr = builder_->CreateGEP(arrayType, arrayPtr, indices, "element_ptr");
         
         // Store the value
         builder_->CreateStore(value, elementPtr);
@@ -2312,26 +2308,44 @@ namespace tsc {
                 return;
             }
 
-            // Special handling for console.log - convert all arguments to the expected type
+            // Special handling for console.log - convert all arguments to strings
             if (function && function->getName().str() == "console_log") {
-                llvm::Type *expectedType = funcType->getParamType(0); // console_log takes one parameter
                 std::cout << "DEBUG: CallExpression - Before conversion, argValue is: " << (argValue ? "valid" : "null") << std::endl;
                 if (argValue) {
                     std::cout << "DEBUG: CallExpression - Before conversion, argValue type: " << argValue->getType()->getTypeID() << std::endl;
                     std::cout << "DEBUG: CallExpression - Before conversion, argValue is null: " << (llvm::isa<llvm::ConstantPointerNull>(argValue) ? "YES" : "NO") << std::endl;
                 }
-                argValue = convertValueToType(argValue, expectedType);
+                
+                // Convert argument to string based on its type
+                if (argValue->getType()->isDoubleTy()) {
+                    // Convert number to string
+                    // First declare the function if it doesn't exist
+                    llvm::Function *numberToStringFunc = module_->getFunction("number_to_string");
+                    if (!numberToStringFunc) {
+                        auto funcType = llvm::FunctionType::get(
+                            llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0), // Return type: char*
+                            {llvm::Type::getDoubleTy(*context_)}, // Parameter: double
+                            false
+                        );
+                        numberToStringFunc = llvm::Function::Create(
+                            funcType, llvm::Function::ExternalLinkage, "number_to_string", module_.get()
+                        );
+                    }
+                    argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "num_to_str");
+                    std::cout << "DEBUG: CallExpression - Converted number to string" << std::endl;
+                } else if (argValue->getType()->isPointerTy()) {
+                    // Already a string or object, use as-is
+                    std::cout << "DEBUG: CallExpression - Using pointer as-is" << std::endl;
+                } else {
+                    // Fallback: convert to string using object_to_string
+                    argValue = builder_->CreateCall(module_->getFunction("object_to_string"), {argValue}, "obj_to_str");
+                    std::cout << "DEBUG: CallExpression - Converted to string using object_to_string" << std::endl;
+                }
+                
                 std::cout << "DEBUG: CallExpression - After conversion, argValue is: " << (argValue ? "valid" : "null") << std::endl;
                 if (argValue) {
                     std::cout << "DEBUG: CallExpression - After conversion, argValue type: " << argValue->getType()->getTypeID() << std::endl;
-                    std::cout << "DEBUG: CallExpression - After conversion, argValue is null: " << (llvm::isa<llvm::ConstantPointerNull>(argValue) ? "YES" : "NO") << std::endl;
-                    std::cout << "DEBUG: CallExpression - After conversion, argValue is constant: " << (llvm::isa<llvm::Constant>(argValue) ? "YES" : "NO") << std::endl;
-                    if (llvm::isa<llvm::Constant>(argValue)) {
-                        std::cout << "DEBUG: CallExpression - After conversion, argValue is inttoptr: " << (llvm::isa<llvm::ConstantExpr>(argValue) ? "YES" : "NO") << std::endl;
-                    }
                 }
-                std::cout << "DEBUG: CallExpression - Converted argument for console_log from " << 
-                        argValue->getType()->getTypeID() << " to " << expectedType->getTypeID() << std::endl;
             } else {
                 // Convert argument type to match expected parameter type if needed
                 // For method calls, the parameter index is offset by 1 due to the prepended object
@@ -2567,6 +2581,7 @@ namespace tsc {
 
 
     void LLVMCodeGen::visit(IndexExpression &node) {
+        std::cout << "DEBUG: IndexExpression visitor called" << std::endl;
         // Generate object and index values
         node.getObject()->accept(*this);
         llvm::Value *objectValue = getCurrentValue();
@@ -2602,12 +2617,15 @@ namespace tsc {
         // Try to get the array type from the alloca instruction
         if (auto *allocaInst = llvm::dyn_cast<llvm::AllocaInst>(objectValue)) {
             arrayType = allocaInst->getAllocatedType();
+            std::cout << "DEBUG: IndexExpression - Found alloca, arrayType: " << arrayType->getTypeID() << std::endl;
             if (auto *structType = llvm::dyn_cast<llvm::StructType>(arrayType)) {
+                std::cout << "DEBUG: IndexExpression - Struct type with " << structType->getNumElements() << " elements" << std::endl;
                 // This is our new array structure: { i32 length, [size x elementType] data }
                 if (structType->getNumElements() == 2) {
                     auto *dataArrayType = llvm::dyn_cast<llvm::ArrayType>(structType->getElementType(1));
                     if (dataArrayType) {
                         elementType = dataArrayType->getElementType();
+                        std::cout << "DEBUG: IndexExpression - Using struct GEP pattern" << std::endl;
 
                         // Create GEP to access array element in the data field (field 1)
                         std::vector<llvm::Value *> indices = {
@@ -2626,12 +2644,14 @@ namespace tsc {
                 elementType = arrType->getElementType();
             }
         } else {
+            std::cout << "DEBUG: IndexExpression - Using fallback case, objectValue type: " << objectValue->getType()->getTypeID() << std::endl;
             // objectValue might be a loaded pointer to an array
             // Implement better type tracking by looking up the semantic type
             auto objectType = getExpressionType(*node.getObject());
             if (objectType && objectType->getKind() == TypeKind::Array) {
                 auto arrayType = std::static_pointer_cast<ArrayType>(objectType);
                 elementType = convertTypeToLLVM(arrayType->getElementType());
+                std::cout << "DEBUG: IndexExpression - Found array type from expression type" << std::endl;
             } else {
                 // Fallback: try to infer from the symbol table
                 if (auto identifier = dynamic_cast<Identifier*>(node.getObject())) {
@@ -2639,17 +2659,34 @@ namespace tsc {
                     if (symbol && symbol->getType()->getKind() == TypeKind::Array) {
                         auto arrayType = std::static_pointer_cast<ArrayType>(symbol->getType());
                         elementType = convertTypeToLLVM(arrayType->getElementType());
+                        std::cout << "DEBUG: IndexExpression - Found array type from symbol table" << std::endl;
                     } else {
                         elementType = getNumberType(); // Default fallback
+                        std::cout << "DEBUG: IndexExpression - Using default number type" << std::endl;
                     }
                 } else {
                     elementType = getNumberType(); // Default fallback
+                    std::cout << "DEBUG: IndexExpression - Using default number type (no identifier)" << std::endl;
                 }
             }
 
             // For GEP, we need the array type, but we only have a pointer
-            // Create a direct GEP with proper type information
-            llvm::Value *elementPtr = builder_->CreateGEP(elementType, arrayPtr, indexValue, "indexed_element");
+            // Create a struct GEP with proper type information
+            std::cout << "DEBUG: IndexExpression - Creating fallback struct GEP with elementType: " << elementType->getTypeID() << std::endl;
+            
+            // Create the array struct type for GEP
+            llvm::Type *arrayStructType = llvm::StructType::get(*context_, {
+                llvm::Type::getInt32Ty(*context_), // length field
+                llvm::ArrayType::get(elementType, 3) // data field with 3 elements
+            });
+            
+            // Create GEP to access array element using struct pattern
+            std::vector<llvm::Value *> indices = {
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // Array base
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1), // Data field
+                indexValue // Element index
+            };
+            llvm::Value *elementPtr = builder_->CreateGEP(arrayStructType, arrayPtr, indices, "indexed_element");
             llvm::Value *elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value");
             setCurrentValue(elementValue);
             return;
