@@ -239,3 +239,9 @@ void __throw_value_error(const char *message) {
         exit(1);
     }
 }
+
+// Array bounds checking panic function
+void panic_bounds_error(int32_t index, int32_t length) {
+    printf("Array bounds error: index %d is out of bounds for array of length %d\n", index, length);
+    exit(1);
+}

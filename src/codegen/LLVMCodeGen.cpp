@@ -1152,7 +1152,7 @@ namespace tsc {
         // Panic block
         builder_->SetInsertPoint(panicBlock);
         llvm::Function *panicFunc = getOrCreatePanicBoundsErrorFunction();
-        builder_->CreateCall(panicFunc, {indexValue, length}, "panic_bounds_error");
+        builder_->CreateCall(panicFunc, {indexValue, length});
         builder_->CreateUnreachable();
         
         // End block

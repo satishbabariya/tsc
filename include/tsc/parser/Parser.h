@@ -90,7 +90,11 @@ private:
     
     // Expressions (with precedence climbing)
     unique_ptr<Expression> parseAssignmentExpression();
+    unique_ptr<Expression> parseArrayAssignmentExpression();
     unique_ptr<Expression> parseConditionalExpression();
+    
+    // Helper methods
+    bool isArrayAssignment(Expression* expr) const;
     unique_ptr<Expression> parseBinaryExpression(int minPrecedence = 0);
     unique_ptr<Expression> parseUnaryExpression();
     unique_ptr<Expression> parsePostfixExpression();
