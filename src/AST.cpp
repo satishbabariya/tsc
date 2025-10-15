@@ -257,6 +257,17 @@ namespace tsc {
         return ss.str();
     }
 
+    // ArrayAssignmentExpression implementation
+    void ArrayAssignmentExpression::accept(ASTVisitor &visitor) {
+        visitor.visit(*this);
+    }
+
+    String ArrayAssignmentExpression::toString() const {
+        std::stringstream ss;
+        ss << array_->toString() << "[" << index_->toString() << "] = " << value_->toString();
+        return ss.str();
+    }
+
     // ConditionalExpression implementation
     void ConditionalExpression::accept(ASTVisitor &visitor) {
         visitor.visit(*this);

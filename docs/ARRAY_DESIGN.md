@@ -27,13 +27,38 @@ numbers[index] = value;
 // String assignment
 strings[0] = "hello";
 strings[1] = variableString;
+
+// Complex assignment
+objects[0] = { name: "test", value: 123 };
 ```
 
 ### Range Checking Strategy
-1. **Compile-time bounds checking** for constant indices
-2. **Runtime bounds checking** for variable indices
-3. **Panic on out-of-bounds** with clear error messages
-4. **Zero-cost optimization** for known-safe accesses
+1. **Compile-time bounds checking** for constant indices (when possible)
+2. **Runtime bounds checking** for variable indices using LLVM conditional branches
+3. **Panic on out-of-bounds** with clear error messages using `panic_bounds_error`
+4. **Zero-cost optimization** for known-safe accesses (future optimization)
+
+### LLVM IR Generation Strategy
+```llvm
+; For array[index] = value
+%index_val = load i32, ptr %index_ptr
+%length_ptr = getelementptr { i32, [N x T] }, ptr %array, i32 0, i32 0
+%length = load i32, ptr %length_ptr
+%bounds_check = icmp ult i32 %index_val, %length
+br i1 %bounds_check, label %assign, label %panic
+
+assign:
+  %element_ptr = getelementptr { i32, [N x T] }, ptr %array, i32 0, i32 1, i32 %index_val
+  store T %value, ptr %element_ptr
+  br label %end
+
+panic:
+  call void @panic_bounds_error(i32 %index_val, i32 %length)
+  br label %end
+
+end:
+  ; Continue execution
+```
 
 ### Memory Safety Requirements
 1. **ARC Integration**: All array elements must be properly managed

@@ -463,6 +463,7 @@ public:
     void visit(BinaryExpression& node) override;
     void visit(UnaryExpression& node) override;
     void visit(AssignmentExpression& node) override;
+    void visit(ArrayAssignmentExpression& node) override;
     void visit(ConditionalExpression& node) override;
     void visit(CallExpression& node) override;
     void visit(ArrayLiteral& node) override;
@@ -686,6 +687,7 @@ public:
     llvm::Function* getOrCreateNumberToStringFunction();
     llvm::Function* getOrCreateBooleanToStringFunction();
     llvm::Function* getOrCreateObjectToStringFunction();
+    llvm::Function* getOrCreatePanicBoundsErrorFunction();
     llvm::Function* getOrCreateThrowFunction();
     llvm::Function* getOrCreateRethrowFunction();
     

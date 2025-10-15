@@ -424,6 +424,30 @@ private:
     SourceLocation location_;
 };
 
+// Array assignment expression (array[index] = value)
+class ArrayAssignmentExpression : public Expression {
+public:
+    ArrayAssignmentExpression(unique_ptr<Expression> array, unique_ptr<Expression> index, 
+                             unique_ptr<Expression> value, const SourceLocation& loc)
+        : array_(std::move(array)), index_(std::move(index)), value_(std::move(value)), location_(loc) {}
+    
+    void accept(ASTVisitor& visitor) override;
+    SourceLocation getLocation() const override { return location_; }
+    Category getCategory() const override { return Category::LValue; }
+    String toString() const override;
+    ASTNodeType getNodeType() const override { return ASTNodeType::ArrayAssignmentExpression; }
+    
+    Expression* getArray() const { return array_.get(); }
+    Expression* getIndex() const { return index_.get(); }
+    Expression* getValue() const { return value_.get(); }
+
+private:
+    unique_ptr<Expression> array_;
+    unique_ptr<Expression> index_;
+    unique_ptr<Expression> value_;
+    SourceLocation location_;
+};
+
 // Conditional (ternary) expression: condition ? trueExpr : falseExpr
 class ConditionalExpression : public Expression {
 public:
@@ -1710,6 +1734,7 @@ public:
     virtual void visit(BinaryExpression& node) = 0;
     virtual void visit(UnaryExpression& node) = 0;
     virtual void visit(AssignmentExpression& node) = 0;
+    virtual void visit(ArrayAssignmentExpression& node) = 0;
     virtual void visit(ConditionalExpression& node) = 0;
     virtual void visit(CallExpression& node) = 0;
     virtual void visit(ArrayLiteral& node) = 0;

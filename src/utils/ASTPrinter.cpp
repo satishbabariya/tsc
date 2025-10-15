@@ -137,6 +137,31 @@ namespace tsc {
         decreaseIndent();
     }
 
+    void ASTPrinter::visit(ArrayAssignmentExpression &node) {
+        printIndent();
+        output_ << "ArrayAssignmentExpression:" << std::endl;
+
+        increaseIndent();
+        printIndent();
+        output_ << "Array:" << std::endl;
+        increaseIndent();
+        node.getArray()->accept(*this);
+        decreaseIndent();
+
+        printIndent();
+        output_ << "Index:" << std::endl;
+        increaseIndent();
+        node.getIndex()->accept(*this);
+        decreaseIndent();
+
+        printIndent();
+        output_ << "Value:" << std::endl;
+        increaseIndent();
+        node.getValue()->accept(*this);
+        decreaseIndent();
+        decreaseIndent();
+    }
+
     void ASTPrinter::visit(ConditionalExpression &node) {
         printIndent();
         output_ << "ConditionalExpression:" << std::endl;

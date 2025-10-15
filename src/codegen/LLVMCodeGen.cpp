@@ -1086,6 +1086,80 @@ namespace tsc {
         }
     }
 
+    void LLVMCodeGen::visit(ArrayAssignmentExpression &node) {
+        std::cout << "DEBUG: ArrayAssignmentExpression visitor called" << std::endl;
+        
+        // Generate array, index, and value expressions
+        node.getArray()->accept(static_cast<ASTVisitor &>(*this));
+        llvm::Value *arrayValue = getCurrentValue();
+        
+        node.getIndex()->accept(static_cast<ASTVisitor &>(*this));
+        llvm::Value *indexValue = getCurrentValue();
+        
+        node.getValue()->accept(static_cast<ASTVisitor &>(*this));
+        llvm::Value *value = getCurrentValue();
+        
+        if (!arrayValue || !indexValue || !value) {
+            reportError("Failed to generate array, index, or value for array assignment", node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
+        
+        // Convert index to i32 if needed
+        if (indexValue->getType() != llvm::Type::getInt32Ty(*context_)) {
+            indexValue = builder_->CreateFPToSI(indexValue, llvm::Type::getInt32Ty(*context_), "index_i32");
+        }
+        
+        // Get array length for bounds checking
+        llvm::Value *lengthPtr = builder_->CreateGEP(
+            llvm::Type::getInt32Ty(*context_), arrayValue, 
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), "length_ptr");
+        llvm::Value *length = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "length");
+        
+        // Create basic blocks for bounds checking
+        llvm::Function *currentFunc = codeGenContext_->getCurrentFunction();
+        llvm::BasicBlock *boundsCheckBlock = llvm::BasicBlock::Create(*context_, "bounds_check", currentFunc);
+        llvm::BasicBlock *assignBlock = llvm::BasicBlock::Create(*context_, "assign", currentFunc);
+        llvm::BasicBlock *panicBlock = llvm::BasicBlock::Create(*context_, "panic", currentFunc);
+        llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*context_, "end", currentFunc);
+        
+        // Check bounds: index < length && index >= 0
+        llvm::Value *indexValid = builder_->CreateICmpULT(indexValue, length, "index_valid");
+        llvm::Value *indexNonNegative = builder_->CreateICmpSGE(indexValue, 
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), "index_non_negative");
+        llvm::Value *boundsOk = builder_->CreateAnd(indexValid, indexNonNegative, "bounds_ok");
+        
+        // Branch based on bounds check
+        builder_->CreateCondBr(boundsOk, assignBlock, panicBlock);
+        
+        // Assign block
+        builder_->SetInsertPoint(assignBlock);
+        llvm::Value *elementPtr = builder_->CreateGEP(
+            llvm::Type::getInt8Ty(*context_), arrayValue,
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 4), // Skip length field
+            "element_ptr");
+        
+        // Calculate offset for the specific element
+        llvm::Value *elementOffset = builder_->CreateMul(indexValue, 
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 8), "element_offset");
+        llvm::Value *finalElementPtr = builder_->CreateGEP(
+            llvm::Type::getInt8Ty(*context_), elementPtr, elementOffset, "final_element_ptr");
+        
+        // Store the value
+        builder_->CreateStore(value, finalElementPtr);
+        builder_->CreateBr(endBlock);
+        
+        // Panic block
+        builder_->SetInsertPoint(panicBlock);
+        llvm::Function *panicFunc = getOrCreatePanicBoundsErrorFunction();
+        builder_->CreateCall(panicFunc, {indexValue, length}, "panic_bounds_error");
+        builder_->CreateUnreachable();
+        
+        // End block
+        builder_->SetInsertPoint(endBlock);
+        setCurrentValue(value); // Array assignment returns the assigned value
+    }
+
     void LLVMCodeGen::visit(ConditionalExpression &node) {
         // Generate condition
         node.getCondition()->accept(static_cast<ASTVisitor &>(*this));
@@ -6471,6 +6545,12 @@ namespace tsc {
                 if (!found_) node.getRight()->accept(static_cast<ASTVisitor &>(*this));
             }
 
+            void visit(ArrayAssignmentExpression &node) override {
+                node.getArray()->accept(static_cast<ASTVisitor &>(*this));
+                if (!found_) node.getIndex()->accept(static_cast<ASTVisitor &>(*this));
+                if (!found_) node.getValue()->accept(static_cast<ASTVisitor &>(*this));
+            }
+
             void visit(ConditionalExpression &node) override {
                 node.getCondition()->accept(static_cast<ASTVisitor &>(*this));
                 if (!found_) node.getTrueExpression()->accept(static_cast<ASTVisitor &>(*this));
@@ -6737,6 +6817,12 @@ namespace tsc {
             void visit(AssignmentExpression &node) override {
                 node.getLeft()->accept(static_cast<ASTVisitor &>(*this));
                 if (!found_) node.getRight()->accept(static_cast<ASTVisitor &>(*this));
+            }
+
+            void visit(ArrayAssignmentExpression &node) override {
+                node.getArray()->accept(static_cast<ASTVisitor &>(*this));
+                if (!found_) node.getIndex()->accept(static_cast<ASTVisitor &>(*this));
+                if (!found_) node.getValue()->accept(static_cast<ASTVisitor &>(*this));
             }
 
             void visit(CallExpression &node) override {
@@ -7114,6 +7200,17 @@ namespace tsc {
         llvm::FunctionType *concatType = llvm::FunctionType::get(
             getStringType(), {getStringType(), getStringType()}, false);
         return llvm::Function::Create(concatType, llvm::Function::ExternalLinkage, "string_concat", module_.get());
+    }
+
+    llvm::Function *LLVMCodeGen::getOrCreatePanicBoundsErrorFunction() {
+        if (auto existing = module_->getFunction("panic_bounds_error")) {
+            return existing;
+        }
+
+        // void panic_bounds_error(i32 index, i32 length)
+        llvm::FunctionType *panicType = llvm::FunctionType::get(
+            getVoidType(), {llvm::Type::getInt32Ty(*context_), llvm::Type::getInt32Ty(*context_)}, false);
+        return llvm::Function::Create(panicType, llvm::Function::ExternalLinkage, "panic_bounds_error", module_.get());
     }
 
     llvm::Function *LLVMCodeGen::getOrCreateThrowFunction() {
