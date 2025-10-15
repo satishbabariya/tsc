@@ -6306,7 +6306,8 @@ namespace tsc {
                 // Check if any return statements have values
                 if (hasReturnStatementsWithValues(funcDecl)) {
                     // Function has return statements with values, so it returns a value
-                    returnType = getAnyType();
+                    // Try to infer the actual return type from the return statements
+                    returnType = inferReturnTypeFromStatements(funcDecl);
                 } else {
                     // Function has return statements but no values, so it's void
                     returnType = getVoidType();
