@@ -2,6 +2,7 @@
 
 #include "tsc/Common.h"
 #include "tsc/Token.h"
+#include "tsc/ASTNodeType.h"
 #include <vector>
 #include <stdexcept>
 #include <algorithm>
@@ -28,6 +29,9 @@ public:
     virtual shared_ptr<Type> getType() const { return type_; }
     virtual void setType(shared_ptr<Type> type) { type_ = type; }
     
+    // AST Node Type information
+    virtual ASTNodeType getNodeType() const { return ASTNodeType::ASTNode; }
+    
     // Utility methods
     virtual String toString() const = 0;
 
@@ -47,6 +51,7 @@ public:
     
     virtual Category getCategory() const = 0;
     virtual bool isConstant() const { return false; }
+    ASTNodeType getNodeType() const override { return ASTNodeType::Expression; }
 };
 
 // Statement base class  
@@ -71,6 +76,7 @@ public:
     };
     
     virtual Kind getKind() const = 0;
+    ASTNodeType getNodeType() const override { return ASTNodeType::Statement; }
 };
 
 // Expression statement for standalone expressions
@@ -95,6 +101,7 @@ private:
 class Declaration : public Statement {
 public:
     Kind getKind() const override { return Kind::Declaration; }
+    ASTNodeType getNodeType() const override { return ASTNodeType::Declaration; }
     
     virtual String getName() const = 0;
     virtual bool isExported() const { return exported_; }
@@ -120,6 +127,7 @@ public:
     Category getCategory() const override { return Category::RValue; }
     bool isConstant() const override { return true; }
     String toString() const override;
+    ASTNodeType getNodeType() const override { return ASTNodeType::NumericLiteral; }
     
     double getValue() const { return value_; }
 
