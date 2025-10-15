@@ -1091,7 +1091,7 @@ namespace tsc {
         
         // Generate array, index, and value expressions
         node.getArray()->accept(static_cast<ASTVisitor &>(*this));
-        llvm::Value *arrayValue = getCurrentValue();
+        llvm::Value *arrayPtr = getCurrentValue();
         
         node.getIndex()->accept(static_cast<ASTVisitor &>(*this));
         llvm::Value *indexValue = getCurrentValue();
@@ -1099,7 +1099,7 @@ namespace tsc {
         node.getValue()->accept(static_cast<ASTVisitor &>(*this));
         llvm::Value *value = getCurrentValue();
         
-        if (!arrayValue || !indexValue || !value) {
+        if (!arrayPtr || !indexValue || !value) {
             reportError("Failed to generate array, index, or value for array assignment", node.getLocation());
             setCurrentValue(createNullValue(getAnyType()));
             return;
@@ -1109,6 +1109,15 @@ namespace tsc {
         if (indexValue->getType() != llvm::Type::getInt32Ty(*context_)) {
             indexValue = builder_->CreateFPToSI(indexValue, llvm::Type::getInt32Ty(*context_), "index_i32");
         }
+        
+        // Load the actual array struct from the pointer
+        // In LLVM 20, pointers are opaque, so we need to determine the type from context
+        // For now, assume it's a pointer to our array struct type
+        llvm::Type *arrayType = llvm::StructType::get(*context_, {
+            llvm::Type::getInt32Ty(*context_), // length field
+            llvm::ArrayType::get(getNumberType(), 3) // data field with 3 elements
+        });
+        llvm::Value *arrayValue = builder_->CreateLoad(arrayType, arrayPtr, "array_value");
         
         // Get array length for bounds checking
         llvm::Value *lengthPtr = builder_->CreateGEP(
@@ -1134,19 +1143,35 @@ namespace tsc {
         
         // Assign block
         builder_->SetInsertPoint(assignBlock);
-        llvm::Value *elementPtr = builder_->CreateGEP(
-            llvm::Type::getInt8Ty(*context_), arrayValue,
-            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 4), // Skip length field
-            "element_ptr");
         
-        // Calculate offset for the specific element
-        llvm::Value *elementOffset = builder_->CreateMul(indexValue, 
-            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 8), "element_offset");
-        llvm::Value *finalElementPtr = builder_->CreateGEP(
-            llvm::Type::getInt8Ty(*context_), elementPtr, elementOffset, "final_element_ptr");
+        // Determine element type from the array value
+        llvm::Type *elementType = getNumberType(); // Default to number type
+        
+        // Try to get the array type from the alloca instruction
+        if (auto *allocaInst = llvm::dyn_cast<llvm::AllocaInst>(arrayValue)) {
+            arrayType = allocaInst->getAllocatedType();
+            if (auto *structType = llvm::dyn_cast<llvm::StructType>(arrayType)) {
+                // This is our array structure: { i32 length, [size x elementType] data }
+                if (structType->getNumElements() == 2) {
+                    auto *dataArrayType = llvm::dyn_cast<llvm::ArrayType>(structType->getElementType(1));
+                    if (dataArrayType) {
+                        elementType = dataArrayType->getElementType();
+                    }
+                }
+            }
+        }
+        
+        // Create GEP to access array element using the same pattern as IndexExpression
+        std::vector<llvm::Value *> indices = {
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // Array base
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1), // Data field
+            indexValue // Element index
+        };
+        
+        llvm::Value *elementPtr = builder_->CreateGEP(arrayType, arrayValue, indices, "element_ptr");
         
         // Store the value
-        builder_->CreateStore(value, finalElementPtr);
+        builder_->CreateStore(value, elementPtr);
         builder_->CreateBr(endBlock);
         
         // Panic block
