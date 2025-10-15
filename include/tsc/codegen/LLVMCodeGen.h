@@ -652,6 +652,9 @@ public:
     llvm::Value* createNullValue(llvm::Type* type);
     llvm::Value* createDefaultValue(llvm::Type* type);
     llvm::Function* getOrCreatePrintFunction();
+    llvm::Function* getOrCreateAssertTrueFunction();
+    llvm::Function* getOrCreateAssertFalseFunction();
+    llvm::Function* getOrCreateAssertEqualsDoubleFunction();
     
     // Type conversions
     llvm::Value* convertToNumber(llvm::Value* value, llvm::Type* fromType);

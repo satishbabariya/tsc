@@ -406,6 +406,21 @@ namespace tsc {
             llvm::Function *printFunc = getOrCreatePrintFunction();
             setCurrentValue(printFunc);
             return;
+        } else if (node.getName() == "assert_true") {
+            std::cout << "DEBUG: Identifier - Found assert_true, creating function" << std::endl;
+            llvm::Function *assertFunc = getOrCreateAssertTrueFunction();
+            setCurrentValue(assertFunc);
+            return;
+        } else if (node.getName() == "assert_false") {
+            std::cout << "DEBUG: Identifier - Found assert_false, creating function" << std::endl;
+            llvm::Function *assertFunc = getOrCreateAssertFalseFunction();
+            setCurrentValue(assertFunc);
+            return;
+        } else if (node.getName() == "assert_equals_double") {
+            std::cout << "DEBUG: Identifier - Found assert_equals_double, creating function" << std::endl;
+            llvm::Function *assertFunc = getOrCreateAssertEqualsDoubleFunction();
+            setCurrentValue(assertFunc);
+            return;
         }
 
         // If not found anywhere, report error
@@ -1284,6 +1299,15 @@ namespace tsc {
             if (identifier->getName() == "_print") {
                 std::cout << "DEBUG: CallExpression - Found _print, creating function" << std::endl;
                 function = getOrCreatePrintFunction();
+            } else if (identifier->getName() == "assert_true") {
+                std::cout << "DEBUG: CallExpression - Found assert_true, creating function" << std::endl;
+                function = getOrCreateAssertTrueFunction();
+            } else if (identifier->getName() == "assert_false") {
+                std::cout << "DEBUG: CallExpression - Found assert_false, creating function" << std::endl;
+                function = getOrCreateAssertFalseFunction();
+            } else if (identifier->getName() == "assert_equals_double") {
+                std::cout << "DEBUG: CallExpression - Found assert_equals_double, creating function" << std::endl;
+                function = getOrCreateAssertEqualsDoubleFunction();
             } else {
                 // First try to look up as an LLVM function (for regular function declarations)
                 function = module_->getFunction(identifier->getName());
@@ -6066,6 +6090,97 @@ namespace tsc {
         // No function body needed - the implementation is in runtime.c
 
         return printFunc;
+    }
+
+    llvm::Function *LLVMCodeGen::getOrCreateAssertTrueFunction() {
+        // Check if assert_true function already exists
+        llvm::Function *existingFunc = module_->getFunction("assert_true");
+        if (existingFunc) {
+            return existingFunc;
+        }
+
+        // Create assert_true function: void assert_true(bool condition, string message)
+        std::vector<llvm::Type *> paramTypes;
+        paramTypes.push_back(getBooleanType()); // bool condition
+        paramTypes.push_back(getStringType());  // string message
+
+        llvm::FunctionType *funcType = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(*context_), // Return type: void
+            paramTypes, // Parameter types
+            false // Not variadic
+        );
+
+        // Create the function as external (declaration only)
+        // The actual implementation is in runtime.c
+        llvm::Function *assertFunc = llvm::Function::Create(
+            funcType,
+            llvm::Function::ExternalLinkage,
+            "assert_true",
+            *module_
+        );
+
+        return assertFunc;
+    }
+
+    llvm::Function *LLVMCodeGen::getOrCreateAssertFalseFunction() {
+        // Check if assert_false function already exists
+        llvm::Function *existingFunc = module_->getFunction("assert_false");
+        if (existingFunc) {
+            return existingFunc;
+        }
+
+        // Create assert_false function: void assert_false(bool condition, string message)
+        std::vector<llvm::Type *> paramTypes;
+        paramTypes.push_back(getBooleanType()); // bool condition
+        paramTypes.push_back(getStringType());  // string message
+
+        llvm::FunctionType *funcType = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(*context_), // Return type: void
+            paramTypes, // Parameter types
+            false // Not variadic
+        );
+
+        // Create the function as external (declaration only)
+        // The actual implementation is in runtime.c
+        llvm::Function *assertFunc = llvm::Function::Create(
+            funcType,
+            llvm::Function::ExternalLinkage,
+            "assert_false",
+            *module_
+        );
+
+        return assertFunc;
+    }
+
+    llvm::Function *LLVMCodeGen::getOrCreateAssertEqualsDoubleFunction() {
+        // Check if assert_equals_double function already exists
+        llvm::Function *existingFunc = module_->getFunction("assert_equals_double");
+        if (existingFunc) {
+            return existingFunc;
+        }
+
+        // Create assert_equals_double function: void assert_equals_double(double expected, double actual, string message)
+        std::vector<llvm::Type *> paramTypes;
+        paramTypes.push_back(getNumberType()); // double expected
+        paramTypes.push_back(getNumberType()); // double actual
+        paramTypes.push_back(getStringType()); // string message
+
+        llvm::FunctionType *funcType = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(*context_), // Return type: void
+            paramTypes, // Parameter types
+            false // Not variadic
+        );
+
+        // Create the function as external (declaration only)
+        // The actual implementation is in runtime.c
+        llvm::Function *assertFunc = llvm::Function::Create(
+            funcType,
+            llvm::Function::ExternalLinkage,
+            "assert_equals_double",
+            *module_
+        );
+
+        return assertFunc;
     }
 
     // Binary operations implementation
