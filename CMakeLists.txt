@@ -397,6 +397,7 @@ add_library(tsc_runtime STATIC
     src/runtime/console_operations.c
     src/runtime/memory_operations.c
     src/runtime/global_constants.c
+    src/runtime/memory_audit.c
     src/runtime/arc/arc_runtime.c
     src/runtime/arc/weak_references.c
     src/runtime/arc/cycle_detection.c

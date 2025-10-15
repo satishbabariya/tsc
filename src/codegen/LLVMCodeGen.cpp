@@ -9021,6 +9021,219 @@ namespace tsc {
                 std::cout << "DEBUG: Reusing existing console_log function" << std::endl;
             }
             return func;
+        } else if (methodName == "init") {
+            // memory_audit_init() -> void
+            auto func = module_->getFunction("memory_audit_init");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "memory_audit_init", module_.get()
+                );
+                std::cout << "DEBUG: Created memory_audit_init function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "print_summary") {
+            // memory_audit_print_summary() -> void
+            auto func = module_->getFunction("memory_audit_print_summary");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "memory_audit_print_summary", module_.get()
+                );
+                std::cout << "DEBUG: Created memory_audit_print_summary function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "get_info") {
+            // memory_audit_get_info() -> MemoryAuditInfo*
+            auto func = module_->getFunction("memory_audit_get_info");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0), // Return type: void*
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "memory_audit_get_info", module_.get()
+                );
+                std::cout << "DEBUG: Created memory_audit_get_info function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "record_stack_push") {
+            // memory_audit_record_stack_push() -> void
+            auto func = module_->getFunction("memory_audit_record_stack_push");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "memory_audit_record_stack_push", module_.get()
+                );
+                std::cout << "DEBUG: Created memory_audit_record_stack_push function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "record_stack_pop") {
+            // memory_audit_record_stack_pop() -> void
+            auto func = module_->getFunction("memory_audit_record_stack_pop");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "memory_audit_record_stack_pop", module_.get()
+                );
+                std::cout << "DEBUG: Created memory_audit_record_stack_pop function" << std::endl;
+            }
+            return func;
+        }
+
+        // Check for assertion functions
+        if (methodName == "true") {
+            // assert_true(condition, message) -> void
+            auto func = module_->getFunction("assert_true");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {llvm::Type::getInt1Ty(*context_), getStringType()}, // Parameters: bool, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_true", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_true function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "false") {
+            // assert_false(condition, message) -> void
+            auto func = module_->getFunction("assert_false");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {llvm::Type::getInt1Ty(*context_), getStringType()}, // Parameters: bool, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_false", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_false function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "equals_int") {
+            // assert_equals_int(expected, actual, message) -> void
+            auto func = module_->getFunction("assert_equals_int");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {llvm::Type::getInt32Ty(*context_), llvm::Type::getInt32Ty(*context_), getStringType()}, // Parameters: int, int, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_equals_int", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_equals_int function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "equals_double") {
+            // assert_equals_double(expected, actual, message) -> void
+            auto func = module_->getFunction("assert_equals_double");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {llvm::Type::getDoubleTy(*context_), llvm::Type::getDoubleTy(*context_), getStringType()}, // Parameters: double, double, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_equals_double", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_equals_double function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "equals_string") {
+            // assert_equals_string(expected, actual, message) -> void
+            auto func = module_->getFunction("assert_equals_string");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {getStringType(), getStringType(), getStringType()}, // Parameters: string, string, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_equals_string", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_equals_string function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "not_null") {
+            // assert_not_null(ptr, message) -> void
+            auto func = module_->getFunction("assert_not_null");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {getAnyType(), getStringType()}, // Parameters: any, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_not_null", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_not_null function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "null") {
+            // assert_null(ptr, message) -> void
+            auto func = module_->getFunction("assert_null");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {getAnyType(), getStringType()}, // Parameters: any, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_null", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_null function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "memory_safe") {
+            // assert_memory_safe(ptr, size, message) -> void
+            auto func = module_->getFunction("assert_memory_safe");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {getAnyType(), llvm::Type::getInt64Ty(*context_), getStringType()}, // Parameters: any, size_t, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_memory_safe", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_memory_safe function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "print_test_summary") {
+            // print_test_summary() -> void
+            auto func = module_->getFunction("print_test_summary");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "print_test_summary", module_.get()
+                );
+                std::cout << "DEBUG: Created print_test_summary function" << std::endl;
+            }
+            return func;
         }
 
         std::cout << "DEBUG: Unknown method name: " << methodName << std::endl;

@@ -34,6 +34,9 @@ void _print(void* first_arg, ...);
 // Console operations
 void console_log(void* arg);
 
+// Memory audit and testing functions
+#include "memory_audit.h"
+
 // Memory operations are handled by ARC runtime functions
 // See arc/arc_runtime.h for __tsc_alloc, __tsc_retain, __tsc_release, etc.
 
