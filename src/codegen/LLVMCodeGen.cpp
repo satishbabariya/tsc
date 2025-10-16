@@ -57,16 +57,20 @@ namespace tsc {
 
     void CodeGenContext::enterFunction(llvm::Function *function) {
         functionStack_.push(function);
+        std::cout << "DEBUG: CONTEXT - Entering function: " << (function ? function->getName().str() : "null") << std::endl;
     }
 
     void CodeGenContext::exitFunction() {
         if (!functionStack_.empty()) {
+            std::cout << "DEBUG: CONTEXT - Exiting function: " << functionStack_.top()->getName().str() << std::endl;
             functionStack_.pop();
         }
     }
 
     llvm::Function *CodeGenContext::getCurrentFunction() const {
-        return functionStack_.empty() ? nullptr : functionStack_.top();
+        llvm::Function *current = functionStack_.empty() ? nullptr : functionStack_.top();
+        std::cout << "DEBUG: CONTEXT - Current function: " << (current ? current->getName().str() : "null") << std::endl;
+        return current;
     }
 
     void CodeGenContext::enterClass(const String &className) {
@@ -1273,7 +1277,8 @@ namespace tsc {
     }
 
     void LLVMCodeGen::visit(CallExpression &node) {
-        std::cout << "DEBUG: CallExpression visitor called" << std::endl;
+        std::cout << "DEBUG: CALL - CallExpression visitor called" << std::endl;
+        std::cout << "DEBUG: CALL - Current function context: " << (codeGenContext_->getCurrentFunction() ? codeGenContext_->getCurrentFunction()->getName().str() : "null") << std::endl;
 
         // Check if this is a method call and what method it is
         if (auto propertyAccess = dynamic_cast<PropertyAccess *>(node.getCallee())) {
@@ -1592,9 +1597,18 @@ namespace tsc {
                     // Find the method in the class
                     for (const auto& method : classDecl->getMethods()) {
                         if (method->getName() == methodName) {
-                            // Generate the method function
-                            method->accept(*this);
-                            function = llvm::cast<llvm::Function>(getCurrentValue());
+                            // Look up the already generated method function instead of regenerating it
+                            function = module_->getFunction(methodName);
+                            if (!function) {
+                                // If not found, try with the class name prefix
+                                String className = classDecl->getName();
+                                if (methodName == "constructor") {
+                                    function = module_->getFunction(className + "_constructor");
+                                } else {
+                                    function = module_->getFunction(methodName);
+                                }
+                            }
+                            std::cout << "DEBUG: CALL - Found existing method function: " << (function ? function->getName().str() : "null") << std::endl;
                             break;
                         }
                     }
@@ -1789,8 +1803,8 @@ namespace tsc {
                         }
                         
                         // For method calls, prepend the object instance as the first argument
-                        if (isMethodCall && args.empty()) {
-                            args.push_back(objectInstance);
+                        if (isMethodCall) {
+                            args.insert(args.begin(), objectInstance);
                         }
 
                         // Special handling for _print calls - convert double arguments to strings
@@ -3004,7 +3018,8 @@ namespace tsc {
 
     void LLVMCodeGen::visit(PropertyAccess &node) {
         String propertyName = node.getProperty();
-        std::cout << "DEBUG: PropertyAccess visitor called for property: " << propertyName << std::endl;
+        std::cout << "DEBUG: PROP - PropertyAccess visitor called for property: " << propertyName << std::endl;
+        std::cout << "DEBUG: PROP - Current function context: " << (codeGenContext_->getCurrentFunction() ? codeGenContext_->getCurrentFunction()->getName().str() : "null") << std::endl;
         std::cout << "DEBUG: PropertyAccess - object type: " << (node.getObject() ? "present" : "null") << std::endl;
         if (node.getObject()) {
             std::cout << "DEBUG: PropertyAccess - object class: " << typeid(*node.getObject()).name() << std::endl;
@@ -4986,6 +5001,7 @@ namespace tsc {
                 << ", mainExists=" << (mainExists ? "true" : "false")
                 << ", generateMainFunction=" << (generateMainFunction_ ? "true" : "false") << std::endl;
         if (!moduleStatements.empty() && !mainExists && generateMainFunction_) {
+            std::cout << "DEBUG: MAIN - Creating main function" << std::endl;
             llvm::FunctionType *mainType = llvm::FunctionType::get(
                 llvm::Type::getInt32Ty(*context_), false);
             mainFunc = llvm::Function::Create(
@@ -4995,6 +5011,7 @@ namespace tsc {
             builder_->SetInsertPoint(entry);
             
             // Enter the main function context
+            std::cout << "DEBUG: MAIN - About to enter main function context" << std::endl;
             codeGenContext_->enterFunction(mainFunc);
 
             // Separate variable declarations from other statements for proper ordering
@@ -5010,9 +5027,10 @@ namespace tsc {
             }
             
             // Process variable declarations first
-            std::cout << "DEBUG: Processing " << variableDecls.size() << " variable declarations first" << std::endl;
+            std::cout << "DEBUG: MAIN - Processing " << variableDecls.size() << " variable declarations first" << std::endl;
             for (const auto &stmt: variableDecls) {
-                std::cout << "DEBUG: Processing variable declaration in main function" << std::endl;
+                std::cout << "DEBUG: MAIN - Processing variable declaration in main function" << std::endl;
+                std::cout << "DEBUG: MAIN - Current function context: " << (codeGenContext_->getCurrentFunction() ? codeGenContext_->getCurrentFunction()->getName().str() : "null") << std::endl;
 
                 // Check if current block already has a terminator
                 if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
@@ -7844,6 +7862,9 @@ namespace tsc {
     }
 
     void LLVMCodeGen::visit(MethodDeclaration &node) {
+        std::cout << "DEBUG: METHOD - Starting method declaration: " << node.getName() << std::endl;
+        std::cout << "DEBUG: METHOD - Current function context before method generation: " << (codeGenContext_->getCurrentFunction() ? codeGenContext_->getCurrentFunction()->getName().str() : "null") << std::endl;
+        
         // Check if this method belongs to a generic class and implement monomorphization
         bool isGenericMethod = node.isGeneric();
         
@@ -7926,7 +7947,11 @@ namespace tsc {
             }
 
             // Generate method body
+            std::cout << "DEBUG: METHOD - About to process method body for: " << functionName << std::endl;
+            std::cout << "DEBUG: METHOD - Current function context before body processing: " << (codeGenContext_->getCurrentFunction() ? codeGenContext_->getCurrentFunction()->getName().str() : "null") << std::endl;
             node.getBody()->accept(*this);
+            std::cout << "DEBUG: METHOD - Finished processing method body for: " << functionName << std::endl;
+            std::cout << "DEBUG: METHOD - Current function context after body processing: " << (codeGenContext_->getCurrentFunction() ? codeGenContext_->getCurrentFunction()->getName().str() : "null") << std::endl;
 
             // Ensure function has a return
             if (!builder_->GetInsertBlock()->getTerminator()) {
