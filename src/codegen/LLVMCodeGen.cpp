@@ -1565,6 +1565,25 @@ namespace tsc {
             // Handle method calls: object.method()
             isMethodCall = true;
             
+            // Check if PropertyAccess already resolved the method (e.g., for this.method calls)
+            if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
+                std::cout << "DEBUG: CallExpression - Using method function from PropertyAccess: " << propertyAccess->getProperty() << std::endl;
+                function = llvm::cast<llvm::Function>(calleeValue);
+                
+                // Generate the object instance for the 'this' pointer
+                propertyAccess->getObject()->accept(*this);
+                objectInstance = getCurrentValue();
+                
+                if (!objectInstance) {
+                    reportError("Failed to generate object instance for method call", node.getLocation());
+                    setCurrentValue(createNullValue(getAnyType()));
+                    return;
+                }
+                
+                // Skip the normal method lookup since we already have the function
+                goto skip_method_lookup;
+            }
+            
             // Generate the object instance
             propertyAccess->getObject()->accept(*this);
             objectInstance = getCurrentValue();
@@ -3134,6 +3153,29 @@ namespace tsc {
             std::cout << "DEBUG: PropertyAccess - object class: " << typeid(*node.getObject()).name() << std::endl;
         }
 
+        // Handle ThisExpression method calls (this.methodName) - MUST BE FIRST
+        std::cout << "DEBUG: PropertyAccess - Checking for ThisExpression, object type: " << typeid(*node.getObject()).name() << std::endl;
+        if (auto thisExpr = dynamic_cast<ThisExpression *>(node.getObject())) {
+            std::cout << "DEBUG: PropertyAccess - Handling ThisExpression method call: " << propertyName << std::endl;
+            
+            // Check if the method exists in the module
+            llvm::Function *methodFunc = module_->getFunction(propertyName);
+            if (methodFunc) {
+                setCurrentValue(methodFunc);
+                std::cout << "DEBUG: PropertyAccess - Successfully found method function: " << propertyName << std::endl;
+                return;
+            } else {
+                std::cout << "DEBUG: PropertyAccess - Method function not found: " << propertyName << std::endl;
+                std::cout << "DEBUG: Available functions in module:" << std::endl;
+                for (auto &func: *module_) {
+                    std::cout << "  - " << func.getName().str() << std::endl;
+                }
+                reportError("Method '" + propertyName + "' not found in class", node.getLocation());
+                setCurrentValue(createNullValue(getAnyType()));
+                return;
+            }
+        }
+
         // Handle nested PropertyAccess objects (e.g., array.length.toString()) - MUST BE FIRST
         if (auto nestedPropertyAccess = dynamic_cast<PropertyAccess *>(node.getObject())) {
             std::cout << "DEBUG: Handling nested PropertyAccess for property: " << propertyName << std::endl;
@@ -3357,6 +3399,7 @@ namespace tsc {
             // If we're in a monomorphized method (e.g., Container_number_getValue or BasicArrayOperations_number_getLength)
             // and accessing 'value', 'items', or 'data', handle it as struct field access
             // OR if we're in a destructor (~ClassName) or constructor (ClassName_constructor), handle any property access
+            // OR if we're in a regular class method and accessing a method (this.methodName)
             bool isDestructor = functionName.length() > 0 && functionName[0] == '~';
             bool isConstructor = functionName.length() > 11 && functionName.substr(functionName.length() - 11) ==
                                  "_constructor";
@@ -3366,8 +3409,19 @@ namespace tsc {
             bool isSimpleMethod = (propertyName == "value" || propertyName == "items" || propertyName == "data") &&
                                   (functionName == "getValue" || functionName == "constructor" || functionName ==
                                    "destructor");
+            
+            // Check if this is a method call on 'this' within a class method
+            bool isThisMethodCall = false;
+            if (auto thisExpr = dynamic_cast<ThisExpression *>(node.getObject())) {
+                // This is 'this.methodName' - check if the method exists
+                llvm::Function *methodFunc = module_->getFunction(propertyName);
+                if (methodFunc) {
+                    isThisMethodCall = true;
+                    std::cout << "DEBUG: PropertyAccess - Found method call on 'this': " << propertyName << std::endl;
+                }
+            }
 
-            if (isMonomorphizedMethod || isDestructor || isConstructor || isSimpleMethod) {
+            if (isMonomorphizedMethod || isDestructor || isConstructor || isSimpleMethod || isThisMethodCall) {
                 std::cout << "DEBUG: PropertyAccess - Entering struct field access for " <<
                 (isDestructor
                      ? "destructor"
@@ -3375,7 +3429,9 @@ namespace tsc {
                            ? "constructor"
                            : isSimpleMethod
                                  ? "simple method"
-                                 : "monomorphized method") << std::endl;
+                                 : isThisMethodCall
+                                       ? "this method call"
+                                       : "monomorphized method") << std::endl;
 
                 // Handle destructors and constructors accessing class properties
                 if (isDestructor || isConstructor) {
@@ -3484,6 +3540,22 @@ namespace tsc {
                         setCurrentValue(fieldPtr);
                         std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field '" << propertyName <<
                                 "' at index 1 (pointer to array)" << std::endl;
+                        return;
+                    }
+                }
+                
+                // Handle method calls on 'this' (isThisMethodCall)
+                if (isThisMethodCall) {
+                    // For method calls on 'this', we need to return the function pointer
+                    llvm::Function *methodFunc = module_->getFunction(propertyName);
+                    if (methodFunc) {
+                        setCurrentValue(methodFunc);
+                        std::cout << "DEBUG: PropertyAccess - Successfully returned method function: " << propertyName << std::endl;
+                        return;
+                    } else {
+                        std::cout << "DEBUG: PropertyAccess - Method function not found: " << propertyName << std::endl;
+                        reportError("Method '" + propertyName + "' not found in class", node.getLocation());
+                        setCurrentValue(createNullValue(getAnyType()));
                         return;
                     }
                 }
