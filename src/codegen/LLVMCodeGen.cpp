@@ -1287,6 +1287,12 @@ namespace tsc {
             for (size_t i = 0; i < node.getArguments().size(); ++i) {
                 std::cout << "DEBUG: CallExpression - Argument " << i << " type: " << typeid(*node.getArguments()[i].
                     get()).name() << std::endl;
+                // Log argument details
+                if (auto numericLiteral = dynamic_cast<NumericLiteral *>(node.getArguments()[i].get())) {
+                    std::cout << "DEBUG: CallExpression - Argument " << i << " is NumericLiteral with value: " << numericLiteral->getValue() << std::endl;
+                } else if (auto identifier = dynamic_cast<Identifier *>(node.getArguments()[i].get())) {
+                    std::cout << "DEBUG: CallExpression - Argument " << i << " is Identifier with name: " << identifier->getName() << std::endl;
+                }
             }
         }
         // Generate the callee (function to call)
@@ -1666,6 +1672,7 @@ namespace tsc {
                         << std::endl;
                 std::cout << "DEBUG: CallExpression - Processing method call with " << node.getArguments().size() <<
                         " arguments" << std::endl;
+                std::cout << "DEBUG: CallExpression - Function signature: " << function->getFunctionType()->getNumParams() << " parameters" << std::endl;
 
                 // For method calls, we need to pass the object as the first argument
                 // Generate the object being called on
@@ -1685,7 +1692,9 @@ namespace tsc {
                 methodArgs.push_back(objectInstance);
                 
                 // Add method arguments
-                for (const auto &arg: node.getArguments()) {
+                for (size_t i = 0; i < node.getArguments().size(); ++i) {
+                    const auto &arg = node.getArguments()[i];
+                    std::cout << "DEBUG: CallExpression - Processing argument " << i << " of type: " << typeid(*arg.get()).name() << std::endl;
                     arg->accept(static_cast<ASTVisitor &>(*this));
                     llvm::Value *argValue = getCurrentValue();
                     if (!argValue) {
@@ -1693,6 +1702,7 @@ namespace tsc {
                         setCurrentValue(createNullValue(getAnyType()));
                         return;
                     }
+                    std::cout << "DEBUG: CallExpression - Generated argument " << i << " value: " << (argValue ? "valid" : "null") << std::endl;
                     methodArgs.push_back(argValue);
                 }
                 
