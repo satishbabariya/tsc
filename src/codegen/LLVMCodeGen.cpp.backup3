@@ -1592,7 +1592,7 @@ namespace tsc {
                             auto funcType = llvm::FunctionType::get(
                                 getVoidType(), // Return type: void
                                 {getAnyType()}, // Parameter: any type (the argument to log)
-                                true
+                                false
                             );
                             function = llvm::Function::Create(
                                 funcType, llvm::Function::ExternalLinkage, "console_log", module_.get()
@@ -3322,7 +3322,7 @@ namespace tsc {
                         auto funcType = llvm::FunctionType::get(
                             getVoidType(), // Return type: void
                             {getAnyType()}, // Parameter: any type (the argument to log)
-                            true
+                            false
                         );
                         func = llvm::Function::Create(
                             funcType, llvm::Function::ExternalLinkage, "console_log", module_.get()
