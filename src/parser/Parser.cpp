@@ -1290,6 +1290,46 @@ namespace tsc {
         return expr;
     }
 
+    bool Parser::isArrayAssignment(Expression* expr) const {
+        // Check if the expression is an IndexExpression (array access)
+        return dynamic_cast<IndexExpression*>(expr) != nullptr;
+    }
+
+    unique_ptr<Expression> Parser::parseArrayAssignmentExpression() {
+        // Parse the array expression (e.g., "array")
+        auto array = parseConditionalExpression();
+        
+        // Check if this is followed by array access syntax
+        if (check(TokenType::LeftBracket)) {
+            advance(); // consume '['
+            auto index = parseExpression();
+            consume(TokenType::RightBracket, "Expected ']' after array index");
+            
+            // Check if this is followed by assignment
+            if (check(TokenType::Equal)) {
+                advance(); // consume '='
+                auto value = parseAssignmentExpression();
+                
+                return make_unique<ArrayAssignmentExpression>(
+                    std::move(array),
+                    std::move(index),
+                    std::move(value),
+                    getCurrentLocation()
+                );
+            } else {
+                // This is just array access, not assignment
+                // We need to reconstruct the IndexExpression
+                return make_unique<IndexExpression>(
+                    std::move(array),
+                    std::move(index),
+                    getCurrentLocation()
+                );
+            }
+        }
+        
+        return array;
+    }
+
     unique_ptr<Expression> Parser::parseConditionalExpression() {
         auto condition = parseBinaryExpression();
 
@@ -1369,12 +1409,27 @@ namespace tsc {
                 auto index = parseExpression();
                 consume(TokenType::RightBracket, "Expected ']' after array index");
 
-                SourceLocation location = getCurrentLocation();
-                expr = make_unique<IndexExpression>(
-                    std::move(expr),
-                    std::move(index),
-                    location
-                );
+                // Check if this is followed by an assignment operator
+                if (check(TokenType::Equal) || check(TokenType::PlusEqual) || check(TokenType::MinusEqual)) {
+                    // This is an array assignment: array[index] = value
+                    Token opToken = advance();
+                    auto value = parseAssignmentExpression();
+                    
+                    return make_unique<ArrayAssignmentExpression>(
+                        std::move(expr),
+                        std::move(index),
+                        std::move(value),
+                        opToken.getLocation()
+                    );
+                } else {
+                    // This is just array access
+                    SourceLocation location = getCurrentLocation();
+                    expr = make_unique<IndexExpression>(
+                        std::move(expr),
+                        std::move(index),
+                        location
+                    );
+                }
             } else if (check(TokenType::QuestionDot)) {
                 advance(); // consume '?.'
                 if (peek().getType() == TokenType::LeftBracket) {

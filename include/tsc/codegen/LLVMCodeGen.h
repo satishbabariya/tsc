@@ -463,6 +463,7 @@ public:
     void visit(BinaryExpression& node) override;
     void visit(UnaryExpression& node) override;
     void visit(AssignmentExpression& node) override;
+    void visit(ArrayAssignmentExpression& node) override;
     void visit(ConditionalExpression& node) override;
     void visit(CallExpression& node) override;
     void visit(ArrayLiteral& node) override;
@@ -568,6 +569,9 @@ private:
     // Deferred global variable initializations (for non-constant values)
     std::vector<std::pair<llvm::GlobalVariable*, llvm::Value*>> deferredGlobalInitializations_;
     
+    // Switch statement counter for unique basic block naming
+    size_t switchCounter_ = 0;
+    
     // Deferred constructor calls (for global objects that need constructor initialization)
     struct DeferredConstructorCall {
         llvm::GlobalVariable* globalVar;
@@ -590,6 +594,7 @@ private:
     llvm::Type* getBooleanType() const;
     llvm::Type* getVoidType() const;
     llvm::Type* getAnyType() const;
+    llvm::Type* inferReturnTypeFromStatements(const FunctionDeclaration& funcDecl);
     llvm::Type* convertFunctionTypeToLLVM(const FunctionType& functionType);
     llvm::Value* convertValueToType(llvm::Value* value, llvm::Type* targetType);
     
@@ -647,6 +652,9 @@ public:
     llvm::Value* createNullValue(llvm::Type* type);
     llvm::Value* createDefaultValue(llvm::Type* type);
     llvm::Function* getOrCreatePrintFunction();
+    llvm::Function* getOrCreateAssertTrueFunction();
+    llvm::Function* getOrCreateAssertFalseFunction();
+    llvm::Function* getOrCreateAssertEqualsDoubleFunction();
     
     // Type conversions
     llvm::Value* convertToNumber(llvm::Value* value, llvm::Type* fromType);
@@ -683,6 +691,7 @@ public:
     llvm::Function* getOrCreateNumberToStringFunction();
     llvm::Function* getOrCreateBooleanToStringFunction();
     llvm::Function* getOrCreateObjectToStringFunction();
+    llvm::Function* getOrCreatePanicBoundsErrorFunction();
     llvm::Function* getOrCreateThrowFunction();
     llvm::Function* getOrCreateRethrowFunction();
     

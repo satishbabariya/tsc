@@ -244,6 +244,85 @@ namespace tsc {
         addSymbol("Infinity", SymbolKind::Variable, numberType, SourceLocation());
         addSymbol("NaN", SymbolKind::Variable, numberType, SourceLocation());
 
+        // Add memory audit functions with proper function types
+        auto voidType = make_shared<PrimitiveType>(TypeKind::Void);
+        auto stringType = make_shared<PrimitiveType>(TypeKind::String);
+        auto anyType = make_shared<PrimitiveType>(TypeKind::Any);
+        auto boolType = make_shared<PrimitiveType>(TypeKind::Boolean);
+        auto intType = make_shared<PrimitiveType>(TypeKind::Number);
+
+        // Create function types for memory audit functions
+        auto memoryAuditInitType = make_shared<FunctionType>(std::vector<FunctionType::Parameter>(), voidType);
+        auto memoryAuditPrintSummaryType = make_shared<FunctionType>(std::vector<FunctionType::Parameter>(), voidType);
+        auto memoryAuditGetInfoType = make_shared<FunctionType>(std::vector<FunctionType::Parameter>(), anyType);
+        auto memoryAuditRecordStackPushType = make_shared<FunctionType>(std::vector<FunctionType::Parameter>(), voidType);
+        auto memoryAuditRecordStackPopType = make_shared<FunctionType>(std::vector<FunctionType::Parameter>(), voidType);
+
+        // Create function types for assertion functions
+        std::vector<FunctionType::Parameter> assertTrueParams;
+        assertTrueParams.push_back(FunctionType::Parameter{"condition", boolType, false});
+        assertTrueParams.push_back(FunctionType::Parameter{"message", stringType, false});
+        auto assertTrueType = make_shared<FunctionType>(assertTrueParams, voidType);
+
+        std::vector<FunctionType::Parameter> assertFalseParams;
+        assertFalseParams.push_back(FunctionType::Parameter{"condition", boolType, false});
+        assertFalseParams.push_back(FunctionType::Parameter{"message", stringType, false});
+        auto assertFalseType = make_shared<FunctionType>(assertFalseParams, voidType);
+
+        std::vector<FunctionType::Parameter> assertEqualsIntParams;
+        assertEqualsIntParams.push_back(FunctionType::Parameter{"expected", intType, false});
+        assertEqualsIntParams.push_back(FunctionType::Parameter{"actual", intType, false});
+        assertEqualsIntParams.push_back(FunctionType::Parameter{"message", stringType, false});
+        auto assertEqualsIntType = make_shared<FunctionType>(assertEqualsIntParams, voidType);
+
+        std::vector<FunctionType::Parameter> assertEqualsDoubleParams;
+        assertEqualsDoubleParams.push_back(FunctionType::Parameter{"expected", intType, false});
+        assertEqualsDoubleParams.push_back(FunctionType::Parameter{"actual", intType, false});
+        assertEqualsDoubleParams.push_back(FunctionType::Parameter{"message", stringType, false});
+        auto assertEqualsDoubleType = make_shared<FunctionType>(assertEqualsDoubleParams, voidType);
+
+        std::vector<FunctionType::Parameter> assertEqualsStringParams;
+        assertEqualsStringParams.push_back(FunctionType::Parameter{"expected", stringType, false});
+        assertEqualsStringParams.push_back(FunctionType::Parameter{"actual", stringType, false});
+        assertEqualsStringParams.push_back(FunctionType::Parameter{"message", stringType, false});
+        auto assertEqualsStringType = make_shared<FunctionType>(assertEqualsStringParams, voidType);
+
+        std::vector<FunctionType::Parameter> assertNotNullParams;
+        assertNotNullParams.push_back(FunctionType::Parameter{"ptr", anyType, false});
+        assertNotNullParams.push_back(FunctionType::Parameter{"message", stringType, false});
+        auto assertNotNullType = make_shared<FunctionType>(assertNotNullParams, voidType);
+
+        std::vector<FunctionType::Parameter> assertNullParams;
+        assertNullParams.push_back(FunctionType::Parameter{"ptr", anyType, false});
+        assertNullParams.push_back(FunctionType::Parameter{"message", stringType, false});
+        auto assertNullType = make_shared<FunctionType>(assertNullParams, voidType);
+
+        std::vector<FunctionType::Parameter> assertMemorySafeParams;
+        assertMemorySafeParams.push_back(FunctionType::Parameter{"ptr", anyType, false});
+        assertMemorySafeParams.push_back(FunctionType::Parameter{"size", intType, false});
+        assertMemorySafeParams.push_back(FunctionType::Parameter{"message", stringType, false});
+        auto assertMemorySafeType = make_shared<FunctionType>(assertMemorySafeParams, voidType);
+
+        auto printTestSummaryType = make_shared<FunctionType>(std::vector<FunctionType::Parameter>(), voidType);
+
+        // Memory audit functions
+        addSymbol("memory_audit_init", SymbolKind::Function, memoryAuditInitType, SourceLocation());
+        addSymbol("memory_audit_print_summary", SymbolKind::Function, memoryAuditPrintSummaryType, SourceLocation());
+        addSymbol("memory_audit_get_info", SymbolKind::Function, memoryAuditGetInfoType, SourceLocation());
+        addSymbol("memory_audit_record_stack_push", SymbolKind::Function, memoryAuditRecordStackPushType, SourceLocation());
+        addSymbol("memory_audit_record_stack_pop", SymbolKind::Function, memoryAuditRecordStackPopType, SourceLocation());
+
+        // Assertion functions
+        addSymbol("assert_true", SymbolKind::Function, assertTrueType, SourceLocation());
+        addSymbol("assert_false", SymbolKind::Function, assertFalseType, SourceLocation());
+        addSymbol("assert_equals_int", SymbolKind::Function, assertEqualsIntType, SourceLocation());
+        addSymbol("assert_equals_double", SymbolKind::Function, assertEqualsDoubleType, SourceLocation());
+        addSymbol("assert_equals_string", SymbolKind::Function, assertEqualsStringType, SourceLocation());
+        addSymbol("assert_not_null", SymbolKind::Function, assertNotNullType, SourceLocation());
+        addSymbol("assert_null", SymbolKind::Function, assertNullType, SourceLocation());
+        addSymbol("assert_memory_safe", SymbolKind::Function, assertMemorySafeType, SourceLocation());
+        addSymbol("print_test_summary", SymbolKind::Function, printTestSummaryType, SourceLocation());
+
         // Add built-in types (these would be handled by the type system)
         // This is mainly for demonstration - in a full implementation,
         // built-in types would be handled differently
@@ -309,7 +388,12 @@ namespace tsc {
     bool SymbolTable::isBuiltinSymbol(const String &name) const {
         // List of built-in symbols that should not be flagged as unused
         static const std::set<String> builtinSymbols = {
-            "console", "_print", "Infinity", "NaN", "unique_ptr", "shared_ptr", "weak_ptr", "std"
+            "console", "_print", "Infinity", "NaN", "unique_ptr", "shared_ptr", "weak_ptr", "std",
+            "memory_audit_init", "memory_audit_print_summary", "memory_audit_get_info",
+            "memory_audit_record_stack_push", "memory_audit_record_stack_pop",
+            "assert_true", "assert_false", "assert_equals_int", "assert_equals_double",
+            "assert_equals_string", "assert_not_null", "assert_null", "assert_memory_safe",
+            "print_test_summary"
         };
         return builtinSymbols.find(name) != builtinSymbols.end();
     }

@@ -36,6 +36,14 @@ namespace tsc {
             expr.getRight()->accept(*this);
         }
         
+        void visit(ArrayAssignmentExpression& expr) override {
+            // Array assignments don't directly clean up properties
+            // Visit children
+            expr.getArray()->accept(*this);
+            expr.getIndex()->accept(*this);
+            expr.getValue()->accept(*this);
+        }
+        
         void visit(ExpressionStatement& stmt) override {
             // Check for direct cleanup calls like: this.property.reset()
             if (auto callExpr = dynamic_cast<CallExpression*>(stmt.getExpression())) {
@@ -557,6 +565,39 @@ namespace tsc {
         // Assignment expression has the type of the right-hand side
         auto rightType = getExpressionType(*node.getRight());
         setExpressionType(node, rightType);
+    }
+
+    void SemanticAnalyzer::visit(ArrayAssignmentExpression &node) {
+        // Analyze array, index, and value expressions
+        node.getArray()->accept(static_cast<ASTVisitor &>(*this));
+        node.getIndex()->accept(static_cast<ASTVisitor &>(*this));
+        node.getValue()->accept(static_cast<ASTVisitor &>(*this));
+
+        // Check that the array is actually an array type
+        auto arrayType = getExpressionType(*node.getArray());
+        if (!isArrayType(arrayType)) {
+            reportError("Cannot assign to non-array expression", node.getLocation());
+            return;
+        }
+
+        // Check that the index is a number
+        auto indexType = getExpressionType(*node.getIndex());
+        if (!isNumberType(indexType)) {
+            reportError("Array index must be a number", node.getLocation());
+            return;
+        }
+
+        // Check that the value type is compatible with array element type
+        auto valueType = getExpressionType(*node.getValue());
+        auto elementType = getArrayElementType(arrayType);
+        
+        if (!isValidAssignment(*valueType, *elementType)) {
+            reportError("Value type is not compatible with array element type", node.getLocation());
+            return;
+        }
+
+        // Array assignment has the type of the assigned value
+        setExpressionType(node, valueType);
     }
 
     void SemanticAnalyzer::visit(ConditionalExpression &node) {
@@ -4244,6 +4285,26 @@ namespace tsc {
         }
 
         return typeSystem_->createObjectType(std::move(objectProperties));
+    }
+
+    // Helper method to check if a type is an array type
+    bool SemanticAnalyzer::isArrayType(shared_ptr<Type> type) const {
+        if (!type) return false;
+        return type->getKind() == TypeKind::Array;
+    }
+
+    // Helper method to check if a type is a number type
+    bool SemanticAnalyzer::isNumberType(shared_ptr<Type> type) const {
+        if (!type) return false;
+        return type->getKind() == TypeKind::Number;
+    }
+
+    // Helper method to get array element type
+    shared_ptr<Type> SemanticAnalyzer::getArrayElementType(shared_ptr<Type> arrayType) const {
+        if (!arrayType || arrayType->getKind() != TypeKind::Array) {
+            return nullptr;
+        }
+        return typeSystem_->getArrayElementType(arrayType);
     }
 
     // Factory function

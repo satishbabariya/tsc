@@ -103,6 +103,7 @@ public:
     void visit(BinaryExpression& node) override;
     void visit(UnaryExpression& node) override;
     void visit(AssignmentExpression& node) override;
+    void visit(ArrayAssignmentExpression& node) override;
     void visit(ConditionalExpression& node) override;
     void visit(CallExpression& node) override;
     void visit(ArrayLiteral& node) override;
@@ -165,6 +166,9 @@ private:
     shared_ptr<Type> findMemberType(shared_ptr<Type> type, const String& memberName);
     void collectNestedFunctionDeclarations(const Statement& stmt);
     bool isValidIndexType(shared_ptr<Type> type) const;
+    bool isArrayType(shared_ptr<Type> type) const;
+    bool isNumberType(shared_ptr<Type> type) const;
+    shared_ptr<Type> getArrayElementType(shared_ptr<Type> arrayType) const;
     shared_ptr<Type> createObjectTypeFromProperties(const std::vector<std::pair<String, shared_ptr<Type>>>& properties) const;
     void markCurrentFunctionAsCaptured();
     void markVariableAsCaptured(Symbol* symbol);

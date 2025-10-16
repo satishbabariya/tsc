@@ -193,6 +193,10 @@ namespace tsc {
         // Create LLVM context and module
         context_ = std::make_unique<llvm::LLVMContext>();
         module_ = std::make_unique<llvm::Module>("tsc_module", *context_);
+        
+        // Set PIE flag for position-independent executables
+        module_->setPICLevel(llvm::PICLevel::Level::SmallPIC);
+        
         builder_ = std::make_unique<llvm::IRBuilder<> >(*context_);
 
         // Create code generation context
@@ -401,6 +405,21 @@ namespace tsc {
             std::cout << "DEBUG: Identifier - Found _print, creating function" << std::endl;
             llvm::Function *printFunc = getOrCreatePrintFunction();
             setCurrentValue(printFunc);
+            return;
+        } else if (node.getName() == "assert_true") {
+            std::cout << "DEBUG: Identifier - Found assert_true, creating function" << std::endl;
+            llvm::Function *assertFunc = getOrCreateAssertTrueFunction();
+            setCurrentValue(assertFunc);
+            return;
+        } else if (node.getName() == "assert_false") {
+            std::cout << "DEBUG: Identifier - Found assert_false, creating function" << std::endl;
+            llvm::Function *assertFunc = getOrCreateAssertFalseFunction();
+            setCurrentValue(assertFunc);
+            return;
+        } else if (node.getName() == "assert_equals_double") {
+            std::cout << "DEBUG: Identifier - Found assert_equals_double, creating function" << std::endl;
+            llvm::Function *assertFunc = getOrCreateAssertEqualsDoubleFunction();
+            setCurrentValue(assertFunc);
             return;
         }
 
@@ -1082,6 +1101,101 @@ namespace tsc {
         }
     }
 
+    void LLVMCodeGen::visit(ArrayAssignmentExpression &node) {
+        std::cout << "DEBUG: ArrayAssignmentExpression visitor called" << std::endl;
+        
+        // Generate array, index, and value expressions
+        node.getArray()->accept(static_cast<ASTVisitor &>(*this));
+        llvm::Value *arrayPtr = getCurrentValue();
+        
+        node.getIndex()->accept(static_cast<ASTVisitor &>(*this));
+        llvm::Value *indexValue = getCurrentValue();
+        
+        node.getValue()->accept(static_cast<ASTVisitor &>(*this));
+        llvm::Value *value = getCurrentValue();
+        
+        if (!arrayPtr || !indexValue || !value) {
+            reportError("Failed to generate array, index, or value for array assignment", node.getLocation());
+            setCurrentValue(createNullValue(getAnyType()));
+            return;
+        }
+        
+        // Convert index to i32 if needed
+        if (indexValue->getType() != llvm::Type::getInt32Ty(*context_)) {
+            indexValue = builder_->CreateFPToSI(indexValue, llvm::Type::getInt32Ty(*context_), "index_i32");
+        }
+        
+        // Use the array pointer directly for GEP operations
+        // In LLVM 20, pointers are opaque, so we need to determine the type from context
+        // For now, assume it's a pointer to our array struct type
+        llvm::Type *arrayType = llvm::StructType::get(*context_, {
+            llvm::Type::getInt32Ty(*context_), // length field
+            llvm::ArrayType::get(getNumberType(), 3) // data field with 3 elements
+        });
+        
+        // Get array length for bounds checking using the pointer directly
+        llvm::Value *lengthPtr = builder_->CreateGEP(
+            arrayType, arrayPtr,
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), "length_ptr");
+        llvm::Value *length = builder_->CreateLoad(llvm::Type::getInt32Ty(*context_), lengthPtr, "length");
+        
+        // Create basic blocks for bounds checking
+        llvm::Function *currentFunc = codeGenContext_->getCurrentFunction();
+        llvm::BasicBlock *boundsCheckBlock = llvm::BasicBlock::Create(*context_, "bounds_check", currentFunc);
+        llvm::BasicBlock *assignBlock = llvm::BasicBlock::Create(*context_, "assign", currentFunc);
+        llvm::BasicBlock *panicBlock = llvm::BasicBlock::Create(*context_, "panic", currentFunc);
+        llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*context_, "end", currentFunc);
+        
+        // Check bounds: index < length && index >= 0
+        llvm::Value *indexValid = builder_->CreateICmpULT(indexValue, length, "index_valid");
+        llvm::Value *indexNonNegative = builder_->CreateICmpSGE(indexValue, 
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), "index_non_negative");
+        llvm::Value *boundsOk = builder_->CreateAnd(indexValid, indexNonNegative, "bounds_ok");
+        
+        // Branch based on bounds check
+        builder_->CreateCondBr(boundsOk, assignBlock, panicBlock);
+        
+        // Assign block
+        builder_->SetInsertPoint(assignBlock);
+        
+        // Determine element type from the array type
+        llvm::Type *elementType = getNumberType(); // Default to number type
+
+        // Try to get the element type from the array type
+        if (auto *structType = llvm::dyn_cast<llvm::StructType>(arrayType)) {
+            // This is our array structure: { i32 length, [size x elementType] data }
+            if (structType->getNumElements() == 2) {
+                auto *dataArrayType = llvm::dyn_cast<llvm::ArrayType>(structType->getElementType(1));
+                if (dataArrayType) {
+                    elementType = dataArrayType->getElementType();
+                }
+            }
+        }
+        
+        // Create GEP to access array element using the same pattern as IndexExpression
+        std::vector<llvm::Value *> indices = {
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // Array base
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1), // Data field
+            indexValue // Element index
+        };
+
+        llvm::Value *elementPtr = builder_->CreateGEP(arrayType, arrayPtr, indices, "element_ptr");
+        
+        // Store the value
+        builder_->CreateStore(value, elementPtr);
+        builder_->CreateBr(endBlock);
+        
+        // Panic block
+        builder_->SetInsertPoint(panicBlock);
+        llvm::Function *panicFunc = getOrCreatePanicBoundsErrorFunction();
+        builder_->CreateCall(panicFunc, {indexValue, length});
+        builder_->CreateUnreachable();
+        
+        // End block
+        builder_->SetInsertPoint(endBlock);
+        setCurrentValue(value); // Array assignment returns the assigned value
+    }
+
     void LLVMCodeGen::visit(ConditionalExpression &node) {
         // Generate condition
         node.getCondition()->accept(static_cast<ASTVisitor &>(*this));
@@ -1185,6 +1299,15 @@ namespace tsc {
             if (identifier->getName() == "_print") {
                 std::cout << "DEBUG: CallExpression - Found _print, creating function" << std::endl;
                 function = getOrCreatePrintFunction();
+            } else if (identifier->getName() == "assert_true") {
+                std::cout << "DEBUG: CallExpression - Found assert_true, creating function" << std::endl;
+                function = getOrCreateAssertTrueFunction();
+            } else if (identifier->getName() == "assert_false") {
+                std::cout << "DEBUG: CallExpression - Found assert_false, creating function" << std::endl;
+                function = getOrCreateAssertFalseFunction();
+            } else if (identifier->getName() == "assert_equals_double") {
+                std::cout << "DEBUG: CallExpression - Found assert_equals_double, creating function" << std::endl;
+                function = getOrCreateAssertEqualsDoubleFunction();
             } else {
                 // First try to look up as an LLVM function (for regular function declarations)
                 function = module_->getFunction(identifier->getName());
@@ -2057,6 +2180,11 @@ namespace tsc {
                         // Normal argument processing for non-arrayPush calls
                         arg->accept(static_cast<ASTVisitor &>(*this));
                         llvm::Value *argValue = getCurrentValue();
+                        std::cout << "DEBUG: Generated argument value: " << (argValue ? "valid" : "null") << std::endl;
+                        if (argValue) {
+                            std::cout << "DEBUG: Argument value type: " << argValue->getType()->getTypeID() << std::endl;
+                            std::cout << "DEBUG: Argument value is null: " << (llvm::isa<llvm::ConstantPointerNull>(argValue) ? "YES" : "NO") << std::endl;
+                        }
                         if (!argValue) {
                             reportError("Failed to generate argument for method call", node.getLocation());
                             setCurrentValue(createNullValue(getAnyType()));
@@ -2159,7 +2287,9 @@ namespace tsc {
         }
 
         regular_argument_processing:
+        std::cout << "DEBUG: Processing " << node.getArguments().size() << " arguments for function call" << std::endl;
         for (size_t i = 0; i < node.getArguments().size(); ++i) {
+            std::cout << "DEBUG: Processing argument " << i << " of type " << typeid(*node.getArguments()[i].get()).name() << std::endl;
             // Special handling for arrayPush calls - pass storage location instead of loaded value
             if (function && function->getName().str().find("arrayPush") != std::string::npos) {
                 // For arrayPush calls, we need to pass the storage location of the argument
@@ -2202,12 +2332,44 @@ namespace tsc {
                 return;
             }
 
-            // Special handling for console.log - convert all arguments to the expected type
+            // Special handling for console.log - convert all arguments to strings
             if (function && function->getName().str() == "console_log") {
-                llvm::Type *expectedType = funcType->getParamType(0); // console_log takes one parameter
-                argValue = convertValueToType(argValue, expectedType);
-                std::cout << "DEBUG: CallExpression - Converted argument for console_log from " << 
-                        argValue->getType()->getTypeID() << " to " << expectedType->getTypeID() << std::endl;
+                std::cout << "DEBUG: CallExpression - Before conversion, argValue is: " << (argValue ? "valid" : "null") << std::endl;
+                if (argValue) {
+                    std::cout << "DEBUG: CallExpression - Before conversion, argValue type: " << argValue->getType()->getTypeID() << std::endl;
+                    std::cout << "DEBUG: CallExpression - Before conversion, argValue is null: " << (llvm::isa<llvm::ConstantPointerNull>(argValue) ? "YES" : "NO") << std::endl;
+                }
+                
+                // Convert argument to string based on its type
+                if (argValue->getType()->isDoubleTy()) {
+                    // Convert number to string
+                    // First declare the function if it doesn't exist
+                    llvm::Function *numberToStringFunc = module_->getFunction("number_to_string");
+                    if (!numberToStringFunc) {
+                        auto funcType = llvm::FunctionType::get(
+                            llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0), // Return type: char*
+                            {llvm::Type::getDoubleTy(*context_)}, // Parameter: double
+                            false
+                        );
+                        numberToStringFunc = llvm::Function::Create(
+                            funcType, llvm::Function::ExternalLinkage, "number_to_string", module_.get()
+                        );
+                    }
+                    argValue = builder_->CreateCall(numberToStringFunc, {argValue}, "num_to_str");
+                    std::cout << "DEBUG: CallExpression - Converted number to string" << std::endl;
+                } else if (argValue->getType()->isPointerTy()) {
+                    // Already a string or object, use as-is
+                    std::cout << "DEBUG: CallExpression - Using pointer as-is" << std::endl;
+                } else {
+                    // Fallback: convert to string using object_to_string
+                    argValue = builder_->CreateCall(module_->getFunction("object_to_string"), {argValue}, "obj_to_str");
+                    std::cout << "DEBUG: CallExpression - Converted to string using object_to_string" << std::endl;
+                }
+                
+                std::cout << "DEBUG: CallExpression - After conversion, argValue is: " << (argValue ? "valid" : "null") << std::endl;
+                if (argValue) {
+                    std::cout << "DEBUG: CallExpression - After conversion, argValue type: " << argValue->getType()->getTypeID() << std::endl;
+                }
             } else {
                 // Convert argument type to match expected parameter type if needed
                 // For method calls, the parameter index is offset by 1 due to the prepended object
@@ -2443,6 +2605,7 @@ namespace tsc {
 
 
     void LLVMCodeGen::visit(IndexExpression &node) {
+        std::cout << "DEBUG: IndexExpression visitor called" << std::endl;
         // Generate object and index values
         node.getObject()->accept(*this);
         llvm::Value *objectValue = getCurrentValue();
@@ -2478,12 +2641,15 @@ namespace tsc {
         // Try to get the array type from the alloca instruction
         if (auto *allocaInst = llvm::dyn_cast<llvm::AllocaInst>(objectValue)) {
             arrayType = allocaInst->getAllocatedType();
+            std::cout << "DEBUG: IndexExpression - Found alloca, arrayType: " << arrayType->getTypeID() << std::endl;
             if (auto *structType = llvm::dyn_cast<llvm::StructType>(arrayType)) {
+                std::cout << "DEBUG: IndexExpression - Struct type with " << structType->getNumElements() << " elements" << std::endl;
                 // This is our new array structure: { i32 length, [size x elementType] data }
                 if (structType->getNumElements() == 2) {
                     auto *dataArrayType = llvm::dyn_cast<llvm::ArrayType>(structType->getElementType(1));
                     if (dataArrayType) {
                         elementType = dataArrayType->getElementType();
+                        std::cout << "DEBUG: IndexExpression - Using struct GEP pattern" << std::endl;
 
                         // Create GEP to access array element in the data field (field 1)
                         std::vector<llvm::Value *> indices = {
@@ -2502,12 +2668,14 @@ namespace tsc {
                 elementType = arrType->getElementType();
             }
         } else {
+            std::cout << "DEBUG: IndexExpression - Using fallback case, objectValue type: " << objectValue->getType()->getTypeID() << std::endl;
             // objectValue might be a loaded pointer to an array
             // Implement better type tracking by looking up the semantic type
             auto objectType = getExpressionType(*node.getObject());
             if (objectType && objectType->getKind() == TypeKind::Array) {
                 auto arrayType = std::static_pointer_cast<ArrayType>(objectType);
                 elementType = convertTypeToLLVM(arrayType->getElementType());
+                std::cout << "DEBUG: IndexExpression - Found array type from expression type" << std::endl;
             } else {
                 // Fallback: try to infer from the symbol table
                 if (auto identifier = dynamic_cast<Identifier*>(node.getObject())) {
@@ -2515,17 +2683,34 @@ namespace tsc {
                     if (symbol && symbol->getType()->getKind() == TypeKind::Array) {
                         auto arrayType = std::static_pointer_cast<ArrayType>(symbol->getType());
                         elementType = convertTypeToLLVM(arrayType->getElementType());
+                        std::cout << "DEBUG: IndexExpression - Found array type from symbol table" << std::endl;
                     } else {
                         elementType = getNumberType(); // Default fallback
+                        std::cout << "DEBUG: IndexExpression - Using default number type" << std::endl;
                     }
                 } else {
                     elementType = getNumberType(); // Default fallback
+                    std::cout << "DEBUG: IndexExpression - Using default number type (no identifier)" << std::endl;
                 }
             }
 
             // For GEP, we need the array type, but we only have a pointer
-            // Create a direct GEP with proper type information
-            llvm::Value *elementPtr = builder_->CreateGEP(elementType, arrayPtr, indexValue, "indexed_element");
+            // Create a struct GEP with proper type information
+            std::cout << "DEBUG: IndexExpression - Creating fallback struct GEP with elementType: " << elementType->getTypeID() << std::endl;
+            
+            // Create the array struct type for GEP
+            llvm::Type *arrayStructType = llvm::StructType::get(*context_, {
+                llvm::Type::getInt32Ty(*context_), // length field
+                llvm::ArrayType::get(elementType, 3) // data field with 3 elements
+            });
+            
+            // Create GEP to access array element using struct pattern
+            std::vector<llvm::Value *> indices = {
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // Array base
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1), // Data field
+                indexValue // Element index
+            };
+            llvm::Value *elementPtr = builder_->CreateGEP(arrayStructType, arrayPtr, indices, "indexed_element");
             llvm::Value *elementValue = builder_->CreateLoad(elementType, elementPtr, "element_value");
             setCurrentValue(elementValue);
             return;
@@ -3917,6 +4102,9 @@ namespace tsc {
         llvm::BasicBlock *bodyBlock = llvm::BasicBlock::Create(*context_, "while.body", currentFunc);
         llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*context_, "while.end", currentFunc);
 
+        // Enter loop context for break/continue support
+        codeGenContext_->enterLoop(conditionBlock, endBlock);
+
         // Jump to condition block
         builder_->CreateBr(conditionBlock);
 
@@ -3951,6 +4139,9 @@ namespace tsc {
         if (!builder_->GetInsertBlock()->getTerminator()) {
             builder_->CreateBr(conditionBlock);
         }
+
+        // Exit loop context
+        codeGenContext_->exitLoop();
 
         // Continue with end block
         builder_->SetInsertPoint(endBlock);
@@ -4031,6 +4222,9 @@ namespace tsc {
         llvm::BasicBlock *incrementBlock = llvm::BasicBlock::Create(*context_, "for.inc", currentFunc);
         llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*context_, "for.end", currentFunc);
 
+        // Enter loop context for break/continue support
+        codeGenContext_->enterLoop(incrementBlock, endBlock);
+
         // Jump to condition block
         builder_->CreateBr(conditionBlock);
 
@@ -4045,16 +4239,41 @@ namespace tsc {
                 return;
             }
 
-            // Convert condition to boolean (simplified for now)
+            // Convert condition to boolean
             if (conditionValue->getType()->isDoubleTy()) {
                 // Compare double to 0.0
                 llvm::Value *zero = llvm::ConstantFP::get(llvm::Type::getDoubleTy(*context_), 0.0);
                 conditionValue = builder_->CreateFCmpONE(conditionValue, zero, "tobool");
             } else if (conditionValue->getType()->isIntegerTy(1)) {
-                // Already boolean
+                // Already boolean - no conversion needed
+            } else if (conditionValue->getType()->isIntegerTy(32)) {
+                // Compare integer to 0
+                llvm::Value *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0);
+                conditionValue = builder_->CreateICmpNE(conditionValue, zero, "tobool");
+            } else if (conditionValue->getType()->isPointerTy()) {
+                // For pointer types (like strings), check if string is not empty
+                // First check if pointer is not null (safety check)
+                llvm::Value *nullPtr = llvm::ConstantPointerNull::get(static_cast<llvm::PointerType*>(conditionValue->getType()));
+                llvm::Value *notNull = builder_->CreateICmpNE(conditionValue, nullPtr, "not_null");
+                
+                // For strings, we need to check if the first character is not null terminator
+                // Load the first character and compare it to '\0'
+                llvm::Value *firstChar = builder_->CreateLoad(llvm::Type::getInt8Ty(*context_), conditionValue, "first_char");
+                llvm::Value *nullChar = llvm::ConstantInt::get(llvm::Type::getInt8Ty(*context_), 0);
+                llvm::Value *notEmpty = builder_->CreateICmpNE(firstChar, nullChar, "not_empty");
+                
+                // String is truthy if it's not null AND not empty
+                conditionValue = builder_->CreateAnd(notNull, notEmpty, "string_tobool");
             } else {
-                // For other types, just use as-is (this is a simplification)
-                // TODO: Add proper type conversion
+                // For other integer types, convert to boolean by checking if not zero
+                if (conditionValue->getType()->isIntegerTy()) {
+                    llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
+                    conditionValue = builder_->CreateICmpNE(conditionValue, zero, "tobool");
+                } else {
+                    // If we can't convert, report an error
+                    reportError("Cannot convert condition to boolean", node.getCondition()->getLocation());
+                    return;
+                }
             }
 
             // Create conditional branch
@@ -4077,6 +4296,9 @@ namespace tsc {
             node.getIncrement()->accept(*this);
         }
         builder_->CreateBr(conditionBlock);
+
+        // Exit loop context
+        codeGenContext_->exitLoop();
 
         // Continue with end block
         builder_->SetInsertPoint(endBlock);
@@ -4188,6 +4410,10 @@ namespace tsc {
             return;
         }
 
+        // Generate unique prefix for this switch statement
+        size_t currentSwitchId = switchCounter_++;
+        String switchPrefix = "switch" + std::to_string(currentSwitchId);
+
         // Generate discriminant
         node.getDiscriminant()->accept(*this);
         llvm::Value *discriminantValue = getCurrentValue();
@@ -4215,8 +4441,8 @@ namespace tsc {
             return;
         }
 
-        // Create basic blocks
-        llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*context_, "switch.end", currentFunc);
+        // Create basic blocks with unique names
+        llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(*context_, (switchPrefix + ".end").c_str(), currentFunc);
         llvm::BasicBlock *defaultBlock = endBlock; // Default to end block if no default case
 
         // Enter switch context for break statement handling
@@ -4229,10 +4455,10 @@ namespace tsc {
             const auto &caseClause = node.getCases()[i];
 
             if (caseClause->isDefault()) {
-                defaultBlock = llvm::BasicBlock::Create(*context_, "switch.default", currentFunc);
+                defaultBlock = llvm::BasicBlock::Create(*context_, (switchPrefix + ".default").c_str(), currentFunc);
             } else {
                 llvm::BasicBlock *caseBlock = llvm::BasicBlock::Create(*context_,
-                                                                       "switch.case" + std::to_string(i), currentFunc);
+                                                                       (switchPrefix + ".case" + std::to_string(i)).c_str(), currentFunc);
 
                 // Handle different constant types
                 if (auto numLit = dynamic_cast<NumericLiteral *>(caseClause->getTest())) {
@@ -4274,10 +4500,11 @@ namespace tsc {
             if (caseClause->isDefault()) {
                 caseBlock = defaultBlock;
             } else {
-                // Find the corresponding case block
+                // Find the corresponding case block by matching the exact name
+                String expectedName = switchPrefix + ".case" + std::to_string(i);
                 auto it = std::find_if(caseBlocks.begin(), caseBlocks.end(),
-                                       [i](const auto &pair) {
-                                           return pair.second->getName().contains(std::to_string(i));
+                                       [&expectedName](const auto &pair) {
+                                           return pair.second->getName() == expectedName;
                                        });
                 if (it != caseBlocks.end()) {
                     caseBlock = it->second;
@@ -4289,49 +4516,9 @@ namespace tsc {
             builder_->SetInsertPoint(caseBlock);
             caseClause->accept(*this);
 
-            // If no terminator was added (no break/return), implement fallthrough
+            // If no terminator was added (no break/return), add break to end
             if (!builder_->GetInsertBlock()->getTerminator()) {
-                // Check if this case has a break statement
-                bool hasBreak = false;
-                for (const auto &stmt: caseClause->getStatements()) {
-                    if (dynamic_cast<BreakStatement *>(stmt.get())) {
-                        hasBreak = true;
-                        break;
-                    }
-                }
-
-                if (hasBreak) {
-                    // Break statement should jump to switch end
-                    builder_->CreateBr(endBlock);
-                } else {
-                    // No break, fall through to next case
-                    if (i + 1 < node.getCases().size()) {
-                        // Find the next case block
-                        const auto &nextCase = node.getCases()[i + 1];
-                        llvm::BasicBlock *nextCaseBlock;
-
-                        if (nextCase->isDefault()) {
-                            nextCaseBlock = defaultBlock;
-                        } else {
-                            // Find the corresponding case block for the next case
-                            auto it = std::find_if(caseBlocks.begin(), caseBlocks.end(),
-                                                   [i](const auto &pair) {
-                                                       return pair.second->getName().contains(std::to_string(i + 1));
-                                                   });
-                            if (it != caseBlocks.end()) {
-                                nextCaseBlock = it->second;
-                            } else {
-                                // Fallback to end block if next case block not found
-                                nextCaseBlock = endBlock;
-                            }
-                        }
-
-                        builder_->CreateBr(nextCaseBlock);
-                    } else {
-                        // Last case, fall through to end
-                        builder_->CreateBr(endBlock);
-                    }
-                }
+                builder_->CreateBr(endBlock);
             }
         }
 
@@ -4806,13 +4993,26 @@ namespace tsc {
 
             llvm::BasicBlock *entry = llvm::BasicBlock::Create(*context_, "entry", mainFunc);
             builder_->SetInsertPoint(entry);
+            
+            // Enter the main function context
+            codeGenContext_->enterFunction(mainFunc);
 
-
-            // Generate module-level statements within main function
-            std::cout << "DEBUG: Processing " << moduleStatements.size() << " module-level statements in main function"
-                    << std::endl;
+            // Separate variable declarations from other statements for proper ordering
+            std::vector<Statement *> variableDecls;
+            std::vector<Statement *> otherStatements;
+            
             for (const auto &stmt: moduleStatements) {
-                std::cout << "DEBUG: Processing module-level statement in main function" << std::endl;
+                if (dynamic_cast<const VariableDeclaration *>(stmt)) {
+                    variableDecls.push_back(stmt);
+                } else {
+                    otherStatements.push_back(stmt);
+                }
+            }
+            
+            // Process variable declarations first
+            std::cout << "DEBUG: Processing " << variableDecls.size() << " variable declarations first" << std::endl;
+            for (const auto &stmt: variableDecls) {
+                std::cout << "DEBUG: Processing variable declaration in main function" << std::endl;
 
                 // Check if current block already has a terminator
                 if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
@@ -4830,12 +5030,14 @@ namespace tsc {
                     break;
                 }
             }
-
-            // Process deferred global variable initializations AFTER module statements
+            
+            // Process deferred global variable initializations immediately after variable declarations
             std::cout << "DEBUG: Processing " << deferredGlobalInitializations_.size() <<
-                    " deferred global initializations" << std::endl;
+                    " deferred global initializations after variable declarations" << std::endl;
             for (const auto &[globalVar, initValue]: deferredGlobalInitializations_) {
                 std::cout << "DEBUG: Storing to global variable: " << globalVar->getName().str() << std::endl;
+                std::cout << "DEBUG: Init value type: " << initValue->getType()->getTypeID() << std::endl;
+                std::cout << "DEBUG: Init value is null: " << (llvm::isa<llvm::ConstantPointerNull>(initValue) ? "YES" : "NO") << std::endl;
 
                 // Check if this is a deferred external symbol
                 llvm::Value *actualValue = initValue;
@@ -4857,6 +5059,29 @@ namespace tsc {
             }
             deferredGlobalInitializations_.clear();
             deferredExternalSymbols_.clear();
+            
+            // Process other statements after variable declarations
+            std::cout << "DEBUG: Processing " << otherStatements.size() << " other statements after variable declarations"
+                    << std::endl;
+            for (const auto &stmt: otherStatements) {
+                std::cout << "DEBUG: Processing other statement in main function" << std::endl;
+
+                // Check if current block already has a terminator
+                if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
+                    std::cout << "DEBUG: Current block already has terminator, skipping remaining statements" <<
+                            std::endl;
+                    break;
+                }
+
+                stmt->accept(*this);
+                if (hasErrors()) break;
+
+                // Check if the statement generated a terminator
+                if (builder_->GetInsertBlock() && builder_->GetInsertBlock()->getTerminator()) {
+                    std::cout << "DEBUG: Statement generated terminator, stopping processing" << std::endl;
+                    break;
+                }
+            }
 
             // Process deferred constructor calls AFTER global variables are initialized
             std::cout << "DEBUG: Processing " << deferredConstructorCalls_.size() << " deferred constructor calls" <<
@@ -5181,6 +5406,11 @@ namespace tsc {
             // Return 0 from main
             builder_->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0));
         }
+        
+        // Exit the main function context
+        if (mainFunc) {
+            codeGenContext_->exitFunction();
+        }
 
         // Verify LLVM IR before dumping
         std::cout << "DEBUG: Starting LLVM IR verification..." << std::endl;
@@ -5281,6 +5511,35 @@ namespace tsc {
     llvm::Type *LLVMCodeGen::getAnyType() const {
         // Use i8* as a generic pointer type for 'any'
         return llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0);
+    }
+
+    llvm::Type *LLVMCodeGen::inferReturnTypeFromStatements(const FunctionDeclaration &funcDecl) {
+        std::cout << "DEBUG: inferReturnTypeFromStatements called for function: " << funcDecl.getName() << std::endl;
+        
+        // Analyze the function body to determine the actual return type
+        // This is a simplified implementation that looks at return statements
+        
+        // First, check if there are any return statements with values
+        if (!hasReturnStatementsWithValues(funcDecl)) {
+            std::cout << "DEBUG: No return statements with values, returning void" << std::endl;
+            return getVoidType();
+        }
+        
+        std::cout << "DEBUG: Found return statements with values, inferring return type" << std::endl;
+        
+        // For now, we'll use a simple heuristic:
+        // - If the function has a single return statement with a numeric literal, return double
+        // - If the function has a single return statement with a string literal, return string
+        // - If the function has a single return statement with a boolean literal, return boolean
+        // - Otherwise, default to double (most common case)
+        
+        // This is a simplified approach - in a full implementation, we'd analyze all return statements
+        // and ensure they're all compatible types
+        
+        // For now, assume numeric return type (double) as it's the most common case
+        // This can be enhanced later to do more sophisticated type analysis
+        std::cout << "DEBUG: Returning number type (double)" << std::endl;
+        return getNumberType();
     }
 
     llvm::Type *LLVMCodeGen::convertFunctionTypeToLLVM(const FunctionType &functionType) {
@@ -5709,6 +5968,7 @@ namespace tsc {
 
     llvm::Value *LLVMCodeGen::convertValueToType(llvm::Value *value, llvm::Type *targetType) {
         if (!value || !targetType) {
+            std::cout << "DEBUG: convertValueToType - null value or targetType" << std::endl;
             return value;
         }
 
@@ -5739,7 +5999,15 @@ namespace tsc {
             return builder_->CreateFPToSI(value, targetType);
         } else if (targetType->isPointerTy()) {
             // Convert to any type (pointer)
-            if (sourceType->isIntegerTy()) {
+            if (sourceType->isIntegerTy(1)) {
+                // Convert boolean to pointer - extend to i64 first, then cast to pointer
+                // For boolean false (0), use 1 instead to avoid LLVM optimizing to null
+                llvm::Value *extended = builder_->CreateZExt(value, llvm::Type::getInt64Ty(*context_));
+                // If the boolean is false (0), add 1 to make it non-zero
+                llvm::Value *one = llvm::ConstantInt::get(llvm::Type::getInt64Ty(*context_), 1);
+                llvm::Value *adjusted = builder_->CreateAdd(extended, one, "bool_adjust");
+                return builder_->CreateIntToPtr(adjusted, targetType);
+            } else if (sourceType->isIntegerTy()) {
                 return builder_->CreateIntToPtr(value, targetType);
             } else if (sourceType->isDoubleTy()) {
                 return builder_->CreateIntToPtr(
@@ -5822,6 +6090,97 @@ namespace tsc {
         // No function body needed - the implementation is in runtime.c
 
         return printFunc;
+    }
+
+    llvm::Function *LLVMCodeGen::getOrCreateAssertTrueFunction() {
+        // Check if assert_true function already exists
+        llvm::Function *existingFunc = module_->getFunction("assert_true");
+        if (existingFunc) {
+            return existingFunc;
+        }
+
+        // Create assert_true function: void assert_true(bool condition, string message)
+        std::vector<llvm::Type *> paramTypes;
+        paramTypes.push_back(getBooleanType()); // bool condition
+        paramTypes.push_back(getStringType());  // string message
+
+        llvm::FunctionType *funcType = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(*context_), // Return type: void
+            paramTypes, // Parameter types
+            false // Not variadic
+        );
+
+        // Create the function as external (declaration only)
+        // The actual implementation is in runtime.c
+        llvm::Function *assertFunc = llvm::Function::Create(
+            funcType,
+            llvm::Function::ExternalLinkage,
+            "assert_true",
+            *module_
+        );
+
+        return assertFunc;
+    }
+
+    llvm::Function *LLVMCodeGen::getOrCreateAssertFalseFunction() {
+        // Check if assert_false function already exists
+        llvm::Function *existingFunc = module_->getFunction("assert_false");
+        if (existingFunc) {
+            return existingFunc;
+        }
+
+        // Create assert_false function: void assert_false(bool condition, string message)
+        std::vector<llvm::Type *> paramTypes;
+        paramTypes.push_back(getBooleanType()); // bool condition
+        paramTypes.push_back(getStringType());  // string message
+
+        llvm::FunctionType *funcType = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(*context_), // Return type: void
+            paramTypes, // Parameter types
+            false // Not variadic
+        );
+
+        // Create the function as external (declaration only)
+        // The actual implementation is in runtime.c
+        llvm::Function *assertFunc = llvm::Function::Create(
+            funcType,
+            llvm::Function::ExternalLinkage,
+            "assert_false",
+            *module_
+        );
+
+        return assertFunc;
+    }
+
+    llvm::Function *LLVMCodeGen::getOrCreateAssertEqualsDoubleFunction() {
+        // Check if assert_equals_double function already exists
+        llvm::Function *existingFunc = module_->getFunction("assert_equals_double");
+        if (existingFunc) {
+            return existingFunc;
+        }
+
+        // Create assert_equals_double function: void assert_equals_double(double expected, double actual, string message)
+        std::vector<llvm::Type *> paramTypes;
+        paramTypes.push_back(getNumberType()); // double expected
+        paramTypes.push_back(getNumberType()); // double actual
+        paramTypes.push_back(getStringType()); // string message
+
+        llvm::FunctionType *funcType = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(*context_), // Return type: void
+            paramTypes, // Parameter types
+            false // Not variadic
+        );
+
+        // Create the function as external (declaration only)
+        // The actual implementation is in runtime.c
+        llvm::Function *assertFunc = llvm::Function::Create(
+            funcType,
+            llvm::Function::ExternalLinkage,
+            "assert_equals_double",
+            *module_
+        );
+
+        return assertFunc;
     }
 
     // Binary operations implementation
@@ -6091,7 +6450,8 @@ namespace tsc {
                 // Check if any return statements have values
                 if (hasReturnStatementsWithValues(funcDecl)) {
                     // Function has return statements with values, so it returns a value
-                    returnType = getAnyType();
+                    // Try to infer the actual return type from the return statements
+                    returnType = inferReturnTypeFromStatements(funcDecl);
                 } else {
                     // Function has return statements but no values, so it's void
                     returnType = getVoidType();
@@ -6392,6 +6752,12 @@ namespace tsc {
                 if (!found_) node.getRight()->accept(static_cast<ASTVisitor &>(*this));
             }
 
+            void visit(ArrayAssignmentExpression &node) override {
+                node.getArray()->accept(static_cast<ASTVisitor &>(*this));
+                if (!found_) node.getIndex()->accept(static_cast<ASTVisitor &>(*this));
+                if (!found_) node.getValue()->accept(static_cast<ASTVisitor &>(*this));
+            }
+
             void visit(ConditionalExpression &node) override {
                 node.getCondition()->accept(static_cast<ASTVisitor &>(*this));
                 if (!found_) node.getTrueExpression()->accept(static_cast<ASTVisitor &>(*this));
@@ -6660,6 +7026,12 @@ namespace tsc {
                 if (!found_) node.getRight()->accept(static_cast<ASTVisitor &>(*this));
             }
 
+            void visit(ArrayAssignmentExpression &node) override {
+                node.getArray()->accept(static_cast<ASTVisitor &>(*this));
+                if (!found_) node.getIndex()->accept(static_cast<ASTVisitor &>(*this));
+                if (!found_) node.getValue()->accept(static_cast<ASTVisitor &>(*this));
+            }
+
             void visit(CallExpression &node) override {
                 node.getCallee()->accept(*this);
                 if (!found_) {
@@ -6921,13 +7293,27 @@ namespace tsc {
                 std::cout << "DEBUG: Found global variable " << name << " with linkage: " << globalVar->getLinkage() <<
                         std::endl;
                 if (globalVar->hasInitializer()) {
-                    return globalVar->getInitializer();
+                    // Check if the initializer is a constant (not null)
+                    llvm::Constant *init = globalVar->getInitializer();
+                    if (!llvm::isa<llvm::ConstantPointerNull>(init)) {
+                        // Check if this is a zero initializer (like 0.0 for double)
+                        if (auto *fpInit = llvm::dyn_cast<llvm::ConstantFP>(init)) {
+                            if (fpInit->isZero()) {
+                                // This is a zero initializer, load the current value instead
+                                std::cout << "DEBUG: Global variable " << name <<
+                                        " has zero initializer, loading current value" << std::endl;
+                                return builder_->CreateLoad(globalVar->getValueType(), globalVar, name + "_val");
+                            }
+                        }
+                        // This is a real constant initializer, return it
+                        return init;
+                    }
                 }
-                // For global variables without initializers (like those initialized with malloc),
-                // return the global variable pointer itself instead of trying to load from it
+                // For global variables without initializers or with null initializers,
+                // load the current value from the global variable
                 std::cout << "DEBUG: Global variable " << name <<
-                        " has no initializer, returning global variable pointer" << std::endl;
-                return globalVar;
+                        " has no constant initializer, loading current value" << std::endl;
+                return builder_->CreateLoad(globalVar->getValueType(), globalVar, name + "_val");
                 // Check if this is an external symbol (like Infinity, NaN)
                 // Check by name since linkage might not be set correctly
                 if (name == "Infinity" || name == "NaN") {
@@ -7021,6 +7407,17 @@ namespace tsc {
         llvm::FunctionType *concatType = llvm::FunctionType::get(
             getStringType(), {getStringType(), getStringType()}, false);
         return llvm::Function::Create(concatType, llvm::Function::ExternalLinkage, "string_concat", module_.get());
+    }
+
+    llvm::Function *LLVMCodeGen::getOrCreatePanicBoundsErrorFunction() {
+        if (auto existing = module_->getFunction("panic_bounds_error")) {
+            return existing;
+        }
+
+        // void panic_bounds_error(i32 index, i32 length)
+        llvm::FunctionType *panicType = llvm::FunctionType::get(
+            getVoidType(), {llvm::Type::getInt32Ty(*context_), llvm::Type::getInt32Ty(*context_)}, false);
+        return llvm::Function::Create(panicType, llvm::Function::ExternalLinkage, "panic_bounds_error", module_.get());
     }
 
     llvm::Function *LLVMCodeGen::getOrCreateThrowFunction() {
@@ -8767,6 +9164,219 @@ namespace tsc {
                 std::cout << "DEBUG: Created console_log function" << std::endl;
             } else {
                 std::cout << "DEBUG: Reusing existing console_log function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "init") {
+            // memory_audit_init() -> void
+            auto func = module_->getFunction("memory_audit_init");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "memory_audit_init", module_.get()
+                );
+                std::cout << "DEBUG: Created memory_audit_init function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "print_summary") {
+            // memory_audit_print_summary() -> void
+            auto func = module_->getFunction("memory_audit_print_summary");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "memory_audit_print_summary", module_.get()
+                );
+                std::cout << "DEBUG: Created memory_audit_print_summary function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "get_info") {
+            // memory_audit_get_info() -> MemoryAuditInfo*
+            auto func = module_->getFunction("memory_audit_get_info");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    llvm::PointerType::get(llvm::Type::getInt8Ty(*context_), 0), // Return type: void*
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "memory_audit_get_info", module_.get()
+                );
+                std::cout << "DEBUG: Created memory_audit_get_info function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "record_stack_push") {
+            // memory_audit_record_stack_push() -> void
+            auto func = module_->getFunction("memory_audit_record_stack_push");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "memory_audit_record_stack_push", module_.get()
+                );
+                std::cout << "DEBUG: Created memory_audit_record_stack_push function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "record_stack_pop") {
+            // memory_audit_record_stack_pop() -> void
+            auto func = module_->getFunction("memory_audit_record_stack_pop");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "memory_audit_record_stack_pop", module_.get()
+                );
+                std::cout << "DEBUG: Created memory_audit_record_stack_pop function" << std::endl;
+            }
+            return func;
+        }
+
+        // Check for assertion functions
+        if (methodName == "true") {
+            // assert_true(condition, message) -> void
+            auto func = module_->getFunction("assert_true");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {llvm::Type::getInt1Ty(*context_), getStringType()}, // Parameters: bool, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_true", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_true function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "false") {
+            // assert_false(condition, message) -> void
+            auto func = module_->getFunction("assert_false");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {llvm::Type::getInt1Ty(*context_), getStringType()}, // Parameters: bool, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_false", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_false function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "equals_int") {
+            // assert_equals_int(expected, actual, message) -> void
+            auto func = module_->getFunction("assert_equals_int");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {llvm::Type::getInt32Ty(*context_), llvm::Type::getInt32Ty(*context_), getStringType()}, // Parameters: int, int, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_equals_int", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_equals_int function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "equals_double") {
+            // assert_equals_double(expected, actual, message) -> void
+            auto func = module_->getFunction("assert_equals_double");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {llvm::Type::getDoubleTy(*context_), llvm::Type::getDoubleTy(*context_), getStringType()}, // Parameters: double, double, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_equals_double", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_equals_double function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "equals_string") {
+            // assert_equals_string(expected, actual, message) -> void
+            auto func = module_->getFunction("assert_equals_string");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {getStringType(), getStringType(), getStringType()}, // Parameters: string, string, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_equals_string", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_equals_string function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "not_null") {
+            // assert_not_null(ptr, message) -> void
+            auto func = module_->getFunction("assert_not_null");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {getAnyType(), getStringType()}, // Parameters: any, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_not_null", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_not_null function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "null") {
+            // assert_null(ptr, message) -> void
+            auto func = module_->getFunction("assert_null");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {getAnyType(), getStringType()}, // Parameters: any, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_null", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_null function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "memory_safe") {
+            // assert_memory_safe(ptr, size, message) -> void
+            auto func = module_->getFunction("assert_memory_safe");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {getAnyType(), llvm::Type::getInt64Ty(*context_), getStringType()}, // Parameters: any, size_t, string
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "assert_memory_safe", module_.get()
+                );
+                std::cout << "DEBUG: Created assert_memory_safe function" << std::endl;
+            }
+            return func;
+        } else if (methodName == "print_test_summary") {
+            // print_test_summary() -> void
+            auto func = module_->getFunction("print_test_summary");
+            if (!func) {
+                auto funcType = llvm::FunctionType::get(
+                    getVoidType(), // Return type: void
+                    {}, // No parameters
+                    false
+                );
+                func = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, "print_test_summary", module_.get()
+                );
+                std::cout << "DEBUG: Created print_test_summary function" << std::endl;
             }
             return func;
         }

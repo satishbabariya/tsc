@@ -25,11 +25,17 @@ int __has_exception(void);
 int64_t __get_exception(void);
 void __clear_exception(void);
 
+// Array bounds checking
+void panic_bounds_error(int32_t index, int32_t length);
+
 // Internal print function
 void _print(void* first_arg, ...);
 
 // Console operations
 void console_log(void* arg);
+
+// Memory audit and testing functions
+#include "memory_audit.h"
 
 // Memory operations are handled by ARC runtime functions
 // See arc/arc_runtime.h for __tsc_alloc, __tsc_retain, __tsc_release, etc.

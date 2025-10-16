@@ -31,6 +31,7 @@ add_library(tsc_lib STATIC
 
         # AST implementation
         AST.cpp
+        ASTNodeType.cpp
         Token.cpp
 
         # Main compiler driver

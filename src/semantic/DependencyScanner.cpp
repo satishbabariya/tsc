@@ -524,6 +524,9 @@ namespace tsc {
             void visit(AssignmentExpression &node) override {
             }
 
+            void visit(ArrayAssignmentExpression &node) override {
+            }
+
             void visit(CallExpression &node) override {
             }
 
@@ -771,6 +774,9 @@ namespace tsc {
             }
 
             void visit(AssignmentExpression &node) override {
+            }
+
+            void visit(ArrayAssignmentExpression &node) override {
             }
 
             void visit(CallExpression &node) override {
