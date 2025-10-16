@@ -1592,17 +1592,9 @@ namespace tsc {
                     // Find the method in the class
                     for (const auto& method : classDecl->getMethods()) {
                         if (method->getName() == methodName) {
-                            // Look up the already generated method function instead of regenerating it
-                            function = module_->getFunction(methodName);
-                            if (!function) {
-                                // If not found, try with the class name prefix
-                                String className = classDecl->getName();
-                                if (methodName == "constructor") {
-                                    function = module_->getFunction(className + "_constructor");
-                                } else {
-                                    function = module_->getFunction(methodName);
-                                }
-                            }
+                            // Generate the method function
+                            method->accept(*this);
+                            function = llvm::cast<llvm::Function>(getCurrentValue());
                             break;
                         }
                     }
