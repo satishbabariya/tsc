@@ -1292,6 +1292,17 @@ namespace tsc {
         // Generate the callee (function to call)
         node.getCallee()->accept(*this);
         llvm::Value *calleeValue = getCurrentValue();
+        
+        // Debug: Check what type of callee we have
+        if (auto propertyAccess = dynamic_cast<PropertyAccess *>(node.getCallee())) {
+            std::cout << "DEBUG: CallExpression - Callee is PropertyAccess, property: " << propertyAccess->getProperty() << std::endl;
+            std::cout << "DEBUG: CallExpression - calleeValue type: " << (calleeValue ? calleeValue->getType()->getTypeID() : -1) << std::endl;
+            std::cout << "DEBUG: CallExpression - calleeValue is Function: " << (calleeValue && llvm::isa<llvm::Function>(calleeValue) ? "YES" : "NO") << std::endl;
+        } else if (auto identifier = dynamic_cast<Identifier *>(node.getCallee())) {
+            std::cout << "DEBUG: CallExpression - Callee is Identifier: " << identifier->getName() << std::endl;
+        } else {
+            std::cout << "DEBUG: CallExpression - Callee is unknown type: " << typeid(*node.getCallee()).name() << std::endl;
+        }
 
         // Comprehensive function pointer and method call handling
         llvm::Function *function = nullptr;
@@ -1660,6 +1671,43 @@ namespace tsc {
                 // Generate the object being called on
                 propertyAccess->getObject()->accept(static_cast<ASTVisitor &>(*this));
                 llvm::Value *objectInstance = getCurrentValue();
+                
+                if (!objectInstance) {
+                    reportError("Failed to generate object instance for method call", node.getLocation());
+                    setCurrentValue(createNullValue(getAnyType()));
+                    return;
+                }
+                
+                // Prepare arguments for the method call
+                std::vector<llvm::Value *> methodArgs;
+                
+                // Add 'this' pointer as first argument (object instance)
+                methodArgs.push_back(objectInstance);
+                
+                // Add method arguments
+                for (const auto &arg: node.getArguments()) {
+                    arg->accept(static_cast<ASTVisitor &>(*this));
+                    llvm::Value *argValue = getCurrentValue();
+                    if (!argValue) {
+                        reportError("Failed to generate argument for method call", node.getLocation());
+                        setCurrentValue(createNullValue(getAnyType()));
+                        return;
+                    }
+                    methodArgs.push_back(argValue);
+                }
+                
+                // Generate the function call
+                llvm::Value *methodCallResult;
+                if (function->getReturnType()->isVoidTy()) {
+                    methodCallResult = builder_->CreateCall(function, methodArgs);
+                    std::cout << "DEBUG: Created void method call to " << function->getName().str() << std::endl;
+                } else {
+                    methodCallResult = builder_->CreateCall(function, methodArgs, "call_result");
+                    std::cout << "DEBUG: Created non-void method call to " << function->getName().str() << std::endl;
+                }
+                
+                setCurrentValue(methodCallResult);
+                return;
 
                 // Special handling for arrayPush calls - we need to pass the array structure pointer,
                 // not the data pointer that PropertyAccess returns for the 'items' field
@@ -1802,10 +1850,8 @@ namespace tsc {
                             return;
                         }
                         
-                        // For method calls, prepend the object instance as the first argument
-                        if (isMethodCall) {
-                            args.insert(args.begin(), objectInstance);
-                        }
+                        // Add the argument to the args vector
+                        args.push_back(argValue);
 
                         // Special handling for _print calls - convert double arguments to strings
                         if (function && function->getName().str() == "_print" && argValue->getType() ==
