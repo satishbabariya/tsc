@@ -98,6 +98,20 @@ generated_ir.ll
 history.json
 read_result.c
 
+# Test output directories
+tests/*/output/
+tests/*/*/output/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Test result files
+*_results.json
+*_analysis.json
+
 # Documentation reports (moved to docs/reports/)
 *_REPORT.md
 *_SUMMARY.md
