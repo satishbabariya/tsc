@@ -3416,9 +3416,22 @@ namespace tsc {
         const auto &parameters = functionType.getParameters();
         const auto &arguments = call.getArguments();
 
+        // Check if the function is variadic (has a rest parameter)
+        bool isVariadic = false;
+        if (!parameters.empty() && parameters.back().rest) {
+            isVariadic = true;
+        }
+
         // Check if we have the right number of arguments
-        if (arguments.size() != parameters.size()) {
+        if (!isVariadic && arguments.size() != parameters.size()) {
             reportError("Expected " + std::to_string(parameters.size()) + " arguments, but got " +
+                        std::to_string(arguments.size()), call.getLocation());
+            return false;
+        }
+
+        // For variadic functions, we need at least the minimum number of parameters (excluding the rest parameter)
+        if (isVariadic && arguments.size() < parameters.size() - 1) {
+            reportError("Expected at least " + std::to_string(parameters.size() - 1) + " arguments, but got " +
                         std::to_string(arguments.size()), call.getLocation());
             return false;
         }
@@ -3426,7 +3439,15 @@ namespace tsc {
         // Check each argument type against its corresponding parameter type
         for (size_t i = 0; i < arguments.size(); ++i) {
             auto argType = getExpressionType(*arguments[i]);
-            auto paramType = parameters[i].type;
+            shared_ptr<Type> paramType;
+            
+            if (isVariadic && i >= parameters.size() - 1) {
+                // For variadic functions, use the rest parameter type for extra arguments
+                paramType = parameters.back().type;
+            } else {
+                // Use the regular parameter type
+                paramType = parameters[i].type;
+            }
 
             std::cout << "DEBUG: Checking argument " << i << ": " << argType->toString() << " vs parameter: " << paramType->toString() << std::endl;
             std::cout << "DEBUG: Argument type kind: " << static_cast<int>(argType->getKind()) << ", Parameter type kind: " << static_cast<int>(paramType->getKind()) << std::endl;
