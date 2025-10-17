@@ -1951,7 +1951,34 @@ namespace tsc {
     }
 
     Symbol *SemanticAnalyzer::resolveSymbol(const String &name, const SourceLocation &location) {
-        return symbolTable_->lookupSymbol(name);
+        // First try the regular symbol table
+        Symbol *symbol = symbolTable_->lookupSymbol(name);
+        if (symbol) {
+            return symbol;
+        }
+        
+        // If not found, try the module symbol table for imported symbols
+        if (moduleSymbolManager_) {
+            String currentFile = currentModulePath_.empty() ? "current_file.ts" : currentModulePath_;
+            ModuleSymbolTable *moduleTable = moduleSymbolManager_->getModuleSymbolTable(currentFile);
+            if (moduleTable) {
+                symbol = moduleTable->resolveSymbol(name);
+                if (symbol) {
+                    std::cout << "DEBUG: Resolved imported symbol: " << name << std::endl;
+                    
+                    // Also add the symbol to the main symbol table for code generation
+                    // This ensures the code generator can find the symbol
+                    if (symbol->getType()) {
+                        symbolTable_->addSymbol(name, symbol->getKind(), symbol->getType(), symbol->getLocation());
+                        std::cout << "DEBUG: Added imported symbol to main symbol table: " << name << std::endl;
+                    }
+                    
+                    return symbol;
+                }
+            }
+        }
+        
+        return nullptr;
     }
 
     void SemanticAnalyzer::checkAssignment(const Expression &left, const Expression &right,

@@ -1,5 +1,6 @@
 #include "tsc/semantic/ModuleSymbolTable.h"
 #include "tsc/semantic/SymbolTable.h"
+#include "tsc/semantic/TypeSystem.h"
 #include <iostream>
 #include <filesystem>
 #include <algorithm>
@@ -50,7 +51,26 @@ namespace tsc {
     Symbol *ModuleSymbolTable::lookupImportedSymbol(const String &name) const {
         for (const auto &imported: importedSymbols_) {
             if (imported.localName == name) {
-                return symbolTable_->lookupSymbol(name);
+                // For now, create a placeholder symbol for imported symbols
+                // This is a temporary solution until we implement proper cross-module symbol linking
+                Symbol* existingSymbol = symbolTable_->lookupSymbol(name);
+                if (existingSymbol) {
+                    return existingSymbol;
+                }
+                
+                // Create a placeholder symbol for the imported symbol
+                // TODO: This should be replaced with proper cross-module symbol resolution
+                auto anyType = make_shared<PrimitiveType>(TypeKind::Any);
+                bool added = symbolTable_->addSymbol(name, SymbolKind::Variable, anyType, imported.location);
+                if (added) {
+                    Symbol* placeholderSymbol = symbolTable_->lookupSymbol(name);
+                    if (placeholderSymbol) {
+                        std::cout << "DEBUG: Created placeholder symbol for imported: " << name << std::endl;
+                        return placeholderSymbol;
+                    }
+                }
+                
+                return nullptr;
             }
         }
         return nullptr;
