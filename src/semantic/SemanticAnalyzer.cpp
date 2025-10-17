@@ -464,15 +464,23 @@ namespace tsc {
                 std::endl;
 
         // Analyze arguments first
+        std::cout << "DEBUG: NewExpression - analyzing " << node.getArguments().size() << " arguments" << std::endl;
         for (const auto &arg: node.getArguments()) {
+            std::cout << "DEBUG: NewExpression - analyzing argument" << std::endl;
             arg->accept(static_cast<ASTVisitor &>(*this));
+            std::cout << "DEBUG: NewExpression - argument analyzed" << std::endl;
         }
 
         // Handle constructor expression
         if (auto identifier = dynamic_cast<Identifier *>(node.getConstructor())) {
             std::cout << "DEBUG: Constructor identifier: " << identifier->getName() << std::endl;
             // Try to find the class type in the symbol table
+            std::cout << "DEBUG: NewExpression - resolving symbol: " << identifier->getName() << std::endl;
             Symbol *classSymbol = resolveSymbol(identifier->getName(), node.getLocation());
+            std::cout << "DEBUG: NewExpression - symbol resolved: " << (classSymbol ? "found" : "not found") << std::endl;
+            if (classSymbol) {
+                std::cout << "DEBUG: NewExpression - symbol kind: " << static_cast<int>(classSymbol->getKind()) << std::endl;
+            }
             if (classSymbol && classSymbol->getKind() == SymbolKind::Class) {
                 auto classType = classSymbol->getType();
                 std::cout << "DEBUG: Class type: " << classType->toString() << ", kind: " << static_cast<int>(classType
@@ -506,10 +514,17 @@ namespace tsc {
                         }
 
                         // Validate generic instantiation with constraint checking
-                        if (!constraintChecker_->validateGenericInstantiation(
-                            classType, resolvedTypeArgs, node.getLocation())) {
-                            setExpressionType(node, typeSystem_->getErrorType());
-                            return;
+                        std::cout << "DEBUG: NewExpression - validating generic instantiation" << std::endl;
+                        if (constraintChecker_) {
+                            if (!constraintChecker_->validateGenericInstantiation(
+                                classType, resolvedTypeArgs, node.getLocation())) {
+                                std::cout << "DEBUG: NewExpression - constraint validation failed" << std::endl;
+                                setExpressionType(node, typeSystem_->getErrorType());
+                                return;
+                            }
+                            std::cout << "DEBUG: NewExpression - constraint validation passed" << std::endl;
+                        } else {
+                            std::cout << "DEBUG: NewExpression - constraint checker is null, skipping validation" << std::endl;
                         }
 
                         // Create a generic type instance (e.g., Container<number>)
@@ -2502,11 +2517,18 @@ namespace tsc {
         }
 
         // Analyze properties
+        std::cout << "DEBUG: ClassDeclaration - processing " << node.getProperties().size() << " properties" << std::endl;
         for (const auto &property: node.getProperties()) {
             std::cout << "DEBUG: Processing property: " << property->getName() << std::endl;
             std::cout << "DEBUG: Current scope when processing property: " << symbolTable_->getCurrentScope() <<
                     std::endl;
-            property->accept(*this);
+            try {
+                property->accept(*this);
+                std::cout << "DEBUG: Property processed successfully" << std::endl;
+            } catch (const std::exception& e) {
+                std::cout << "DEBUG: Exception processing property: " << e.what() << std::endl;
+                continue;
+            }
 
             // Add property to class scope
             auto propType = getDeclarationType(*property);
@@ -2528,7 +2550,13 @@ namespace tsc {
         std::cout << "DEBUG: ClassDeclaration processing " << node.getMethods().size() << " methods" << std::endl;
         for (const auto &method: node.getMethods()) {
             std::cout << "DEBUG: Processing method: " << method->getName() << std::endl;
-            method->accept(*this);
+            try {
+                method->accept(*this);
+                std::cout << "DEBUG: Method processed successfully" << std::endl;
+            } catch (const std::exception& e) {
+                std::cout << "DEBUG: Exception processing method: " << e.what() << std::endl;
+                continue;
+            }
 
             // Add method to class scope
             auto methodType = getDeclarationType(*method);
@@ -3028,7 +3056,17 @@ namespace tsc {
     }
 
     shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type) {
+        return resolveType(type, 0);
+    }
+
+    shared_ptr<Type> SemanticAnalyzer::resolveType(shared_ptr<Type> type, int depth) {
         if (!type) {
+            return type;
+        }
+
+        // Prevent infinite recursion
+        if (depth > 10) {
+            std::cout << "DEBUG: resolveType - recursion depth exceeded, returning type as-is" << std::endl;
             return type;
         }
 
@@ -3036,16 +3074,17 @@ namespace tsc {
             // Handle GenericType that might have unresolved components
             if (type->getKind() == TypeKind::Generic) {
                 auto genericType = std::static_pointer_cast<GenericType>(type);
+                std::cout << "DEBUG: resolveType - resolving GenericType: " << genericType->toString() << " at depth " << depth << std::endl;
 
                 // Resolve base type
-                auto resolvedBaseType = resolveType(genericType->getBaseType());
+                auto resolvedBaseType = resolveType(genericType->getBaseType(), depth + 1);
 
                 // Resolve type arguments
                 std::vector<shared_ptr<Type> > resolvedTypeArgs;
                 bool needsReconstruction = false;
 
                 for (const auto &typeArg: genericType->getTypeArguments()) {
-                    auto resolvedTypeArg = resolveType(typeArg);
+                    auto resolvedTypeArg = resolveType(typeArg, depth + 1);
                     resolvedTypeArgs.push_back(resolvedTypeArg);
                     if (resolvedTypeArg != typeArg) {
                         needsReconstruction = true;
@@ -3054,6 +3093,7 @@ namespace tsc {
 
                 // If base type or any type argument changed, create new GenericType
                 if (resolvedBaseType != genericType->getBaseType() || needsReconstruction) {
+                    std::cout << "DEBUG: resolveType - creating new GenericType at depth " << depth << std::endl;
                     return typeSystem_->createGenericType(resolvedBaseType, std::move(resolvedTypeArgs));
                 }
 

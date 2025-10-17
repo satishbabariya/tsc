@@ -5844,13 +5844,27 @@ namespace tsc {
     }
 
     llvm::StructType *LLVMCodeGen::createMonomorphizedStruct(const GenericType &genericType) {
+        std::cout << "DEBUG: createMonomorphizedStruct called for: " << genericType.toString() << std::endl;
+        
         auto baseType = genericType.getBaseType();
+        if (!baseType) {
+            std::cout << "DEBUG: createMonomorphizedStruct - baseType is null" << std::endl;
+            return nullptr;
+        }
+        
         if (baseType->getKind() != TypeKind::Class) {
+            std::cout << "DEBUG: createMonomorphizedStruct - baseType is not Class, kind: " << static_cast<int>(baseType->getKind()) << std::endl;
             return nullptr;
         }
 
         auto classType = std::static_pointer_cast<ClassType>(baseType);
+        if (!classType) {
+            std::cout << "DEBUG: createMonomorphizedStruct - failed to cast to ClassType" << std::endl;
+            return nullptr;
+        }
+        
         String mangledName = generateMangledName(genericType);
+        std::cout << "DEBUG: createMonomorphizedStruct - mangled name: " << mangledName << std::endl;
 
         // Check if we've already created this monomorphized type
         // For now, we'll create a new type each time (TODO: implement proper caching)
@@ -5865,9 +5879,12 @@ namespace tsc {
         // Get the class declaration to access properties
         ClassDeclaration *classDecl = classType->getDeclaration();
         if (!classDecl) {
+            std::cout << "DEBUG: createMonomorphizedStruct - classDecl is null, creating fallback struct" << std::endl;
             // Fallback: create a simple struct
             return llvm::StructType::create(*context_, {getAnyType()}, mangledName);
         }
+        
+        std::cout << "DEBUG: createMonomorphizedStruct - classDecl found, processing properties" << std::endl;
 
         // Create type parameter substitution map
         std::unordered_map<String, shared_ptr<Type> > substitutions;
@@ -5879,10 +5896,18 @@ namespace tsc {
         }
 
         // Process properties with type parameter substitution
-        for (const auto &property: classDecl->getProperties()) {
+        const auto &properties = classDecl->getProperties();
+        std::cout << "DEBUG: createMonomorphizedStruct - processing " << properties.size() << " properties" << std::endl;
+        
+        for (size_t i = 0; i < properties.size(); ++i) {
+            const auto &property = properties[i];
+            std::cout << "DEBUG: createMonomorphizedStruct - processing property " << i << ": " << property->getName() << std::endl;
+            
             llvm::Type *propertyType = getAnyType(); // Default fallback
 
             if (property->getType()) {
+                std::cout << "DEBUG: createMonomorphizedStruct - property type: " << property->getType()->toString() << ", kind: " << static_cast<int>(property->getType()->getKind()) << std::endl;
+                
                 // Implement proper type parameter substitution
                 shared_ptr<Type> substitutedType = property->getType();
 
@@ -5893,6 +5918,7 @@ namespace tsc {
                     auto it = substitutions.find(paramName);
                     if (it != substitutions.end()) {
                         substitutedType = it->second;
+                        std::cout << "DEBUG: createMonomorphizedStruct - substituted type parameter " << paramName << " with " << substitutedType->toString() << std::endl;
                     }
                 } else if (property->getType()->getKind() == TypeKind::Unresolved) {
                     // Check if this is a type parameter by name
@@ -5900,17 +5926,30 @@ namespace tsc {
                     auto it = substitutions.find(paramName);
                     if (it != substitutions.end()) {
                         substitutedType = it->second;
+                        std::cout << "DEBUG: createMonomorphizedStruct - substituted unresolved type " << paramName << " with " << substitutedType->toString() << std::endl;
                     }
                 }
 
+                std::cout << "DEBUG: createMonomorphizedStruct - converting type to LLVM: " << substitutedType->toString() << std::endl;
                 propertyType = convertTypeToLLVM(substitutedType);
+                std::cout << "DEBUG: createMonomorphizedStruct - converted to LLVM type: " << (propertyType ? "valid" : "null") << std::endl;
+            } else {
+                std::cout << "DEBUG: createMonomorphizedStruct - property has no type, using default" << std::endl;
             }
 
             memberTypes.push_back(propertyType);
         }
 
         // Create the monomorphized struct
-        return llvm::StructType::create(*context_, memberTypes, mangledName);
+        std::cout << "DEBUG: createMonomorphizedStruct - creating struct with " << memberTypes.size() << " members" << std::endl;
+        if (memberTypes.empty()) {
+            std::cout << "DEBUG: createMonomorphizedStruct - no members, creating empty struct" << std::endl;
+            memberTypes.push_back(getAnyType());
+        }
+        
+        llvm::StructType *result = llvm::StructType::create(*context_, memberTypes, mangledName);
+        std::cout << "DEBUG: createMonomorphizedStruct - created struct successfully" << std::endl;
+        return result;
     }
 
     String LLVMCodeGen::generateMangledMethodName(const GenericType &genericType, const String &methodName) {

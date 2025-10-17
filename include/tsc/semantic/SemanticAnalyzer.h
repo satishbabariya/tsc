@@ -251,6 +251,7 @@ private:
     
     // Type resolution
     shared_ptr<Type> resolveType(shared_ptr<Type> type);
+    shared_ptr<Type> resolveType(shared_ptr<Type> type, int depth);
     
     // Inheritance resolution
     void resolveInheritance(Module& module);
