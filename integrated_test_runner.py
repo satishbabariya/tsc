@@ -71,7 +71,7 @@ class IntegratedTestRunner:
         
         # Step 3: Execute the test if compilation succeeded
         if result['compilation_success']:
-            executable = os.path.splitext(test_file)[0]
+            executable = os.path.abspath(os.path.splitext(test_file)[0])
             if os.path.exists(executable) and os.access(executable, os.X_OK):
                 try:
                     exec_result = subprocess.run(

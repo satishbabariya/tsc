@@ -7602,6 +7602,26 @@ namespace tsc {
             std::cout << "DEBUG: Storage type for " << name << ": " << storage->getType()->getTypeID() << std::endl;
         }
         if (!storage) {
+            // Check if this is an imported symbol that needs a placeholder
+            Symbol *symbol = symbolTable_->lookupSymbol(name);
+            if (symbol && symbol->getKind() == SymbolKind::Variable) {
+                // Create a placeholder external function for imported symbols
+                // For now, create a function that takes any number of arguments and returns any type
+                std::cout << "DEBUG: Creating placeholder external function for imported symbol: " << name << std::endl;
+                
+                // Create a function type that accepts any number of arguments
+                // This is a temporary solution - in a real implementation, we'd parse the imported module
+                // to get the actual function signature
+                std::vector<llvm::Type*> paramTypes;
+                llvm::FunctionType *funcType = llvm::FunctionType::get(getAnyType(), paramTypes, true); // true = variadic
+                llvm::Function *placeholderFunc = llvm::Function::Create(
+                    funcType, llvm::Function::ExternalLinkage, name, module_.get());
+                
+                // Store the function in the symbol context for future use
+                codeGenContext_->setSymbolValue(name, placeholderFunc);
+                
+                return placeholderFunc;
+            }
             return nullptr;
         }
 

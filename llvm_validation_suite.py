@@ -60,7 +60,7 @@ class LLVMValidationSuite:
             ),
             ValidationRule(
                 name="call_site_syntax",
-                pattern=r"%\w+\s*=\s*call\s+\w+\s+@\w+\([^)]*\)",
+                pattern=r"(?:%\w+\s*=\s*)?call\s+(?:\w+\s+\([^)]+\)\s+)?@\w+\([^)]*\)",
                 error_message="Invalid call site syntax",
                 severity="error",
                 category="syntax"

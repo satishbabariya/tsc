@@ -232,6 +232,10 @@ private:
                       const SourceLocation& location, ASTNode* declaration = nullptr);
     Symbol* resolveSymbol(const String& name, const SourceLocation& location);
     
+    // Module parsing helpers
+    bool parseImportedModule(const String& modulePath);
+    void extractExportedSymbols(Module& module, const String& modulePath);
+    
     // Class member lookup (with inheritance)
     shared_ptr<Type> findInterfaceMember(const InterfaceType& interfaceType, const String& memberName);
     shared_ptr<Type> findClassMember(const ClassType& classType, const String& memberName);

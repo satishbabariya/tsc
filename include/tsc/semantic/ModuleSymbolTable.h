@@ -113,6 +113,7 @@ public:
     
     // Cross-module symbol resolution
     Symbol* resolveSymbolAcrossModules(const String& symbolName, const String& fromModule) const;
+    Symbol* resolveExportedSymbol(const String& symbolName, const String& fromModule) const;
     
     // Export binding - bind exported symbols to imported symbols
     bool bindExportsToImports();

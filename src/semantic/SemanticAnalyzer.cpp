@@ -1951,7 +1951,213 @@ namespace tsc {
     }
 
     Symbol *SemanticAnalyzer::resolveSymbol(const String &name, const SourceLocation &location) {
-        return symbolTable_->lookupSymbol(name);
+        // First try the regular symbol table
+        Symbol *symbol = symbolTable_->lookupSymbol(name);
+        if (symbol) {
+            return symbol;
+        }
+        
+        // If not found, try the module symbol table for imported symbols
+        if (moduleSymbolManager_) {
+            String currentFile = currentModulePath_.empty() ? "current_file.ts" : currentModulePath_;
+            ModuleSymbolTable *moduleTable = moduleSymbolManager_->getModuleSymbolTable(currentFile);
+            if (moduleTable) {
+                symbol = moduleTable->resolveSymbol(name);
+                if (symbol) {
+                    std::cout << "DEBUG: Resolved imported symbol: " << name << std::endl;
+                    
+                    // Also add the symbol to the main symbol table for code generation
+                    // This ensures the code generator can find the symbol
+                    if (symbol->getType()) {
+                        symbolTable_->addSymbol(name, symbol->getKind(), symbol->getType(), symbol->getLocation());
+                        std::cout << "DEBUG: Added imported symbol to main symbol table: " << name << std::endl;
+                    }
+                    
+                    return symbol;
+                }
+            }
+        }
+        
+        return nullptr;
+    }
+
+    bool SemanticAnalyzer::parseImportedModule(const String &modulePath) {
+        std::cout << "DEBUG: Parsing imported module: " << modulePath << std::endl;
+        
+        // Check if module is already parsed
+        ModuleSymbolTable *existingModule = moduleSymbolManager_->getModuleSymbolTable(modulePath);
+        if (existingModule) {
+            std::cout << "DEBUG: Module already parsed: " << modulePath << std::endl;
+            return true;
+        }
+        
+        // Read the module file
+        std::cout << "DEBUG: Opening module file: " << modulePath << std::endl;
+        std::ifstream file(modulePath);
+        if (!file.is_open()) {
+            std::cout << "DEBUG: Failed to open module file: " << modulePath << std::endl;
+            return false;
+        }
+        
+        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
+        
+        // Create lexer and parser for the imported module
+        Lexer lexer(diagnostics_);
+        auto tokens = lexer.tokenize(content, modulePath);
+        
+        if (tokens.empty()) {
+            std::cout << "DEBUG: No tokens found in module: " << modulePath << std::endl;
+            return false;
+        }
+        
+        Parser parser(diagnostics_, *typeSystem_);
+        
+        // Parse the module
+        std::cout << "DEBUG: About to parse module: " << modulePath << std::endl;
+        auto module = parser.parse(tokens, modulePath);
+        if (!module) {
+            std::cout << "DEBUG: Failed to parse module: " << modulePath << std::endl;
+            return false;
+        }
+        
+        std::cout << "DEBUG: Successfully parsed module: " << modulePath << std::endl;
+        std::cout << "DEBUG: Parsed module has " << module->getStatements().size() << " statements" << std::endl;
+        
+        // Create module symbol table
+        ModuleSymbolTable *moduleTable = moduleSymbolManager_->createModuleSymbolTable(modulePath);
+        if (!moduleTable) {
+            std::cout << "DEBUG: Failed to create module symbol table for: " << modulePath << std::endl;
+            return false;
+        }
+        
+        // Extract exported symbols from the module
+        std::cout << "DEBUG: About to extract symbols from module: " << modulePath << std::endl;
+        std::cout << "DEBUG: Module object address: " << module.get() << std::endl;
+        std::cout << "DEBUG: Module has " << module->getStatements().size() << " statements" << std::endl;
+        extractExportedSymbols(*module, modulePath);
+        
+        return true;
+    }
+
+    void SemanticAnalyzer::extractExportedSymbols(Module &module, const String &modulePath) {
+        static int callCount = 0;
+        callCount++;
+        std::cout << "DEBUG: Extracting exported symbols from module: " << modulePath << " (call #" << callCount << ")" << std::endl;
+        std::cout << "DEBUG: Module has " << module.getStatements().size() << " statements" << std::endl;
+        
+        ModuleSymbolTable *moduleTable = moduleSymbolManager_->getModuleSymbolTable(modulePath);
+        if (!moduleTable) {
+            std::cout << "DEBUG: Module symbol table not found for: " << modulePath << std::endl;
+            return;
+        }
+        
+        // Process each statement in the module to find exports
+        std::cout << "DEBUG: Processing " << module.getStatements().size() << " statements from module: " << modulePath << std::endl;
+        for (const auto &stmt : module.getStatements()) {
+            std::cout << "DEBUG: Processing statement type: " << typeid(*stmt.get()).name() << std::endl;
+            std::cout << "DEBUG: Statement address: " << stmt.get() << std::endl;
+            std::cout << "DEBUG: Statement content: " << stmt->toString() << std::endl;
+            std::cout << "DEBUG: Statement location: " << stmt->getLocation().line << ":" << stmt->getLocation().column << std::endl;
+            std::cout << "DEBUG: Statement is ExportDeclaration: " << (dynamic_cast<ExportDeclaration*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is FunctionDeclaration: " << (dynamic_cast<FunctionDeclaration*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is VariableDeclaration: " << (dynamic_cast<VariableDeclaration*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is ExpressionStatement: " << (dynamic_cast<ExpressionStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is ImportDeclaration: " << (dynamic_cast<ImportDeclaration*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is Module: " << (dynamic_cast<Module*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is ClassDeclaration: " << (dynamic_cast<ClassDeclaration*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is InterfaceDeclaration: " << (dynamic_cast<InterfaceDeclaration*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is EnumDeclaration: " << (dynamic_cast<EnumDeclaration*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is TypeAliasDeclaration: " << (dynamic_cast<TypeAliasDeclaration*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is ReturnStatement: " << (dynamic_cast<ReturnStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is IfStatement: " << (dynamic_cast<IfStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is WhileStatement: " << (dynamic_cast<WhileStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is DoWhileStatement: " << (dynamic_cast<DoWhileStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is ForStatement: " << (dynamic_cast<ForStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is ForOfStatement: " << (dynamic_cast<ForOfStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is SwitchStatement: " << (dynamic_cast<SwitchStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is CaseClause: " << (dynamic_cast<CaseClause*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is BreakStatement: " << (dynamic_cast<BreakStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is ContinueStatement: " << (dynamic_cast<ContinueStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is TryStatement: " << (dynamic_cast<TryStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is CatchClause: " << (dynamic_cast<CatchClause*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is ThrowStatement: " << (dynamic_cast<ThrowStatement*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is PropertyDeclaration: " << (dynamic_cast<PropertyDeclaration*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is MethodDeclaration: " << (dynamic_cast<MethodDeclaration*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is DestructorDeclaration: " << (dynamic_cast<DestructorDeclaration*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is EnumMember: " << (dynamic_cast<EnumMember*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is TypeParameter: " << (dynamic_cast<TypeParameter*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is NumericLiteral: " << (dynamic_cast<NumericLiteral*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is StringLiteral: " << (dynamic_cast<StringLiteral*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is TemplateLiteral: " << (dynamic_cast<TemplateLiteral*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is BooleanLiteral: " << (dynamic_cast<BooleanLiteral*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is NullLiteral: " << (dynamic_cast<NullLiteral*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is Identifier: " << (dynamic_cast<Identifier*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is ThisExpression: " << (dynamic_cast<ThisExpression*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is SuperExpression: " << (dynamic_cast<SuperExpression*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is NewExpression: " << (dynamic_cast<NewExpression*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is BinaryExpression: " << (dynamic_cast<BinaryExpression*>(stmt.get()) != nullptr) << std::endl;
+            std::cout << "DEBUG: Statement is UnaryExpression: " << (dynamic_cast<UnaryExpression*>(stmt.get()) != nullptr) << std::endl;
+            if (auto exportDecl = dynamic_cast<ExportDeclaration*>(stmt.get())) {
+                // Handle export declarations
+                const ExportClause &clause = exportDecl->getClause();
+                switch (clause.getType()) {
+                    case ExportClause::Default: {
+                        // Handle default export - get the actual exported node
+                        ASTNode* defaultExport = clause.getDefaultExport();
+                        if (defaultExport) {
+                            // For now, create a generic default export symbol
+                            ExportedSymbol exported("default", "default", 
+                                                  exportDecl->getLocation(), SymbolKind::Variable);
+                            moduleTable->addExportedSymbol(exported);
+                            std::cout << "DEBUG: Found default export" << std::endl;
+                        }
+                        break;
+                    }
+                    case ExportClause::Named: {
+                        const auto &namedExports = clause.getNamedExports();
+                        for (const auto &spec : namedExports) {
+                            ExportedSymbol exported(spec.getExportedName(), spec.getLocalName(), 
+                                                  exportDecl->getLocation(), SymbolKind::Variable);
+                            moduleTable->addExportedSymbol(exported);
+                            std::cout << "DEBUG: Found named export: " << spec.getExportedName() 
+                                     << " -> " << spec.getLocalName() << std::endl;
+                        }
+                        break;
+                    }
+                    case ExportClause::ReExport: {
+                        // Handle re-export - this exports from another module
+                        const String& moduleSpecifier = clause.getModuleSpecifier();
+                        std::cout << "DEBUG: Found re-export from: " << moduleSpecifier << std::endl;
+                        break;
+                    }
+                    case ExportClause::All: {
+                        // Handle export * - exports all from another module
+                        const String& moduleSpecifier = clause.getModuleSpecifier();
+                        std::cout << "DEBUG: Found export all from: " << moduleSpecifier << std::endl;
+                        break;
+                    }
+                }
+            } else if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
+                // Check if function is exported (has export keyword)
+                if (funcDecl->isExported()) {
+                    ExportedSymbol exported(funcDecl->getName(), funcDecl->getName(), 
+                                          funcDecl->getLocation(), SymbolKind::Function);
+                    moduleTable->addExportedSymbol(exported);
+                    std::cout << "DEBUG: Found exported function: " << funcDecl->getName() << std::endl;
+                }
+            } else if (auto varDecl = dynamic_cast<VariableDeclaration*>(stmt.get())) {
+                // Check if variable is exported (has export keyword)
+                if (varDecl->isExported()) {
+                    ExportedSymbol exported(varDecl->getName(), varDecl->getName(), 
+                                          varDecl->getLocation(), SymbolKind::Variable);
+                    moduleTable->addExportedSymbol(exported);
+                    std::cout << "DEBUG: Found exported variable: " << varDecl->getName() << std::endl;
+                }
+            }
+        }
+        
+        std::cout << "DEBUG: Finished extracting exported symbols from module: " << modulePath << std::endl;
     }
 
     void SemanticAnalyzer::checkAssignment(const Expression &left, const Expression &right,
@@ -2885,6 +3091,12 @@ namespace tsc {
 
         std::cout << "DEBUG: Resolved module " << node.getModuleSpecifier() << " to " << result.resolvedPath <<
                 std::endl;
+
+        // Parse the imported module to extract exported symbols
+        if (!parseImportedModule(result.resolvedPath)) {
+            diagnostics_.error("Failed to parse imported module: " + result.resolvedPath, node.getLocation());
+            return;
+        }
 
         // Get or create module symbol table for current module
         ModuleSymbolTable *currentModuleTable = moduleSymbolManager_->getModuleSymbolTable(currentFile);
