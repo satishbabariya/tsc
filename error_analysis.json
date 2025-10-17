@@ -1,0 +1,70 @@
+{
+  "most_common_errors": [
+    [
+      "Expected property name after '.' [TS1007]",
+      6
+    ],
+    [
+      "Unexpected token in expression [TS1007]",
+      5
+    ],
+    [
+      "Expected type name [TS1007]",
+      4
+    ],
+    [
+      "Expected '>' after generic type arguments [TS1007]",
+      3
+    ],
+    [
+      "Expected ';' after variable declaration [TS1007]",
+      2
+    ],
+    [
+      "Expected ';' after interface property [TS1007]",
+      1
+    ],
+    [
+      "Expected parameter name [TS1007]",
+      1
+    ],
+    [
+      "Expected '>' after type arguments [TS1007]",
+      1
+    ]
+  ],
+  "error_categories": {
+    "type_syntax": [
+      "Expected type name [TS1007]",
+      "Expected type name [TS1007]",
+      "Expected type name [TS1007]",
+      "Expected type name [TS1007]"
+    ],
+    "syntax_expected": [
+      "Expected ';' after interface property [TS1007]",
+      "Expected property name after '.' [TS1007]",
+      "Expected '>' after generic type arguments [TS1007]",
+      "Expected property name after '.' [TS1007]",
+      "Expected '>' after generic type arguments [TS1007]",
+      "Expected property name after '.' [TS1007]",
+      "Expected ';' after variable declaration [TS1007]",
+      "Expected property name after '.' [TS1007]",
+      "Expected '>' after generic type arguments [TS1007]",
+      "Expected property name after '.' [TS1007]",
+      "Expected ';' after variable declaration [TS1007]",
+      "Expected '>' after type arguments [TS1007]",
+      "Expected property name after '.' [TS1007]"
+    ],
+    "syntax_unexpected": [
+      "Unexpected token in expression [TS1007]",
+      "Unexpected token in expression [TS1007]",
+      "Unexpected token in expression [TS1007]",
+      "Unexpected token in expression [TS1007]",
+      "Unexpected token in expression [TS1007]"
+    ],
+    "parameter_syntax": [
+      "Expected parameter name [TS1007]"
+    ]
+  },
+  "file_errors": {}
+}

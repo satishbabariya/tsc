@@ -422,6 +422,12 @@ add_executable(tsc
     src/main.cpp
 )
 
+# Debug AST tool
+add_executable(debug_ast
+    debug_ast.cpp
+)
+target_link_libraries(debug_ast tsc_lib tsc_runtime ${LLVM_LIBRARIES})
+
 target_link_libraries(tsc
     tsc_lib
     tsc_runtime

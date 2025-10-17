@@ -1565,25 +1565,6 @@ namespace tsc {
             // Handle method calls: object.method()
             isMethodCall = true;
             
-            // Check if PropertyAccess already resolved the method (e.g., for this.method calls)
-            if (calleeValue && llvm::isa<llvm::Function>(calleeValue)) {
-                std::cout << "DEBUG: CallExpression - Using method function from PropertyAccess: " << propertyAccess->getProperty() << std::endl;
-                function = llvm::cast<llvm::Function>(calleeValue);
-                
-                // Generate the object instance for the 'this' pointer
-                propertyAccess->getObject()->accept(*this);
-                objectInstance = getCurrentValue();
-                
-                if (!objectInstance) {
-                    reportError("Failed to generate object instance for method call", node.getLocation());
-                    setCurrentValue(createNullValue(getAnyType()));
-                    return;
-                }
-                
-                // Skip the normal method lookup since we already have the function
-                // Continue to the method call generation below
-            }
-            
             // Generate the object instance
             propertyAccess->getObject()->accept(*this);
             objectInstance = getCurrentValue();
@@ -1594,10 +1575,9 @@ namespace tsc {
                 return;
             }
             
-            // Look up the method in the object's type (only if we don't already have the function)
+            // Look up the method in the object's type
             String methodName = propertyAccess->getProperty();
-            if (!function) {
-                auto objectType = getExpressionType(*propertyAccess->getObject());
+            auto objectType = getExpressionType(*propertyAccess->getObject());
             
             // Special handling for console.log
             if (methodName == "log") {
@@ -1612,7 +1592,7 @@ namespace tsc {
                             auto funcType = llvm::FunctionType::get(
                                 getVoidType(), // Return type: void
                                 {getAnyType()}, // Parameter: any type (the argument to log)
-                                true
+                                false
                             );
                             function = llvm::Function::Create(
                                 funcType, llvm::Function::ExternalLinkage, "console_log", module_.get()
@@ -1646,145 +1626,10 @@ namespace tsc {
                                 }
                             }
                             std::cout << "DEBUG: CALL - Found existing method function: " << (function ? function->getName().str() : "null") << std::endl;
-                            // Process arguments for method call
-                            std::cout << "DEBUG: CallExpression - Processing method call with " << node.getArguments().size() << " arguments" << std::endl;
-                            
-                            // For method calls, we need to pass the object as the first argument
-                            // Generate the object being called on
-                            propertyAccess->getObject()->accept(static_cast<ASTVisitor &>(*this));
-                            llvm::Value *objectInstance = getCurrentValue();
-                            
-                            if (!objectInstance) {
-                                reportError("Failed to generate object instance for method call", node.getLocation());
-                                setCurrentValue(createNullValue(getAnyType()));
-                                return;
-                            }
-                            
-                            // Prepare arguments for the method call
-                            std::vector<llvm::Value *> methodArgs;
-                            
-                            // Add 'this' pointer as first argument (object instance)
-                            methodArgs.push_back(objectInstance);
-                            
-                            // Add method arguments
-                            std::cout << "DEBUG: CallExpression - Starting argument processing loop, node.getArguments().size() = " << node.getArguments().size() << std::endl;
-                            for (size_t i = 0; i < node.getArguments().size(); ++i) {
-                                const auto &arg = node.getArguments()[i];
-                                std::cout << "DEBUG: CallExpression - Processing argument " << i << " of type: " << typeid(*arg.get()).name() << std::endl;
-                                arg->accept(static_cast<ASTVisitor &>(*this));
-                                llvm::Value *argValue = getCurrentValue();
-                                if (!argValue) {
-                                    reportError("Failed to generate argument for method call", node.getLocation());
-                                    setCurrentValue(createNullValue(getAnyType()));
-                                    return;
-                                }
-                                std::cout << "DEBUG: CallExpression - Generated argument " << i << " value: " << (argValue ? "valid" : "null") << std::endl;
-                                methodArgs.push_back(argValue);
-                            }
-                            
-                            std::cout << "DEBUG: CallExpression - After processing all arguments, methodArgs.size() = " << methodArgs.size() << std::endl;
-                            
-                            // Generate the function call
-                            llvm::Value *methodCallResult;
-                            if (function->getReturnType()->isVoidTy()) {
-                                methodCallResult = builder_->CreateCall(function, methodArgs);
-                                std::cout << "DEBUG: Created void method call to " << function->getName().str() << std::endl;
-                            } else {
-                                methodCallResult = builder_->CreateCall(function, methodArgs, "call_result");
-                                std::cout << "DEBUG: Created non-void method call to " << function->getName().str() << std::endl;
-                            }
-                            
-                            setCurrentValue(methodCallResult);
-                            return;
                             break;
-                        }
-                }
-            }
-            } else if (objectType && objectType->getKind() == TypeKind::Generic) {
-                // Handle generic types (e.g., SimpleGeneric<number>)
-                auto genericType = std::static_pointer_cast<GenericType>(objectType);
-                auto baseType = genericType->getBaseType();
-                
-                if (baseType->getKind() == TypeKind::Class) {
-                    auto classType = std::static_pointer_cast<ClassType>(baseType);
-                    auto classDecl = classType->getDeclaration();
-                    
-                    if (classDecl) {
-                        // Find the method in the class
-                        for (const auto& method : classDecl->getMethods()) {
-                            if (method->getName() == methodName) {
-                                // For generic types, we need to look for the monomorphized method
-                                // Generate the mangled method name for the generic instantiation
-                                String mangledMethodName = generateMangledMethodName(*genericType, methodName);
-                                function = module_->getFunction(mangledMethodName);
-                                
-                                if (!function) {
-                                    // Fallback to simple method name
-                                    function = module_->getFunction(methodName);
-                                }
-                                
-                                std::cout << "DEBUG: CALL - Found generic method function: " << (function ? function->getName().str() : "null") << std::endl;
-                                
-                                // Process arguments for method call (same as regular class)
-                                std::cout << "DEBUG: CallExpression - Processing generic method call with " << node.getArguments().size() << " arguments" << std::endl;
-                                
-                                // For generic types, we need to get the object instance
-                                // We need to evaluate the object expression to get the instance
-                                propertyAccess->getObject()->accept(static_cast<ASTVisitor &>(*this));
-                                objectInstance = getCurrentValue();
-                                
-                                if (!objectInstance) {
-                                    reportError("Failed to generate object instance for generic method call", node.getLocation());
-                                    setCurrentValue(createNullValue(getAnyType()));
-                                    return;
-                                }
-                                
-                                // Prepare arguments for the method call
-                                std::vector<llvm::Value *> methodArgs;
-                                
-                                // Add 'this' pointer as first argument (object instance)
-                                // For generic types, we need to ensure we pass a pointer to the struct
-                                if (objectInstance->getType()->isPointerTy()) {
-                                    // Already a pointer, use as-is
-                                    methodArgs.push_back(objectInstance);
-                                } else {
-                                    // Not a pointer, we need to get the address
-                                    // This shouldn't happen for generic types, but let's handle it
-                                    std::cout << "DEBUG: WARNING - objectInstance is not a pointer for generic method call" << std::endl;
-                                    methodArgs.push_back(objectInstance);
-                                }
-                                
-                                // Add method arguments
-                                for (size_t i = 0; i < node.getArguments().size(); ++i) {
-                                    const auto &arg = node.getArguments()[i];
-                                    arg->accept(static_cast<ASTVisitor &>(*this));
-                                    llvm::Value *argValue = getCurrentValue();
-                                    if (!argValue) {
-                                        reportError("Failed to generate argument for generic method call", node.getLocation());
-                                        setCurrentValue(createNullValue(getAnyType()));
-                                        return;
-                                    }
-                                    methodArgs.push_back(argValue);
-                                }
-                                
-                                // Generate the function call
-                                llvm::Value *methodCallResult;
-                                if (function->getReturnType()->isVoidTy()) {
-                                    methodCallResult = builder_->CreateCall(function, methodArgs);
-                                    std::cout << "DEBUG: Created void generic method call to " << function->getName().str() << std::endl;
-                                } else {
-                                    methodCallResult = builder_->CreateCall(function, methodArgs, "call_result");
-                                    std::cout << "DEBUG: Created non-void generic method call to " << function->getName().str() << std::endl;
-                                }
-                                
-                                setCurrentValue(methodCallResult);
-                                return;
-                                break;
-                            }
                         }
                     }
                 }
-            }
             }
             
             skip_method_lookup:
@@ -3239,56 +3084,6 @@ namespace tsc {
             std::cout << "DEBUG: PropertyAccess - object class: " << typeid(*node.getObject()).name() << std::endl;
         }
 
-        // Handle ThisExpression method calls and property access (this.methodName or this.propertyName) - MUST BE FIRST
-        std::cout << "DEBUG: PropertyAccess - Checking for ThisExpression, object type: " << typeid(*node.getObject()).name() << std::endl;
-        if (auto thisExpr = dynamic_cast<ThisExpression *>(node.getObject())) {
-            std::cout << "DEBUG: PropertyAccess - Handling ThisExpression: " << propertyName << std::endl;
-            
-            // Check if the method exists in the module
-            llvm::Function *methodFunc = module_->getFunction(propertyName);
-            if (methodFunc) {
-                setCurrentValue(methodFunc);
-                std::cout << "DEBUG: PropertyAccess - Successfully found method function: " << propertyName << std::endl;
-                return;
-            } else {
-                // This is property access on 'this' (like this.items)
-                std::cout << "DEBUG: PropertyAccess - Property access on 'this': " << propertyName << std::endl;
-                
-                // Get the object value for 'this'
-                llvm::Value *objectValue = getCurrentValue();
-                
-                // For property access on 'this', we need to access the class property
-                // The object structure is { i32, ptr } for arrays or similar structures
-                if (propertyName == "items" || propertyName == "data") {
-                    // For 'items' or 'data', the object structure is { i32, ptr }
-                    // Field 0: length field (not used, but kept for compatibility)
-                    // Field 1: pointer to array data
-                    std::vector<llvm::Type *> fieldTypes = {
-                        llvm::Type::getInt32Ty(*context_), // length field
-                        llvm::PointerType::get(*context_, 0) // pointer to array data
-                    };
-                    llvm::StructType *structType = llvm::StructType::get(*context_, fieldTypes);
-
-                    // Use index 1 for the items/data field (second field - pointer to array)
-                    llvm::Value *indices[] = {
-                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // Object base
-                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)  // Field index 1 (pointer to array)
-                    };
-
-                    llvm::Value *fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "items_ptr");
-                    setCurrentValue(fieldPtr);
-                    std::cout << "DEBUG: PropertyAccess - Successfully accessed property '" << propertyName << "' on 'this'" << std::endl;
-                    return;
-                } else {
-                    // For other properties, try to access them as struct fields
-                    // This is a simplified approach - in a full implementation, we'd look up the actual class definition
-                    std::cout << "DEBUG: PropertyAccess - Property '" << propertyName << "' not handled yet" << std::endl;
-                    setCurrentValue(createNullValue(getAnyType()));
-                    return;
-                }
-            }
-        }
-
         // Handle nested PropertyAccess objects (e.g., array.length.toString()) - MUST BE FIRST
         if (auto nestedPropertyAccess = dynamic_cast<PropertyAccess *>(node.getObject())) {
             std::cout << "DEBUG: Handling nested PropertyAccess for property: " << propertyName << std::endl;
@@ -3477,7 +3272,7 @@ namespace tsc {
                         auto funcType = llvm::FunctionType::get(
                             getVoidType(), // Return type: void
                             {getAnyType()}, // Parameter: any type (the argument to log)
-                            true
+                            false
                         );
                         func = llvm::Function::Create(
                             funcType, llvm::Function::ExternalLinkage, "console_log", module_.get()
@@ -3512,7 +3307,6 @@ namespace tsc {
             // If we're in a monomorphized method (e.g., Container_number_getValue or BasicArrayOperations_number_getLength)
             // and accessing 'value', 'items', or 'data', handle it as struct field access
             // OR if we're in a destructor (~ClassName) or constructor (ClassName_constructor), handle any property access
-            // OR if we're in a regular class method and accessing a method (this.methodName)
             bool isDestructor = functionName.length() > 0 && functionName[0] == '~';
             bool isConstructor = functionName.length() > 11 && functionName.substr(functionName.length() - 11) ==
                                  "_constructor";
@@ -3522,19 +3316,8 @@ namespace tsc {
             bool isSimpleMethod = (propertyName == "value" || propertyName == "items" || propertyName == "data") &&
                                   (functionName == "getValue" || functionName == "constructor" || functionName ==
                                    "destructor");
-            
-            // Check if this is a method call on 'this' within a class method
-            bool isThisMethodCall = false;
-            if (auto thisExpr = dynamic_cast<ThisExpression *>(node.getObject())) {
-                // This is 'this.methodName' - check if the method exists
-                llvm::Function *methodFunc = module_->getFunction(propertyName);
-                if (methodFunc) {
-                    isThisMethodCall = true;
-                    std::cout << "DEBUG: PropertyAccess - Found method call on 'this': " << propertyName << std::endl;
-                }
-            }
 
-            if (isMonomorphizedMethod || isDestructor || isConstructor || isSimpleMethod || isThisMethodCall) {
+            if (isMonomorphizedMethod || isDestructor || isConstructor || isSimpleMethod) {
                 std::cout << "DEBUG: PropertyAccess - Entering struct field access for " <<
                 (isDestructor
                      ? "destructor"
@@ -3542,9 +3325,7 @@ namespace tsc {
                            ? "constructor"
                            : isSimpleMethod
                                  ? "simple method"
-                                 : isThisMethodCall
-                                       ? "this method call"
-                                       : "monomorphized method") << std::endl;
+                                 : "monomorphized method") << std::endl;
 
                 // Handle destructors and constructors accessing class properties
                 if (isDestructor || isConstructor) {
@@ -3612,7 +3393,6 @@ namespace tsc {
                     }
                 }
 
-
                 // Handle monomorphized methods (original logic)
                 if (isMonomorphizedMethod) {
                     // Create GEP to access the first field (index 0)
@@ -3654,22 +3434,6 @@ namespace tsc {
                         setCurrentValue(fieldPtr);
                         std::cout << "DEBUG: PropertyAccess - Successfully accessed struct field '" << propertyName <<
                                 "' at index 1 (pointer to array)" << std::endl;
-                        return;
-                    }
-                }
-                
-                // Handle method calls on 'this' (isThisMethodCall)
-                if (isThisMethodCall) {
-                    // For method calls on 'this', we need to return the function pointer
-                    llvm::Function *methodFunc = module_->getFunction(propertyName);
-                    if (methodFunc) {
-                        setCurrentValue(methodFunc);
-                        std::cout << "DEBUG: PropertyAccess - Successfully returned method function: " << propertyName << std::endl;
-                        return;
-                    } else {
-                        std::cout << "DEBUG: PropertyAccess - Method function not found: " << propertyName << std::endl;
-                        reportError("Method '" + propertyName + "' not found in class", node.getLocation());
-                        setCurrentValue(createNullValue(getAnyType()));
                         return;
                     }
                 }
@@ -3792,11 +3556,18 @@ namespace tsc {
                         String mangledMethodName = generateMangledMethodName(*genericType, propertyName);
                         std::cout << "DEBUG: Generated mangled method name: " << mangledMethodName << std::endl;
 
-                        // For generic types, we need to return the object instance, not the method function
-                        // The method function will be looked up in the CallExpression visitor
-                        std::cout << "DEBUG: Generic type property access - returning object instance" << std::endl;
-                        setCurrentValue(objectValue);
-                        return;
+                        // Look up the monomorphized method
+                        llvm::Function *method = module_->getFunction(mangledMethodName);
+                        if (method) {
+                            std::cout << "DEBUG: Found method: " << mangledMethodName << std::endl;
+                            setCurrentValue(method);
+                            return;
+                        } else {
+                            std::cout << "DEBUG: Method not found: " << mangledMethodName << std::endl;
+                            reportError("Method not found: " + propertyName, node.getLocation());
+                            setCurrentValue(createNullValue(getAnyType()));
+                            return;
+                        }
                     } else {
                         std::cout << "DEBUG: Symbol type is not Generic, it's: " << static_cast<int>(symbol->getType()->
                             getKind()) << std::endl;
@@ -5772,11 +5543,7 @@ namespace tsc {
             case TypeKind::Generic:
                 // For generic types, implement basic monomorphization
                 if (auto genericType = dynamic_cast<const GenericType *>(&type)) {
-                    llvm::Type *structType = createMonomorphizedType(*genericType);
-                    if (structType) {
-                        // Return a pointer to the struct, not the struct itself
-                        return llvm::PointerType::get(structType, 0);
-                    }
+                    return createMonomorphizedType(*genericType);
                 }
                 return getAnyType();
             case TypeKind::Union:
@@ -5925,27 +5692,13 @@ namespace tsc {
     }
 
     llvm::StructType *LLVMCodeGen::createMonomorphizedStruct(const GenericType &genericType) {
-        std::cout << "DEBUG: createMonomorphizedStruct called for: " << genericType.toString() << std::endl;
-        
         auto baseType = genericType.getBaseType();
-        if (!baseType) {
-            std::cout << "DEBUG: createMonomorphizedStruct - baseType is null" << std::endl;
-            return nullptr;
-        }
-        
         if (baseType->getKind() != TypeKind::Class) {
-            std::cout << "DEBUG: createMonomorphizedStruct - baseType is not Class, kind: " << static_cast<int>(baseType->getKind()) << std::endl;
             return nullptr;
         }
 
         auto classType = std::static_pointer_cast<ClassType>(baseType);
-        if (!classType) {
-            std::cout << "DEBUG: createMonomorphizedStruct - failed to cast to ClassType" << std::endl;
-            return nullptr;
-        }
-        
         String mangledName = generateMangledName(genericType);
-        std::cout << "DEBUG: createMonomorphizedStruct - mangled name: " << mangledName << std::endl;
 
         // Check if we've already created this monomorphized type
         // For now, we'll create a new type each time (TODO: implement proper caching)
@@ -5960,12 +5713,9 @@ namespace tsc {
         // Get the class declaration to access properties
         ClassDeclaration *classDecl = classType->getDeclaration();
         if (!classDecl) {
-            std::cout << "DEBUG: createMonomorphizedStruct - classDecl is null, creating fallback struct" << std::endl;
             // Fallback: create a simple struct
             return llvm::StructType::create(*context_, {getAnyType()}, mangledName);
         }
-        
-        std::cout << "DEBUG: createMonomorphizedStruct - classDecl found, processing properties" << std::endl;
 
         // Create type parameter substitution map
         std::unordered_map<String, shared_ptr<Type> > substitutions;
@@ -5977,18 +5727,10 @@ namespace tsc {
         }
 
         // Process properties with type parameter substitution
-        const auto &properties = classDecl->getProperties();
-        std::cout << "DEBUG: createMonomorphizedStruct - processing " << properties.size() << " properties" << std::endl;
-        
-        for (size_t i = 0; i < properties.size(); ++i) {
-            const auto &property = properties[i];
-            std::cout << "DEBUG: createMonomorphizedStruct - processing property " << i << ": " << property->getName() << std::endl;
-            
+        for (const auto &property: classDecl->getProperties()) {
             llvm::Type *propertyType = getAnyType(); // Default fallback
 
             if (property->getType()) {
-                std::cout << "DEBUG: createMonomorphizedStruct - property type: " << property->getType()->toString() << ", kind: " << static_cast<int>(property->getType()->getKind()) << std::endl;
-                
                 // Implement proper type parameter substitution
                 shared_ptr<Type> substitutedType = property->getType();
 
@@ -5999,7 +5741,6 @@ namespace tsc {
                     auto it = substitutions.find(paramName);
                     if (it != substitutions.end()) {
                         substitutedType = it->second;
-                        std::cout << "DEBUG: createMonomorphizedStruct - substituted type parameter " << paramName << " with " << substitutedType->toString() << std::endl;
                     }
                 } else if (property->getType()->getKind() == TypeKind::Unresolved) {
                     // Check if this is a type parameter by name
@@ -6007,30 +5748,17 @@ namespace tsc {
                     auto it = substitutions.find(paramName);
                     if (it != substitutions.end()) {
                         substitutedType = it->second;
-                        std::cout << "DEBUG: createMonomorphizedStruct - substituted unresolved type " << paramName << " with " << substitutedType->toString() << std::endl;
                     }
                 }
 
-                std::cout << "DEBUG: createMonomorphizedStruct - converting type to LLVM: " << substitutedType->toString() << std::endl;
                 propertyType = convertTypeToLLVM(substitutedType);
-                std::cout << "DEBUG: createMonomorphizedStruct - converted to LLVM type: " << (propertyType ? "valid" : "null") << std::endl;
-            } else {
-                std::cout << "DEBUG: createMonomorphizedStruct - property has no type, using default" << std::endl;
             }
 
             memberTypes.push_back(propertyType);
         }
 
         // Create the monomorphized struct
-        std::cout << "DEBUG: createMonomorphizedStruct - creating struct with " << memberTypes.size() << " members" << std::endl;
-        if (memberTypes.empty()) {
-            std::cout << "DEBUG: createMonomorphizedStruct - no members, creating empty struct" << std::endl;
-            memberTypes.push_back(getAnyType());
-        }
-        
-        llvm::StructType *result = llvm::StructType::create(*context_, memberTypes, mangledName);
-        std::cout << "DEBUG: createMonomorphizedStruct - created struct successfully" << std::endl;
-        return result;
+        return llvm::StructType::create(*context_, memberTypes, mangledName);
     }
 
     String LLVMCodeGen::generateMangledMethodName(const GenericType &genericType, const String &methodName) {
