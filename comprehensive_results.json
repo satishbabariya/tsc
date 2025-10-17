@@ -1,0 +1,162 @@
+{
+  "core_functionality": {
+    "suite_name": "core_functionality",
+    "description": "Tests core TypeScript functionality",
+    "validation_level": "basic",
+    "files": [
+      "tests/unit/ultra_simple_test.ts",
+      "tests/unit/simple_class_test.ts",
+      "tests/unit/minimal_generic_test.ts",
+      "tests/unit/generic_method_simple_test.ts"
+    ],
+    "results": [
+      {
+        "file": "tests/unit/ultra_simple_test.ts",
+        "compilation_success": true,
+        "execution_success": true,
+        "llvm_validation_success": false,
+        "compilation_time": 0.046825408935546875,
+        "validation_time": 0.0,
+        "errors": [
+          "call_site_syntax: Invalid call site syntax"
+        ],
+        "warnings": []
+      },
+      {
+        "file": "tests/unit/simple_class_test.ts",
+        "compilation_success": true,
+        "execution_success": true,
+        "llvm_validation_success": true,
+        "compilation_time": 0.042264461517333984,
+        "validation_time": 0.0,
+        "errors": [],
+        "warnings": [
+          "Method call __tsc_alloc should pass ptr as first argument"
+        ]
+      },
+      {
+        "file": "tests/unit/minimal_generic_test.ts",
+        "compilation_success": true,
+        "execution_success": true,
+        "llvm_validation_success": true,
+        "compilation_time": 0.038217782974243164,
+        "validation_time": 0.0,
+        "errors": [],
+        "warnings": [
+          "Method call __tsc_alloc should pass ptr as first argument"
+        ]
+      },
+      {
+        "file": "tests/unit/generic_method_simple_test.ts",
+        "compilation_success": true,
+        "execution_success": true,
+        "llvm_validation_success": true,
+        "compilation_time": 0.03954911231994629,
+        "validation_time": 0.0,
+        "errors": [],
+        "warnings": [
+          "Method call __tsc_alloc should pass ptr as first argument",
+          "Method call __tsc_alloc should pass ptr as first argument"
+        ]
+      }
+    ],
+    "summary": {
+      "total_tests": 4,
+      "compilation_success": 4,
+      "compilation_rate": 100.0,
+      "validation_success": 3,
+      "validation_rate": 75.0,
+      "execution_success": 4,
+      "execution_rate": 100.0
+    }
+  },
+  "generic_features": {
+    "suite_name": "generic_features",
+    "description": "Tests generic type functionality",
+    "validation_level": "comprehensive",
+    "files": [
+      "tests/unit/minimal_generic_test.ts",
+      "tests/unit/generic_method_simple_test.ts",
+      "tests/comprehensive/complete_feature_test.ts"
+    ],
+    "results": [
+      {
+        "file": "tests/unit/minimal_generic_test.ts",
+        "compilation_success": true,
+        "execution_success": true,
+        "llvm_validation_success": true,
+        "compilation_time": 0.03662872314453125,
+        "validation_time": 0.0,
+        "errors": [],
+        "warnings": [
+          "Method call __tsc_alloc should pass ptr as first argument"
+        ]
+      },
+      {
+        "file": "tests/unit/generic_method_simple_test.ts",
+        "compilation_success": true,
+        "execution_success": true,
+        "llvm_validation_success": true,
+        "compilation_time": 0.03754019737243652,
+        "validation_time": 0.0,
+        "errors": [],
+        "warnings": [
+          "Method call __tsc_alloc should pass ptr as first argument",
+          "Method call __tsc_alloc should pass ptr as first argument"
+        ]
+      },
+      {
+        "file": "tests/comprehensive/complete_feature_test.ts",
+        "compilation_success": false,
+        "execution_success": false,
+        "llvm_validation_success": false,
+        "compilation_time": 0.0198361873626709,
+        "validation_time": 0.0,
+        "errors": [
+          "Compilation failed: 'r600' is not a recognized processor for this target (ignoring processor)\n'r600' is not a recognized processor for this target (ignoring processor)\n'r600' is not a recognized processor for this target (ignoring processor)\n'r600' is not a recognized processor for this target (ignoring processor)\ntests/comprehensive/complete_feature_test.ts:150:21: error: Expected ';' after return statement [TS1007]\ntests/comprehensive/complete_feature_test.ts:151:2: error: Unexpected token in expression [TS1007]\ntests/comprehensive/complete_feature_test.ts:151:2: error: Expected ';' after expression [TS1007]\nCompilation failed: Syntax analysis failed\n\nCompilation summary: 3 error(s)\n"
+        ],
+        "warnings": []
+      }
+    ],
+    "summary": {
+      "total_tests": 3,
+      "compilation_success": 2,
+      "compilation_rate": 66.66666666666666,
+      "validation_success": 2,
+      "validation_rate": 66.66666666666666,
+      "execution_success": 2,
+      "execution_rate": 66.66666666666666
+    }
+  },
+  "comprehensive": {
+    "suite_name": "comprehensive",
+    "description": "Comprehensive test suite for all features",
+    "validation_level": "strict",
+    "files": [
+      "tests/comprehensive/complete_feature_test.ts"
+    ],
+    "results": [
+      {
+        "file": "tests/comprehensive/complete_feature_test.ts",
+        "compilation_success": false,
+        "execution_success": false,
+        "llvm_validation_success": false,
+        "compilation_time": 0.01877450942993164,
+        "validation_time": 0.0,
+        "errors": [
+          "Compilation failed: 'r600' is not a recognized processor for this target (ignoring processor)\n'r600' is not a recognized processor for this target (ignoring processor)\n'r600' is not a recognized processor for this target (ignoring processor)\n'r600' is not a recognized processor for this target (ignoring processor)\ntests/comprehensive/complete_feature_test.ts:150:21: error: Expected ';' after return statement [TS1007]\ntests/comprehensive/complete_feature_test.ts:151:2: error: Unexpected token in expression [TS1007]\ntests/comprehensive/complete_feature_test.ts:151:2: error: Expected ';' after expression [TS1007]\nCompilation failed: Syntax analysis failed\n\nCompilation summary: 3 error(s)\n"
+        ],
+        "warnings": []
+      }
+    ],
+    "summary": {
+      "total_tests": 1,
+      "compilation_success": 0,
+      "compilation_rate": 0.0,
+      "validation_success": 0,
+      "validation_rate": 0.0,
+      "execution_success": 0,
+      "execution_rate": 0.0
+    }
+  }
+}
