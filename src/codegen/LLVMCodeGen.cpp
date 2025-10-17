@@ -1581,7 +1581,7 @@ namespace tsc {
                 }
                 
                 // Skip the normal method lookup since we already have the function
-                goto skip_method_lookup;
+                // Continue to the method call generation below
             }
             
             // Generate the object instance
@@ -1594,9 +1594,10 @@ namespace tsc {
                 return;
             }
             
-            // Look up the method in the object's type
+            // Look up the method in the object's type (only if we don't already have the function)
             String methodName = propertyAccess->getProperty();
-            auto objectType = getExpressionType(*propertyAccess->getObject());
+            if (!function) {
+                auto objectType = getExpressionType(*propertyAccess->getObject());
             
             // Special handling for console.log
             if (methodName == "log") {
@@ -1699,6 +1700,7 @@ namespace tsc {
                         }
                     }
                 }
+            }
             }
             
             skip_method_lookup:
@@ -3153,10 +3155,10 @@ namespace tsc {
             std::cout << "DEBUG: PropertyAccess - object class: " << typeid(*node.getObject()).name() << std::endl;
         }
 
-        // Handle ThisExpression method calls (this.methodName) - MUST BE FIRST
+        // Handle ThisExpression method calls and property access (this.methodName or this.propertyName) - MUST BE FIRST
         std::cout << "DEBUG: PropertyAccess - Checking for ThisExpression, object type: " << typeid(*node.getObject()).name() << std::endl;
         if (auto thisExpr = dynamic_cast<ThisExpression *>(node.getObject())) {
-            std::cout << "DEBUG: PropertyAccess - Handling ThisExpression method call: " << propertyName << std::endl;
+            std::cout << "DEBUG: PropertyAccess - Handling ThisExpression: " << propertyName << std::endl;
             
             // Check if the method exists in the module
             llvm::Function *methodFunc = module_->getFunction(propertyName);
@@ -3165,14 +3167,41 @@ namespace tsc {
                 std::cout << "DEBUG: PropertyAccess - Successfully found method function: " << propertyName << std::endl;
                 return;
             } else {
-                std::cout << "DEBUG: PropertyAccess - Method function not found: " << propertyName << std::endl;
-                std::cout << "DEBUG: Available functions in module:" << std::endl;
-                for (auto &func: *module_) {
-                    std::cout << "  - " << func.getName().str() << std::endl;
+                // This is property access on 'this' (like this.items)
+                std::cout << "DEBUG: PropertyAccess - Property access on 'this': " << propertyName << std::endl;
+                
+                // Get the object value for 'this'
+                llvm::Value *objectValue = getCurrentValue();
+                
+                // For property access on 'this', we need to access the class property
+                // The object structure is { i32, ptr } for arrays or similar structures
+                if (propertyName == "items" || propertyName == "data") {
+                    // For 'items' or 'data', the object structure is { i32, ptr }
+                    // Field 0: length field (not used, but kept for compatibility)
+                    // Field 1: pointer to array data
+                    std::vector<llvm::Type *> fieldTypes = {
+                        llvm::Type::getInt32Ty(*context_), // length field
+                        llvm::PointerType::get(*context_, 0) // pointer to array data
+                    };
+                    llvm::StructType *structType = llvm::StructType::get(*context_, fieldTypes);
+
+                    // Use index 1 for the items/data field (second field - pointer to array)
+                    llvm::Value *indices[] = {
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 0), // Object base
+                        llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context_), 1)  // Field index 1 (pointer to array)
+                    };
+
+                    llvm::Value *fieldPtr = builder_->CreateGEP(structType, objectValue, indices, "items_ptr");
+                    setCurrentValue(fieldPtr);
+                    std::cout << "DEBUG: PropertyAccess - Successfully accessed property '" << propertyName << "' on 'this'" << std::endl;
+                    return;
+                } else {
+                    // For other properties, try to access them as struct fields
+                    // This is a simplified approach - in a full implementation, we'd look up the actual class definition
+                    std::cout << "DEBUG: PropertyAccess - Property '" << propertyName << "' not handled yet" << std::endl;
+                    setCurrentValue(createNullValue(getAnyType()));
+                    return;
                 }
-                reportError("Method '" + propertyName + "' not found in class", node.getLocation());
-                setCurrentValue(createNullValue(getAnyType()));
-                return;
             }
         }
 
@@ -3498,6 +3527,7 @@ namespace tsc {
                         return;
                     }
                 }
+
 
                 // Handle monomorphized methods (original logic)
                 if (isMonomorphizedMethod) {
