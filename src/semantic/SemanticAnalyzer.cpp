@@ -1981,6 +1981,132 @@ namespace tsc {
         return nullptr;
     }
 
+    bool SemanticAnalyzer::parseImportedModule(const String &modulePath) {
+        std::cout << "DEBUG: Parsing imported module: " << modulePath << std::endl;
+        
+        // Check if module is already parsed
+        ModuleSymbolTable *existingModule = moduleSymbolManager_->getModuleSymbolTable(modulePath);
+        if (existingModule) {
+            std::cout << "DEBUG: Module already parsed: " << modulePath << std::endl;
+            return true;
+        }
+        
+        // Read the module file
+        std::ifstream file(modulePath);
+        if (!file.is_open()) {
+            std::cout << "DEBUG: Failed to open module file: " << modulePath << std::endl;
+            return false;
+        }
+        
+        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
+        
+        // Create lexer and parser for the imported module
+        Lexer lexer(diagnostics_);
+        auto tokens = lexer.tokenize(content, modulePath);
+        
+        if (tokens.empty()) {
+            std::cout << "DEBUG: No tokens found in module: " << modulePath << std::endl;
+            return false;
+        }
+        
+        Parser parser(diagnostics_, *typeSystem_);
+        
+        // Parse the module
+        auto module = parser.parse(tokens, modulePath);
+        if (!module) {
+            std::cout << "DEBUG: Failed to parse module: " << modulePath << std::endl;
+            return false;
+        }
+        
+        std::cout << "DEBUG: Successfully parsed module: " << modulePath << std::endl;
+        
+        // Create module symbol table
+        ModuleSymbolTable *moduleTable = moduleSymbolManager_->createModuleSymbolTable(modulePath);
+        if (!moduleTable) {
+            std::cout << "DEBUG: Failed to create module symbol table for: " << modulePath << std::endl;
+            return false;
+        }
+        
+        // Extract exported symbols from the module
+        extractExportedSymbols(*module, modulePath);
+        
+        return true;
+    }
+
+    void SemanticAnalyzer::extractExportedSymbols(Module &module, const String &modulePath) {
+        std::cout << "DEBUG: Extracting exported symbols from module: " << modulePath << std::endl;
+        
+        ModuleSymbolTable *moduleTable = moduleSymbolManager_->getModuleSymbolTable(modulePath);
+        if (!moduleTable) {
+            std::cout << "DEBUG: Module symbol table not found for: " << modulePath << std::endl;
+            return;
+        }
+        
+        // Process each statement in the module to find exports
+        for (const auto &stmt : module.getStatements()) {
+            if (auto exportDecl = dynamic_cast<ExportDeclaration*>(stmt.get())) {
+                // Handle export declarations
+                const ExportClause &clause = exportDecl->getClause();
+                switch (clause.getType()) {
+                    case ExportClause::Default: {
+                        // Handle default export - get the actual exported node
+                        ASTNode* defaultExport = clause.getDefaultExport();
+                        if (defaultExport) {
+                            // For now, create a generic default export symbol
+                            ExportedSymbol exported("default", "default", 
+                                                  exportDecl->getLocation(), SymbolKind::Variable);
+                            moduleTable->addExportedSymbol(exported);
+                            std::cout << "DEBUG: Found default export" << std::endl;
+                        }
+                        break;
+                    }
+                    case ExportClause::Named: {
+                        const auto &namedExports = clause.getNamedExports();
+                        for (const auto &spec : namedExports) {
+                            ExportedSymbol exported(spec.getExportedName(), spec.getLocalName(), 
+                                                  exportDecl->getLocation(), SymbolKind::Variable);
+                            moduleTable->addExportedSymbol(exported);
+                            std::cout << "DEBUG: Found named export: " << spec.getExportedName() 
+                                     << " -> " << spec.getLocalName() << std::endl;
+                        }
+                        break;
+                    }
+                    case ExportClause::ReExport: {
+                        // Handle re-export - this exports from another module
+                        const String& moduleSpecifier = clause.getModuleSpecifier();
+                        std::cout << "DEBUG: Found re-export from: " << moduleSpecifier << std::endl;
+                        break;
+                    }
+                    case ExportClause::All: {
+                        // Handle export * - exports all from another module
+                        const String& moduleSpecifier = clause.getModuleSpecifier();
+                        std::cout << "DEBUG: Found export all from: " << moduleSpecifier << std::endl;
+                        break;
+                    }
+                }
+            } else if (auto funcDecl = dynamic_cast<FunctionDeclaration*>(stmt.get())) {
+                // Check if function is exported (has export keyword)
+                if (funcDecl->isExported()) {
+                    ExportedSymbol exported(funcDecl->getName(), funcDecl->getName(), 
+                                          funcDecl->getLocation(), SymbolKind::Function);
+                    moduleTable->addExportedSymbol(exported);
+                    std::cout << "DEBUG: Found exported function: " << funcDecl->getName() << std::endl;
+                }
+            } else if (auto varDecl = dynamic_cast<VariableDeclaration*>(stmt.get())) {
+                // Check if variable is exported (has export keyword)
+                if (varDecl->isExported()) {
+                    ExportedSymbol exported(varDecl->getName(), varDecl->getName(), 
+                                          varDecl->getLocation(), SymbolKind::Variable);
+                    moduleTable->addExportedSymbol(exported);
+                    std::cout << "DEBUG: Found exported variable: " << varDecl->getName() << std::endl;
+                }
+            }
+        }
+        
+        std::cout << "DEBUG: Finished extracting exported symbols from module: " << modulePath << std::endl;
+    }
+
     void SemanticAnalyzer::checkAssignment(const Expression &left, const Expression &right,
                                            const SourceLocation &location) {
         auto leftType = getExpressionType(left);
@@ -2912,6 +3038,12 @@ namespace tsc {
 
         std::cout << "DEBUG: Resolved module " << node.getModuleSpecifier() << " to " << result.resolvedPath <<
                 std::endl;
+
+        // Parse the imported module to extract exported symbols
+        if (!parseImportedModule(result.resolvedPath)) {
+            diagnostics_.error("Failed to parse imported module: " + result.resolvedPath, node.getLocation());
+            return;
+        }
 
         // Get or create module symbol table for current module
         ModuleSymbolTable *currentModuleTable = moduleSymbolManager_->getModuleSymbolTable(currentFile);

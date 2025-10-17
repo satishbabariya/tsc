@@ -51,14 +51,15 @@ namespace tsc {
     Symbol *ModuleSymbolTable::lookupImportedSymbol(const String &name) const {
         for (const auto &imported: importedSymbols_) {
             if (imported.localName == name) {
-                // For now, create a placeholder symbol for imported symbols
-                // This is a temporary solution until we implement proper cross-module symbol linking
+                // Check if we already have a symbol for this imported name
                 Symbol* existingSymbol = symbolTable_->lookupSymbol(name);
                 if (existingSymbol) {
                     return existingSymbol;
                 }
                 
-                // Create a placeholder symbol for the imported symbol
+                // Try to find the actual exported symbol from the source module
+                // This requires access to the module symbol manager to get the source module's symbol table
+                // For now, create a placeholder symbol for imported symbols
                 // TODO: This should be replaced with proper cross-module symbol resolution
                 auto anyType = make_shared<PrimitiveType>(TypeKind::Any);
                 bool added = symbolTable_->addSymbol(name, SymbolKind::Variable, anyType, imported.location);
@@ -277,6 +278,23 @@ namespace tsc {
         }
 
         reportSymbolResolutionError(symbolName, fromModule, "Symbol not found");
+        return nullptr;
+    }
+
+    Symbol *ModuleSymbolManager::resolveExportedSymbol(const String &symbolName,
+                                                      const String &fromModule) const {
+        // Get the module symbol table for the source module
+        ModuleSymbolTable *fromModuleTable = getModuleSymbolTable(fromModule);
+        if (!fromModuleTable) {
+            return nullptr;
+        }
+
+        // Check if the symbol is exported from the source module
+        Symbol *symbol = fromModuleTable->lookupExportedSymbol(symbolName);
+        if (symbol) {
+            return symbol;
+        }
+
         return nullptr;
     }
 
