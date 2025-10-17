@@ -1698,6 +1698,90 @@ namespace tsc {
                             return;
                             break;
                         }
+                }
+            }
+            } else if (objectType && objectType->getKind() == TypeKind::Generic) {
+                // Handle generic types (e.g., SimpleGeneric<number>)
+                auto genericType = std::static_pointer_cast<GenericType>(objectType);
+                auto baseType = genericType->getBaseType();
+                
+                if (baseType->getKind() == TypeKind::Class) {
+                    auto classType = std::static_pointer_cast<ClassType>(baseType);
+                    auto classDecl = classType->getDeclaration();
+                    
+                    if (classDecl) {
+                        // Find the method in the class
+                        for (const auto& method : classDecl->getMethods()) {
+                            if (method->getName() == methodName) {
+                                // For generic types, we need to look for the monomorphized method
+                                // Generate the mangled method name for the generic instantiation
+                                String mangledMethodName = generateMangledMethodName(*genericType, methodName);
+                                function = module_->getFunction(mangledMethodName);
+                                
+                                if (!function) {
+                                    // Fallback to simple method name
+                                    function = module_->getFunction(methodName);
+                                }
+                                
+                                std::cout << "DEBUG: CALL - Found generic method function: " << (function ? function->getName().str() : "null") << std::endl;
+                                
+                                // Process arguments for method call (same as regular class)
+                                std::cout << "DEBUG: CallExpression - Processing generic method call with " << node.getArguments().size() << " arguments" << std::endl;
+                                
+                                // For generic types, we need to get the object instance
+                                // We need to evaluate the object expression to get the instance
+                                propertyAccess->getObject()->accept(static_cast<ASTVisitor &>(*this));
+                                objectInstance = getCurrentValue();
+                                
+                                if (!objectInstance) {
+                                    reportError("Failed to generate object instance for generic method call", node.getLocation());
+                                    setCurrentValue(createNullValue(getAnyType()));
+                                    return;
+                                }
+                                
+                                // Prepare arguments for the method call
+                                std::vector<llvm::Value *> methodArgs;
+                                
+                                // Add 'this' pointer as first argument (object instance)
+                                // For generic types, we need to ensure we pass a pointer to the struct
+                                if (objectInstance->getType()->isPointerTy()) {
+                                    // Already a pointer, use as-is
+                                    methodArgs.push_back(objectInstance);
+                                } else {
+                                    // Not a pointer, we need to get the address
+                                    // This shouldn't happen for generic types, but let's handle it
+                                    std::cout << "DEBUG: WARNING - objectInstance is not a pointer for generic method call" << std::endl;
+                                    methodArgs.push_back(objectInstance);
+                                }
+                                
+                                // Add method arguments
+                                for (size_t i = 0; i < node.getArguments().size(); ++i) {
+                                    const auto &arg = node.getArguments()[i];
+                                    arg->accept(static_cast<ASTVisitor &>(*this));
+                                    llvm::Value *argValue = getCurrentValue();
+                                    if (!argValue) {
+                                        reportError("Failed to generate argument for generic method call", node.getLocation());
+                                        setCurrentValue(createNullValue(getAnyType()));
+                                        return;
+                                    }
+                                    methodArgs.push_back(argValue);
+                                }
+                                
+                                // Generate the function call
+                                llvm::Value *methodCallResult;
+                                if (function->getReturnType()->isVoidTy()) {
+                                    methodCallResult = builder_->CreateCall(function, methodArgs);
+                                    std::cout << "DEBUG: Created void generic method call to " << function->getName().str() << std::endl;
+                                } else {
+                                    methodCallResult = builder_->CreateCall(function, methodArgs, "call_result");
+                                    std::cout << "DEBUG: Created non-void generic method call to " << function->getName().str() << std::endl;
+                                }
+                                
+                                setCurrentValue(methodCallResult);
+                                return;
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -3708,18 +3792,11 @@ namespace tsc {
                         String mangledMethodName = generateMangledMethodName(*genericType, propertyName);
                         std::cout << "DEBUG: Generated mangled method name: " << mangledMethodName << std::endl;
 
-                        // Look up the monomorphized method
-                        llvm::Function *method = module_->getFunction(mangledMethodName);
-                        if (method) {
-                            std::cout << "DEBUG: Found method: " << mangledMethodName << std::endl;
-                            setCurrentValue(method);
-                            return;
-                        } else {
-                            std::cout << "DEBUG: Method not found: " << mangledMethodName << std::endl;
-                            reportError("Method not found: " + propertyName, node.getLocation());
-                            setCurrentValue(createNullValue(getAnyType()));
-                            return;
-                        }
+                        // For generic types, we need to return the object instance, not the method function
+                        // The method function will be looked up in the CallExpression visitor
+                        std::cout << "DEBUG: Generic type property access - returning object instance" << std::endl;
+                        setCurrentValue(objectValue);
+                        return;
                     } else {
                         std::cout << "DEBUG: Symbol type is not Generic, it's: " << static_cast<int>(symbol->getType()->
                             getKind()) << std::endl;
@@ -5695,7 +5772,11 @@ namespace tsc {
             case TypeKind::Generic:
                 // For generic types, implement basic monomorphization
                 if (auto genericType = dynamic_cast<const GenericType *>(&type)) {
-                    return createMonomorphizedType(*genericType);
+                    llvm::Type *structType = createMonomorphizedType(*genericType);
+                    if (structType) {
+                        // Return a pointer to the struct, not the struct itself
+                        return llvm::PointerType::get(structType, 0);
+                    }
                 }
                 return getAnyType();
             case TypeKind::Union:
