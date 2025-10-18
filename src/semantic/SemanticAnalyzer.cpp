@@ -2058,7 +2058,7 @@ namespace tsc {
             std::cout << "DEBUG: Processing statement type: " << typeid(*stmt.get()).name() << std::endl;
             std::cout << "DEBUG: Statement address: " << stmt.get() << std::endl;
             std::cout << "DEBUG: Statement content: " << stmt->toString() << std::endl;
-            std::cout << "DEBUG: Statement location: " << stmt->getLocation().line_ << ":" << stmt->getLocation().column_ << std::endl;
+            std::cout << "DEBUG: Statement location: " << stmt->getLocation().getLine() << ":" << stmt->getLocation().getColumn() << std::endl;
             std::cout << "DEBUG: Statement is ExportDeclaration: " << (dynamic_cast<ExportDeclaration*>(stmt.get()) != nullptr) << std::endl;
             std::cout << "DEBUG: Statement is FunctionDeclaration: " << (dynamic_cast<FunctionDeclaration*>(stmt.get()) != nullptr) << std::endl;
             std::cout << "DEBUG: Statement is VariableDeclaration: " << (dynamic_cast<VariableDeclaration*>(stmt.get()) != nullptr) << std::endl;
