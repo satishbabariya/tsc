@@ -102,9 +102,64 @@ TSC follows a traditional 4-phase compiler pipeline:
 ### Prerequisites
 
 - **CMake** 3.20 or higher
-- **LLVM** 14.0 or higher with development headers
+- **LLVM** 20.0 or higher with development headers
 - **C++17** compatible compiler (GCC 8+, Clang 10+, MSVC 2019+)
 - **Optional**: Google Test for unit tests
+
+#### LLVM Installation
+
+**Ubuntu/Debian:**
+```bash
+# Install LLVM 20 development packages
+sudo apt update
+sudo apt install llvm-20-dev llvm-20-tools clang-20
+
+# Verify installation
+llvm-config-20 --version
+```
+
+**CentOS/RHEL/Fedora:**
+```bash
+# Install LLVM 20 development packages
+sudo dnf install llvm20-devel llvm20-tools clang20
+
+# Verify installation
+llvm-config-20 --version
+```
+
+**macOS (Homebrew):**
+```bash
+# Install LLVM 20
+brew install llvm@20
+
+# Add to PATH (add to ~/.zshrc or ~/.bash_profile)
+export PATH="/opt/homebrew/opt/llvm@20/bin:$PATH"
+export LLVM_ROOT="/opt/homebrew/opt/llvm@20"
+
+# Verify installation
+llvm-config --version
+```
+
+**Windows (vcpkg):**
+```powershell
+# Install LLVM 20 via vcpkg
+vcpkg install llvm:x64-windows
+
+# Set environment variable
+$env:LLVM_ROOT = "C:\vcpkg\installed\x64-windows"
+```
+
+**Manual Installation:**
+```bash
+# Download and build LLVM 20 from source
+wget https://github.com/llvm/llvm-project/releases/download/llvmorg-20.0.0/llvm-20.0.0.src.tar.xz
+tar -xf llvm-20.0.0.src.tar.xz
+cd llvm-20.0.0.src
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang" ..
+make -j$(nproc)
+sudo make install
+```
 
 ### Build Instructions
 
@@ -113,11 +168,16 @@ TSC follows a traditional 4-phase compiler pipeline:
 git clone <repository-url>
 cd tsc
 
+# Set LLVM_ROOT environment variable (adjust path as needed)
+export LLVM_ROOT=/usr/lib/llvm-20  # Ubuntu/Debian
+# export LLVM_ROOT=/opt/homebrew/opt/llvm@20  # macOS
+# export LLVM_ROOT=C:\vcpkg\installed\x64-windows  # Windows
+
 # Create build directory (this is ignored by git)
 mkdir build && cd build
 
 # Configure with CMake
-cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake .. -DLLVM_ROOT=$LLVM_ROOT -DCMAKE_BUILD_TYPE=Release
 
 # Build with parallel compilation
 make -j10
@@ -126,8 +186,48 @@ make -j10
 make test
 ```
 
+**Important Notes:**
+- The `LLVM_ROOT` environment variable must point to your LLVM installation directory
+- On Ubuntu/Debian, this is typically `/usr/lib/llvm-20`
+- On macOS with Homebrew, this is typically `/opt/homebrew/opt/llvm@20`
+- The build will fail if `LLVM_ROOT` is not set or points to an invalid location
+
 **Important**: The `build/` directory contains generated files and should never be committed to git. It's already
 included in `.gitignore`.
+
+#### Troubleshooting Build Issues
+
+**Error: "LLVM_ROOT is not set"**
+```bash
+# Solution: Set the LLVM_ROOT environment variable
+export LLVM_ROOT=/usr/lib/llvm-20  # Adjust path for your system
+cmake .. -DLLVM_ROOT=$LLVM_ROOT -DCMAKE_BUILD_TYPE=Release
+```
+
+**Error: "LLVM installation not found"**
+```bash
+# Solution: Verify LLVM installation and path
+llvm-config-20 --version  # Should show LLVM 20.x.x
+ls -la $LLVM_ROOT/lib/cmake/llvm  # Should exist
+```
+
+**Error: "clang compiler not found"**
+```bash
+# Solution: Install LLVM with clang
+sudo apt install clang-20  # Ubuntu/Debian
+# or
+brew install llvm@20  # macOS
+```
+
+**Error: Compilation errors in SemanticAnalyzer.cpp**
+```bash
+# Solution: This was a known issue that has been fixed
+# If you encounter this, ensure you have the latest code
+git pull origin main
+rm -rf build && mkdir build && cd build
+cmake .. -DLLVM_ROOT=$LLVM_ROOT -DCMAKE_BUILD_TYPE=Release
+make -j10
+```
 
 ### Cross-Compilation
 
